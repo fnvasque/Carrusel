@@ -1,5 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
+import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -12,16 +13,20 @@ export interface HookProps extends BaseSlideProps {
   highlight?: string;
   /** Gancho secundario breve. */
   subtitle?: string;
+  /** Tamaño del titular en px. Por defecto se calcula según la longitud. */
+  titleSize?: number;
   /** Muestra "DESLIZA →" abajo-derecha (solo la portada). Por defecto true. */
   swipe?: boolean;
 }
 
 /**
  * Rol 1 — Portada / Hook (stop-scroll). Titular Anton dominante anclado abajo,
- * con la palabra clave en cian. Único slide con el indicador "DESLIZA →".
+ * con la palabra clave en cian. El tamaño se ajusta a la longitud del titular
+ * (cortos enormes, largos sin recortarse). Único slide con "DESLIZA →".
  */
-export function Hook({ eyebrow, title, highlight, subtitle, swipe = true, accent, ...base }: HookProps) {
+export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = true, accent, ...base }: HookProps) {
   const cyan = accent ?? theme.colors.accent;
+  const titleFont = titleSize ?? fitDisplaySize(title);
   return (
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 28 }}>
@@ -43,7 +48,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, swipe = true, accent
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
-            fontSize: theme.fontSize.display,
+            fontSize: titleFont,
             lineHeight: 1.0,
             textTransform: "uppercase",
             letterSpacing: "-0.01em",
