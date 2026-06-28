@@ -23,6 +23,13 @@ export type Background =
   | { image: string; overlay?: number };
 
 /**
+ * Pilar de contenido de la marca (design-brand.md §5/§7). Fija el color del
+ * chip que pinta `Frame`: herramienta/prompt → cian, noticia → violeta,
+ * curiosidad → rosa.
+ */
+export type Pillar = "herramienta" | "noticia" | "prompt" | "curiosidad";
+
+/**
  * Props que comparten todas las plantillas. Cada plantilla puede añadir las
  * suyas, pero estas definen el control básico de diseño que pediste:
  * fuente, color de texto, tamaños y fondo.
@@ -35,6 +42,16 @@ export interface BaseSlideProps {
   color?: string;
   /** Color de acento (subrayados, números, detalles). */
   accent?: string;
+  /** Pilar de contenido → color del chip de marca en `Frame`. */
+  pillar?: Pillar;
+  /** Posición del slide en el carrusel (1-based) para el indicador de progreso. */
+  index?: number;
+  /** Total de slides del carrusel, para el indicador de progreso. */
+  total?: number;
+  /** Atribución al pie (ej. "Fuente: OpenAI"). */
+  source?: string;
+  /** Muestra el logo de marca arriba-izquierda. Por defecto true. */
+  showLogo?: boolean;
 }
 
 /** Un slide = una plantilla + sus props. */
