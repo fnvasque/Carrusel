@@ -1,69 +1,88 @@
-import { Cover, Bullet, Quote } from "../src/templates/index.ts";
+import { Hook, Lead, Step, Cta } from "../src/templates/index.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
- * Carrusel de ejemplo. Cópialo para crear los tuyos.
+ * Carrusel gold-standard (pilar Noticia). Cópialo para crear los tuyos.
  *
- * Cada slide elige una plantilla (Cover / Bullet / Quote) y le pasa props:
- * textos, colores, fuente y fondo. El fondo puede ser:
- *   { color: "#0A0A0A" }
- *   { gradient: "linear-gradient(135deg,#7C3AED,#2563EB)" }
- *   { image: "./mi-foto.png" }
- *   { ai: "fondo abstracto morado, minimalista", overlay: 0.45 }  // requiere OPENAI_API_KEY
+ * Sigue la anatomía de marca: Hook (stop-scroll, palabra clave en cian) → Lead
+ * (promesa, baja la ansiedad) → Step 01/02/03 (1 idea por slide, con progreso)
+ * → Cta (funnel al newsletter). El copy respeta las reglas: sin hype, sin jerga,
+ * sin clickbait; siempre "qué hago yo con esto".
+ *
+ * Todos los slides comparten el pilar (color del chip) vía `defaults`. El fondo
+ * por defecto es el navy de marca; también puedes usar:
+ *   { color: "#0B1020" }
+ *   { gradient: "linear-gradient(135deg,#0B1020,#1C2640)" }
+ *   { ai: "una persona usando el móvil en una oficina", overlay: 0.55 }
+ *     → se le anexa automáticamente el estilo visual de marca (requiere OPENAI_API_KEY).
  */
 const carousel: CarouselSpec = {
   name: "ejemplo",
-  // Valores por defecto para todos los slides (se pueden sobreescribir por slide).
-  defaults: { accent: "#A78BFA" },
+  // Pilar de la pieza → color del chip. Se aplica a todos los slides.
+  defaults: { pillar: "noticia" },
   slides: [
     {
-      template: Cover,
+      template: Hook,
       props: {
-        eyebrow: "GUÍA RÁPIDA",
-        title: "5 errores al automatizar tu contenido",
-        subtitle: "Y cómo evitarlos con código",
-        background: { gradient: "linear-gradient(135deg,#1E1B4B 0%,#4C1D95 60%,#7C3AED 100%)" },
+        eyebrow: "Qué se lanzó",
+        title: "El nuevo ChatGPT ahora ve imágenes",
+        highlight: "ve imágenes",
+        subtitle: "Te lo explico en 30 segundos.",
+        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 60%,#1C2640 100%)" },
       },
     },
     {
-      template: Bullet,
+      template: Lead,
       props: {
+        kicker: "En 30 segundos",
+        text: "En 1 frase: le mandas una foto o un pantallazo y te responde sobre ella.",
+        highlight: "foto o un pantallazo",
+      },
+    },
+    {
+      template: Step,
+      props: {
+        index: 3,
+        total: 6,
         step: "01",
-        heading: "Depender de una GUI",
-        body: "Si tu flujo necesita clicks, no es automatizable. Define el diseño en código.",
-        background: { color: "#0A0A0A" },
+        heading: "Qué cambió",
+        highlight: "cambió",
+        body: "Antes solo leía texto. Ahora entiende imágenes: gráficos, recibos, pantallazos de tu trabajo.",
       },
     },
     {
-      template: Bullet,
+      template: Step,
       props: {
+        index: 4,
+        total: 6,
         step: "02",
-        heading: "No fijar las fuentes",
-        bullets: [
-          "Embebe las fuentes en el render",
-          "Resultado idéntico en cualquier máquina",
-          "Nada de fuentes del sistema",
-        ],
-        background: { color: "#0A0A0A" },
+        heading: "Por qué te importa",
+        highlight: "importa",
+        body: "Le pasas el pantallazo de un informe y le pides que te lo resuma. Adiós a transcribir a mano.",
       },
     },
     {
-      template: Quote,
+      template: Step,
       props: {
-        quote: "Automatiza el diseño, no solo la publicación.",
-        author: "Carrusel",
-        background: { gradient: "linear-gradient(135deg,#0F172A 0%,#1E293B 100%)" },
+        index: 5,
+        total: 6,
+        step: "03",
+        heading: "Hazlo hoy",
+        highlight: "hoy",
+        body: "Abre ChatGPT, súbele una foto de tus notas de una reunión y pídele 3 conclusiones.",
+        source: "Fuente: OpenAI",
       },
     },
-    // Ejemplo con fondo generado por IA (descomenta y exporta OPENAI_API_KEY):
-    // {
-    //   template: Cover,
-    //   props: {
-    //     title: "Empieza hoy",
-    //     subtitle: "npm run generate carousels/ejemplo.ts",
-    //     background: { ai: "degradado abstracto morado y azul, formas suaves, minimalista", overlay: 0.45 },
-    //   },
-    // },
+    {
+      template: Cta,
+      props: {
+        title: "Lo que importa en IA, en tu correo",
+        highlight: "tu correo",
+        reason: "Cada semana. Sin hype.",
+        handle: "ia.es",
+        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
+      },
+    },
   ],
 };
 

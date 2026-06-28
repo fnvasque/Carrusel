@@ -18,7 +18,12 @@ export const CANVAS = { width: 1080, height: 1350 } as const;
 export type Background =
   | { color: string; overlay?: number }
   | { gradient: string; overlay?: number }
-  | { ai: string; overlay?: number }
+  /**
+   * Prompt para generar la imagen con gpt-image-1. Por defecto se le anexa el
+   * estilo visual de la marca (navy + cyan rim light); `brandStyle: false` lo
+   * desactiva para usar el prompt tal cual.
+   */
+  | { ai: string; overlay?: number; brandStyle?: boolean }
   /** Ruta a una imagen local ya existente, o forma resuelta de un fondo `ai`. */
   | { image: string; overlay?: number };
 
