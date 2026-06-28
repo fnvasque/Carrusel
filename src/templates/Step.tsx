@@ -1,5 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
+import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -32,7 +33,7 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
-            fontSize: theme.fontSize.heading,
+            fontSize: fitDisplaySize(heading, theme.fontSize.heading),
             lineHeight: 1.05,
             textTransform: "uppercase",
           }}

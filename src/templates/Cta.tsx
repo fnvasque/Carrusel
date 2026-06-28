@@ -1,5 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
+import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -29,7 +30,7 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
-            fontSize: theme.fontSize.title,
+            fontSize: fitDisplaySize(title, theme.fontSize.title),
             lineHeight: 1.05,
             textTransform: "uppercase",
           }}
