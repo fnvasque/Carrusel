@@ -35,7 +35,7 @@ html,body{margin:0;padding:0;background:#000;-webkit-font-smoothing:antialiased;
  */
 async function brandLogoCss(): Promise<string> {
   try {
-    const data = await readFile(join(ASSETS_DIR, "ia_es_logo_transparent.png"));
+    const data = await readFile(join(ASSETS_DIR, "ia_es_wordmark.png"));
     const uri = `data:image/png;base64,${data.toString("base64")}`;
     return `:root{--brand-logo:url("${uri}");}`;
   } catch {
