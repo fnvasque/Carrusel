@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CarouselSpec } from "../templates/types.ts";
 import { scoreCarousel, THRESHOLD, type ViralityResult } from "./virality.ts";
+import { loadCalibration, projectOutcome } from "./calibration.ts";
 
 /** Imprime el reporte de viralidad de un carrusel en la terminal. */
 export function printReport(name: string, r: ViralityResult): void {
@@ -16,6 +17,20 @@ export function printReport(name: string, r: ViralityResult): void {
     console.log("\n  Para mejorar:");
     for (const s of r.suggestions.slice(0, 6)) console.log(`   • ${s}`);
   }
+
+  // Proyección con datos reales calibrados (si hay ≥3 carruseles registrados).
+  try {
+    const model = loadCalibration();
+    if (model && model.n >= 3) {
+      const p = projectOutcome(model, r.total);
+      const conf = model.n < 5 || (model.rSaves !== null && Math.abs(model.rSaves) < 0.3) ? ", preliminar" : "";
+      const rTxt = model.rSaves !== null ? ` (r=${model.rSaves})` : "";
+      console.log(`  📈 Según tus datos (n=${model.n}${conf}): ≈ ${p.savesPerK} saves/1k · ${p.sharesPerK} shares/1k${rTxt}`);
+    }
+  } catch {
+    // sin calibración: no mostrar proyección.
+  }
+
   console.log("");
 }
 
@@ -39,7 +54,11 @@ async function main() {
   process.exit(r.total >= THRESHOLD ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error("\n✗ Error:", err instanceof Error ? err.message : err);
-  process.exit(2);
-});
+// Solo ejecutar el CLI cuando este archivo es el entrypoint. Importar `printReport`
+// desde otros módulos (generate, remix) NO debe disparar main() ni process.exit.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error("\n✗ Error:", err instanceof Error ? err.message : err);
+    process.exit(2);
+  });
+}

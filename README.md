@@ -134,10 +134,83 @@ npm run record carousels/mi-carrusel.ts -- --saves=120 --shares=40 --reach=5000
 npm run calibrate    # tabla predicho vs saves/1k vs shares/1k + correlación
 ```
 
+**Bucle cerrado**: a partir de **3 carruseles registrados**, `record`/`calibrate` aprenden un
+mapeo del score predicho a tus tasas reales (saves/1k, shares/1k) y lo guardan en
+`metrics/calibration.json`. Desde entonces, cada reporte de score (`score`, `generate`, `remix`)
+muestra una **proyección** "≈ X saves/1k · Y shares/1k según tus datos", así el número del
+indicador se traduce a resultados reales esperados (marcada como *preliminar* con pocos datos).
+
 Notas: el score está calibrado para carruseles tipo "how-to/herramienta"; los de
 mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan el umbral).
 Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
 falsos positivos, ej. una frase de miedo usada para *desmentirla*).
+
+## Remix de Instagram
+
+Le pasas el **link de un reel, post o carrusel** de Instagram y genera **2 variaciones**
+del contenido (en español neutro o chileno), como archivos `.ts` en `carousels/` listos
+para `generate`/`reel`. Analiza el original (hook, estructura, pilar, copy, estilo visual)
+con un modelo multimodal de OpenAI y mapea todo a las plantillas de marca ia.es.
+
+```bash
+export OPENAI_API_KEY=sk-...
+npm run remix "https://www.instagram.com/p/XXXXXXXXX/"
+# → carousels/<slug>-v1.ts  y  carousels/<slug>-v2.ts  (+ score de viralidad de cada una)
+
+# Flujo end-to-end de un solo comando (emite + renderiza):
+npm run remix "<url>" -- --render          # + PNGs 4:5 de cada variación
+npm run remix "<url>" -- --render --reel    # + PNGs y Reel 9:16 de cada variación
+```
+
+Opciones:
+
+```bash
+npm run remix "<url>" -- --es=cl                 # copy en español chileno (default: neutro)
+npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida de los .ts
+npm run remix "<url>" -- --render --reel         # genera PNGs y Reel automáticamente
+npm run remix "<url>" -- --frames=6              # frames a muestrear de un reel (default 5)
+npm run remix "<url>" -- --min-score=80          # objetivo del loop de calidad (default 75)
+npm run remix "<url>" -- --max-tries=4           # intentos de mejora por variación (default 3)
+npm run remix "<url>" -- --no-improve            # desactiva el loop (más rápido/barato)
+# Cookies para vencer el login wall (vía yt-dlp):
+npm run remix "<url>" -- --cookies=cookies.txt           # archivo Netscape cookies.txt
+npm run remix "<url>" -- --cookies-from-browser=chrome   # toma cookies del navegador
+# Modo manual (último recurso si todo lo demás falla):
+npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2.png
+```
+
+- **Ingesta robusta (3 niveles)**: usa **yt-dlp** si está instalado (lo más confiable;
+  descarga el carrusel completo y el video del reel, y con cookies vence el login wall) →
+  si no, **scraping público** de `og:meta`/JSON embebido → si no, **modo manual**
+  (`--caption` / múltiples `--image`). Nunca se cae.
+- **Análisis slide por slide**: captura TODAS las imágenes de un carrusel y, para reels,
+  extrae varios frames del video con **ffmpeg**. Sin ffmpeg/video, cae al thumbnail.
+- **Binarios opcionales**: `yt-dlp` (`pip install -U yt-dlp`) y `ffmpeg` se detectan en
+  runtime; sin ellos, el remix sigue funcionando con menos alcance. Las cookies también
+  se pueden pasar por env: `REMIX_COOKIES` / `REMIX_COOKIES_FROM_BROWSER`.
+- **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
+  del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
+- **Loop de calidad**: cada variación se puntúa con el indicador de viralidad y, si está
+  bajo el umbral (75), se **re-genera con el feedback del score** hasta pasarlo o agotar los
+  intentos (`--max-tries`, default 3); se emite siempre el mejor resultado. Ajusta el objetivo
+  con `--min-score` o desactívalo con `--no-improve`.
+- **Idioma**: el copy SIEMPRE sale en español, sin importar el idioma del original.
+- El resultado es **texto editable**: revisa y ajusta el `.ts` antes de publicar; luego
+  `npm run generate carousels/<archivo>.ts` (PNGs 4:5) o `npm run reel carousels/<archivo>.ts` (Reel 9:16).
+
+Iteración 1 trabaja sobre el thumbnail principal + caption; capturar todas las slides de un
+carrusel y transcribir el audio de un reel llegan en iteraciones siguientes.
+
+## Tests
+
+```bash
+npm run test       # smoke tests offline de las funciones puras del pipeline
+npm run typecheck  # comprobación de tipos
+```
+
+`npm run test` corre un runner mínimo (tsx + `node:assert`, sin dependencias) que valida
+parsing de ingesta, catálogo de plantillas, validación de variaciones y scoring en memoria,
+sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el gate de calidad.
 
 ## Reels (video 9:16)
 
