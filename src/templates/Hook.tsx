@@ -24,11 +24,13 @@ export interface HookProps extends BaseSlideProps {
  * con la palabra clave en cian. El tamaño se ajusta a la longitud del titular
  * (cortos enormes, largos sin recortarse). Único slide con "DESLIZA →".
  */
-export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = true, accent, ...base }: HookProps) {
+export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = true, format, accent, ...base }: HookProps) {
   const cyan = accent ?? theme.colors.accent;
   const titleFont = titleSize ?? fitDisplaySize(title);
+  // "DESLIZA →" solo tiene sentido en carrusel; en Reel (video) se oculta.
+  const showSwipe = swipe !== false && format !== "reel";
   return (
-    <Frame {...base}>
+    <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 28 }}>
         {eyebrow && (
           <span
@@ -61,7 +63,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
             {subtitle}
           </p>
         )}
-        {swipe && (
+        {showSwipe && (
           <span
             style={{
               alignSelf: "flex-end",

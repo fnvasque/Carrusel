@@ -24,13 +24,27 @@ function numFlag(name: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note"];
+
+/** Segundos que se muestra un slide, según cuánto texto tiene (legibilidad). */
+function slideSeconds(props: Record<string, unknown>, hold: boolean): number {
+  let chars = 0;
+  for (const k of TEXT_KEYS) {
+    const v = props[k];
+    if (typeof v === "string") chars += v.length;
+    else if (Array.isArray(v)) chars += v.filter((x) => typeof x === "string").join(" ").length;
+  }
+  const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
+  return +(s + (hold ? 0.7 : 0)).toFixed(2);
+}
+
 async function main() {
   const file = process.argv[2];
   if (!file) {
     console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --seconds=N --fade=N --frames-only]");
     process.exit(1);
   }
-  const secondsPerSlide = numFlag("seconds") ?? 2.8;
+  const fixedSeconds = numFlag("seconds"); // override opcional: duración uniforme
   const fade = numFlag("fade") ?? 0.4;
   const framesOnly = process.argv.includes("--frames-only");
 
@@ -67,10 +81,17 @@ async function main() {
     return;
   }
 
+  // Duración por slide según su texto (hold extra en el primero/hook y el último/CTA).
+  const last = spec.slides.length - 1;
+  const durations = spec.slides.map((slide, i) => {
+    const props = { ...spec.defaults, ...slide.props } as Record<string, unknown>;
+    return fixedSeconds ?? slideSeconds(props, i === 0 || i === last);
+  });
+
   const mp4 = join(process.cwd(), "output", spec.name, "reel.mp4");
-  console.log(`\n⏳ Componiendo video (${framePaths.length} slides, ${secondsPerSlide}s c/u, fade ${fade}s)…`);
-  await composeReel(framePaths, mp4, { secondsPerSlide, fade });
-  const dur = reelDuration(framePaths.length, secondsPerSlide, fade);
+  const dur = reelDuration(durations, fade);
+  console.log(`\n⏳ Componiendo video (${framePaths.length} slides, ~${dur}s, fade ${fade}s)…`);
+  await composeReel(framePaths, durations, mp4, { fade });
   console.log(`\n✓ Reel "${spec.name}" → ${mp4}  (~${dur}s, 1080×1920, sin audio)`);
   console.log("  Súbelo a IG y añádele un audio en tendencia dentro de la app.");
 }

@@ -1,8 +1,6 @@
 import { spawn } from "node:child_process";
 
 export interface ReelOpts {
-  /** Segundos que se muestra cada slide. */
-  secondsPerSlide?: number;
   /** Duración del crossfade entre slides (s). */
   fade?: number;
   /** Frames por segundo de salida. */
@@ -11,26 +9,35 @@ export interface ReelOpts {
 
 /**
  * Compone los frames 9:16 en un reel.mp4 1080×1920 listo para Instagram:
- * zoom sutil (Ken Burns) por slide + crossfades, h264/yuv420p, sin audio.
- * Determinista (sin aleatoriedad). Requiere ffmpeg en el PATH.
+ * cada slide dura `durations[i]` segundos (legibilidad), con zoom sutil
+ * alternado (in/out) y crossfades. h264/yuv420p, sin audio. Determinista.
+ * Requiere ffmpeg en el PATH.
  */
-export async function composeReel(frames: string[], outPath: string, opts: ReelOpts = {}): Promise<void> {
+export async function composeReel(
+  frames: string[],
+  durations: number[],
+  outPath: string,
+  opts: ReelOpts = {},
+): Promise<void> {
   if (frames.length < 1) throw new Error("No hay frames para componer el Reel.");
-  const D = opts.secondsPerSlide ?? 2.8;
+  if (durations.length !== frames.length) throw new Error("durations debe tener una entrada por frame.");
   const fade = opts.fade ?? 0.4;
   const fps = opts.fps ?? 30;
-  const zoomStep = (0.1 / (D * fps)).toFixed(6); // llega a +10% al final del slide
 
   const inputs: string[] = [];
-  for (const f of frames) {
-    inputs.push("-loop", "1", "-framerate", String(fps), "-t", String(D), "-i", f);
+  for (let i = 0; i < frames.length; i++) {
+    inputs.push("-loop", "1", "-framerate", String(fps), "-t", String(durations[i]), "-i", frames[i]);
   }
 
-  // Zoom-in sutil por slide. La coma dentro de min() se escapa para el filtergraph.
-  const perInput = frames.map(
-    (_, i) =>
-      `[${i}:v]zoompan=z='min(1+${zoomStep}*on\\,1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${fps},setsar=1[v${i}]`,
-  );
+  // Zoom sutil (≤10%) alternado: pares zoom-in, impares zoom-out. La coma
+  // dentro de min()/max() se escapa para el filtergraph.
+  const perInput = frames.map((_, i) => {
+    const step = (0.1 / (durations[i] * fps)).toFixed(6);
+    const z = i % 2 === 0
+      ? `min(1+${step}*on\\,1.10)`
+      : `max(1.10-${step}*on\\,1.0)`;
+    return `[${i}:v]zoompan=z='${z}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=${fps},setsar=1[v${i}]`;
+  });
 
   let graph = perInput.join(";");
   let finalLabel: string;
@@ -38,9 +45,11 @@ export async function composeReel(frames: string[], outPath: string, opts: ReelO
     finalLabel = "[v0]";
   } else {
     let prev = "[v0]";
+    let prefix = 0; // suma de duraciones de los slides previos
     for (let i = 1; i < frames.length; i++) {
+      prefix += durations[i - 1];
       const out = i === frames.length - 1 ? "[out]" : `[x${i}]`;
-      const offset = (i * (D - fade)).toFixed(3);
+      const offset = (prefix - i * fade).toFixed(3);
       graph += `;${prev}[v${i}]xfade=transition=fade:duration=${fade}:offset=${offset}${out}`;
       prev = out;
     }
@@ -73,7 +82,8 @@ export async function composeReel(frames: string[], outPath: string, opts: ReelO
   });
 }
 
-/** Duración total estimada del reel (s). */
-export function reelDuration(n: number, secondsPerSlide = 2.8, fade = 0.4): number {
-  return +(n * secondsPerSlide - Math.max(0, n - 1) * fade).toFixed(1);
+/** Duración total del reel (s) dado el vector de duraciones por slide. */
+export function reelDuration(durations: number[], fade = 0.4): number {
+  const sum = durations.reduce((a, b) => a + b, 0);
+  return +(sum - Math.max(0, durations.length - 1) * fade).toFixed(1);
 }
