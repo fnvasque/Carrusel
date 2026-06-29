@@ -24,6 +24,11 @@ function numFlag(name: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function strFlag(name: string): string | undefined {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return hit ? hit.split("=").slice(1).join("=") : undefined;
+}
+
 const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note"];
 
 /** Segundos que se muestra un slide, según cuánto texto tiene (legibilidad). */
@@ -46,6 +51,7 @@ async function main() {
   }
   const fixedSeconds = numFlag("seconds"); // override opcional: duración uniforme
   const fade = numFlag("fade") ?? 0.4;
+  const audio = strFlag("audio"); // pista opcional; por defecto sin audio
   const framesOnly = process.argv.includes("--frames-only");
 
   const mod = await import(pathToFileURL(resolve(file)).href);
@@ -90,10 +96,10 @@ async function main() {
 
   const mp4 = join(process.cwd(), "output", spec.name, "reel.mp4");
   const dur = reelDuration(durations, fade);
-  console.log(`\n⏳ Componiendo video (${framePaths.length} slides, ~${dur}s, fade ${fade}s)…`);
-  await composeReel(framePaths, durations, mp4, { fade });
-  console.log(`\n✓ Reel "${spec.name}" → ${mp4}  (~${dur}s, 1080×1920, sin audio)`);
-  console.log("  Súbelo a IG y añádele un audio en tendencia dentro de la app.");
+  console.log(`\n⏳ Componiendo video (${framePaths.length} slides, ~${dur}s, fade ${fade}s${audio ? ", con audio" : ""})…`);
+  await composeReel(framePaths, durations, mp4, { fade, audio });
+  console.log(`\n✓ Reel "${spec.name}" → ${mp4}  (~${dur}s, 1080×1920${audio ? "" : ", sin audio"})`);
+  if (!audio) console.log("  Súbelo a IG y añádele un audio en tendencia dentro de la app.");
 }
 
 main().catch((err) => {

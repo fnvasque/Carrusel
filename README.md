@@ -139,7 +139,30 @@ mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan e
 Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
 falsos positivos, ej. una frase de miedo usada para *desmentirla*).
 
+## Reels (video 9:16)
+
+Convierte cualquier carrusel en un Reel vertical (1080×1920) listo para Instagram,
+reutilizando las mismas plantillas. Requiere **ffmpeg** en el PATH.
+
+```bash
+npm run reel carousels/mi-carrusel.ts
+# → output/mi-carrusel/reel.mp4
+```
+
+- Render nativo 9:16 con **zona segura** inferior (la UI de IG no tapa el texto).
+- **Duración por slide según su texto** (más texto = más tiempo de lectura), con hold en hook y CTA.
+- **Zoom sutil alternado** (Ken Burns) + **crossfades**, y una **barra de progreso cian** de marca.
+- Sin "DESLIZA →" (es video) y **sin audio** por defecto: súbelo a IG y añade un audio en tendencia ahí (más alcance).
+
+Opciones:
+```bash
+npm run reel carousels/x.ts -- --seconds=2.5     # duración uniforme (reel más ágil)
+npm run reel carousels/x.ts -- --fade=0.5        # transición más larga
+npm run reel carousels/x.ts -- --audio=pista.mp3 # muxea tu audio (TikTok/Shorts/posteo nativo)
+npm run reel carousels/x.ts -- --frames-only     # solo los PNG 9:16, sin video
+```
+
 ## Roadmap
 
-- **Reels (video)**: pendiente. Se hará con [Remotion](https://www.remotion.dev/)
-  (React → video). Requiere ffmpeg.
+- **Plantillas-Reel dedicadas**: hoy el Reel reusa las plantillas del carrusel; a futuro,
+  variantes pensadas para vertical (más aire, texto más grande).

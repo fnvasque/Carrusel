@@ -5,6 +5,8 @@ export interface ReelOpts {
   fade?: number;
   /** Frames por segundo de salida. */
   fps?: number;
+  /** Ruta a una pista de audio opcional (mp3/m4a/wav). Por defecto: sin audio. */
+  audio?: string;
 }
 
 /**
@@ -56,16 +58,32 @@ export async function composeReel(
     finalLabel = "[out]";
   }
 
+  // Branding: barra de progreso cian (color de marca) que crece L→R en el borde superior.
+  const DUR = +(durations.reduce((a, b) => a + b, 0) - Math.max(0, frames.length - 1) * fade).toFixed(3);
+  graph += `;${finalLabel}drawbox=x=0:y=0:w='iw*min(t/${DUR}\\,1)':h=8:color=0x22D3EE:t=fill[outb]`;
+  const videoOut = "[outb]";
+
+  // Audio opcional: pista recortada a la duración del video con fade-out.
+  const audioInput: string[] = [];
+  const audioMap: string[] = [];
+  if (opts.audio) {
+    const ai = frames.length;
+    audioInput.push("-i", opts.audio);
+    graph += `;[${ai}:a]afade=t=out:st=${Math.max(0, DUR - 0.6).toFixed(2)}:d=0.6,atrim=0:${DUR}[aud]`;
+    audioMap.push("-map", "[aud]", "-c:a", "aac", "-b:a", "128k");
+  }
+
   const args = [
     ...inputs,
+    ...audioInput,
     "-filter_complex", graph,
-    "-map", finalLabel,
+    "-map", videoOut,
+    ...(opts.audio ? audioMap : ["-an"]),
     "-r", String(fps),
     "-c:v", "libx264",
     "-preset", "medium",
     "-pix_fmt", "yuv420p",
     "-movflags", "+faststart",
-    "-an",
     "-y",
     outPath,
   ];
