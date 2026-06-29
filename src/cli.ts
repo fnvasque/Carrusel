@@ -4,6 +4,8 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Renderer } from "./render/renderSlide.ts";
 import { resolveBackground } from "./render/background.ts";
+import { scoreCarousel, THRESHOLD } from "./score/virality.ts";
+import { printReport } from "./score/cli.ts";
 import type { CarouselSpec } from "./templates/types.ts";
 
 async function main() {
@@ -18,6 +20,17 @@ async function main() {
   const spec: CarouselSpec = mod.default;
   if (!spec?.slides?.length) {
     throw new Error(`El archivo ${file} no exporta por defecto un carrusel con slides.`);
+  }
+
+  // Indicador de viralidad antes de renderizar (gate de contenido).
+  const score = scoreCarousel(spec);
+  printReport(spec.name, score);
+  if (score.total < THRESHOLD) {
+    if (process.env.SCORE_STRICT) {
+      console.error(`✗ Viralidad ${score.total}/100 < ${THRESHOLD} (SCORE_STRICT). No se renderiza. Mejora el copy o quita SCORE_STRICT.`);
+      process.exit(1);
+    }
+    console.warn(`⚠️  Viralidad ${score.total}/100 bajo el umbral (${THRESHOLD}). Renderizo igual; revisa las sugerencias de arriba.\n`);
   }
 
   const outDir = join(process.cwd(), "output", spec.name);

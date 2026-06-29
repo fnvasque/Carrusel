@@ -1,4 +1,5 @@
 import { Frame } from "./Frame.tsx";
+import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -9,17 +10,33 @@ export interface QuoteProps extends BaseSlideProps {
   author?: string;
 }
 
-/** Slide de cita destacada, centrada. */
+/**
+ * Slide de cita destacada (sistema de marca). Comilla gigante en cian, cita en
+ * Inter legible (auto-ajustada a su longitud) y autor apagado. La cita va en
+ * Inter, no en Anton, para que las frases largas se lean bien.
+ */
 export function Quote({ quote, author, accent, ...base }: QuoteProps) {
+  const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 40 }}>
-        <span style={{ fontSize: 160, lineHeight: 0.5, fontWeight: 800, color: accent ?? theme.colors.accent }}>
-          “
-        </span>
-        <p style={{ margin: 0, fontSize: theme.fontSize.heading, lineHeight: 1.25, fontWeight: 700 }}>{quote}</p>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+        <span style={{ fontFamily: theme.fonts.display, fontSize: 160, lineHeight: 0.6, color: cyan }}>“</span>
+        <p
+          style={{
+            margin: 0,
+            fontFamily: theme.fonts.body,
+            fontWeight: 600,
+            fontSize: fitDisplaySize(quote, theme.fontSize.title),
+            lineHeight: 1.25,
+            color: theme.colors.text,
+          }}
+        >
+          {quote}
+        </p>
         {author && (
-          <span style={{ fontSize: theme.fontSize.body, color: theme.colors.textMuted }}>— {author}</span>
+          <span style={{ fontFamily: theme.fonts.body, fontSize: theme.fontSize.label, letterSpacing: "0.06em", color: theme.colors.textMuted }}>
+            — {author}
+          </span>
         )}
       </div>
     </Frame>

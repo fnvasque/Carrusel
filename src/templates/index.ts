@@ -1,5 +1,11 @@
 export { Cover, type CoverProps } from "./Cover.tsx";
 export { Bullet, type BulletProps } from "./Bullet.tsx";
 export { Quote, type QuoteProps } from "./Quote.tsx";
+export { Hook, type HookProps } from "./Hook.tsx";
+export { Step, type StepProps } from "./Step.tsx";
+export { Prompt, type PromptProps } from "./Prompt.tsx";
+export { Cta, type CtaProps } from "./Cta.tsx";
+export { Lead, type LeadProps } from "./Lead.tsx";
+export { MythReality, type MythRealityProps } from "./MythReality.tsx";
 export { Frame } from "./Frame.tsx";
 export * from "./types.ts";

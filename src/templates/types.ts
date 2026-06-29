@@ -1,10 +1,18 @@
 import type { ComponentType } from "react";
 
 /**
- * Dimensiones del lienzo. Por defecto el formato vertical de carrusel de
- * Instagram (relación 4:5), que es el que mejor aprovecha el feed.
+ * Formatos de salida. `post` es el carrusel 4:5 (1080×1350), el que mejor
+ * aprovecha el feed. `reel` es el vertical 9:16 (1080×1920) para Reels.
  */
-export const CANVAS = { width: 1080, height: 1350 } as const;
+export type Format = "post" | "reel";
+
+export const FORMATS = {
+  post: { width: 1080, height: 1350 },
+  reel: { width: 1080, height: 1920 },
+} as const;
+
+/** Alias del formato post (compatibilidad con usos existentes). */
+export const CANVAS = FORMATS.post;
 
 /**
  * Fondo de un slide. Tres formas mutuamente excluyentes:
@@ -18,9 +26,21 @@ export const CANVAS = { width: 1080, height: 1350 } as const;
 export type Background =
   | { color: string; overlay?: number }
   | { gradient: string; overlay?: number }
-  | { ai: string; overlay?: number }
+  /**
+   * Prompt para generar la imagen con gpt-image-1. Por defecto se le anexa el
+   * estilo visual de la marca (navy + cyan rim light); `brandStyle: false` lo
+   * desactiva para usar el prompt tal cual.
+   */
+  | { ai: string; overlay?: number; brandStyle?: boolean }
   /** Ruta a una imagen local ya existente, o forma resuelta de un fondo `ai`. */
   | { image: string; overlay?: number };
+
+/**
+ * Pilar de contenido de la marca (design-brand.md §5/§7). Fija el color del
+ * chip que pinta `Frame`: herramienta/prompt → cian, noticia → violeta,
+ * curiosidad → rosa.
+ */
+export type Pillar = "herramienta" | "noticia" | "prompt" | "curiosidad";
 
 /**
  * Props que comparten todas las plantillas. Cada plantilla puede añadir las
@@ -35,6 +55,18 @@ export interface BaseSlideProps {
   color?: string;
   /** Color de acento (subrayados, números, detalles). */
   accent?: string;
+  /** Pilar de contenido → color del chip de marca en `Frame`. */
+  pillar?: Pillar;
+  /** Posición del slide en el carrusel (1-based) para el indicador de progreso. */
+  index?: number;
+  /** Total de slides del carrusel, para el indicador de progreso. */
+  total?: number;
+  /** Atribución al pie (ej. "Fuente: OpenAI"). */
+  source?: string;
+  /** Muestra el logo de marca arriba-izquierda. Por defecto true. */
+  showLogo?: boolean;
+  /** Formato de salida: "post" (4:5, por defecto) o "reel" (9:16). */
+  format?: Format;
 }
 
 /** Un slide = una plantilla + sus props. */

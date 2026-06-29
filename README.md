@@ -61,14 +61,37 @@ export default carousel;
 `overlay` (0–1) oscurece el fondo para que el texto se lea mejor. Los fondos con
 `ai` se **cachean** en `.cache/ai/` por prompt: repetir no vuelve a llamar a la API.
 
+A cada fondo `ai` se le **anexa automáticamente el estilo visual de la marca**
+(navy + cyan rim light, editorial), para que todos los fondos generados sean
+consistentes. Para desactivarlo en un fondo concreto: `{ ai: "...", brandStyle: false }`.
+
 ### Plantillas
 
-- **Cover** — portada: `eyebrow`, `title`, `subtitle`, `titleSize`
-- **Bullet** — contenido: `step`, `heading`, `body`, `bullets[]`
-- **Quote** — cita: `quote`, `author`
+Plantillas de marca (sistema visual **ia.es**, ver más abajo), una por rol de slide:
+
+- **Hook** — portada stop-scroll: `eyebrow`, `title`, `highlight`, `subtitle`, `swipe`
+- **Lead** — promesa en 1 frase: `kicker`, `text`, `highlight`
+- **Step** — paso del desarrollo: `step`, `heading`, `highlight`, `body`, `bullets[]`
+- **Prompt** — prompt copiable (mono): `heading`, `prompt`, `note`
+- **MythReality** — mito vs realidad: `myth`, `reality`, `mythLabel`, `realityLabel`
+- **Cta** — funnel al newsletter: `title`, `highlight`, `reason`, `handle`, `cta`
+
+`highlight` resalta esa palabra del titular en cian (la "palabra clave" de la marca).
+Plantillas originales **Cover** / **Bullet** / **Quote** siguen disponibles.
 
 Props comunes a todas (en `src/templates/types.ts`): `background`, `fontFamily`,
-`color`, `accent`.
+`color`, `accent`, y los elementos de marca que pinta `Frame`: `pillar` (chip de
+color), `index`/`total` (progreso `NN/MM`), `source` (fuente al pie), `showLogo`.
+
+### Marca (sistema visual ia.es)
+
+Definido en `src/theme.ts` y `.context/design-brand.md`:
+
+- **Color**: fondo navy `#0B1020`, acento cian `#22D3EE` (regla 60-30-10: la palabra
+  clave del titular siempre en cian). Chips por pilar: violeta (Noticia), rosa (Curiosidad).
+- **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
+  Archivos en `src/fonts/`; logos en `src/assets/`.
+- **Pilares** (`pillar`): `herramienta` · `noticia` · `prompt` · `curiosidad`.
 
 Para añadir una plantilla nueva, crea `src/templates/MiPlantilla.tsx`, envuelve el
 contenido en `<Frame>` y expórtala en `src/templates/index.ts`.
@@ -91,7 +114,55 @@ carousels/       un archivo por carrusel
 output/          PNGs generados (gitignored)
 ```
 
+## Indicador de viralidad
+
+Mide si un carrusel tiene las palancas que generan **guardados/compartidos** antes de
+publicarlo (proxy basado en `.context/04-quality-gate-viral.md`), y calibra contra métricas
+reales después.
+
+```bash
+npm run score carousels/mi-carrusel.ts     # score 0-100 + desglose + qué mejorar
+npm run generate carousels/mi-carrusel.ts  # muestra el score antes de renderizar
+#   SCORE_STRICT=1 npm run generate ...     # bloquea el render si está bajo el umbral (75)
+```
+
+Bucle de aprendizaje (post-publicación): registra las métricas reales de Instagram y
+compara predicho vs real para ir calibrando el indicador.
+
+```bash
+npm run record carousels/mi-carrusel.ts -- --saves=120 --shares=40 --reach=5000
+npm run calibrate    # tabla predicho vs saves/1k vs shares/1k + correlación
+```
+
+Notas: el score está calibrado para carruseles tipo "how-to/herramienta"; los de
+mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan el umbral).
+Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
+falsos positivos, ej. una frase de miedo usada para *desmentirla*).
+
+## Reels (video 9:16)
+
+Convierte cualquier carrusel en un Reel vertical (1080×1920) listo para Instagram,
+reutilizando las mismas plantillas. Requiere **ffmpeg** en el PATH.
+
+```bash
+npm run reel carousels/mi-carrusel.ts
+# → output/mi-carrusel/reel.mp4
+```
+
+- Render nativo 9:16 con **zona segura** inferior (la UI de IG no tapa el texto).
+- **Duración por slide según su texto** (más texto = más tiempo de lectura), con hold en hook y CTA.
+- **Zoom sutil alternado** (Ken Burns) + **crossfades**, y una **barra de progreso cian** de marca.
+- Sin "DESLIZA →" (es video) y **sin audio** por defecto: súbelo a IG y añade un audio en tendencia ahí (más alcance).
+
+Opciones:
+```bash
+npm run reel carousels/x.ts -- --seconds=2.5     # duración uniforme (reel más ágil)
+npm run reel carousels/x.ts -- --fade=0.5        # transición más larga
+npm run reel carousels/x.ts -- --audio=pista.mp3 # muxea tu audio (TikTok/Shorts/posteo nativo)
+npm run reel carousels/x.ts -- --frames-only     # solo los PNG 9:16, sin video
+```
+
 ## Roadmap
 
-- **Reels (video)**: pendiente. Se hará con [Remotion](https://www.remotion.dev/)
-  (React → video). Requiere ffmpeg.
+- **Plantillas-Reel dedicadas**: hoy el Reel reusa las plantillas del carrusel; a futuro,
+  variantes pensadas para vertical (más aire, texto más grande).
