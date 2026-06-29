@@ -9,6 +9,9 @@ import { TEMPLATE_CATALOG } from "../remix/templates-catalog.ts";
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
 const PILLARS = ["herramienta", "noticia", "prompt", "curiosidad"] as const;
 
+/** Tope de imágenes que se adjuntan al modelo (control de coste/latencia). */
+const MAX_IMAGES = 8;
+
 let client: OpenAI | null = null;
 
 /** Modelo multimodal a usar. Configurable por REMIX_MODEL (default gpt-4o). */
@@ -85,11 +88,13 @@ function normalizeAnalysis(raw: Record<string, unknown>, source: InstagramSource
  * un PostAnalysis estructurado. Cacheado por hash de la entrada.
  */
 export async function analyzePost(source: InstagramSource): Promise<PostAnalysis> {
-  if (!source.caption && !source.thumbnailDataUri) {
+  // Imágenes a analizar: mediaDataUris (carrusel/frames), con fallback al thumbnail.
+  const images = (source.mediaDataUris?.length ? source.mediaDataUris : source.thumbnailDataUri ? [source.thumbnailDataUri] : []).slice(0, MAX_IMAGES);
+  if (!source.caption && !images.length) {
     throw new Error("No hay caption ni imagen para analizar.");
   }
 
-  const cacheKey = sha(`${source.caption}|${source.thumbnailDataUri ?? "noimg"}|${getModel()}`);
+  const cacheKey = sha(`${source.caption}|${images.join("|") || "noimg"}|${getModel()}`);
   const cacheFile = join(CACHE_DIR, `analysis-${cacheKey}.json`);
   if (existsSync(cacheFile)) {
     try {
@@ -99,11 +104,15 @@ export async function analyzePost(source: InstagramSource): Promise<PostAnalysis
     }
   }
 
+  const multi = images.length > 1;
   const userContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
     {
       type: "text",
       text:
         `Analiza este post de Instagram (tipo: ${source.type}). ` +
+        (multi
+          ? `Se adjuntan ${images.length} imágenes: ${source.type === "reel" ? "frames del video en orden" : "todas las slides del carrusel en orden"}. Analiza la estructura SLIDE POR SLIDE y devuelve una entrada en copyPerSlide por cada slide/frame observado.\n`
+          : ``) +
         `Caption:\n"""${source.caption || "(sin caption)"}"""\n` +
         `Hashtags: ${source.hashtags.join(" ") || "(ninguno)"}\n\n` +
         `Devuelve SOLO un JSON con este shape exacto:\n` +
@@ -112,8 +121,8 @@ export async function analyzePost(source: InstagramSource): Promise<PostAnalysis
         `"languageDetected": string, "tone": string, "viralityHooks": string[], "confidence": "low"|"medium"|"high" }`,
     },
   ];
-  if (source.thumbnailDataUri) {
-    userContent.push({ type: "image_url", image_url: { url: source.thumbnailDataUri } });
+  for (const img of images) {
+    userContent.push({ type: "image_url", image_url: { url: img } });
   }
 
   const res = await getClient().chat.completions.create({

@@ -27,7 +27,13 @@ export interface InstagramSource {
   type: MediaType;
   caption: string;
   hashtags: string[];
-  /** Thumbnail como data URI PNG/JPEG, para pasárselo al modelo de visión. */
+  /**
+   * Todas las imágenes capturadas (data URIs): todas las slides de un carrusel o
+   * varios frames de un reel. Es lo que consume analyzePost para el análisis
+   * slide-por-slide.
+   */
+  mediaDataUris: string[];
+  /** Thumbnail = primera imagen de mediaDataUris (compat con la caché de análisis). */
   thumbnailDataUri?: string;
   /** Rutas locales de imágenes pasadas manualmente con --image. */
   imagePaths?: string[];
@@ -88,4 +94,10 @@ export interface RemixOptions {
   image?: string[];
   es: SpanishVariant;
   outDir: string;
+  /** Tras emitir, renderizar PNGs 4:5 de cada variación (--render). */
+  render?: boolean;
+  /** Tras emitir, componer el Reel 9:16 de cada variación (--reel). */
+  reel?: boolean;
+  /** Frames a extraer de un reel para el análisis (--frames=N, default 5). */
+  frames?: number;
 }

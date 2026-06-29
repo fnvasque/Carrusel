@@ -150,19 +150,27 @@ con un modelo multimodal de OpenAI y mapea todo a las plantillas de marca ia.es.
 export OPENAI_API_KEY=sk-...
 npm run remix "https://www.instagram.com/p/XXXXXXXXX/"
 # → carousels/<slug>-v1.ts  y  carousels/<slug>-v2.ts  (+ score de viralidad de cada una)
+
+# Flujo end-to-end de un solo comando (emite + renderiza):
+npm run remix "<url>" -- --render          # + PNGs 4:5 de cada variación
+npm run remix "<url>" -- --render --reel    # + PNGs y Reel 9:16 de cada variación
 ```
 
 Opciones:
 
 ```bash
 npm run remix "<url>" -- --es=cl                 # copy en español chileno (default: neutro)
-npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida
+npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida de los .ts
+npm run remix "<url>" -- --render --reel         # genera PNGs y Reel automáticamente
+npm run remix "<url>" -- --frames=6              # frames a muestrear de un reel (default 5)
 # Modo manual (si Instagram bloquea el fetch público, p. ej. login wall):
-npm run remix -- --caption="el texto del post" --image=ruta/al/thumbnail.png
+npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2.png
 ```
 
-- **Ingesta resiliente**: lee el contenido público (caption + thumbnail vía `og:meta`).
-  Si IG bloquea, **degrada a modo manual** (`--caption` / `--image`) y no se cae.
+- **Ingesta profunda**: captura TODAS las imágenes de un carrusel (no solo la portada)
+  y, para reels, extrae varios frames del video con **ffmpeg**, para que el análisis sea
+  slide por slide. Si IG bloquea, **degrada a modo manual** (`--caption` / múltiples
+  `--image`) y no se cae; sin ffmpeg/video, cae al thumbnail.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
   del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
 - **Idioma**: el copy SIEMPRE sale en español, sin importar el idioma del original.

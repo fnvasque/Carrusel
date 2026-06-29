@@ -6,6 +6,8 @@ import { analyzePost, generateVariations } from "../ai/analyze.ts";
 import { emitCarouselFile } from "./emit.ts";
 import { scoreCarousel, THRESHOLD } from "../score/virality.ts";
 import { printReport } from "../score/cli.ts";
+import { renderCarousel } from "../render/renderCarousel.ts";
+import { renderReel } from "../reel/renderReel.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 import type { RemixOptions, SpanishVariant } from "./types.ts";
 
@@ -17,6 +19,9 @@ function parseArgs(argv: string[]): RemixOptions {
     else if (arg.startsWith("--image=")) opts.image!.push(arg.slice("--image=".length));
     else if (arg.startsWith("--es=")) opts.es = (arg.slice("--es=".length) === "cl" ? "cl" : "neutro") as SpanishVariant;
     else if (arg.startsWith("--out=")) opts.outDir = arg.slice("--out=".length);
+    else if (arg.startsWith("--frames=")) opts.frames = Number(arg.slice("--frames=".length)) || undefined;
+    else if (arg === "--render") opts.render = true;
+    else if (arg === "--reel") opts.reel = true;
     else if (!arg.startsWith("--") && !opts.url) opts.url = arg;
   }
   if (opts.image && !opts.image.length) opts.image = undefined;
@@ -24,8 +29,11 @@ function parseArgs(argv: string[]): RemixOptions {
 }
 
 function usage(): void {
-  console.error("Uso: npm run remix <url-instagram> [--es=cl] [--out=carousels]");
+  console.error("Uso: npm run remix <url-instagram> [--es=cl] [--out=carousels] [--render] [--reel] [--frames=N]");
   console.error("     npm run remix --caption=\"texto del post\" --image=ruta.png   (modo manual)");
+  console.error("\n  --render   tras emitir, genera los PNGs 4:5 de cada variación");
+  console.error("  --reel     tras emitir, compone el Reel 9:16 de cada variación (requiere ffmpeg)");
+  console.error("  --frames=N frames a extraer de un reel para el análisis (default 5)");
   console.error("\nGenera 2 variaciones (.ts) en carousels/ listas para `npm run generate` / `npm run reel`.");
 }
 
@@ -70,6 +78,17 @@ async function main(): Promise<void> {
     printReport(spec.name, score);
     if (score.total < THRESHOLD) {
       console.warn(`⚠️  Viralidad ${score.total}/100 bajo el umbral (${THRESHOLD}). Revisa las sugerencias.`);
+    }
+
+    // Flujo end-to-end: render de PNGs y/o composición del Reel, reutilizando la
+    // misma maquinaria que `generate`/`reel`.
+    if (opts.render) {
+      console.log(`\n🖼️  Renderizando PNGs 4:5 de la variación ${i}…`);
+      await renderCarousel(spec, { outDir: "output" });
+    }
+    if (opts.reel) {
+      console.log(`\n🎬 Componiendo el Reel 9:16 de la variación ${i}…`);
+      await renderReel(spec, { outDir: "output" });
     }
   }
 
