@@ -109,7 +109,8 @@ async function main(): Promise<void> {
     const spec: CarouselSpec = mod.default;
     printReport(spec.name, bestScore);
     if (bestScore.total < minScore) {
-      console.warn(`⚠️  Viralidad ${bestScore.total}/100 bajo el objetivo (${minScore}) tras ${maxTries} intento(s). Emito el mejor; revisa las sugerencias.`);
+      const detalle = improve ? ` tras ${maxTries} intento(s)` : " (loop de calidad desactivado con --no-improve)";
+      console.warn(`⚠️  Viralidad ${bestScore.total}/100 bajo el objetivo (${minScore})${detalle}. Emito el mejor; revisa las sugerencias.`);
     }
 
     // Flujo end-to-end: render de PNGs y/o composición del Reel, reutilizando la

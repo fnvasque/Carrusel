@@ -216,7 +216,8 @@ Notas de conservación (no refactorizar lo existente):
    - `serializeBackground(bg?: LogicalBackground): string` — a literal de objeto `{ ai: "...", overlay: 0.5 }` / `{ gradient: "..." }` / `{ color: "..." }`.
    - `serializeSlide(slide: LogicalSlide): string` — `{ template: Hook, props: { ... } }` con strings escapados (`JSON.stringify` para valores string/array, identificador crudo para `template`).
    - `emitCarouselFile(draft: VariationDraft, es: SpanishVariant, outDir: string): Promise<string>`
-     - Logic: construir el contenido del archivo (header comment con origen + ángulo + idioma + nota "generado por remix", imports de las plantillas usadas desde `../src/templates/index.ts` y de `CarouselSpec` desde `../src/templates/types.ts`, `const carousel: CarouselSpec = {...}; export default carousel;`). Escribir a `<outDir>/<slug>.ts`. Devolver la ruta.
+     - Logic: construir el contenido del archivo (header comment con origen + ángulo + idioma + nota "generado por remix", imports de las plantillas usadas y de `CarouselSpec`, `const carousel: CarouselSpec = {...}; export default carousel;`). Escribir a `<outDir>/<slug>.ts`. Devolver la ruta.
+     - **La ruta de import a `src/templates` se calcula RELATIVA a `outDir`** (no hardcodear `../src/templates`), para soportar carpetas anidadas (p. ej. `--out=carousels/remix`). Helper puro `templatesImportBase(outDir)` = `relative(resolve(outDir), resolve("src/templates"))` normalizado a separadores `/`. Así `carousels` → `../src/templates` y `carousels/sub` → `../../src/templates`.
 3. Constraints: el archivo emitido DEBE pasar `tsc --noEmit`; los `template` referenciados deben estar importados; strings con comillas/acentos correctamente escapados.
 
 ### Create CLI - src/remix/cli.ts

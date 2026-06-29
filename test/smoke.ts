@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
-import { slugify, validateDraft } from "../src/remix/emit.ts";
+import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
@@ -175,6 +175,13 @@ check("scoreDraft: weak < strong y strong supera el umbral", () => {
   const ss = scoreDraft(strong).total;
   assert.ok(ws < ss, `weak(${ws}) debe ser < strong(${ss})`);
   assert.ok(ss >= THRESHOLD, `strong(${ss}) debe alcanzar el umbral ${THRESHOLD}`);
+});
+
+// --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---
+check("templatesImportBase calcula la ruta relativa según la profundidad del out", () => {
+  assert.equal(templatesImportBase("carousels"), "../src/templates");
+  assert.equal(templatesImportBase("carousels/_live"), "../../src/templates");
+  assert.equal(templatesImportBase("carousels/a/b"), "../../../src/templates");
 });
 
 // --- calibration: linearFit ---

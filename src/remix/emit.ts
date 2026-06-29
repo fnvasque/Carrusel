@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import type { LogicalBackground, LogicalSlide, SpanishVariant, TemplateName, VariationDraft } from "./types.ts";
 import { TEMPLATE_CATALOG, isTemplateName, validPropKeys } from "./templates-catalog.ts";
 
@@ -117,6 +117,15 @@ function usedTemplates(draft: VariationDraft): TemplateName[] {
 }
 
 /**
+ * Ruta de import (estilo posix) desde `outDir` hasta `src/templates`, para que el
+ * .ts emitido compile sin importar la profundidad de la carpeta de salida.
+ * `carousels` → `../src/templates`; `carousels/sub` → `../../src/templates`.
+ */
+export function templatesImportBase(outDir: string): string {
+  return relative(resolve(outDir), resolve("src", "templates")).split(sep).join("/");
+}
+
+/**
  * Emite un VariationDraft validado como un archivo .ts en `outDir` que exporta un
  * CarouselSpec compilable. Devuelve la ruta escrita.
  */
@@ -125,9 +134,10 @@ export async function emitCarouselFile(draft: VariationDraft, es: SpanishVariant
   const slug = slugify(validated.name);
   const imports = usedTemplates(validated).join(", ");
   const slidesSrc = validated.slides.map(serializeSlide).join("\n");
+  const base = templatesImportBase(outDir);
 
-  const content = `import { ${imports} } from "../src/templates/index.ts";
-import type { CarouselSpec } from "../src/templates/types.ts";
+  const content = `import { ${imports} } from "${base}/index.ts";
+import type { CarouselSpec } from "${base}/types.ts";
 
 /**
  * Generado por \`npm run remix\` (remix de Instagram).
