@@ -195,6 +195,17 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
 Iteración 1 trabaja sobre el thumbnail principal + caption; capturar todas las slides de un
 carrusel y transcribir el audio de un reel llegan en iteraciones siguientes.
 
+## Tests
+
+```bash
+npm run test       # smoke tests offline de las funciones puras del pipeline
+npm run typecheck  # comprobación de tipos
+```
+
+`npm run test` corre un runner mínimo (tsx + `node:assert`, sin dependencias) que valida
+parsing de ingesta, catálogo de plantillas, validación de variaciones y scoring en memoria,
+sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el gate de calidad.
+
 ## Reels (video 9:16)
 
 Convierte cualquier carrusel en un Reel vertical (1080×1920) listo para Instagram,
