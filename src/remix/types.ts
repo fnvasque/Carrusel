@@ -100,4 +100,8 @@ export interface RemixOptions {
   reel?: boolean;
   /** Frames a extraer de un reel para el análisis (--frames=N, default 5). */
   frames?: number;
+  /** Ruta a un archivo cookies.txt (Netscape) para yt-dlp (vence login wall). */
+  cookies?: string;
+  /** Navegador del que yt-dlp toma cookies (chrome/firefox/…). */
+  cookiesFromBrowser?: string;
 }

@@ -163,14 +163,22 @@ npm run remix "<url>" -- --es=cl                 # copy en español chileno (def
 npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida de los .ts
 npm run remix "<url>" -- --render --reel         # genera PNGs y Reel automáticamente
 npm run remix "<url>" -- --frames=6              # frames a muestrear de un reel (default 5)
-# Modo manual (si Instagram bloquea el fetch público, p. ej. login wall):
+# Cookies para vencer el login wall (vía yt-dlp):
+npm run remix "<url>" -- --cookies=cookies.txt           # archivo Netscape cookies.txt
+npm run remix "<url>" -- --cookies-from-browser=chrome   # toma cookies del navegador
+# Modo manual (último recurso si todo lo demás falla):
 npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2.png
 ```
 
-- **Ingesta profunda**: captura TODAS las imágenes de un carrusel (no solo la portada)
-  y, para reels, extrae varios frames del video con **ffmpeg**, para que el análisis sea
-  slide por slide. Si IG bloquea, **degrada a modo manual** (`--caption` / múltiples
-  `--image`) y no se cae; sin ffmpeg/video, cae al thumbnail.
+- **Ingesta robusta (3 niveles)**: usa **yt-dlp** si está instalado (lo más confiable;
+  descarga el carrusel completo y el video del reel, y con cookies vence el login wall) →
+  si no, **scraping público** de `og:meta`/JSON embebido → si no, **modo manual**
+  (`--caption` / múltiples `--image`). Nunca se cae.
+- **Análisis slide por slide**: captura TODAS las imágenes de un carrusel y, para reels,
+  extrae varios frames del video con **ffmpeg**. Sin ffmpeg/video, cae al thumbnail.
+- **Binarios opcionales**: `yt-dlp` (`pip install -U yt-dlp`) y `ffmpeg` se detectan en
+  runtime; sin ellos, el remix sigue funcionando con menos alcance. Las cookies también
+  se pueden pasar por env: `REMIX_COOKIES` / `REMIX_COOKIES_FROM_BROWSER`.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
   del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
 - **Idioma**: el copy SIEMPRE sale en español, sin importar el idioma del original.

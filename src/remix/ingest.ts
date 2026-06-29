@@ -3,12 +3,13 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, rm, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, extname } from "node:path";
+import { ytDlpAvailable, ingestViaYtDlp } from "./ytdlp.ts";
 import type { InstagramSource, MediaType, RemixOptions } from "./types.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
 
 /** Tope de imágenes que se descargan/analizan de un post. */
-const MAX_INGEST_IMAGES = 10;
+export const MAX_INGEST_IMAGES = 10;
 
 /** User-Agent de navegador para mejorar las chances de que IG sirva el HTML público. */
 const UA =
@@ -112,8 +113,8 @@ async function fetchImageAsDataUri(url: string): Promise<string | undefined> {
   }
 }
 
-/** Carga una imagen local a data URI (para el modo manual --image). */
-async function localImageToDataUri(path: string): Promise<string | undefined> {
+/** Carga una imagen local a data URI (para el modo manual --image o medios de yt-dlp). */
+export async function localImageToDataUri(path: string): Promise<string | undefined> {
   try {
     const buf = await readFile(path);
     const ext = extname(path).toLowerCase();
@@ -159,32 +160,26 @@ function runFfmpeg(args: string[]): Promise<boolean> {
 }
 
 /**
- * Descarga el MP4 de un reel y muestrea `n` frames equiespaciados con ffmpeg,
- * devolviéndolos como data URIs. Si ffmpeg falta, no hay video, o algo falla,
- * devuelve []. Limpia los temporales.
+ * Muestrea `n` frames equiespaciados de un archivo de video LOCAL con ffmpeg,
+ * devolviéndolos como data URIs. Reutilizable por el path URL (extractReelFrames)
+ * y por el proveedor yt-dlp. Si ffmpeg falta o algo falla, devuelve []. Limpia el
+ * directorio temporal de frames.
  */
-export async function extractReelFrames(videoUrl: string, n: number): Promise<string[]> {
+export async function framesFromLocalVideo(path: string, n: number): Promise<string[]> {
   if (!(await hasFfmpeg())) {
-    console.warn("⚠️  ffmpeg no está en el PATH: no puedo extraer frames del reel (uso el thumbnail).");
+    console.warn("⚠️  ffmpeg no está en el PATH: no puedo extraer frames del video (uso el thumbnail).");
     return [];
   }
   await mkdir(CACHE_DIR, { recursive: true });
-  const id = createHash("sha256").update(videoUrl).digest("hex").slice(0, 16);
-  const tmpVideo = join(CACHE_DIR, `tmp-${id}.mp4`);
+  const id = createHash("sha256").update(path).digest("hex").slice(0, 16);
   const framesDir = join(CACHE_DIR, `frames-${id}`);
-
   try {
-    // Descargar el video.
-    const res = await fetch(videoUrl, { headers: { "User-Agent": UA } });
-    if (!res.ok) return [];
-    await writeFile(tmpVideo, Buffer.from(await res.arrayBuffer()));
-
     await mkdir(framesDir, { recursive: true });
-    const dur = await probeDuration(tmpVideo);
+    const dur = await probeDuration(path);
     // fps tal que salgan ~n frames a lo largo del video; fallback: 1 fps.
     const fps = dur && dur > 0 ? (n / dur).toFixed(4) : "1";
     const ok = await runFfmpeg([
-      "-i", tmpVideo,
+      "-i", path,
       "-vf", `fps=${fps}`,
       "-frames:v", String(n),
       "-y",
@@ -202,8 +197,28 @@ export async function extractReelFrames(videoUrl: string, n: number): Promise<st
   } catch {
     return [];
   } finally {
-    await rm(tmpVideo, { force: true }).catch(() => {});
     await rm(framesDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/**
+ * Descarga el MP4 de un reel por URL y muestrea `n` frames equiespaciados con
+ * ffmpeg (delega en framesFromLocalVideo). Si no hay video/ffmpeg o algo falla,
+ * devuelve []. Limpia el video temporal.
+ */
+export async function extractReelFrames(videoUrl: string, n: number): Promise<string[]> {
+  await mkdir(CACHE_DIR, { recursive: true });
+  const id = createHash("sha256").update(videoUrl).digest("hex").slice(0, 16);
+  const tmpVideo = join(CACHE_DIR, `tmp-${id}.mp4`);
+  try {
+    const res = await fetch(videoUrl, { headers: { "User-Agent": UA } });
+    if (!res.ok) return [];
+    await writeFile(tmpVideo, Buffer.from(await res.arrayBuffer()));
+    return await framesFromLocalVideo(tmpVideo, n);
+  } catch {
+    return [];
+  } finally {
+    await rm(tmpVideo, { force: true }).catch(() => {});
   }
 }
 
@@ -267,10 +282,26 @@ export async function ingest(opts: RemixOptions): Promise<InstagramSource> {
   let mediaDataUris: string[] = [];
   let mode: InstagramSource["source"] = "manual";
 
-  if (opts.url) {
+  // Fuente preferente: yt-dlp (más confiable; vence login wall con cookies).
+  if (opts.url && (await ytDlpAvailable())) {
+    try {
+      const r = await ingestViaYtDlp(opts.url, opts);
+      if (r && (r.mediaDataUris.length || r.caption)) {
+        caption = r.caption;
+        mediaDataUris = r.mediaDataUris;
+        mode = "fetch";
+        console.log(`✓ yt-dlp: ${mediaDataUris.length} medio(s).`);
+      }
+    } catch {
+      console.warn("⚠️  yt-dlp falló; sigo con scraping público.");
+    }
+  }
+
+  // Degradación 1: scraping público (si yt-dlp no aportó media).
+  if (opts.url && !mediaDataUris.length) {
     try {
       const fetched = await fetchPublic(opts.url);
-      caption = fetched.caption;
+      caption = caption || fetched.caption;
       mode = "fetch";
 
       if (type === "reel" && fetched.videoUrl) {
