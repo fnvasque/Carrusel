@@ -39,7 +39,11 @@ async function main() {
   process.exit(r.total >= THRESHOLD ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error("\n✗ Error:", err instanceof Error ? err.message : err);
-  process.exit(2);
-});
+// Solo ejecutar el CLI cuando este archivo es el entrypoint. Importar `printReport`
+// desde otros módulos (generate, remix) NO debe disparar main() ni process.exit.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error("\n✗ Error:", err instanceof Error ? err.message : err);
+    process.exit(2);
+  });
+}

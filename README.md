@@ -139,6 +139,39 @@ mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan e
 Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
 falsos positivos, ej. una frase de miedo usada para *desmentirla*).
 
+## Remix de Instagram
+
+Le pasas el **link de un reel, post o carrusel** de Instagram y genera **2 variaciones**
+del contenido (en español neutro o chileno), como archivos `.ts` en `carousels/` listos
+para `generate`/`reel`. Analiza el original (hook, estructura, pilar, copy, estilo visual)
+con un modelo multimodal de OpenAI y mapea todo a las plantillas de marca ia.es.
+
+```bash
+export OPENAI_API_KEY=sk-...
+npm run remix "https://www.instagram.com/p/XXXXXXXXX/"
+# → carousels/<slug>-v1.ts  y  carousels/<slug>-v2.ts  (+ score de viralidad de cada una)
+```
+
+Opciones:
+
+```bash
+npm run remix "<url>" -- --es=cl                 # copy en español chileno (default: neutro)
+npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida
+# Modo manual (si Instagram bloquea el fetch público, p. ej. login wall):
+npm run remix -- --caption="el texto del post" --image=ruta/al/thumbnail.png
+```
+
+- **Ingesta resiliente**: lee el contenido público (caption + thumbnail vía `og:meta`).
+  Si IG bloquea, **degrada a modo manual** (`--caption` / `--image`) y no se cae.
+- **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
+  del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
+- **Idioma**: el copy SIEMPRE sale en español, sin importar el idioma del original.
+- El resultado es **texto editable**: revisa y ajusta el `.ts` antes de publicar; luego
+  `npm run generate carousels/<archivo>.ts` (PNGs 4:5) o `npm run reel carousels/<archivo>.ts` (Reel 9:16).
+
+Iteración 1 trabaja sobre el thumbnail principal + caption; capturar todas las slides de un
+carrusel y transcribir el audio de un reel llegan en iteraciones siguientes.
+
 ## Reels (video 9:16)
 
 Convierte cualquier carrusel en un Reel vertical (1080×1920) listo para Instagram,
