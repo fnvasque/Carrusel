@@ -114,6 +114,31 @@ carousels/       un archivo por carrusel
 output/          PNGs generados (gitignored)
 ```
 
+## Indicador de viralidad
+
+Mide si un carrusel tiene las palancas que generan **guardados/compartidos** antes de
+publicarlo (proxy basado en `.context/04-quality-gate-viral.md`), y calibra contra métricas
+reales después.
+
+```bash
+npm run score carousels/mi-carrusel.ts     # score 0-100 + desglose + qué mejorar
+npm run generate carousels/mi-carrusel.ts  # muestra el score antes de renderizar
+#   SCORE_STRICT=1 npm run generate ...     # bloquea el render si está bajo el umbral (75)
+```
+
+Bucle de aprendizaje (post-publicación): registra las métricas reales de Instagram y
+compara predicho vs real para ir calibrando el indicador.
+
+```bash
+npm run record carousels/mi-carrusel.ts -- --saves=120 --shares=40 --reach=5000
+npm run calibrate    # tabla predicho vs saves/1k vs shares/1k + correlación
+```
+
+Notas: el score está calibrado para carruseles tipo "how-to/herramienta"; los de
+mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan el umbral).
+Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
+falsos positivos, ej. una frase de miedo usada para *desmentirla*).
+
 ## Roadmap
 
 - **Reels (video)**: pendiente. Se hará con [Remotion](https://www.remotion.dev/)
