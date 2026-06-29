@@ -1,10 +1,18 @@
 import type { ComponentType } from "react";
 
 /**
- * Dimensiones del lienzo. Por defecto el formato vertical de carrusel de
- * Instagram (relación 4:5), que es el que mejor aprovecha el feed.
+ * Formatos de salida. `post` es el carrusel 4:5 (1080×1350), el que mejor
+ * aprovecha el feed. `reel` es el vertical 9:16 (1080×1920) para Reels.
  */
-export const CANVAS = { width: 1080, height: 1350 } as const;
+export type Format = "post" | "reel";
+
+export const FORMATS = {
+  post: { width: 1080, height: 1350 },
+  reel: { width: 1080, height: 1920 },
+} as const;
+
+/** Alias del formato post (compatibilidad con usos existentes). */
+export const CANVAS = FORMATS.post;
 
 /**
  * Fondo de un slide. Tres formas mutuamente excluyentes:
@@ -57,6 +65,8 @@ export interface BaseSlideProps {
   source?: string;
   /** Muestra el logo de marca arriba-izquierda. Por defecto true. */
   showLogo?: boolean;
+  /** Formato de salida: "post" (4:5, por defecto) o "reel" (9:16). */
+  format?: Format;
 }
 
 /** Un slide = una plantilla + sus props. */

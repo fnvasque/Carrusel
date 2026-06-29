@@ -4,7 +4,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { htmlShell } from "./htmlShell.ts";
-import { CANVAS } from "../templates/types.ts";
+import { FORMATS } from "../templates/types.ts";
 
 /**
  * Localiza un Chromium preinstalado para no depender de que la versión de
@@ -42,10 +42,10 @@ export class Renderer {
   private browser: Browser | null = null;
   private page: Page | null = null;
 
-  async init(): Promise<void> {
+  async init(dim: { width: number; height: number } = FORMATS.post): Promise<void> {
     this.browser = await chromium.launch({ executablePath: findChromium() });
     this.page = await this.browser.newPage({
-      viewport: { width: CANVAS.width, height: CANVAS.height },
+      viewport: { width: dim.width, height: dim.height },
       deviceScaleFactor: 1,
     });
   }

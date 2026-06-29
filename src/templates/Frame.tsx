@@ -1,7 +1,10 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { Background, Pillar } from "./types.ts";
-import { CANVAS } from "./types.ts";
+import type { Background, Pillar, Format } from "./types.ts";
+import { FORMATS } from "./types.ts";
 import { theme, pillarColor } from "../theme.ts";
+
+/** Margen inferior reservado en Reels: la UI de IG tapa los últimos ~420px. */
+const REEL_SAFE_BOTTOM = 440;
 
 /**
  * Capa base de cada slide: ocupa el lienzo completo (1080x1350), pinta el
@@ -22,6 +25,7 @@ export function Frame({
   total,
   source,
   showLogo = true,
+  format = "post",
   style,
   children,
 }: {
@@ -33,21 +37,25 @@ export function Frame({
   total?: number;
   source?: string;
   showLogo?: boolean;
+  format?: Format;
   style?: CSSProperties;
   children: ReactNode;
 }) {
   const hasProgress = typeof index === "number" && typeof total === "number";
+  const dim = FORMATS[format];
   return (
     <div
       style={{
         position: "relative",
-        width: CANVAS.width,
-        height: CANVAS.height,
+        width: dim.width,
+        height: dim.height,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         boxSizing: "border-box",
         padding: theme.padding,
+        // En Reel, reserva la zona segura inferior (UI de IG) sin tapar el contenido.
+        paddingBottom: format === "reel" ? REEL_SAFE_BOTTOM : theme.padding,
         fontFamily: fontFamily ?? theme.fontFamily,
         color: color ?? theme.colors.text,
         backgroundColor: theme.colors.bg,
