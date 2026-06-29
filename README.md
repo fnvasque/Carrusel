@@ -134,6 +134,12 @@ npm run record carousels/mi-carrusel.ts -- --saves=120 --shares=40 --reach=5000
 npm run calibrate    # tabla predicho vs saves/1k vs shares/1k + correlación
 ```
 
+**Bucle cerrado**: a partir de **3 carruseles registrados**, `record`/`calibrate` aprenden un
+mapeo del score predicho a tus tasas reales (saves/1k, shares/1k) y lo guardan en
+`metrics/calibration.json`. Desde entonces, cada reporte de score (`score`, `generate`, `remix`)
+muestra una **proyección** "≈ X saves/1k · Y shares/1k según tus datos", así el número del
+indicador se traduce a resultados reales esperados (marcada como *preliminar* con pocos datos).
+
 Notas: el score está calibrado para carruseles tipo "how-to/herramienta"; los de
 mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan el umbral).
 Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar

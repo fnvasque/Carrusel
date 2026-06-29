@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CarouselSpec } from "../templates/types.ts";
 import { scoreCarousel } from "./virality.ts";
+import { refreshCalibration } from "./calibration.ts";
 
 /**
  * Registra las métricas REALES de Instagram de un carrusel publicado, junto al
@@ -56,7 +57,14 @@ async function main() {
   await writeFile(out, JSON.stringify(record, null, 2) + "\n");
   console.log(`✓ Registrado ${spec.name}: score predicho ${predicted}, ${record.savesPerK} saves/1k, ${record.sharesPerK} shares/1k`);
   console.log(`  → ${out}`);
-  console.log("  Corre `npm run calibrate` para ver predicho vs real.");
+
+  // Cierra el bucle: refresca el modelo de calibración con el nuevo dato.
+  const model = await refreshCalibration();
+  if (model) {
+    console.log(`  ✓ Calibración actualizada (n=${model.n}); el reporte de score ahora proyecta saves/shares reales.`);
+  } else {
+    console.log("  Registra ≥3 carruseles para activar la proyección. Corre `npm run calibrate` para el detalle.");
+  }
 }
 
 main().catch((err) => {

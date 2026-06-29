@@ -4,6 +4,7 @@ import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts
 import { slugify, validateDraft } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
+import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 
 /**
@@ -174,6 +175,38 @@ check("scoreDraft: weak < strong y strong supera el umbral", () => {
   const ss = scoreDraft(strong).total;
   assert.ok(ws < ss, `weak(${ws}) debe ser < strong(${ss})`);
   assert.ok(ss >= THRESHOLD, `strong(${ss}) debe alcanzar el umbral ${THRESHOLD}`);
+});
+
+// --- calibration: linearFit ---
+check("linearFit ajusta una recta exacta y devuelve null en varianza 0", () => {
+  const fit = linearFit([0, 1, 2], [1, 3, 5]);
+  assert.ok(fit, "esperaba un fit");
+  assert.ok(Math.abs(fit.slope - 2) < 1e-9, `slope ${fit.slope}`);
+  assert.ok(Math.abs(fit.intercept - 1) < 1e-9, `intercept ${fit.intercept}`);
+  assert.equal(linearFit([1, 1, 1], [1, 2, 3]), null);
+});
+
+// --- calibration: projectOutcome ---
+check("projectOutcome aplica las rectas y clampa a 0", () => {
+  const model: CalibrationModel = {
+    n: 3,
+    rSaves: 1,
+    rShares: 1,
+    saves: { slope: 2, intercept: 1 },
+    shares: { slope: 0, intercept: 0.5 },
+    updatedAt: "",
+  };
+  const p = projectOutcome(model, 10);
+  assert.equal(p.savesPerK, 21);
+  assert.equal(p.sharesPerK, 0.5);
+  const neg: CalibrationModel = { ...model, saves: { slope: -5, intercept: 1 } };
+  assert.equal(projectOutcome(neg, 10).savesPerK, 0); // clamp
+});
+
+// --- calibration: pearson ---
+check("pearson da 1 en correlación perfecta y null con <3 puntos", () => {
+  assert.equal(pearson([1, 2, 3], [2, 4, 6]), 1);
+  assert.equal(pearson([1, 2], [1, 2]), null);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

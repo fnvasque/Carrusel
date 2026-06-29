@@ -1,45 +1,22 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pearson, refreshCalibration, projectOutcome, type Metric } from "./calibration.ts";
+import { THRESHOLD } from "./virality.ts";
 
 /**
  * Cierra el bucle: compara el score de viralidad PREDICHO con las métricas
- * REALES registradas (`npm run record`), para ver si el indicador predice bien
- * y calibrarlo con el tiempo. Cuantos más carruseles registres, más fiable.
+ * REALES registradas (`npm run record`), persiste el modelo de calibración y
+ * muestra la proyección saves/shares para scores de referencia. Cuantos más
+ * carruseles registres, más fiable.
  *
  * Uso: npm run calibrate
  */
 const METRICS_DIR = join(process.cwd(), "metrics");
 
-interface Metric {
-  name: string;
-  predictedScore: number;
-  saves: number;
-  shares: number;
-  reach: number;
-  savesPerK: number;
-  sharesPerK: number;
-}
-
-/** Correlación de Pearson; null si no hay datos suficientes. */
-function pearson(xs: number[], ys: number[]): number | null {
-  const n = xs.length;
-  if (n < 3) return null;
-  const mx = xs.reduce((a, b) => a + b, 0) / n;
-  const my = ys.reduce((a, b) => a + b, 0) / n;
-  let num = 0, dx = 0, dy = 0;
-  for (let i = 0; i < n; i++) {
-    num += (xs[i] - mx) * (ys[i] - my);
-    dx += (xs[i] - mx) ** 2;
-    dy += (ys[i] - my) ** 2;
-  }
-  const den = Math.sqrt(dx * dy);
-  return den === 0 ? null : +(num / den).toFixed(2);
-}
-
 async function main() {
   let files: string[];
   try {
-    files = (await readdir(METRICS_DIR)).filter((f) => f.endsWith(".json"));
+    files = (await readdir(METRICS_DIR)).filter((f) => f.endsWith(".json") && f !== "calibration.json");
   } catch {
     files = [];
   }
@@ -73,6 +50,19 @@ async function main() {
   console.log(`  shares: ${rShares ?? "necesitas ≥3 carruseles registrados"}`);
   if (rSaves !== null && rSaves < 0.3) {
     console.log("\n  ⚠️  El score predice mal los saves. Revisa los pesos en src/score/virality.ts con los datos reales.");
+  }
+
+  // Cierra el bucle: persiste el modelo y proyecta scores de referencia.
+  const model = await refreshCalibration();
+  if (model) {
+    console.log(`\nModelo de calibración actualizado (n=${model.n}) → metrics/calibration.json`);
+    console.log("Proyección según tus datos:");
+    for (const s of [THRESHOLD, 90]) {
+      const p = projectOutcome(model, s);
+      console.log(`  score ${s} ≈ ${p.savesPerK} saves/1k · ${p.sharesPerK} shares/1k`);
+    }
+  } else {
+    console.log("\n(Registra ≥3 carruseles para activar la proyección en cada score.)");
   }
   console.log("");
 }
