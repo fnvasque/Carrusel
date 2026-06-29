@@ -104,4 +104,10 @@ export interface RemixOptions {
   cookies?: string;
   /** Navegador del que yt-dlp toma cookies (chrome/firefox/…). */
   cookiesFromBrowser?: string;
+  /** Score de viralidad objetivo del loop de calidad (--min-score, default THRESHOLD=75). */
+  minScore?: number;
+  /** Intentos máximos de mejora por variación (--max-tries, default 3). */
+  maxTries?: number;
+  /** Desactiva el loop de calidad (--no-improve). */
+  noImprove?: boolean;
 }

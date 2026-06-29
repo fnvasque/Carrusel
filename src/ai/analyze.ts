@@ -246,3 +246,64 @@ export async function generateVariations(
   }
   return variations;
 }
+
+/**
+ * Mejora UNA variación usando el feedback del score de viralidad: re-prompt
+ * dirigido con las sugerencias concretas (hook sin número/enemigo/bucle, falta
+ * reframe/CTA de guardar, etc.), conservando el ángulo. Si el modelo no devuelve
+ * algo válido, devuelve el draft original (degradable).
+ */
+export async function improveVariation(
+  analysis: PostAnalysis,
+  draft: VariationDraft,
+  suggestions: string[],
+  opts: { es: SpanishVariant },
+): Promise<VariationDraft> {
+  const idioma =
+    opts.es === "cl"
+      ? "español chileno (modismos naturales de Chile, sin caer en exceso)"
+      : "español neutro latinoamericano";
+
+  const catalog = Object.entries(TEMPLATE_CATALOG)
+    .map(([name, spec]) => `- ${name}: required ${JSON.stringify(spec.required)}, optional ${JSON.stringify(spec.optional)}`)
+    .join("\n");
+
+  const res = await getClient().chat.completions.create({
+    model: getModel(),
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "Eres editor de contenido de la marca ia.es. Mejoras una variación de carrusel para que " +
+          "suba su puntaje de viralidad, corrigiendo debilidades concretas. Respondes SOLO con JSON válido.",
+      },
+      {
+        role: "user",
+        content:
+          `Contexto del análisis original:\n${JSON.stringify(analysis, null, 2)}\n\n` +
+          `Plantillas disponibles (usa SOLO estas, con sus props):\n${catalog}\n\n` +
+          `${BRAND_RULES}\n\n` +
+          `Esta es la variación ACTUAL (mejórala, NO empieces de cero):\n${JSON.stringify(draft, null, 2)}\n\n` +
+          `Debilidades a CORREGIR (del indicador de viralidad), todas obligatorias:\n` +
+          suggestions.map((s) => `- ${s}`).join("\n") +
+          `\n\nDevuelve UNA sola variación mejorada que CONSERVE el "angle" y el espíritu, en ${idioma}, ` +
+          `corrigiendo cada debilidad listada. Mismo shape JSON: ` +
+          `{ "variations": [ { "name": string, "angle": string, ` +
+          `"pillar": "herramienta"|"noticia"|"prompt"|"curiosidad", "slides": [ { "template": <nombre>, ` +
+          `"pillar"?: <pilar>, "props": { ...props en español... }, ` +
+          `"background"?: { "ai"?: string, "gradient"?: string, "color"?: string, "overlay"?: number } } ] } ] }`,
+      },
+    ],
+  });
+
+  const text = res.choices[0]?.message?.content ?? "{}";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = {};
+  }
+  const variations = normalizeVariations(parsed);
+  return variations[0] ?? draft;
+}

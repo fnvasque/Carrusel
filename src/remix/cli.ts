@@ -2,9 +2,10 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ingest } from "./ingest.ts";
-import { analyzePost, generateVariations } from "../ai/analyze.ts";
-import { emitCarouselFile } from "./emit.ts";
-import { scoreCarousel, THRESHOLD } from "../score/virality.ts";
+import { analyzePost, generateVariations, improveVariation } from "../ai/analyze.ts";
+import { emitCarouselFile, validateDraft } from "./emit.ts";
+import { scoreDraft } from "./registry.ts";
+import { THRESHOLD } from "../score/virality.ts";
 import { printReport } from "../score/cli.ts";
 import { renderCarousel } from "../render/renderCarousel.ts";
 import { renderReel } from "../reel/renderReel.ts";
@@ -22,6 +23,9 @@ function parseArgs(argv: string[]): RemixOptions {
     else if (arg.startsWith("--frames=")) opts.frames = Number(arg.slice("--frames=".length)) || undefined;
     else if (arg.startsWith("--cookies=")) opts.cookies = arg.slice("--cookies=".length);
     else if (arg.startsWith("--cookies-from-browser=")) opts.cookiesFromBrowser = arg.slice("--cookies-from-browser=".length);
+    else if (arg.startsWith("--min-score=")) opts.minScore = Number(arg.slice("--min-score=".length)) || undefined;
+    else if (arg.startsWith("--max-tries=")) opts.maxTries = Number(arg.slice("--max-tries=".length)) || undefined;
+    else if (arg === "--no-improve") opts.noImprove = true;
     else if (arg === "--render") opts.render = true;
     else if (arg === "--reel") opts.reel = true;
     else if (!arg.startsWith("--") && !opts.url) opts.url = arg;
@@ -36,6 +40,9 @@ function usage(): void {
   console.error("\n  --render   tras emitir, genera los PNGs 4:5 de cada variación");
   console.error("  --reel     tras emitir, compone el Reel 9:16 de cada variación (requiere ffmpeg)");
   console.error("  --frames=N frames a extraer de un reel para el análisis (default 5)");
+  console.error("  --min-score=N  objetivo de viralidad del loop de calidad (default 75)");
+  console.error("  --max-tries=N  intentos de mejora por variación (default 3)");
+  console.error("  --no-improve   desactiva el loop de calidad (más rápido/barato)");
   console.error("  --cookies=cookies.txt              cookies (Netscape) para yt-dlp (vence login wall)");
   console.error("  --cookies-from-browser=chrome      toma cookies del navegador (chrome/firefox/…)");
   console.error("  (también vía env REMIX_COOKIES / REMIX_COOKIES_FROM_BROWSER)");
@@ -67,23 +74,42 @@ async function main(): Promise<void> {
 
   await mkdir(opts.outDir, { recursive: true });
 
-  // 4) Emisión + score
+  // 4) Loop de calidad → emisión del mejor draft
+  const minScore = opts.minScore ?? THRESHOLD;
+  const maxTries = Math.max(1, opts.maxTries ?? 3);
+  const improve = !opts.noImprove;
+
   const written: string[] = [];
   let i = 0;
   for (const draft of drafts.slice(0, 2)) {
     i++;
-    if (!draft.name) draft.name = `remix-v${i}`;
-    else draft.name = `${draft.name}-v${i}`;
-    const path = await emitCarouselFile(draft, opts.es, opts.outDir);
+
+    // Loop de calidad: puntuar en memoria y mejorar con el feedback del score
+    // hasta alcanzar el umbral o agotar los intentos; se conserva el mejor draft.
+    let best = validateDraft(draft);
+    let bestScore = scoreDraft(best);
+    if (improve && bestScore.total < minScore) {
+      for (let t = 1; t < maxTries && bestScore.total < minScore; t++) {
+        console.log(`  ↻ Variación ${i}: mejorando (intento ${t + 1}/${maxTries}, score ${bestScore.total}/${minScore})…`);
+        const cand = validateDraft(await improveVariation(analysis, best, bestScore.suggestions, { es: opts.es }));
+        const cs = scoreDraft(cand);
+        if (cs.total > bestScore.total) {
+          best = cand;
+          bestScore = cs;
+        }
+      }
+    }
+
+    best.name = best.name ? `${best.name}-v${i}` : `remix-v${i}`;
+    const path = await emitCarouselFile(best, opts.es, opts.outDir);
     written.push(path);
-    console.log(`\n✓ Variación ${i} (${draft.angle || "—"}) → ${path}`);
+    console.log(`\n✓ Variación ${i} (${best.angle || "—"}) → ${path}`);
 
     const mod = await import(pathToFileURL(resolve(path)).href + `?t=${Date.now()}`);
     const spec: CarouselSpec = mod.default;
-    const score = scoreCarousel(spec);
-    printReport(spec.name, score);
-    if (score.total < THRESHOLD) {
-      console.warn(`⚠️  Viralidad ${score.total}/100 bajo el umbral (${THRESHOLD}). Revisa las sugerencias.`);
+    printReport(spec.name, bestScore);
+    if (bestScore.total < minScore) {
+      console.warn(`⚠️  Viralidad ${bestScore.total}/100 bajo el objetivo (${minScore}) tras ${maxTries} intento(s). Emito el mejor; revisa las sugerencias.`);
     }
 
     // Flujo end-to-end: render de PNGs y/o composición del Reel, reutilizando la

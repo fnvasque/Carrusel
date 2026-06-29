@@ -163,6 +163,9 @@ npm run remix "<url>" -- --es=cl                 # copy en español chileno (def
 npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida de los .ts
 npm run remix "<url>" -- --render --reel         # genera PNGs y Reel automáticamente
 npm run remix "<url>" -- --frames=6              # frames a muestrear de un reel (default 5)
+npm run remix "<url>" -- --min-score=80          # objetivo del loop de calidad (default 75)
+npm run remix "<url>" -- --max-tries=4           # intentos de mejora por variación (default 3)
+npm run remix "<url>" -- --no-improve            # desactiva el loop (más rápido/barato)
 # Cookies para vencer el login wall (vía yt-dlp):
 npm run remix "<url>" -- --cookies=cookies.txt           # archivo Netscape cookies.txt
 npm run remix "<url>" -- --cookies-from-browser=chrome   # toma cookies del navegador
@@ -181,6 +184,10 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
   se pueden pasar por env: `REMIX_COOKIES` / `REMIX_COOKIES_FROM_BROWSER`.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
   del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
+- **Loop de calidad**: cada variación se puntúa con el indicador de viralidad y, si está
+  bajo el umbral (75), se **re-genera con el feedback del score** hasta pasarlo o agotar los
+  intentos (`--max-tries`, default 3); se emite siempre el mejor resultado. Ajusta el objetivo
+  con `--min-score` o desactívalo con `--no-improve`.
 - **Idioma**: el copy SIEMPRE sale en español, sin importar el idioma del original.
 - El resultado es **texto editable**: revisa y ajusta el `.ts` antes de publicar; luego
   `npm run generate carousels/<archivo>.ts` (PNGs 4:5) o `npm run reel carousels/<archivo>.ts` (Reel 9:16).
