@@ -1,7 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { GhostNumber, digitsOf } from "./GhostNumber.tsx";
 import type { BaseSlideProps } from "./types.ts";
-import { theme } from "../theme.ts";
+import { theme, pillarColor } from "../theme.ts";
 
 export interface MythRealityProps extends BaseSlideProps {
   /** El mito / lo que se cree. */
@@ -28,8 +28,8 @@ export function MythReality({
 }: MythRealityProps) {
   return (
     <Frame {...base}>
-      <GhostNumber value={digitsOf(mythLabel)} />
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+      <GhostNumber value={digitsOf(mythLabel)} color={pillarColor(base.pillar)} />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: theme.space.lg }}>
         <Panel label={mythLabel} labelColor={theme.colors.textMuted} text={myth} textColor={theme.colors.textMuted} />
         <Panel label={realityLabel} labelColor={theme.colors.green} text={reality} textColor={theme.colors.text} accent={theme.colors.green} />
       </div>

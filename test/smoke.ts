@@ -7,7 +7,7 @@ import { THRESHOLD } from "../src/score/virality.ts";
 import { fitDisplaySize, MIN_DISPLAY } from "../src/templates/fit.ts";
 import { highlightText } from "../src/templates/highlight.tsx";
 import { digitsOf } from "../src/templates/GhostNumber.tsx";
-import { theme } from "../src/theme.ts";
+import { theme, pillarGlow } from "../src/theme.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 
@@ -251,6 +251,14 @@ check("digitsOf extrae 1-2 dígitos del label o devuelve vacío", () => {
   assert.equal(digitsOf("Mentira Nº3"), "3");
   assert.equal(digitsOf("sin número"), "");
   assert.equal(digitsOf(undefined), "");
+});
+
+// --- theme: pillarGlow (ambiente por pilar; keyword sigue cian aparte) ---
+check("pillarGlow tinta por pilar y cae a cian por defecto", () => {
+  assert.ok(pillarGlow("noticia").includes("139,92,246"), "noticia → violeta");
+  assert.ok(pillarGlow("curiosidad").includes("244,113,181"), "curiosidad → rosa");
+  assert.ok(pillarGlow("herramienta").includes("34,211,238"), "herramienta → cian");
+  assert.ok(pillarGlow(undefined).includes("34,211,238"), "default → cian");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

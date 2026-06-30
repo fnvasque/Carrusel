@@ -109,6 +109,12 @@ Definido en `src/theme.ts` y `.context/design-brand.md`:
 - **Profundidad premium**: viñeta sutil en todos los slides, hairlines y paneles
   (MythReality, Prompt) con borde fino + sombra; el panel "realidad" destaca en verde.
 - **Lead reforzado**: hairline cian + jerarquía con la palabra clave subrayada en cian.
+- **Ambiente por pilar**: el pilar tiñe elementos *secundarios* (glow de la superficie,
+  número fantasma, chip, progreso) en cian/violeta/rosa — la **palabra clave del titular
+  sigue SIEMPRE en cian** (regla de marca). Cada pilar se distingue en el feed sin romper la identidad.
+- **Espaciado 8-pt**: ritmo coherente vía `theme.space` (8/16/24/40/64/96).
+- **CTA de cierre**: el slide final se distingue (barra cian + pastilla grande + handle
+  prominente) para señalar el fin del carrusel, sin inundar de cian (60-30-10).
 
 Para añadir una plantilla nueva, crea `src/templates/MiPlantilla.tsx`, envuelve el
 contenido en `<Frame>` y expórtala en `src/templates/index.ts`.

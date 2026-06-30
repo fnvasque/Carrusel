@@ -31,7 +31,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
   const showSwipe = swipe !== false && format !== "reel";
   return (
     <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 28 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: theme.space.md }}>
         {eyebrow && (
           <span
             style={{

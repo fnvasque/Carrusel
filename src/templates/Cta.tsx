@@ -25,7 +25,9 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", height: "100%", gap: 36 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", height: "100%", gap: theme.space.lg }}>
+        {/* Realce de cierre: barra cian que señala el final del carrusel. */}
+        <div style={{ width: 140, height: 8, backgroundColor: cyan, borderRadius: 999 }} />
         <h2
           style={{
             margin: 0,
@@ -46,11 +48,11 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
         <span
           style={{
             fontFamily: theme.fonts.body,
-            fontSize: theme.fontSize.body,
+            fontSize: theme.fontSize.lead,
             fontWeight: 700,
             color: theme.colors.bg,
             backgroundColor: cyan,
-            padding: "20px 36px",
+            padding: `${theme.space.md}px ${theme.space.lg}px`,
             borderRadius: 999,
           }}
         >
@@ -60,9 +62,10 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
           <span
             style={{
               fontFamily: theme.fonts.body,
-              fontSize: theme.fontSize.label,
-              letterSpacing: "0.06em",
-              color: theme.colors.textMuted,
+              fontSize: theme.fontSize.body,
+              fontWeight: 700,
+              letterSpacing: "0.04em",
+              color: theme.colors.text,
             }}
           >
             @{handle}

@@ -12,7 +12,7 @@ export function digitsOf(label?: string): string {
  * En la mitad superior para no invadir la zona segura inferior del Reel.
  * Si no hay `value`, no renderiza nada.
  */
-export function GhostNumber({ value }: { value?: string }) {
+export function GhostNumber({ value, color }: { value?: string; color?: string }) {
   if (!value) return null;
   return (
     <span
@@ -23,7 +23,7 @@ export function GhostNumber({ value }: { value?: string }) {
         fontFamily: theme.fonts.display,
         fontSize: 300,
         lineHeight: 1,
-        color: theme.colors.accent,
+        color: color ?? theme.colors.accent,
         opacity: 0.12,
         pointerEvents: "none",
         userSelect: "none",

@@ -61,6 +61,15 @@ export const theme = {
     /** Viñeta sutil de bordes, siempre presente, para profundidad de escena. */
     vignette: "radial-gradient(120% 90% at 50% 45%, transparent 60%, rgba(0,0,0,0.35) 100%)",
   },
+  /** Escala de espaciado 8-pt para un ritmo visual coherente entre plantillas. */
+  space: {
+    xs: 8,
+    sm: 16,
+    md: 24,
+    lg: 40,
+    xl: 64,
+    xxl: 96,
+  },
 } as const;
 
 /** Color del chip según el pilar de contenido (design-brand.md §5). */
@@ -74,5 +83,22 @@ export function pillarColor(pillar?: Pillar): string {
     case "prompt":
     default:
       return theme.colors.accent;
+  }
+}
+
+/**
+ * Tinte del glow de la superficie de marca según el pilar (ambiente secundario,
+ * NO el keyword del titular, que sigue cian). rgba a baja opacidad para textura.
+ */
+export function pillarGlow(pillar?: Pillar): string {
+  switch (pillar) {
+    case "noticia":
+      return "rgba(139,92,246,0.16)"; // violeta #8B5CF6
+    case "curiosidad":
+      return "rgba(244,113,181,0.16)"; // rosa #F471B5
+    case "herramienta":
+    case "prompt":
+    default:
+      return "rgba(34,211,238,0.16)"; // cian #22D3EE
   }
 }

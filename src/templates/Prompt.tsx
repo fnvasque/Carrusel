@@ -19,7 +19,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: theme.space.lg }}>
         <h2
           style={{
             margin: 0,

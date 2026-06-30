@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Background, Pillar, Format } from "./types.ts";
 import { FORMATS } from "./types.ts";
-import { theme, pillarColor } from "../theme.ts";
+import { theme, pillarColor, pillarGlow } from "../theme.ts";
 
 /** Margen inferior reservado en Reels: la UI de IG tapa los últimos ~420px. */
 const REEL_SAFE_BOTTOM = 440;
@@ -61,7 +61,7 @@ export function Frame({
         backgroundColor: theme.colors.bg,
         // Sin background explícito → superficie de marca (gradiente+glow+grano);
         // con background → se respeta el declarado.
-        ...(background ? backgroundStyle(background) : brandSurfaceStyle()),
+        ...(background ? backgroundStyle(background) : brandSurfaceStyle(pillar)),
         ...style,
       }}
     >
@@ -110,7 +110,9 @@ export function Frame({
                   fontFamily: theme.fonts.display,
                   fontSize: theme.fontSize.label,
                   letterSpacing: "0.08em",
-                  color: theme.colors.textMuted,
+                  // Guiño tenue al color del pilar (ambiente), sin perder legibilidad.
+                  color: pillar ? pillarColor(pillar) : theme.colors.textMuted,
+                  opacity: pillar ? 0.85 : 1,
                 }}
               >
                 {pad(index!)}/{pad(total!)}
@@ -167,11 +169,11 @@ function backgroundStyle(bg?: Background): CSSProperties {
  * near-black con un glow cian superior y una capa de grano sutil. Sube el valor
  * percibido frente al navy plano, sin tocar los CarouselSpec.
  */
-function brandSurfaceStyle(): CSSProperties {
+function brandSurfaceStyle(pillar?: Pillar): CSSProperties {
   return {
     backgroundColor: theme.colors.bg,
     backgroundImage: [
-      `radial-gradient(120% 80% at 70% 0%, ${theme.surface.glow}, transparent 55%)`,
+      `radial-gradient(120% 80% at 70% 0%, ${pillarGlow(pillar)}, transparent 55%)`,
       `linear-gradient(180deg, ${theme.colors.bg}, ${theme.surface.bgDeep})`,
       "var(--brand-grain)",
     ].join(", "),

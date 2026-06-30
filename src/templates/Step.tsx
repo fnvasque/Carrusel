@@ -3,7 +3,7 @@ import { GhostNumber } from "./GhostNumber.tsx";
 import { highlightText } from "./highlight.tsx";
 import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
-import { theme } from "../theme.ts";
+import { theme, pillarColor } from "../theme.ts";
 
 export interface StepProps extends BaseSlideProps {
   /** Número o índice del paso (ej. "01"). Opcional. */
@@ -26,8 +26,8 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <GhostNumber value={step} />
-      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+      <GhostNumber value={step} color={pillarColor(base.pillar)} />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: theme.space.lg }}>
         {step && (
           <span style={{ fontFamily: theme.fonts.display, fontSize: theme.fontSize.kicker, color: cyan }}>{step}</span>
         )}
