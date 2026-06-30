@@ -261,5 +261,12 @@ check("pillarGlow tinta por pilar y cae a cian por defecto", () => {
   assert.ok(pillarGlow(undefined).includes("34,211,238"), "default → cian");
 });
 
+// --- theme: identidad clara/serif (rebrand) ---
+check("theme tiene fuente serif y tema claro", () => {
+  assert.equal(theme.fonts.serif, "PlayfairDisplay");
+  assert.equal(theme.colors.bg, "#FBFAF7"); // fondo claro
+  assert.equal(theme.colors.text, "#0B1020"); // tinta oscura sobre claro
+});
+
 console.log(`\n${passed} ok, ${failed} fallos`);
 process.exit(failed ? 1 : 0);

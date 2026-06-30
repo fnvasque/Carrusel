@@ -173,7 +173,8 @@ function brandSurfaceStyle(pillar?: Pillar): CSSProperties {
   return {
     backgroundColor: theme.colors.bg,
     backgroundImage: [
-      `radial-gradient(120% 80% at 70% 0%, ${pillarGlow(pillar)}, transparent 55%)`,
+      `radial-gradient(120% 80% at 75% -5%, ${pillarGlow(pillar)}, transparent 55%)`,
+      theme.surface.grid,
       `linear-gradient(180deg, ${theme.colors.bg}, ${theme.surface.bgDeep})`,
       "var(--brand-grain)",
     ].join(", "),
@@ -205,15 +206,17 @@ function scrimLayer(bg?: Background) {
   const hasImage = "image" in bg;
   const overlay = "overlay" in bg ? bg.overlay : undefined;
   if (!hasImage && overlay === undefined) return null;
-  const a = Math.min(1, Math.max(0, overlay ?? 0.9));
+  const a = Math.min(1, Math.max(0, overlay ?? 0.85));
+  // Velo CLARO desde abajo: garantiza el contraste del TEXTO OSCURO sobre
+  // imágenes, sin oscurecer la escena (identidad clara).
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
         backgroundImage:
-          `radial-gradient(140% 100% at 50% 0%, transparent 40%, rgba(7,10,18,0.35)), ` +
-          `linear-gradient(180deg, transparent 28%, rgba(7,10,18,${a}) 100%)`,
+          `radial-gradient(140% 100% at 50% 100%, transparent 45%, rgba(251,250,247,0.25)), ` +
+          `linear-gradient(180deg, transparent 30%, rgba(251,250,247,${a}) 100%)`,
       }}
     />
   );

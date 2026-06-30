@@ -35,19 +35,20 @@ export function highlightText(
 
 function treatmentStyle(treatment: HighlightTreatment, color: string): CSSProperties {
   if (treatment === "slab") {
+    // Marcador "highlighter" hecho a mano: swash de color con la tinta encima.
     return {
-      backgroundColor: color,
-      color: theme.colors.bg,
-      padding: "0 0.12em",
-      borderRadius: 6,
+      backgroundImage: `linear-gradient(100deg, transparent 1%, ${color} 1.6%, ${color} 96%, transparent 97%)`,
+      color: theme.colors.text,
+      padding: "0 0.08em",
+      borderRadius: 4,
       boxDecorationBreak: "clone",
       WebkitBoxDecorationBreak: "clone",
     };
   }
   if (treatment === "underline") {
     return {
-      borderBottom: `0.09em solid ${color}`,
-      paddingBottom: "0.04em",
+      borderBottom: `0.12em solid ${color}`,
+      paddingBottom: "0.02em",
     };
   }
   return { color };

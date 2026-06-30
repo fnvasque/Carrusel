@@ -36,7 +36,7 @@ ${fonts}
 ${brand}
 ${BRAND_GRAIN_CSS}
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{margin:0;padding:0;background:#000;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+html,body{margin:0;padding:0;background:#FBFAF7;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
 </style>
 </head>
 <body>${slideMarkup}</body>

@@ -12,20 +12,22 @@ export const theme = {
   fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   /** Familias de marca. Deben coincidir con el nombre de archivo en src/fonts/ (Familia-Peso.ext). */
   fonts: {
-    display: "Anton", // titulares, SIEMPRE en MAYÚSCULAS
+    display: "Anton", // (legacy) titular condensado; el rebrand usa `serif`
+    serif: "PlayfairDisplay", // titulares editoriales mayúscula/minúscula
     body: "Inter", // cuerpo
     mono: "JetBrainsMono", // prompts / código
   },
   colors: {
-    bg: "#0B1020", // Fondo Noche
-    panel: "#151D33",
-    panel2: "#1C2640",
-    accent: "#22D3EE", // Cian — palabra clave del titular SIEMPRE en cian (≤10%)
+    // Identidad CLARA/editorial (rebrand): crema + tinta oscura, acentos cian/rosa.
+    bg: "#FBFAF7", // Fondo crema editorial
+    panel: "#FFFFFF", // tarjetas/paneles claros
+    panel2: "#F4F1EA", // panel alterno (crema)
+    accent: "#22D3EE", // Cian — acento primario (marcador/subrayado)
     violet: "#8B5CF6", // chip pilar Noticia
-    pink: "#F471B5", // chip pilar Curiosidad
-    green: "#34D399",
-    text: "#E8ECF4",
-    textMuted: "#94A0B8",
+    pink: "#F471B5", // Rosa — acento secundario
+    green: "#1FA97A", // verde con contraste sobre claro (realidad)
+    text: "#0B1020", // tinta (texto principal sobre claro)
+    textMuted: "#5B6472", // gris cálido
   },
   /** Escala tipográfica en px, pensada para un lienzo de 1080x1350. */
   fontSize: {
@@ -51,15 +53,17 @@ export const theme = {
    * navy → near-black con un glow cian. Reemplaza el navy plano "barato".
    */
   surface: {
-    bgDeep: "#070A12",
-    glow: "rgba(34,211,238,0.16)",
-    /** Líneas finas / bordes de baja opacidad (dark UI premium). */
-    hairline: "rgba(255,255,255,0.08)",
-    panelBorder: "rgba(255,255,255,0.06)",
-    /** Sombra suave + realce superior para dar profundidad a los paneles. */
-    panelShadow: "0 12px 40px rgba(0,0,0,0.35), inset 0 1px rgba(255,255,255,0.05)",
-    /** Viñeta sutil de bordes, siempre presente, para profundidad de escena. */
-    vignette: "radial-gradient(120% 90% at 50% 45%, transparent 60%, rgba(0,0,0,0.35) 100%)",
+    bgDeep: "#F1EDE3", // crema profunda para el gradiente base
+    glow: "rgba(34,211,238,0.10)", // glow cian tenue sobre claro
+    /** Líneas finas / bordes de baja opacidad (tinta sobre claro). */
+    hairline: "rgba(11,16,32,0.10)",
+    panelBorder: "rgba(11,16,32,0.08)",
+    /** Sombra suave para tarjetas sobre fondo claro. */
+    panelShadow: "0 14px 40px rgba(11,16,32,0.08)",
+    /** Viñeta clarísima (casi nula) sobre fondo claro. */
+    vignette: "radial-gradient(120% 90% at 50% 45%, transparent 70%, rgba(11,16,32,0.05) 100%)",
+    /** Cuadrícula editorial sutil (papel de cuaderno). */
+    grid: "repeating-linear-gradient(0deg, rgba(11,16,32,0.035) 0 1px, transparent 1px 46px), repeating-linear-gradient(90deg, rgba(11,16,32,0.035) 0 1px, transparent 1px 46px)",
   },
   /** Escala de espaciado 8-pt para un ritmo visual coherente entre plantillas. */
   space: {
