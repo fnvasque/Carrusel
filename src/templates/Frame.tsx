@@ -66,6 +66,7 @@ export function Frame({
       }}
     >
       {scrimLayer(background)}
+      {vignetteLayer()}
       <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
         {/* Marca: logo arriba-izquierda */}
         {showLogo && (
@@ -183,6 +184,20 @@ function brandSurfaceStyle(): CSSProperties {
  * `overlay` controla la intensidad del scrim (default 0.9). Para fondos sin
  * imagen ni `overlay`, no se pinta nada (igual que antes).
  */
+/** Viñeta sutil de bordes, SIEMPRE presente, para profundidad de "dark UI". */
+function vignetteLayer() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        pointerEvents: "none",
+        backgroundImage: theme.surface.vignette,
+      }}
+    />
+  );
+}
+
 function scrimLayer(bg?: Background) {
   if (!bg) return null;
   const hasImage = "image" in bg;

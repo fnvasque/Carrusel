@@ -6,6 +6,7 @@ import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
 import { fitDisplaySize, MIN_DISPLAY } from "../src/templates/fit.ts";
 import { highlightText } from "../src/templates/highlight.tsx";
+import { digitsOf } from "../src/templates/GhostNumber.tsx";
 import { theme } from "../src/theme.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
@@ -241,6 +242,15 @@ check("highlightText soporta slab/underline/color sin romper y default compatibl
   const under = highlightText("5 TIPS", "TIPS", "#22D3EE", "underline");
   assert.equal(typeof slab, "object");
   assert.equal(typeof under, "object");
+});
+
+// --- GhostNumber: digitsOf ---
+check("digitsOf extrae 1-2 dígitos del label o devuelve vacío", () => {
+  assert.equal(digitsOf("Nº1"), "1");
+  assert.equal(digitsOf("01"), "01");
+  assert.equal(digitsOf("Mentira Nº3"), "3");
+  assert.equal(digitsOf("sin número"), "");
+  assert.equal(digitsOf(undefined), "");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

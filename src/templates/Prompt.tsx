@@ -46,6 +46,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
         <div
           style={{
             backgroundColor: theme.colors.panel,
+            border: `1px solid ${theme.surface.panelBorder}`,
             borderLeft: `6px solid ${cyan}`,
             borderRadius: 16,
             padding: 40,
@@ -54,6 +55,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
             lineHeight: 1.4,
             color: theme.colors.text,
             whiteSpace: "pre-wrap",
+            boxShadow: theme.surface.panelShadow,
           }}
         >
           {prompt}

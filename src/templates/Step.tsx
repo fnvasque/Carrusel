@@ -1,4 +1,5 @@
 import { Frame } from "./Frame.tsx";
+import { GhostNumber } from "./GhostNumber.tsx";
 import { highlightText } from "./highlight.tsx";
 import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
@@ -25,7 +26,8 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+      <GhostNumber value={step} />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
         {step && (
           <span style={{ fontFamily: theme.fonts.display, fontSize: theme.fontSize.kicker, color: cyan }}>{step}</span>
         )}

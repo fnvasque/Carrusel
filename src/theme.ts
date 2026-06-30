@@ -53,6 +53,13 @@ export const theme = {
   surface: {
     bgDeep: "#070A12",
     glow: "rgba(34,211,238,0.16)",
+    /** Líneas finas / bordes de baja opacidad (dark UI premium). */
+    hairline: "rgba(255,255,255,0.08)",
+    panelBorder: "rgba(255,255,255,0.06)",
+    /** Sombra suave + realce superior para dar profundidad a los paneles. */
+    panelShadow: "0 12px 40px rgba(0,0,0,0.35), inset 0 1px rgba(255,255,255,0.05)",
+    /** Viñeta sutil de bordes, siempre presente, para profundidad de escena. */
+    vignette: "radial-gradient(120% 90% at 50% 45%, transparent 60%, rgba(0,0,0,0.35) 100%)",
   },
 } as const;
 

@@ -104,6 +104,11 @@ Definido en `src/theme.ts` y `.context/design-brand.md`:
   un **piso de tamaño** (`MIN_DISPLAY`) para que un titular largo se acorte, no se encoja.
 - **Fondos IA abstractos**: el estilo del prompt de `gpt-image-1` es gráfico/abstracto
   (gradiente, glow, grano — sin objetos ni dispositivos), reservado para portada/CTA.
+- **Número fantasma**: Step y MythReality pintan el índice (01, Nº1…) en Anton gigante
+  como marca de agua cian de baja opacidad detrás del contenido (textura editorial).
+- **Profundidad premium**: viñeta sutil en todos los slides, hairlines y paneles
+  (MythReality, Prompt) con borde fino + sombra; el panel "realidad" destaca en verde.
+- **Lead reforzado**: hairline cian + jerarquía con la palabra clave subrayada en cian.
 
 Para añadir una plantilla nueva, crea `src/templates/MiPlantilla.tsx`, envuelve el
 contenido en `<Frame>` y expórtala en `src/templates/index.ts`.
