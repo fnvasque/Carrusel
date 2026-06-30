@@ -12,6 +12,22 @@ import { TEMPLATE_CATALOG, isTemplateName, validPropKeys } from "./templates-cat
  * - garantiza un Hook al inicio y un Cta al final,
  * - recalcula index/total en los slides de desarrollo.
  */
+/**
+ * Limpia el texto que devuelve el modelo: quita etiquetas/markup (`<...>`) que a
+ * veces se cuelan en el copy (p. ej. `<highlight>palabra</highlight>`), colapsa
+ * espacios y recorta. La palabra a resaltar va SOLO en la prop `highlight`, no en
+ * el texto. Aplica a strings y arrays de strings; otros tipos pasan igual.
+ */
+export function sanitizeText(s: string): string {
+  return s.replace(/<\/?[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
+function sanitizeProp(v: string | string[] | number | boolean): string | string[] | number | boolean {
+  if (typeof v === "string") return sanitizeText(v);
+  if (Array.isArray(v)) return v.map((x) => (typeof x === "string" ? sanitizeText(x) : x)) as string[];
+  return v;
+}
+
 export function validateDraft(draft: VariationDraft): VariationDraft {
   let slides: LogicalSlide[] = draft.slides.filter((s) => isTemplateName(s.template));
 
@@ -20,7 +36,7 @@ export function validateDraft(draft: VariationDraft): VariationDraft {
     const allowed = validPropKeys(s.template);
     const props: LogicalSlide["props"] = {};
     for (const [k, v] of Object.entries(s.props)) {
-      if (allowed.has(k)) props[k] = v;
+      if (allowed.has(k)) props[k] = sanitizeProp(v);
     }
     for (const req of TEMPLATE_CATALOG[s.template].required) {
       if (props[req] === undefined || props[req] === "") props[req] = "…";

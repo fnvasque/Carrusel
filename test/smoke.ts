@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
-import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
+import { slugify, validateDraft, templatesImportBase, sanitizeText } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
 import { fitDisplaySize, MIN_DISPLAY } from "../src/templates/fit.ts";
@@ -259,6 +259,22 @@ check("pillarGlow tinta por pilar y cae a cian por defecto", () => {
   assert.ok(pillarGlow("curiosidad").includes("244,113,181"), "curiosidad → rosa");
   assert.ok(pillarGlow("herramienta").includes("34,211,238"), "herramienta → cian");
   assert.ok(pillarGlow(undefined).includes("34,211,238"), "default → cian");
+});
+
+// --- emit: sanitizeText quita markup que el modelo a veces cuela ---
+check("sanitizeText elimina etiquetas y normaliza espacios", () => {
+  assert.equal(sanitizeText("5 pasos para <highlight>aprovechar</highlight> YouTube"), "5 pasos para aprovechar YouTube");
+  assert.equal(sanitizeText("texto  con   espacios"), "texto con espacios");
+  assert.equal(sanitizeText("limpio"), "limpio");
+});
+// validateDraft también debe limpiar el markup en las props
+check("validateDraft sanea el markup en props de texto", () => {
+  const v = validateDraft({
+    name: "x", angle: "x", pillar: "herramienta",
+    slides: [{ template: "Hook", props: { title: "Usa <b>NotebookLM</b> hoy", highlight: "NotebookLM" } }],
+  });
+  const hook = v.slides.find((s) => s.template === "Hook")!;
+  assert.equal(hook.props.title, "Usa NotebookLM hoy");
 });
 
 // --- theme: identidad clara/serif (rebrand) ---
