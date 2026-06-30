@@ -49,11 +49,11 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
         <h1
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: titleFont,
-            lineHeight: 0.92,
-            textTransform: "uppercase",
-            letterSpacing: theme.tracking.display,
+            lineHeight: 1.0,
+            letterSpacing: theme.tracking.tight,
           }}
         >
           {highlightText(title, highlight, cyan, "slab")}

@@ -38,7 +38,7 @@ export function Lead({ kicker, text, highlight, accent, ...base }: LeadProps) {
             </span>
           )}
         </div>
-        <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, fontWeight: 600, lineHeight: 1.28 }}>
+        <p style={{ margin: 0, fontFamily: theme.fonts.serif, fontStyle: "italic", fontSize: theme.fontSize.title, fontWeight: 600, lineHeight: 1.12, color: theme.colors.text }}>
           {highlightText(text, highlight, cyan, "underline")}
         </p>
         <div style={{ width: "100%", height: 1, backgroundColor: theme.surface.hairline }} />

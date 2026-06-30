@@ -23,10 +23,11 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
         <h2
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: theme.fontSize.heading,
-            lineHeight: 1.05,
-            textTransform: "uppercase",
+            lineHeight: 1.04,
+            letterSpacing: theme.tracking.tight,
           }}
         >
           {heading}

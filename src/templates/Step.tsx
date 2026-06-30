@@ -29,15 +29,15 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
       <GhostNumber value={step} color={pillarColor(base.pillar)} />
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: theme.space.lg }}>
         {step && (
-          <span style={{ fontFamily: theme.fonts.display, fontSize: theme.fontSize.kicker, color: cyan }}>{step}</span>
+          <span style={{ fontFamily: theme.fonts.body, fontWeight: 700, fontSize: theme.fontSize.label, letterSpacing: "0.16em", textTransform: "uppercase", color: cyan }}>{step}</span>
         )}
         <h2
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: fitDisplaySize(heading, theme.fontSize.heading),
-            lineHeight: 1.0,
-            textTransform: "uppercase",
+            lineHeight: 1.04,
             letterSpacing: theme.tracking.tight,
           }}
         >

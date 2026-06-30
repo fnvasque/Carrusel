@@ -70,19 +70,20 @@ export function Frame({
       <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
         {/* Marca: logo arriba-izquierda */}
         {showLogo && (
-          <div
+          <span
             style={{
               position: "absolute",
               top: 0,
               left: 0,
-              width: 140,
-              height: 56,
-              backgroundImage: "var(--brand-logo)",
-              backgroundSize: "contain",
-              backgroundPosition: "left center",
-              backgroundRepeat: "no-repeat",
+              fontFamily: theme.fonts.body,
+              fontWeight: 800,
+              fontSize: 36,
+              letterSpacing: "-0.01em",
+              color: theme.colors.text,
             }}
-          />
+          >
+            ia<span style={{ color: theme.colors.accent }}>.</span>es
+          </span>
         )}
         {/* Marca: chip de pilar + progreso, arriba-derecha */}
         {(pillar || hasProgress) && (

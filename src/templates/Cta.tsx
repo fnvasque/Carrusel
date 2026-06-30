@@ -26,16 +26,19 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
   return (
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", height: "100%", gap: theme.space.lg }}>
-        {/* Realce de cierre: barra cian que señala el final del carrusel. */}
-        <div style={{ width: 140, height: 8, backgroundColor: cyan, borderRadius: 999 }} />
+        {/* Realce de cierre: barra cian + rosa que señala el final del carrusel. */}
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ width: 80, height: 9, backgroundColor: cyan, borderRadius: 999 }} />
+          <div style={{ width: 30, height: 9, backgroundColor: theme.colors.pink, borderRadius: 999 }} />
+        </div>
         <h2
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: fitDisplaySize(title, theme.fontSize.title),
-            lineHeight: 0.96,
-            textTransform: "uppercase",
-            letterSpacing: theme.tracking.display,
+            lineHeight: 1.0,
+            letterSpacing: theme.tracking.tight,
           }}
         >
           {highlightText(title, highlight, cyan, "slab")}
@@ -51,26 +54,24 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
             fontSize: theme.fontSize.lead,
             fontWeight: 700,
             color: theme.colors.bg,
-            backgroundColor: cyan,
+            backgroundColor: theme.colors.text,
             padding: `${theme.space.md}px ${theme.space.lg}px`,
             borderRadius: 999,
           }}
         >
           {cta ?? "📩 Link en bio"}
         </span>
-        {handle && (
-          <span
-            style={{
-              fontFamily: theme.fonts.body,
-              fontSize: theme.fontSize.body,
-              fontWeight: 700,
-              letterSpacing: "0.04em",
-              color: theme.colors.text,
-            }}
-          >
-            @{handle}
-          </span>
-        )}
+        <span
+          style={{
+            fontFamily: theme.fonts.body,
+            fontSize: theme.fontSize.body,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            color: theme.colors.text,
+          }}
+        >
+          @{handle ?? "ia.punto.es"}
+        </span>
       </div>
     </Frame>
   );

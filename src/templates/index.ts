@@ -8,4 +8,5 @@ export { Cta, type CtaProps } from "./Cta.tsx";
 export { Lead, type LeadProps } from "./Lead.tsx";
 export { MythReality, type MythRealityProps } from "./MythReality.tsx";
 export { Frame } from "./Frame.tsx";
+export { Annotated } from "./Annotated.tsx";
 export * from "./types.ts";

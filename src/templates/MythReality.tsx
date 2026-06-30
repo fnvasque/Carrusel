@@ -77,7 +77,7 @@ function Panel({
       >
         {label}
       </span>
-      <p style={{ margin: 0, fontFamily: theme.fonts.display, fontSize: theme.fontSize.heading, lineHeight: 1.1, textTransform: "uppercase", color: textColor }}>
+      <p style={{ margin: 0, fontFamily: theme.fonts.serif, fontWeight: 700, fontSize: theme.fontSize.heading, lineHeight: 1.08, color: textColor }}>
         {text}
       </p>
     </div>
