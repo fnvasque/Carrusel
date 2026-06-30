@@ -34,11 +34,12 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
             margin: 0,
             fontFamily: theme.fonts.display,
             fontSize: fitDisplaySize(heading, theme.fontSize.heading),
-            lineHeight: 1.05,
+            lineHeight: 1.0,
             textTransform: "uppercase",
+            letterSpacing: theme.tracking.tight,
           }}
         >
-          {highlightText(heading, highlight, cyan)}
+          {highlightText(heading, highlight, cyan, "slab")}
         </h2>
         {body && (
           <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.45, color: theme.colors.textMuted }}>

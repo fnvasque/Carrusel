@@ -31,11 +31,12 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
             margin: 0,
             fontFamily: theme.fonts.display,
             fontSize: fitDisplaySize(title, theme.fontSize.title),
-            lineHeight: 1.05,
+            lineHeight: 0.96,
             textTransform: "uppercase",
+            letterSpacing: theme.tracking.display,
           }}
         >
-          {highlightText(title, highlight, cyan)}
+          {highlightText(title, highlight, cyan, "slab")}
         </h2>
         {reason && (
           <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, lineHeight: 1.3, color: theme.colors.textMuted }}>

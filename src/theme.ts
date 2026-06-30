@@ -41,6 +41,19 @@ export const theme = {
   },
   /** Margen interior estándar del lienzo (escala de marca 96 / 120 / 160). */
   padding: 120,
+  /** Tracking (letter-spacing) de titulares Anton: apretado para look poster. */
+  tracking: {
+    display: "-0.02em",
+    tight: "-0.01em",
+  },
+  /**
+   * Superficie de marca por defecto (cuando un slide no trae `background`):
+   * navy → near-black con un glow cian. Reemplaza el navy plano "barato".
+   */
+  surface: {
+    bgDeep: "#070A12",
+    glow: "rgba(34,211,238,0.16)",
+  },
 } as const;
 
 /** Color del chip según el pilar de contenido (design-brand.md §5). */

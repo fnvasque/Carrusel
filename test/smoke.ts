@@ -4,6 +4,9 @@ import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
+import { fitDisplaySize, MIN_DISPLAY } from "../src/templates/fit.ts";
+import { highlightText } from "../src/templates/highlight.tsx";
+import { theme } from "../src/theme.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 
@@ -214,6 +217,30 @@ check("projectOutcome aplica las rectas y clampa a 0", () => {
 check("pearson da 1 en correlación perfecta y null con <3 puntos", () => {
   assert.equal(pearson([1, 2, 3], [2, 4, 6]), 1);
   assert.equal(pearson([1, 2], [1, 2]), null);
+});
+
+// --- fit: piso type-as-hero ---
+check("fitDisplaySize aplica piso a titulares grandes, no a escalas chicas", () => {
+  // titular largo con max=display → no baja del piso
+  const largo = "Un titular muy largo que antes encogía hasta volverse ilegible en la portada";
+  assert.ok(fitDisplaySize(largo, theme.fontSize.display) >= MIN_DISPLAY, "display debe respetar el piso");
+  // con max chico (heading) NO se infla al piso (sigue siendo proporcional)
+  assert.ok(fitDisplaySize(largo, theme.fontSize.heading) < MIN_DISPLAY, "heading no debe inflarse al piso");
+  // titular corto se mantiene grande
+  assert.equal(fitDisplaySize("Corto", theme.fontSize.display), theme.fontSize.display);
+});
+
+// --- highlight: tratamientos ---
+check("highlightText soporta slab/underline/color sin romper y default compatible", () => {
+  // default (color) sigue devolviendo un nodo cuando hay match
+  assert.notEqual(highlightText("hola mundo", "mundo", "#22D3EE"), "hola mundo");
+  // sin highlight devuelve el texto crudo
+  assert.equal(highlightText("hola", undefined, "#22D3EE"), "hola");
+  // slab/underline no lanzan y devuelven un nodo (no string) cuando hay match
+  const slab = highlightText("5 TIPS", "TIPS", "#22D3EE", "slab");
+  const under = highlightText("5 TIPS", "TIPS", "#22D3EE", "underline");
+  assert.equal(typeof slab, "object");
+  assert.equal(typeof under, "object");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

@@ -92,6 +92,18 @@ Definido en `src/theme.ts` y `.context/design-brand.md`:
 - **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
   Archivos en `src/fonts/`; logos en `src/assets/`.
 - **Pilares** (`pillar`): `herramienta` · `noticia` · `prompt` · `curiosidad`.
+- **Superficie por defecto**: los slides sin `background` ya no son navy plano, sino una
+  **superficie de marca** (gradiente navy→near-black + glow cian + grano sutil), para más
+  profundidad/valor percibido.
+- **Scrim direccional**: sobre fondos `{ image }`/`{ ai }`, `overlay` ahora controla la
+  intensidad de un **scrim de abajo→arriba** (no un negro plano), garantizando legibilidad
+  del texto anclado abajo sin apagar la imagen.
+- **Firma cian (slab)**: en los titulares (Hook/Cta/Step) la palabra `highlight` se pinta
+  como **marcador cian** (fondo cian, texto navy) — reconocible sin leer el logo.
+- **Type-as-hero**: titulares Anton dominantes (lineHeight ajustado, tracking negativo) con
+  un **piso de tamaño** (`MIN_DISPLAY`) para que un titular largo se acorte, no se encoja.
+- **Fondos IA abstractos**: el estilo del prompt de `gpt-image-1` es gráfico/abstracto
+  (gradiente, glow, grano — sin objetos ni dispositivos), reservado para portada/CTA.
 
 Para añadir una plantilla nueva, crea `src/templates/MiPlantilla.tsx`, envuelve el
 contenido en `<Frame>` y expórtala en `src/templates/index.ts`.

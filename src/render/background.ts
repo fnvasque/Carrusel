@@ -10,9 +10,9 @@ import { generateBackground } from "../ai/openaiImage.ts";
  * lo fija el lienzo 1080x1350).
  */
 const BRAND_IMAGE_STYLE =
-  "editorial tech photography, deep navy #0B1020 background, cinematic cyan rim light " +
-  "with subtle violet glow, high contrast, minimalist composition, generous negative " +
-  "space for text, shallow depth of field, photoreal, no text, no watermark";
+  "abstract branded backdrop, deep navy #0B1020 to near-black gradient, soft cyan #22D3EE " +
+  "glow orb, subtle film grain, faint bokeh light specks, NO objects, NO devices, NO people, " +
+  "NO text, NO watermark, generous dark negative space for text overlay, poster aesthetic, high contrast";
 
 /** Anexa el estilo de marca al prompt, salvo que `brandStyle` sea false. */
 function applyBrandStyle(prompt: string, enabled?: boolean): string {

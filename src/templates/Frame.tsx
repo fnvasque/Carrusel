@@ -59,11 +59,13 @@ export function Frame({
         fontFamily: fontFamily ?? theme.fontFamily,
         color: color ?? theme.colors.text,
         backgroundColor: theme.colors.bg,
-        ...backgroundStyle(background),
+        // Sin background explícito → superficie de marca (gradiente+glow+grano);
+        // con background → se respeta el declarado.
+        ...(background ? backgroundStyle(background) : brandSurfaceStyle()),
         ...style,
       }}
     >
-      {overlayLayer(background)}
+      {scrimLayer(background)}
       <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
         {/* Marca: logo arriba-izquierda */}
         {showLogo && (
@@ -159,16 +161,42 @@ function backgroundStyle(bg?: Background): CSSProperties {
   return {};
 }
 
-/** Capa oscura encima del fondo para mejorar el contraste del texto. */
-function overlayLayer(bg?: Background) {
-  const overlay = bg && "overlay" in bg ? bg.overlay : undefined;
-  if (!overlay) return null;
+/**
+ * Superficie de marca por defecto (cuando el slide no trae `background`): navy →
+ * near-black con un glow cian superior y una capa de grano sutil. Sube el valor
+ * percibido frente al navy plano, sin tocar los CarouselSpec.
+ */
+function brandSurfaceStyle(): CSSProperties {
+  return {
+    backgroundColor: theme.colors.bg,
+    backgroundImage: [
+      `radial-gradient(120% 80% at 70% 0%, ${theme.surface.glow}, transparent 55%)`,
+      `linear-gradient(180deg, ${theme.colors.bg}, ${theme.surface.bgDeep})`,
+      "var(--brand-grain)",
+    ].join(", "),
+  };
+}
+
+/**
+ * Scrim DIRECCIONAL (de abajo→arriba) + viñeta sutil, para garantizar contraste
+ * del texto anclado abajo sobre fondos `{image}`/`{ai}` sin apagar la imagen.
+ * `overlay` controla la intensidad del scrim (default 0.9). Para fondos sin
+ * imagen ni `overlay`, no se pinta nada (igual que antes).
+ */
+function scrimLayer(bg?: Background) {
+  if (!bg) return null;
+  const hasImage = "image" in bg;
+  const overlay = "overlay" in bg ? bg.overlay : undefined;
+  if (!hasImage && overlay === undefined) return null;
+  const a = Math.min(1, Math.max(0, overlay ?? 0.9));
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
-        backgroundColor: `rgba(0,0,0,${overlay})`,
+        backgroundImage:
+          `radial-gradient(140% 100% at 50% 0%, transparent 40%, rgba(7,10,18,0.35)), ` +
+          `linear-gradient(180deg, transparent 28%, rgba(7,10,18,${a}) 100%)`,
       }}
     />
   );
