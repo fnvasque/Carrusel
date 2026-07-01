@@ -19,10 +19,6 @@ const carousel: CarouselSpec = {
         title: "5 mentiras sobre la IA que te frenan",
         highlight: "mentiras",
         subtitle: "Y por qué la #3 te está costando plata.",
-        background: {
-          ai: "a shattered glass mirror reflecting fragmented cyan light, deep navy background, minimalist, generous negative space",
-          overlay: 0.5,
-        },
       },
     },
     {
@@ -32,9 +28,7 @@ const carousel: CarouselSpec = {
         total: 7,
         mythLabel: "Mentira Nº1",
         myth: "La IA te quitará el trabajo.",
-        reality: "Te reemplaza quien sabe usarla.",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
-      },
+        reality: "Te reemplaza quien sabe usarla.",      },
     },
     {
       template: MythReality,
@@ -43,9 +37,7 @@ const carousel: CarouselSpec = {
         total: 7,
         mythLabel: "Mentira Nº2",
         myth: "Necesitas saber de tecnología.",
-        reality: "Si usas WhatsApp, sabes usarla.",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
-      },
+        reality: "Si usas WhatsApp, sabes usarla.",      },
     },
     {
       template: MythReality,
@@ -54,9 +46,7 @@ const carousel: CarouselSpec = {
         total: 7,
         mythLabel: "Mentira Nº3",
         myth: "Hay que pagar para que sirva.",
-        reality: "Gratis ya hace el 90%.",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
-      },
+        reality: "Gratis ya hace el 90%.",      },
     },
     {
       template: MythReality,
@@ -65,9 +55,7 @@ const carousel: CarouselSpec = {
         total: 7,
         mythLabel: "Mentira Nº4",
         myth: "La IA siempre tiene la razón.",
-        reality: "Inventa. Tú revisas y decides.",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
-      },
+        reality: "Inventa. Tú revisas y decides.",      },
     },
     {
       template: MythReality,
@@ -76,9 +64,7 @@ const carousel: CarouselSpec = {
         total: 7,
         mythLabel: "Mentira Nº5",
         myth: "Ya es muy tarde para empezar.",
-        reality: "Estamos todos empezando.",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
-      },
+        reality: "Estamos todos empezando.",      },
     },
     {
       template: Cta,
@@ -87,10 +73,6 @@ const carousel: CarouselSpec = {
         highlight: "Mándaselo",
         reason: "Y recibe lo que importa en IA, cada semana en tu correo.",
         handle: "ia.punto.es",
-        background: {
-          ai: "an abstract half-open mail envelope with cyan light pouring out, navy background",
-          overlay: 0.5,
-        },
       },
     },
   ],
