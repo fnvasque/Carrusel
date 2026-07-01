@@ -9,6 +9,9 @@ import { highlightText } from "../src/templates/highlight.tsx";
 import { digitsOf } from "../src/templates/GhostNumber.tsx";
 import { theme, pillarGlow } from "../src/theme.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
+import { specToReadable, specToPlainSlides } from "../src/templates/slideText.ts";
+import { extractJson } from "../src/ai/client.ts";
+import { normalizeAudience, normalizeFactCheck, gateSuggestions, type ContentGateResult } from "../src/ai/evaluate.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 
 /**
@@ -282,6 +285,92 @@ check("theme tiene fuente serif y tema claro", () => {
   assert.equal(theme.fonts.serif, "PlayfairDisplay");
   assert.equal(theme.colors.bg, "#FBFAF7"); // fondo claro
   assert.equal(theme.colors.text, "#0B1020"); // tinta oscura sobre claro
+});
+
+// --- slideText: extracción de texto legible del carrusel ---
+check("specToReadable extrae el copy legible por slide e ignora props de control", () => {
+  const draft: VariationDraft = {
+    name: "lectura",
+    angle: "x",
+    pillar: "curiosidad",
+    slides: [
+      { template: "Hook", props: { title: "3 trucos de IA", highlight: "trucos", index: 1, total: 2 } },
+      { template: "Prompt", props: { heading: "Copia esto", prompt: "Resume en 3 puntos:", bullets: ["uno", "dos"] } },
+    ],
+  };
+  const readable = specToReadable(draftToSpec(draft));
+  // Incluye todo el copy legible (incluido el prompt copiable y los bullets)…
+  assert.ok(readable.includes("3 trucos de IA"), "falta el título");
+  assert.ok(readable.includes("Resume en 3 puntos"), "falta el prompt copiable");
+  assert.ok(readable.includes("uno") && readable.includes("dos"), "faltan los bullets");
+  // …y NO filtra props de control (index/total) como si fueran texto.
+  assert.ok(!/\bindex\b|\btotal\b/.test(readable), "no debe incluir nombres de props de control");
+  assert.equal(specToPlainSlides(draftToSpec(draft)).length, 2);
+});
+
+// --- client: extractJson tolera prosa/```json alrededor del objeto ---
+check("extractJson parsea JSON limpio y también envuelto en texto", () => {
+  assert.deepEqual(extractJson('{"a":1}'), { a: 1 });
+  assert.deepEqual(extractJson('```json\n{"a":2}\n```'), { a: 2 });
+  assert.deepEqual(extractJson('Claro, aquí tienes: {"a":3} ¡listo!'), { a: 3 });
+  assert.deepEqual(extractJson("no hay json"), {});
+});
+
+// --- evaluate: normalizeAudience clampa y suma el total ---
+check("normalizeAudience clampa por dimensión, suma total y mapea grade", () => {
+  const r = normalizeAudience({
+    dimensions: [
+      { name: "Claridad-30s", score: 99, max: 25, notes: ["clara"] }, // se clampa a 25
+      { name: "Aplicable-hoy", score: 20, max: 25, notes: [] },
+      { name: "Sin-hype", score: 15, max: 15, notes: [] },
+      { name: "Relevancia", score: 10, max: 15, notes: [] },
+      { name: "Guardar/Compartir", score: 18, max: 20, notes: [] },
+    ],
+    weaknesses: ["el paso 2 es generico"],
+    verdict: "lo guardaría",
+  });
+  assert.equal(r.total, 25 + 20 + 15 + 10 + 18); // 88
+  assert.equal(r.grade, "A-");
+  assert.deepEqual(r.weaknesses, ["el paso 2 es generico"]);
+  assert.equal(r.dimensions[0].score, 25); // clamp aplicado
+});
+
+// --- evaluate: normalizeFactCheck decide pass por severidad ---
+check("normalizeFactCheck: falla con alta/media, pasa solo con baja o sin issues", () => {
+  const alta = normalizeFactCheck({ issues: [{ claim: "GPT-5 salió en 2019", severity: "alta", why: "falso", fix: "corrige la fecha" }] }, false);
+  assert.equal(alta.pass, false);
+  assert.equal(alta.issues[0].severity, "alta");
+
+  const media = normalizeFactCheck({ issues: [{ claim: "90% más rápido", severity: "media", why: "sin fuente", fix: "cita fuente" }] }, false);
+  assert.equal(media.pass, false);
+
+  const baja = normalizeFactCheck({ issues: [{ claim: "muy usado", severity: "baja", why: "impreciso", fix: "suaviza" }] }, false);
+  assert.equal(baja.pass, true, "baja no bloquea");
+
+  const limpio = normalizeFactCheck({ issues: [] }, false);
+  assert.equal(limpio.pass, true);
+});
+
+// --- evaluate: gateSuggestions fusiona debilidades de valor + fixes de hechos ---
+check("gateSuggestions incluye weaknesses (si valor bajo) y fixes alta/media (no baja)", () => {
+  const gate: ContentGateResult = {
+    minAudience: 75,
+    audience: { total: 60, grade: "C", dimensions: [], weaknesses: ["dale un prompt copiable"], verdict: "no" },
+    factcheck: {
+      pass: false,
+      web: false,
+      checked: 3,
+      issues: [
+        { claim: "herramienta X", severity: "alta", why: "no existe", fix: "quítala" },
+        { claim: "dato Y", severity: "baja", why: "impreciso", fix: "suaviza" },
+      ],
+    },
+    pass: false,
+  };
+  const sug = gateSuggestions(gate);
+  assert.ok(sug.some((s) => s.includes("prompt copiable")), "debe incluir la debilidad de audiencia");
+  assert.ok(sug.some((s) => s.includes("herramienta X")), "debe incluir el fix de severidad alta");
+  assert.ok(!sug.some((s) => s.includes("dato Y")), "no debe incluir issues de severidad baja");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

@@ -9,6 +9,7 @@
     "reel": "tsx src/reel/cli.ts",
     "remix": "tsx src/remix/cli.ts",
     "score": "tsx src/score/cli.ts",
+    "evaluate": "tsx src/ai/evaluateCli.ts",
     "record": "tsx src/score/record.ts",
     "calibrate": "tsx src/score/calibrate.ts",
     "typecheck": "tsc --noEmit",

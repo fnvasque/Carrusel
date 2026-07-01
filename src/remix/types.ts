@@ -110,4 +110,10 @@ export interface RemixOptions {
   maxTries?: number;
   /** Desactiva el loop de calidad (--no-improve). */
   noImprove?: boolean;
+  /** Valor de audiencia objetivo del gate (--min-audience, default AUDIENCE_THRESHOLD=75). */
+  minAudience?: number;
+  /** Verifica los hechos contra la web (--factcheck-web). Por defecto solo offline. */
+  factcheckWeb?: boolean;
+  /** No bloquear la emisión aunque el gate de contenido falle (--lenient). */
+  lenient?: boolean;
 }
