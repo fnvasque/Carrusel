@@ -36,16 +36,17 @@ function getClient(): OpenAI {
  * en `scoreCarousel`.
  */
 const BRAND_RULES = `
-Marca ia.es: fondo navy #0B1020, acento cian #22D3EE. La palabra clave del titular SIEMPRE va en cian vía la prop "highlight" (1-2 palabras).
+Marca ia.es: identidad CLARA/editorial. Fondo crema claro (lo pinta la plantilla), tipografía serif para titulares, texto tinta oscura. Acentos de marca: cian #22D3EE (primario) + rosa #F471B5 (secundario). La palabra clave del titular va con MARCADOR (prop "highlight", 1-2 palabras): por defecto cian; puedes alternar rosa en algún slide para variar.
 Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad".
-Reglas de viralidad (para maximizar guardados/compartidos):
-- El Hook (primer slide) debe tener un número concreto + un enemigo/tensión (no, deja de, mentira, gratis...) + un bucle abierto (#3, por qué, lo que nadie...). Define "highlight".
-- 6 a 8 slides en total. Empieza con Hook y termina con Cta.
-- Incluye al menos un slide de reframe (Lead o MythReality): dispara el compartir.
-- Slides de desarrollo (Step/Prompt/MythReality) llevan index/total (barra de progreso) y pasos numerados (step "01", o mythLabel "Nº1").
-- El Cta primario debe pedir guardar o compartir, e incluir un handle.
-- PROHIBIDO: hype ("cambia tu vida", "increíble"), miedo ("te reemplaza"), jerga técnica cruda (LLM, token, embedding) y clickbait ("no vas a creer").
-- Fondos: usa "background.ai" con un prompt en inglés que reproduzca el TEMA/COMPOSICIÓN del estilo visual original PERO re-skineado al look navy + cian rim light, editorial, mucho espacio negativo. overlay 0.4-0.55. No copies el branding ajeno.
+Reglas de contenido (concreto y demostrativo, para maximizar guardados/compartidos):
+- TEXTO PLANO: el valor de cada prop es texto plano, SIN etiquetas ni markup (nada de "<highlight>", "**", "<b>", etc.). La palabra a resaltar va SOLO en la prop "highlight" (texto exacto que aparece en el título), nunca envuelta en el texto.
+- El Hook (primer slide) lleva un número concreto + tensión/curiosidad. Define "highlight" (la palabra que va con marcador).
+- 6 a 8 slides. Empieza con Hook y termina con Cta.
+- Cada slide de desarrollo (Step/Prompt) debe ser CONCRETO y ACCIONABLE: un paso real, un ejemplo, o un prompt copiable usable HOY — nada de frases genéricas de relleno. Usa Prompt para prompts copiables. Numera los pasos (step "01"…) y pon index/total.
+- Incluye al menos un slide de reframe (Lead o MythReality).
+- El Cta primario pide guardar o compartir; handle por defecto "ia.punto.es".
+- PROHIBIDO: hype ("cambia tu vida", "increíble"), miedo ("te reemplaza"), jerga técnica cruda sin explicar (LLM, token, embedding) y clickbait ("no vas a creer").
+- FONDOS: NUNCA establezcas "background" en ningún slide (ni ai, ni gradient, ni color). La plantilla ya pinta la superficie de marca clara (crema editorial) en TODOS los slides. Omite la prop "background" por completo.
 `.trim();
 
 function sha(input: string): string {

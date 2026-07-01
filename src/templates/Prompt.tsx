@@ -19,14 +19,15 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: theme.space.lg }}>
         <h2
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: theme.fontSize.heading,
-            lineHeight: 1.05,
-            textTransform: "uppercase",
+            lineHeight: 1.04,
+            letterSpacing: theme.tracking.tight,
           }}
         >
           {heading}
@@ -46,6 +47,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
         <div
           style={{
             backgroundColor: theme.colors.panel,
+            border: `1px solid ${theme.surface.panelBorder}`,
             borderLeft: `6px solid ${cyan}`,
             borderRadius: 16,
             padding: 40,
@@ -54,6 +56,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
             lineHeight: 1.4,
             color: theme.colors.text,
             whiteSpace: "pre-wrap",
+            boxShadow: theme.surface.panelShadow,
           }}
         >
           {prompt}

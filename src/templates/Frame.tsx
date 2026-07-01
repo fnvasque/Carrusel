@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Background, Pillar, Format } from "./types.ts";
 import { FORMATS } from "./types.ts";
-import { theme, pillarColor } from "../theme.ts";
+import { theme, pillarColor, pillarGlow } from "../theme.ts";
 
 /** Margen inferior reservado en Reels: la UI de IG tapa los últimos ~420px. */
 const REEL_SAFE_BOTTOM = 440;
@@ -59,27 +59,31 @@ export function Frame({
         fontFamily: fontFamily ?? theme.fontFamily,
         color: color ?? theme.colors.text,
         backgroundColor: theme.colors.bg,
-        ...backgroundStyle(background),
+        // Sin background explícito → superficie de marca (gradiente+glow+grano);
+        // con background → se respeta el declarado.
+        ...(background ? backgroundStyle(background) : brandSurfaceStyle(pillar)),
         ...style,
       }}
     >
-      {overlayLayer(background)}
+      {scrimLayer(background)}
+      {vignetteLayer()}
       <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
         {/* Marca: logo arriba-izquierda */}
         {showLogo && (
-          <div
+          <span
             style={{
               position: "absolute",
               top: 0,
               left: 0,
-              width: 140,
-              height: 56,
-              backgroundImage: "var(--brand-logo)",
-              backgroundSize: "contain",
-              backgroundPosition: "left center",
-              backgroundRepeat: "no-repeat",
+              fontFamily: theme.fonts.body,
+              fontWeight: 800,
+              fontSize: 36,
+              letterSpacing: "-0.01em",
+              color: theme.colors.text,
             }}
-          />
+          >
+            ia<span style={{ color: theme.colors.accent }}>.</span>es
+          </span>
         )}
         {/* Marca: chip de pilar + progreso, arriba-derecha */}
         {(pillar || hasProgress) && (
@@ -107,7 +111,9 @@ export function Frame({
                   fontFamily: theme.fonts.display,
                   fontSize: theme.fontSize.label,
                   letterSpacing: "0.08em",
-                  color: theme.colors.textMuted,
+                  // Guiño tenue al color del pilar (ambiente), sin perder legibilidad.
+                  color: pillar ? pillarColor(pillar) : theme.colors.textMuted,
+                  opacity: pillar ? 0.85 : 1,
                 }}
               >
                 {pad(index!)}/{pad(total!)}
@@ -159,16 +165,59 @@ function backgroundStyle(bg?: Background): CSSProperties {
   return {};
 }
 
-/** Capa oscura encima del fondo para mejorar el contraste del texto. */
-function overlayLayer(bg?: Background) {
-  const overlay = bg && "overlay" in bg ? bg.overlay : undefined;
-  if (!overlay) return null;
+/**
+ * Superficie de marca por defecto (cuando el slide no trae `background`): navy →
+ * near-black con un glow cian superior y una capa de grano sutil. Sube el valor
+ * percibido frente al navy plano, sin tocar los CarouselSpec.
+ */
+function brandSurfaceStyle(pillar?: Pillar): CSSProperties {
+  return {
+    backgroundColor: theme.colors.bg,
+    backgroundImage: [
+      `radial-gradient(120% 80% at 75% -5%, ${pillarGlow(pillar)}, transparent 55%)`,
+      theme.surface.grid,
+      `linear-gradient(180deg, ${theme.colors.bg}, ${theme.surface.bgDeep})`,
+      "var(--brand-grain)",
+    ].join(", "),
+  };
+}
+
+/**
+ * Scrim DIRECCIONAL (de abajo→arriba) + viñeta sutil, para garantizar contraste
+ * del texto anclado abajo sobre fondos `{image}`/`{ai}` sin apagar la imagen.
+ * `overlay` controla la intensidad del scrim (default 0.9). Para fondos sin
+ * imagen ni `overlay`, no se pinta nada (igual que antes).
+ */
+/** Viñeta sutil de bordes, SIEMPRE presente, para profundidad de "dark UI". */
+function vignetteLayer() {
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
-        backgroundColor: `rgba(0,0,0,${overlay})`,
+        pointerEvents: "none",
+        backgroundImage: theme.surface.vignette,
+      }}
+    />
+  );
+}
+
+function scrimLayer(bg?: Background) {
+  if (!bg) return null;
+  const hasImage = "image" in bg;
+  const overlay = "overlay" in bg ? bg.overlay : undefined;
+  if (!hasImage && overlay === undefined) return null;
+  const a = Math.min(1, Math.max(0, overlay ?? 0.85));
+  // Velo CLARO desde abajo: garantiza el contraste del TEXTO OSCURO sobre
+  // imágenes, sin oscurecer la escena (identidad clara).
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        backgroundImage:
+          `radial-gradient(140% 100% at 50% 100%, transparent 45%, rgba(251,250,247,0.25)), ` +
+          `linear-gradient(180deg, transparent 30%, rgba(251,250,247,${a}) 100%)`,
       }}
     />
   );

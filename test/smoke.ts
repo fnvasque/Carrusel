@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
-import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
+import { slugify, validateDraft, templatesImportBase, sanitizeText } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
+import { fitDisplaySize, MIN_DISPLAY } from "../src/templates/fit.ts";
+import { highlightText } from "../src/templates/highlight.tsx";
+import { digitsOf } from "../src/templates/GhostNumber.tsx";
+import { theme, pillarGlow } from "../src/theme.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 
@@ -214,6 +218,70 @@ check("projectOutcome aplica las rectas y clampa a 0", () => {
 check("pearson da 1 en correlación perfecta y null con <3 puntos", () => {
   assert.equal(pearson([1, 2, 3], [2, 4, 6]), 1);
   assert.equal(pearson([1, 2], [1, 2]), null);
+});
+
+// --- fit: piso type-as-hero ---
+check("fitDisplaySize aplica piso a titulares grandes, no a escalas chicas", () => {
+  // titular largo con max=display → no baja del piso
+  const largo = "Un titular muy largo que antes encogía hasta volverse ilegible en la portada";
+  assert.ok(fitDisplaySize(largo, theme.fontSize.display) >= MIN_DISPLAY, "display debe respetar el piso");
+  // con max chico (heading) NO se infla al piso (sigue siendo proporcional)
+  assert.ok(fitDisplaySize(largo, theme.fontSize.heading) < MIN_DISPLAY, "heading no debe inflarse al piso");
+  // titular corto se mantiene grande
+  assert.equal(fitDisplaySize("Corto", theme.fontSize.display), theme.fontSize.display);
+});
+
+// --- highlight: tratamientos ---
+check("highlightText soporta slab/underline/color sin romper y default compatible", () => {
+  // default (color) sigue devolviendo un nodo cuando hay match
+  assert.notEqual(highlightText("hola mundo", "mundo", "#22D3EE"), "hola mundo");
+  // sin highlight devuelve el texto crudo
+  assert.equal(highlightText("hola", undefined, "#22D3EE"), "hola");
+  // slab/underline no lanzan y devuelven un nodo (no string) cuando hay match
+  const slab = highlightText("5 TIPS", "TIPS", "#22D3EE", "slab");
+  const under = highlightText("5 TIPS", "TIPS", "#22D3EE", "underline");
+  assert.equal(typeof slab, "object");
+  assert.equal(typeof under, "object");
+});
+
+// --- GhostNumber: digitsOf ---
+check("digitsOf extrae 1-2 dígitos del label o devuelve vacío", () => {
+  assert.equal(digitsOf("Nº1"), "1");
+  assert.equal(digitsOf("01"), "01");
+  assert.equal(digitsOf("Mentira Nº3"), "3");
+  assert.equal(digitsOf("sin número"), "");
+  assert.equal(digitsOf(undefined), "");
+});
+
+// --- theme: pillarGlow (ambiente por pilar; keyword sigue cian aparte) ---
+check("pillarGlow tinta por pilar y cae a cian por defecto", () => {
+  assert.ok(pillarGlow("noticia").includes("139,92,246"), "noticia → violeta");
+  assert.ok(pillarGlow("curiosidad").includes("244,113,181"), "curiosidad → rosa");
+  assert.ok(pillarGlow("herramienta").includes("34,211,238"), "herramienta → cian");
+  assert.ok(pillarGlow(undefined).includes("34,211,238"), "default → cian");
+});
+
+// --- emit: sanitizeText quita markup que el modelo a veces cuela ---
+check("sanitizeText elimina etiquetas y normaliza espacios", () => {
+  assert.equal(sanitizeText("5 pasos para <highlight>aprovechar</highlight> YouTube"), "5 pasos para aprovechar YouTube");
+  assert.equal(sanitizeText("texto  con   espacios"), "texto con espacios");
+  assert.equal(sanitizeText("limpio"), "limpio");
+});
+// validateDraft también debe limpiar el markup en las props
+check("validateDraft sanea el markup en props de texto", () => {
+  const v = validateDraft({
+    name: "x", angle: "x", pillar: "herramienta",
+    slides: [{ template: "Hook", props: { title: "Usa <b>NotebookLM</b> hoy", highlight: "NotebookLM" } }],
+  });
+  const hook = v.slides.find((s) => s.template === "Hook")!;
+  assert.equal(hook.props.title, "Usa NotebookLM hoy");
+});
+
+// --- theme: identidad clara/serif (rebrand) ---
+check("theme tiene fuente serif y tema claro", () => {
+  assert.equal(theme.fonts.serif, "PlayfairDisplay");
+  assert.equal(theme.colors.bg, "#FBFAF7"); // fondo claro
+  assert.equal(theme.colors.text, "#0B1020"); // tinta oscura sobre claro
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

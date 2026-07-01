@@ -20,25 +20,28 @@ export function Lead({ kicker, text, highlight, accent, ...base }: LeadProps) {
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
-        <div style={{ width: 96, height: 4, backgroundColor: cyan }} />
-        {kicker && (
-          <span
-            style={{
-              fontFamily: theme.fonts.body,
-              fontSize: theme.fontSize.label,
-              fontWeight: 700,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: cyan,
-            }}
-          >
-            {kicker}
-          </span>
-        )}
-        <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, fontWeight: 600, lineHeight: 1.3 }}>
-          {highlightText(text, highlight, cyan)}
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 40 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ width: 120, height: 5, backgroundColor: cyan }} />
+          {kicker && (
+            <span
+              style={{
+                fontFamily: theme.fonts.body,
+                fontSize: theme.fontSize.label,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: cyan,
+              }}
+            >
+              {kicker}
+            </span>
+          )}
+        </div>
+        <p style={{ margin: 0, fontFamily: theme.fonts.serif, fontStyle: "italic", fontSize: theme.fontSize.title, fontWeight: 600, lineHeight: 1.12, color: theme.colors.text }}>
+          {highlightText(text, highlight, cyan, "underline")}
         </p>
+        <div style={{ width: "100%", height: 1, backgroundColor: theme.surface.hairline }} />
       </div>
     </Frame>
   );

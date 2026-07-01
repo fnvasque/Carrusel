@@ -1,8 +1,9 @@
 import { Frame } from "./Frame.tsx";
+import { GhostNumber } from "./GhostNumber.tsx";
 import { highlightText } from "./highlight.tsx";
 import { fitDisplaySize } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
-import { theme } from "../theme.ts";
+import { theme, pillarColor } from "../theme.ts";
 
 export interface StepProps extends BaseSlideProps {
   /** Número o índice del paso (ej. "01"). Opcional. */
@@ -25,20 +26,22 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
   const cyan = accent ?? theme.colors.accent;
   return (
     <Frame {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
+      <GhostNumber value={step} color={pillarColor(base.pillar)} />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: theme.space.lg }}>
         {step && (
-          <span style={{ fontFamily: theme.fonts.display, fontSize: theme.fontSize.kicker, color: cyan }}>{step}</span>
+          <span style={{ fontFamily: theme.fonts.body, fontWeight: 700, fontSize: theme.fontSize.label, letterSpacing: "0.16em", textTransform: "uppercase", color: cyan }}>{step}</span>
         )}
         <h2
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: fitDisplaySize(heading, theme.fontSize.heading),
-            lineHeight: 1.05,
-            textTransform: "uppercase",
+            lineHeight: 1.04,
+            letterSpacing: theme.tracking.tight,
           }}
         >
-          {highlightText(heading, highlight, cyan)}
+          {highlightText(heading, highlight, cyan, "slab")}
         </h2>
         {body && (
           <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.45, color: theme.colors.textMuted }}>

@@ -92,6 +92,29 @@ Definido en `src/theme.ts` y `.context/design-brand.md`:
 - **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
   Archivos en `src/fonts/`; logos en `src/assets/`.
 - **Pilares** (`pillar`): `herramienta` · `noticia` · `prompt` · `curiosidad`.
+- **Superficie por defecto**: los slides sin `background` ya no son navy plano, sino una
+  **superficie de marca** (gradiente navy→near-black + glow cian + grano sutil), para más
+  profundidad/valor percibido.
+- **Scrim direccional**: sobre fondos `{ image }`/`{ ai }`, `overlay` ahora controla la
+  intensidad de un **scrim de abajo→arriba** (no un negro plano), garantizando legibilidad
+  del texto anclado abajo sin apagar la imagen.
+- **Firma cian (slab)**: en los titulares (Hook/Cta/Step) la palabra `highlight` se pinta
+  como **marcador cian** (fondo cian, texto navy) — reconocible sin leer el logo.
+- **Type-as-hero**: titulares Anton dominantes (lineHeight ajustado, tracking negativo) con
+  un **piso de tamaño** (`MIN_DISPLAY`) para que un titular largo se acorte, no se encoja.
+- **Fondos IA abstractos**: el estilo del prompt de `gpt-image-1` es gráfico/abstracto
+  (gradiente, glow, grano — sin objetos ni dispositivos), reservado para portada/CTA.
+- **Número fantasma**: Step y MythReality pintan el índice (01, Nº1…) en Anton gigante
+  como marca de agua cian de baja opacidad detrás del contenido (textura editorial).
+- **Profundidad premium**: viñeta sutil en todos los slides, hairlines y paneles
+  (MythReality, Prompt) con borde fino + sombra; el panel "realidad" destaca en verde.
+- **Lead reforzado**: hairline cian + jerarquía con la palabra clave subrayada en cian.
+- **Ambiente por pilar**: el pilar tiñe elementos *secundarios* (glow de la superficie,
+  número fantasma, chip, progreso) en cian/violeta/rosa — la **palabra clave del titular
+  sigue SIEMPRE en cian** (regla de marca). Cada pilar se distingue en el feed sin romper la identidad.
+- **Espaciado 8-pt**: ritmo coherente vía `theme.space` (8/16/24/40/64/96).
+- **CTA de cierre**: el slide final se distingue (barra cian + pastilla grande + handle
+  prominente) para señalar el fin del carrusel, sin inundar de cian (60-30-10).
 
 Para añadir una plantilla nueva, crea `src/templates/MiPlantilla.tsx`, envuelve el
 contenido en `<Frame>` y expórtala en `src/templates/index.ts`.

@@ -31,7 +31,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
   const showSwipe = swipe !== false && format !== "reel";
   return (
     <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 28 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: theme.space.md }}>
         {eyebrow && (
           <span
             style={{
@@ -49,14 +49,14 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
         <h1
           style={{
             margin: 0,
-            fontFamily: theme.fonts.display,
+            fontFamily: theme.fonts.serif,
+            fontWeight: 800,
             fontSize: titleFont,
             lineHeight: 1.0,
-            textTransform: "uppercase",
-            letterSpacing: "-0.01em",
+            letterSpacing: theme.tracking.tight,
           }}
         >
-          {highlightText(title, highlight, cyan)}
+          {highlightText(title, highlight, cyan, "slab")}
         </h1>
         {subtitle && (
           <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, lineHeight: 1.3, color: theme.colors.textMuted }}>
