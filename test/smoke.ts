@@ -12,6 +12,10 @@ import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../sr
 import { specToReadable, specToPlainSlides } from "../src/templates/slideText.ts";
 import { extractJson } from "../src/ai/client.ts";
 import { normalizeAudience, normalizeFactCheck, gateSuggestions, type ContentGateResult } from "../src/ai/evaluate.ts";
+import { lintBrand, relLuminance, extractHexColors, MIN_BG_LUMINANCE } from "../src/templates/brandGuard.ts";
+import { Hook, Cta } from "../src/templates/index.ts";
+import ejemploCarousel from "../carousels/ejemplo.ts";
+import type { CarouselSpec } from "../src/templates/types.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 
 /**
@@ -371,6 +375,60 @@ check("gateSuggestions incluye weaknesses (si valor bajo) y fixes alta/media (no
   assert.ok(sug.some((s) => s.includes("prompt copiable")), "debe incluir la debilidad de audiencia");
   assert.ok(sug.some((s) => s.includes("herramienta X")), "debe incluir el fix de severidad alta");
   assert.ok(!sug.some((s) => s.includes("dato Y")), "no debe incluir issues de severidad baja");
+});
+
+// --- brandGuard: luminancia ---
+check("relLuminance separa crema (alta) de tinta/navy (baja); hex inválido no marca", () => {
+  assert.ok(relLuminance("#FBFAF7") > 0.8, "crema debe ser clara");
+  assert.ok(relLuminance("#0B1020") < 0.05, "tinta debe ser oscura");
+  assert.ok(relLuminance("#1C2640") < MIN_BG_LUMINANCE, "navy bajo el umbral");
+  assert.equal(relLuminance("zzz"), 1, "hex inválido → 1 (no marca)");
+});
+
+check("extractHexColors saca hex de color y gradiente, ignora rgba puro", () => {
+  assert.deepEqual(extractHexColors("linear-gradient(160deg,#0B1020 0%,#1C2640 100%)"), ["#0B1020", "#1C2640"]);
+  assert.deepEqual(extractHexColors("#FBFAF7"), ["#FBFAF7"]);
+  assert.deepEqual(extractHexColors("rgba(0,0,0,0.5)"), []);
+});
+
+// --- brandGuard: lintBrand ---
+check("lintBrand marca fondo navy y handle malo; NO marca ai/image/sin-bg ni handle correcto", () => {
+  const dark: CarouselSpec = {
+    name: "dark",
+    slides: [
+      { template: Hook, props: { title: "x", background: { gradient: "linear-gradient(160deg,#0B1020,#1C2640)" } } },
+      { template: Cta, props: { title: "y", handle: "ia.es" } },
+    ],
+  };
+  const v = lintBrand(dark);
+  assert.equal(v.length, 2, "una por fondo oscuro y otra por handle");
+  assert.ok(v.some((x) => x.kind === "dark-background" && x.slide === 1));
+  assert.ok(v.some((x) => x.kind === "wrong-handle" && x.slide === 2));
+
+  const ok: CarouselSpec = {
+    name: "ok",
+    slides: [
+      { template: Hook, props: { title: "a", background: { ai: "una oficina", overlay: 0.5 } } },
+      { template: Hook, props: { title: "b", background: { image: "foto.png" } } },
+      { template: Cta, props: { title: "c", handle: "ia.punto.es" } },
+      { template: Hook, props: { title: "d" } },
+    ],
+  };
+  assert.deepEqual(lintBrand(ok), [], "ai/image/sin-bg y handle correcto no se marcan");
+});
+
+check("lintBrand considera defaults.background (fondo efectivo)", () => {
+  const spec: CarouselSpec = {
+    name: "def",
+    defaults: { background: { color: "#0B1020" } },
+    slides: [{ template: Hook, props: { title: "x" } }],
+  };
+  assert.equal(lintBrand(spec).filter((x) => x.kind === "dark-background").length, 1);
+});
+
+check("theme.brand.handle es ia.punto.es y carousels/ejemplo.ts pasa el guard (candado it.1)", () => {
+  assert.equal(theme.brand.handle, "ia.punto.es");
+  assert.deepEqual(lintBrand(ejemploCarousel), [], "ejemplo.ts no debe tener violaciones de marca");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);
