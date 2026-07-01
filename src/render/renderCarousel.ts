@@ -5,6 +5,7 @@ import { Renderer } from "./renderSlide.ts";
 import { resolveBackground } from "./background.ts";
 import { scoreCarousel, THRESHOLD } from "../score/virality.ts";
 import { printReport } from "../score/cli.ts";
+import { assertBrandOk } from "../templates/brandGuard.ts";
 import {
   evaluateContent,
   gateSuggestions,
@@ -30,6 +31,11 @@ export interface RenderCarouselOptions {
  * Chromium. Devuelve las rutas de los PNGs escritos.
  */
 export async function renderCarousel(spec: CarouselSpec, opts: RenderCarouselOptions = {}): Promise<string[]> {
+  // Gate 0: marca (fail-closed, determinista). Bloquea fondos oscuros / handle
+  // incorrecto ANTES de cualquier otra cosa — no hay caso legítimo bajo la
+  // identidad clara, así que no tiene env de escape.
+  assertBrandOk(spec);
+
   // Gate 1: indicador de viralidad (proxy heurístico, siempre corre, sin red).
   const score = scoreCarousel(spec);
   printReport(spec.name, score);

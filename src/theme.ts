@@ -2,11 +2,21 @@ import type { Pillar } from "./templates/types.ts";
 
 /**
  * Valores de diseño por defecto, reutilizables por las plantillas.
- * Fuente única de tokens de marca (deriva de .context/design-brand.md):
- * navy + cian, tipografía Anton/Inter/JetBrainsMono, regla 60-30-10.
+ * Fuente única de tokens de marca (identidad CLARA, rebrand 2026-06):
+ * superficie crema + tinta oscura, tipografía PlayfairDisplay/Inter/JetBrainsMono,
+ * acentos cian (primario) + rosa (secundario).
  * Cambia aquí para ajustar el "look" global, o sobreescribe por slide vía props.
  */
 export const theme = {
+  /**
+   * Identidad textual de marca — fuente ÚNICA de verdad (no re-hardcodear).
+   * `name` = wordmark del logo (arriba-izquierda). `handle` = cuenta de IG (sin @;
+   * la plantilla antepone el @). Son DISTINTOS a propósito.
+   */
+  brand: {
+    name: "ia.es",
+    handle: "ia.punto.es",
+  },
   // Pila de fallback si no hay Inter-*.woff2 en src/fonts/. Los titulares usan
   // Anton vía las plantillas; el cuerpo, Inter.
   fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',

@@ -70,7 +70,7 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
             color: theme.colors.text,
           }}
         >
-          @{handle ?? "ia.punto.es"}
+          @{handle ?? theme.brand.handle}
         </span>
       </div>
     </Frame>
