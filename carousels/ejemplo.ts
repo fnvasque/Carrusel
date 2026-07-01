@@ -9,12 +9,14 @@ import type { CarouselSpec } from "../src/templates/types.ts";
  * → Cta (funnel al newsletter). El copy respeta las reglas: sin hype, sin jerga,
  * sin clickbait; siempre "qué hago yo con esto".
  *
- * Todos los slides comparten el pilar (color del chip) vía `defaults`. El fondo
- * por defecto es el navy de marca; también puedes usar:
- *   { color: "#0B1020" }
- *   { gradient: "linear-gradient(135deg,#0B1020,#1C2640)" }
- *   { ai: "una persona usando el móvil en una oficina", overlay: 0.55 }
+ * Todos los slides comparten el pilar (color del chip) vía `defaults`. La
+ * superficie por defecto es la de marca (crema editorial clara, la pinta `Frame`):
+ * NO fijes fondos oscuros. Bajo la identidad clara el texto es tinta oscura, así
+ * que un `background` oscuro rompería el contraste. Los únicos overrides válidos
+ * son fotográficos, con scrim claro automático:
+ *   { ai: "una persona usando el móvil en una oficina", overlay: 0.5 }
  *     → se le anexa automáticamente el estilo visual de marca (requiere OPENAI_API_KEY).
+ *   { image: "ruta/local.png", overlay: 0.5 }
  */
 const carousel: CarouselSpec = {
   name: "ejemplo",
@@ -28,7 +30,6 @@ const carousel: CarouselSpec = {
         title: "El nuevo ChatGPT ahora ve imágenes",
         highlight: "ve imágenes",
         subtitle: "Te lo explico en 30 segundos.",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 60%,#1C2640 100%)" },
       },
     },
     {
@@ -79,8 +80,7 @@ const carousel: CarouselSpec = {
         title: "Lo que importa en IA, en tu correo",
         highlight: "tu correo",
         reason: "Cada semana. Sin hype.",
-        handle: "ia.es",
-        background: { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" },
+        handle: "ia.punto.es",
       },
     },
   ],

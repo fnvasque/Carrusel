@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type OpenAI from "openai";
 import type { InstagramSource, PostAnalysis, VariationDraft, SpanishVariant } from "../remix/types.ts";
 import { TEMPLATE_CATALOG } from "../remix/templates-catalog.ts";
+import { theme } from "../theme.ts";
 import { getClient, getModel } from "./client.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
@@ -27,7 +28,7 @@ Reglas de contenido (concreto y demostrativo, para maximizar guardados/compartid
 - 6 a 8 slides. Empieza con Hook y termina con Cta.
 - Cada slide de desarrollo (Step/Prompt) debe ser CONCRETO y ACCIONABLE: un paso real, un ejemplo, o un prompt copiable usable HOY — nada de frases genéricas de relleno. Usa Prompt para prompts copiables. Numera los pasos (step "01"…) y pon index/total.
 - Incluye al menos un slide de reframe (Lead o MythReality).
-- El Cta primario pide guardar o compartir; handle por defecto "ia.punto.es".
+- El Cta primario pide guardar o compartir; handle por defecto "${theme.brand.handle}".
 - PROHIBIDO: hype ("cambia tu vida", "increíble"), miedo ("te reemplaza"), jerga técnica cruda sin explicar (LLM, token, embedding) y clickbait ("no vas a creer").
 - FONDOS: NUNCA establezcas "background" en ningún slide (ni ai, ni gradient, ni color). La plantilla ya pinta la superficie de marca clara (crema editorial) en TODOS los slides. Omite la prop "background" por completo.
 `.trim();

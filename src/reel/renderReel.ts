@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { Renderer } from "../render/renderSlide.ts";
 import { resolveBackground } from "../render/background.ts";
 import { FORMATS, type CarouselSpec } from "../templates/types.ts";
+import { assertBrandOk } from "../templates/brandGuard.ts";
 import { composeReel, reelDuration } from "./video.ts";
 
 export interface RenderReelOptions {
@@ -40,6 +41,9 @@ function slideSeconds(props: Record<string, unknown>, hold: boolean): number {
  * `framesOnly`). Requiere ffmpeg en el PATH para componer.
  */
 export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {}): Promise<string> {
+  // Gate 0: marca (fail-closed) — mismo guard que renderCarousel.
+  assertBrandOk(spec);
+
   const fixedSeconds = opts.seconds;
   const fade = opts.fade ?? 0.4;
   const audio = opts.audio;
