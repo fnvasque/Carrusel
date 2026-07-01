@@ -4,10 +4,13 @@ import { renderCarousel } from "./render/renderCarousel.ts";
 import type { CarouselSpec } from "./templates/types.ts";
 
 async function main() {
-  const file = process.argv[2];
+  const args = process.argv.slice(2);
+  const web = args.includes("--web");
+  const file = args.find((a) => !a.startsWith("--"));
   if (!file) {
-    console.error("Uso: npm run generate <ruta-al-carrusel.ts>");
+    console.error("Uso: npm run generate <ruta-al-carrusel.ts> [--web]");
     console.error("Ej:  npm run generate carousels/ejemplo.ts");
+    console.error("  --web   verifica los hechos contra la web en el gate de contenido");
     process.exit(1);
   }
 
@@ -17,7 +20,7 @@ async function main() {
     throw new Error(`El archivo ${file} no exporta por defecto un carrusel con slides.`);
   }
 
-  await renderCarousel(spec);
+  await renderCarousel(spec, { web });
 }
 
 main().catch((err) => {

@@ -2,33 +2,16 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import type { InstagramSource, PostAnalysis, VariationDraft, SpanishVariant } from "../remix/types.ts";
 import { TEMPLATE_CATALOG } from "../remix/templates-catalog.ts";
+import { getClient, getModel } from "./client.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
 const PILLARS = ["herramienta", "noticia", "prompt", "curiosidad"] as const;
 
 /** Tope de imágenes que se adjuntan al modelo (control de coste/latencia). */
 const MAX_IMAGES = 8;
-
-let client: OpenAI | null = null;
-
-/** Modelo multimodal a usar. Configurable por REMIX_MODEL (default gpt-4o). */
-function getModel(): string {
-  return process.env.REMIX_MODEL ?? "gpt-4o";
-}
-
-/** Cliente OpenAI lazy con guardia de API key (mismo patrón que openaiImage.ts). */
-function getClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error(
-      "Falta OPENAI_API_KEY. Expórtala para usar el remix (analiza el post y genera las variaciones).",
-    );
-  }
-  client ??= new OpenAI();
-  return client;
-}
 
 /**
  * Reglas de marca y viralidad embebidas en el prompt de generación. Resumen del

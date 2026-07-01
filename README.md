@@ -168,6 +168,35 @@ mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan e
 Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
 falsos positivos, ej. una frase de miedo usada para *desmentirla*).
 
+## Gate de contenido (valor de audiencia + fact-check)
+
+Además del proxy de viralidad, cada carrusel pasa por **dos evaluadores LLM** que
+implementan el flujo "genera → evalúa valor → corrige → fact-check → genera slides":
+
+1. **Valor para la audiencia** — el modelo LEE el carrusel *como la persona objetivo*
+   ("Andrea", ver marca) y puntúa 0-100 si le aporta valor real (Claridad-30s,
+   Aplicable-hoy, Sin-hype, Relevancia, Ganas-de-guardar). Umbral por defecto **75**.
+2. **Fact-check** — verifica los HECHOS del copy (herramientas, números, fechas, precios,
+   capacidades, fuentes). Marca cada afirmación como `alta`/`media`/`baja`; **bloquea** si
+   hay algo de severidad alta o media. Offline por defecto; `--web` verifica contra la web.
+
+```bash
+npm run evaluate carousels/mi-carrusel.ts          # los 3 gates, sin renderizar
+npm run evaluate carousels/mi-carrusel.ts -- --web # + verificación web de los hechos
+```
+
+En **`npm run generate`** los tres gates corren antes de renderizar y **bloquean** si alguno
+falla (viralidad con `SCORE_STRICT=1`; valor/hechos por defecto). Requiere `OPENAI_API_KEY`:
+sin ella, solo corre el proxy de viralidad y avisa. Para forzar el render igualmente:
+
+```bash
+CONTENT_GATE_LENIENT=1 npm run generate carousels/mi-carrusel.ts   # emite pese al gate
+npm run generate carousels/mi-carrusel.ts -- --web                 # fact-check contra la web
+```
+
+En **`npm run remix`** el gate corre *dentro del loop de calidad*: cada iteración evalúa las
+tres palancas y, si alguna falla, re-genera con el feedback combinado (ver más abajo).
+
 ## Remix de Instagram
 
 Le pasas el **link de un reel, post o carrusel** de Instagram y genera **2 variaciones**
@@ -178,7 +207,7 @@ con un modelo multimodal de OpenAI y mapea todo a las plantillas de marca ia.es.
 ```bash
 export OPENAI_API_KEY=sk-...
 npm run remix "https://www.instagram.com/p/XXXXXXXXX/"
-# → carousels/<slug>-v1.ts  y  carousels/<slug>-v2.ts  (+ score de viralidad de cada una)
+# → carousels/<slug>-v1.ts  y  carousels/<slug>-v2.ts  (+ los 3 gates: viralidad · valor · fact-check)
 
 # Flujo end-to-end de un solo comando (emite + renderiza):
 npm run remix "<url>" -- --render          # + PNGs 4:5 de cada variación
@@ -192,9 +221,12 @@ npm run remix "<url>" -- --es=cl                 # copy en español chileno (def
 npm run remix "<url>" -- --out=carousels/remix   # carpeta de salida de los .ts
 npm run remix "<url>" -- --render --reel         # genera PNGs y Reel automáticamente
 npm run remix "<url>" -- --frames=6              # frames a muestrear de un reel (default 5)
-npm run remix "<url>" -- --min-score=80          # objetivo del loop de calidad (default 75)
+npm run remix "<url>" -- --min-score=80          # objetivo de viralidad del loop (default 75)
+npm run remix "<url>" -- --min-audience=80        # objetivo de VALOR de audiencia (default 75)
+npm run remix "<url>" -- --factcheck-web          # verifica los hechos contra la web
 npm run remix "<url>" -- --max-tries=4           # intentos de mejora por variación (default 3)
 npm run remix "<url>" -- --no-improve            # desactiva el loop (más rápido/barato)
+npm run remix "<url>" -- --lenient               # emite aunque el gate NO pase (default: BLOQUEA)
 # Cookies para vencer el login wall (vía yt-dlp):
 npm run remix "<url>" -- --cookies=cookies.txt           # archivo Netscape cookies.txt
 npm run remix "<url>" -- --cookies-from-browser=chrome   # toma cookies del navegador
@@ -213,10 +245,13 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
   se pueden pasar por env: `REMIX_COOKIES` / `REMIX_COOKIES_FROM_BROWSER`.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
   del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
-- **Loop de calidad**: cada variación se puntúa con el indicador de viralidad y, si está
-  bajo el umbral (75), se **re-genera con el feedback del score** hasta pasarlo o agotar los
-  intentos (`--max-tries`, default 3); se emite siempre el mejor resultado. Ajusta el objetivo
-  con `--min-score` o desactívalo con `--no-improve`.
+- **Loop de calidad (3 gates)**: cada variación se evalúa con **viralidad + valor de audiencia
+  + fact-check**. Si alguno falla, se **re-genera con el feedback combinado** (debilidades de
+  valor según "Andrea" + hechos a corregir + palancas de viralidad) hasta pasar los tres o
+  agotar los intentos (`--max-tries`, default 3). Por defecto **BLOQUEA** el render de las
+  variaciones que no pasan (los `.ts` se emiten igual para que los revises); usa `--lenient`
+  para forzar. Ajusta objetivos con `--min-score` / `--min-audience`, verifica hechos contra
+  la web con `--factcheck-web`, o desactiva el loop con `--no-improve`.
 - **Idioma**: el copy SIEMPRE sale en español, sin importar el idioma del original.
 - El resultado es **texto editable**: revisa y ajusta el `.ts` antes de publicar; luego
   `npm run generate carousels/<archivo>.ts` (PNGs 4:5) o `npm run reel carousels/<archivo>.ts` (Reel 9:16).
