@@ -2,7 +2,8 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ingest } from "./ingest.ts";
-import { analyzePost, generateVariations, improveVariation } from "../ai/analyze.ts";
+import { analyzePost, generateVariations, improveVariation, deriveAudienceAngle } from "../ai/analyze.ts";
+import type { AudienceAngle } from "../ai/persona.ts";
 import { emitCarouselFile, validateDraft } from "./emit.ts";
 import { scoreDraft, draftToSpec } from "./registry.ts";
 import { THRESHOLD, type ViralityResult } from "../score/virality.ts";
@@ -82,9 +83,23 @@ async function main(): Promise<void> {
   console.log(`   hook: ${analysis.hook}`);
   console.log(`   pilar: ${analysis.pillar} · formato: ${analysis.format} · confianza: ${analysis.confidence}`);
 
-  // 3) Generación de 2 variaciones
+  // 2.5) Ángulo de audiencia: reencuadra el tema al mundo de Andrea ANTES de
+  //      generar, para que TODAS las variaciones se escriban para ella (misma
+  //      persona que juzga el gate de valor), no que traduzcan el post. Degradable.
+  let angle: AudienceAngle | undefined;
+  try {
+    console.log("\n🎯 Reencuadrando al ángulo de la audiencia (Andrea)…");
+    angle = await deriveAudienceAngle(analysis, { es: opts.es });
+    console.log(`   ángulo: ${angle.angle}`);
+    if (angle.useCases.length) console.log(`   usos: ${angle.useCases.join(" · ")}`);
+  } catch (err) {
+    console.warn(`   ⚠️  no se pudo derivar el ángulo (${err instanceof Error ? err.message : err}); genero sin él.`);
+    angle = undefined;
+  }
+
+  // 3) Generación de 2 variaciones (desde el ángulo de Andrea)
   console.log("\n✍️  Generando 2 variaciones en " + (opts.es === "cl" ? "español chileno" : "español neutro") + "…");
-  const drafts = await generateVariations(analysis, { es: opts.es, count: 2 });
+  const drafts = await generateVariations(analysis, { es: opts.es, count: 2, angle });
 
   await mkdir(opts.outDir, { recursive: true });
 
@@ -119,7 +134,7 @@ async function main(): Promise<void> {
             `viral ${vir.total}/${minScore} · valor ${gate.audience.total}/${minAudience} · ` +
             `hechos ${gate.factcheck.pass ? "ok" : `✗ (${gate.factcheck.issues.filter((x) => x.severity !== "baja").length})`}…`,
         );
-        const cand = validateDraft(await improveVariation(analysis, best, suggestions, { es: opts.es }));
+        const cand = validateDraft(await improveVariation(analysis, best, suggestions, { es: opts.es, angle }));
         const cvir = scoreDraft(cand);
         const cgate = await evaluateContent(draftToSpec(cand), { analysis, source }, evalOpts);
         if (isBetterState(cvir, cgate, vir, gate, minScore, minAudience)) {
