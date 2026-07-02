@@ -74,6 +74,21 @@ Data flow: `analyzePost → deriveAudienceAngle → generateVariations(desde el 
 | 6 | Gate verde (typecheck + test) + test puro de formatAngle | Yes | +test smoke |
 | 7 | Degradable si el ángulo falla | Yes | try/catch → undefined |
 
+## Verificación (iteración 2/2) — con los 2 posts reales
+
+Re-corrido el remix (modo manual, mismos captions) con el paso de ángulo activo. El score de VALOR (evaluador persona Andrea) subió de forma consistente:
+
+| Post fuente | Valor ANTES (sin ángulo) | Valor AHORA (con ángulo) |
+|---|---|---|
+| "6 Claude skills para diseño" (adrien.ninet) | 43 / 51 (falla) | **79 / 79** (ambas pasan) |
+| "Guía de Claude para ensayos" (growai) | 65 (falla) | **77** (V1 pasa) / 63 (V2) |
+
+- El ángulo derivado reencuadró correctamente: diseño → "contenido visual para marketing sin ser experta" (gráficos redes, imágenes de campaña, capturas de producto); ensayos → "claridad/fluidez en campañas" (email marketing, redes, guiones de video).
+- Veredicto de Andrea (antes "no aplicable a marketing") ahora: "Lo guardaría, me da acciones directas para mi trabajo".
+- Bloqueo remanente: SOLO por fact-check (cutoff offline en "Claude 3.5/skills" + alguna stat inventada por presión de "aplicable hoy"). Es el gate de hechos funcionando; se mitiga con `--factcheck-web` y no reintroduciendo stats sin fuente. Fuera del alcance de esta feature (que ataca el VALOR, no los hechos).
+
+Conclusión: la feature cumple su objetivo — el remix ahora escribe para Andrea desde el inicio y el gate de valor pasa donde antes fallaba en seco. Gate del repo verde (typecheck + 33 tests).
+
 ## Decisiones tomadas autónomamente
 - `AudienceAngle = { angle, jobToBeDone, useCases[], drop[] }`.
 - `ANDREA` se mueve a `src/ai/persona.ts` (fuente única) e `evaluate.ts` la importa.
