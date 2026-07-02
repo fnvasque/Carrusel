@@ -6,7 +6,8 @@ import type OpenAI from "openai";
 import type { InstagramSource, PostAnalysis, VariationDraft, SpanishVariant } from "../remix/types.ts";
 import { TEMPLATE_CATALOG } from "../remix/templates-catalog.ts";
 import { theme } from "../theme.ts";
-import { getClient, getModel } from "./client.ts";
+import { getClient, getModel, extractJson } from "./client.ts";
+import { ANDREA, formatAngle, type AudienceAngle } from "./persona.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
 const PILLARS = ["herramienta", "noticia", "prompt", "curiosidad"] as const;
@@ -173,14 +174,66 @@ function normalizeVariations(raw: unknown): VariationDraft[] {
   return out;
 }
 
+/** Normaliza el JSON del modelo a un AudienceAngle válido. */
+function normalizeAngle(raw: Record<string, unknown>): AudienceAngle {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const arr = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((s) => s.trim()) : [];
+  return {
+    angle: str(raw.angle),
+    jobToBeDone: str(raw.jobToBeDone),
+    useCases: arr(raw.useCases),
+    drop: arr(raw.drop),
+  };
+}
+
+/**
+ * Deriva el ÁNGULO de audiencia: reencuadra el tema del post al mundo de Andrea
+ * (marketing en pyme) ANTES de generar. Es el paso que hace que las variaciones se
+ * escriban PARA Andrea (misma persona que juzga el gate de valor), no que traduzcan
+ * el post. Si el tema es técnico/ajeno, lo reencuadra a su aplicación más útil.
+ */
+export async function deriveAudienceAngle(
+  analysis: PostAnalysis,
+  opts: { es: SpanishVariant },
+): Promise<AudienceAngle> {
+  const idioma = opts.es === "cl" ? "español chileno" : "español neutro latinoamericano";
+  const res = await getClient().chat.completions.create({
+    model: getModel(),
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          `${ANDREA}\n\nEres estratega de contenido de la marca ia.es: reencuadras cualquier tema de IA al ` +
+          `mundo de Andrea. Respondes SOLO con JSON válido.`,
+      },
+      {
+        role: "user",
+        content:
+          `Análisis del post de referencia:\n${JSON.stringify(analysis, null, 2)}\n\n` +
+          `Define el ÁNGULO para reencuadrar ESTE tema al trabajo de Andrea (marketing en una pyme, NO técnica), en ${idioma}:\n` +
+          `- "angle": en 1 frase, cómo Andrea usa este tema en su trabajo.\n` +
+          `- "jobToBeDone": el problema concreto de marketing que le resuelve.\n` +
+          `- "useCases": 2-4 usos concretos en marketing de pyme (posts, campañas, correos, atención, etc.).\n` +
+          `- "drop": qué del post original NO le sirve a Andrea (jerga técnica, casos de otro público) y hay que soltar.\n` +
+          `Si el tema es técnico o para otro público, reencuádralo a la aplicación más cercana y útil para ella (no lo descartes).\n` +
+          `Devuelve SOLO JSON: { "angle": string, "jobToBeDone": string, "useCases": string[], "drop": string[] }`,
+      },
+    ],
+  });
+  return normalizeAngle(extractJson(res.choices[0]?.message?.content ?? "{}"));
+}
+
 /**
  * Genera N (default 2) variaciones del post como VariationDraft, en español
  * neutro o chileno, mapeadas a las plantillas de marca y con ángulos distintos.
+ * Si se pasa `angle`, TODAS las variaciones se escriben desde el ángulo de Andrea.
  * La validación final (props, plantillas, Hook/Cta) la hace emit.validateDraft.
  */
 export async function generateVariations(
   analysis: PostAnalysis,
-  opts: { es: SpanishVariant; count?: number },
+  opts: { es: SpanishVariant; count?: number; angle?: AudienceAngle },
 ): Promise<VariationDraft[]> {
   const count = opts.count ?? 2;
   const idioma =
@@ -206,9 +259,11 @@ export async function generateVariations(
         role: "user",
         content:
           `Análisis del post de referencia:\n${JSON.stringify(analysis, null, 2)}\n\n` +
+          (opts.angle ? `${formatAngle(opts.angle)}\n\n${ANDREA}\n\n` : "") +
           `Plantillas disponibles (usa SOLO estas, con sus props):\n${catalog}\n\n` +
           `${BRAND_RULES}\n\n` +
-          `Genera EXACTAMENTE ${count} variaciones DISTINTAS entre sí (distinto ángulo de hook o plantilla dominante). ` +
+          `Genera EXACTAMENTE ${count} variaciones DISTINTAS entre sí (distinto ángulo de hook o plantilla dominante, ` +
+          `pero TODAS desde el ángulo de Andrea de arriba). ` +
           `Todo el copy en ${idioma}. NUNCA dejes texto en el idioma original.\n` +
           `Devuelve SOLO un JSON: { "variations": [ { "name": string, "angle": string, ` +
           `"pillar": "herramienta"|"noticia"|"prompt"|"curiosidad", "slides": [ { "template": <nombre>, ` +
@@ -242,7 +297,7 @@ export async function improveVariation(
   analysis: PostAnalysis,
   draft: VariationDraft,
   suggestions: string[],
-  opts: { es: SpanishVariant },
+  opts: { es: SpanishVariant; angle?: AudienceAngle },
 ): Promise<VariationDraft> {
   const idioma =
     opts.es === "cl"
@@ -267,6 +322,7 @@ export async function improveVariation(
         role: "user",
         content:
           `Contexto del análisis original:\n${JSON.stringify(analysis, null, 2)}\n\n` +
+          (opts.angle ? `${formatAngle(opts.angle)}\n\n${ANDREA}\n\n` : "") +
           `Plantillas disponibles (usa SOLO estas, con sus props):\n${catalog}\n\n` +
           `${BRAND_RULES}\n\n` +
           `Esta es la variación ACTUAL (mejórala, NO empieces de cero):\n${JSON.stringify(draft, null, 2)}\n\n` +

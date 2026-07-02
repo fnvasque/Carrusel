@@ -2,6 +2,7 @@ import type { CarouselSpec } from "../templates/types.ts";
 import type { InstagramSource, PostAnalysis } from "../remix/types.ts";
 import { specToReadable } from "../templates/slideText.ts";
 import { getClient, getModel, hasApiKey, extractJson } from "./client.ts";
+import { ANDREA } from "./persona.ts";
 
 /**
  * Evaluadores de CONTENIDO que complementan el proxy de viralidad (score/virality.ts):
@@ -64,17 +65,7 @@ export interface EvaluateContext {
 }
 
 // ─────────────────────────────── Persona ───────────────────────────────
-
-/** Persona objetivo de la marca ia.es (ver memoria marca-ia-espanol). */
-const ANDREA = `
-Eres "Andrea": 31 años, trabajas en marketing en una pyme en Latinoamérica. NO eres técnica.
-Sigues cuentas de IA porque temes quedarte atrás, pero el ruido y el FOMO te abruman.
-De un carrusel de IA quieres, en ~30 segundos: QUÉ pasó, POR QUÉ te importa y CÓMO lo aplicas HOY en tu trabajo.
-Detestas: el hype ("cambia tu vida", "increíble"), el miedo ("te van a reemplazar"), la jerga sin explicar
-(LLM, token, embedding) y el clickbait que no cumple lo que promete.
-Guardas o compartes SOLO lo que te deja algo usable hoy o te hace quedar bien con un colega.
-Eres honesta y algo escéptica: si algo es humo o relleno, lo dices.
-`.trim();
+// La persona ANDREA vive en persona.ts (fuente única, compartida con el generador).
 
 function gradeOf(t: number): string {
   if (t >= 90) return "A";

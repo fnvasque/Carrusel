@@ -13,6 +13,7 @@ import { specToReadable, specToPlainSlides } from "../src/templates/slideText.ts
 import { extractJson } from "../src/ai/client.ts";
 import { normalizeAudience, normalizeFactCheck, gateSuggestions, type ContentGateResult } from "../src/ai/evaluate.ts";
 import { lintBrand, relLuminance, extractHexColors, MIN_BG_LUMINANCE } from "../src/templates/brandGuard.ts";
+import { ANDREA, formatAngle } from "../src/ai/persona.ts";
 import { Hook, Cta } from "../src/templates/index.ts";
 import ejemploCarousel from "../carousels/ejemplo.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
@@ -429,6 +430,27 @@ check("lintBrand considera defaults.background (fondo efectivo)", () => {
 check("theme.brand.handle es ia.punto.es y carousels/ejemplo.ts pasa el guard (candado it.1)", () => {
   assert.equal(theme.brand.handle, "ia.punto.es");
   assert.deepEqual(lintBrand(ejemploCarousel), [], "ejemplo.ts no debe tener violaciones de marca");
+});
+
+// --- persona: fuente única + formatAngle ---
+check("ANDREA es la persona compartida (no vacía, menciona Andrea y marketing)", () => {
+  assert.ok(ANDREA.length > 50);
+  assert.ok(ANDREA.includes("Andrea"));
+  assert.ok(/marketing/i.test(ANDREA));
+});
+
+check("formatAngle arma el bloque con las 4 partes y (—) para vacíos", () => {
+  const block = formatAngle({
+    angle: "Usar Claude para redactar posts de marca más rápido",
+    jobToBeDone: "producir copy de campaña sin partir de cero",
+    useCases: ["captions de IG", "asuntos de correo"],
+    drop: [],
+  });
+  assert.ok(block.includes("ÁNGULO PARA LA AUDIENCIA (Andrea)"));
+  assert.ok(block.includes("Usar Claude para redactar posts de marca más rápido"));
+  assert.ok(block.includes("captions de IG · asuntos de correo"));
+  assert.ok(block.includes("Suelta del original (no le sirve): (—)"), "arrays vacíos → (—)");
+  assert.ok(/APLICO HOY/i.test(block), "incluye el mandato de aplicabilidad");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);
