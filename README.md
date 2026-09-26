@@ -212,17 +212,30 @@ imágenes, el caption, los comentarios y el audio de los reels. Plan completo en
 npm run kb:add "https://www.instagram.com/reel/XXXX/" -- --nota="por qué me interesa"
 npm run kb:add "<url>" -- --image=captura-comentarios.png   # suma capturas al post
 npm run kb:add -- --image=captura1.png --image=captura2.png  # solo capturas, sin link
+npm run kb:ask "¿qué herramientas guardé para editar video?"   # pregunta a tu base
+npm run kb:undo                        # deshace el último guardado
+npm run kb:undo "<url o shortcode>"    # deshace el último guardado de ese post
+npm run kb:reindex                     # reconstruye el índice desde el Markdown
 ```
 
 - **Fichas** (`knowledge/fuentes/`): resumen, ideas clave, herramientas, pasos, recursos, lo
-  útil de los comentarios (sin nombres de usuario), caption y transcripción, más una miniatura.
-- **Temas** (`knowledge/temas/`): los crea el bot solo y reutiliza los existentes. Cada página
-  sintetiza todas sus fuentes y se regenera al entrar un post nuevo.
+  útil de los comentarios (sin nombres de usuario), caption, transcripción y el **texto literal
+  de cada imagen** (slides del carrusel o un cuadro cada ~3 s del reel, hasta 12).
+- **Imágenes**: la miniatura (`_adjuntos/<id>.jpg`) va a git; la galería completa
+  (`_adjuntos/slides/<id>/`) se ve en la ficha pero queda **fuera de git** (repo liviano).
+- **Temas** (`knowledge/temas/`): los crea el bot solo y reutiliza los existentes. Si propone uno
+  nuevo, se compara por significado con los existentes: parecido ≥ 0,80 se une; en la zona
+  dudosa (0,55–0,80) decide un modelo barato. Cada página sintetiza todas sus fuentes.
+- **Consultas** (`kb:ask`): búsqueda híbrida (palabras sin tildes + significado) sobre un índice
+  SQLite en `knowledge/.index/` (derivado, fuera de git; `kb:reindex` lo reconstruye). Entiende
+  fechas ("esta semana", "últimos 10 días") y responde **solo con tu base, citando fichas**.
+- **Nombres bien escritos**: la transcripción usa el caption como pista y los nombres mal
+  transcritos (p. ej. "Cloud" por "Claude") se corrigen en toda la ficha.
 - **Tus notas se respetan**: el bot solo escribe entre `<!-- kb:auto:start -->` y
   `<!-- kb:auto:end -->`. `## Mis notas` y las propiedades que agregues en Obsidian no se tocan.
 - **Compartir el mismo post otra vez** actualiza su ficha (se identifica por el shortcode).
 - **Cada guardado es un commit** con solo sus archivos (desactivable con `KB_GIT=0`;
-  `KB_GIT_PUSH=1` hace push de respaldo).
+  `KB_GIT_PUSH=1` hace push de respaldo). `kb:undo` lo revierte con `git revert`.
 
 Configuración en Mac:
 

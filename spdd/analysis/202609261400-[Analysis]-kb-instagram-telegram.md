@@ -122,11 +122,11 @@ Formato de un tema (`knowledge/temas/Automatización con IA.md`): frontmatter (`
 | Canal | Telegram + grammY, **long polling** | Sin URL pública; corre en el PC de casa |
 | Hosting | PC de casa (IP residencial) | Instagram bloquea mucho menos; gratis; Obsidian lee el mismo disco |
 | Fuente de verdad | Markdown en `knowledge/` + git | Obsidian nativo, historial, deshacer = revert, backup = push |
-| Índice | SQLite (`better-sqlite3`) + FTS5 + `sqlite-vec` | Un solo archivo, sin servidor; reconstruible |
+| Índice | SQLite (`node:sqlite`, integrado en Node) + FTS5 + coseno en memoria | Un solo archivo, sin servidor ni dependencias nativas; reconstruible. *(Cambió en la implementación: se descartó `better-sqlite3` + `sqlite-vec` para evitar binarios nativos; el coseno en memoria alcanza para decenas de miles de trozos.)* |
 | Modelos | OpenAI (proveedor ya usado): `gpt-4o` extracción, `gpt-4o-mini-transcribe` audio, `text-embedding-3-small` embeddings, modelo de respuesta configurable | Una sola API key; modelos por env (`KB_MODEL`, `KB_ASK_MODEL`) |
 | Validación | `zod` | Salida del modelo con forma garantizada |
 | Frontmatter | `gray-matter` | Leer/escribir propiedades de Obsidian |
-| Imágenes en git | Solo 1 miniatura `.webp` (~30–60 KB) por post | Contexto visual en Obsidian sin inflar el repo; videos nunca |
+| Imágenes en git | Solo 1 miniatura por post (WebP, o JPG si ffmpeg no trae WebP) | Contexto visual en Obsidian sin inflar el repo; videos nunca. La galería completa se guarda **fuera de git** (`_adjuntos/slides/<id>/`, con su propio `.gitignore`) |
 | Concurrencia | Worker único, commits serializados | Sin carreras en git ni en las páginas de tema |
 
 ### Alternatives Considered
@@ -169,7 +169,7 @@ Cada iteración cierra con `npm run typecheck` + `npm run test` en verde y un co
 
 ## Dependencias
 
-- **npm**: `grammy`, `@grammyjs/files`, `better-sqlite3`, `sqlite-vec`, `zod`, `gray-matter` (+ `@types/better-sqlite3`). `openai` ya está.
+- **npm**: `grammy`, `@grammyjs/files` (iteración 3), `zod`, `gray-matter`. `openai` ya está. El índice usa `node:sqlite` (sin dependencias nativas).
 - **Sistema (PC)**: Node 22, git, `yt-dlp`, `ffmpeg`, Obsidian.
 - **Secretos (`.env`, ya en `.gitignore`)**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`, `OPENAI_API_KEY`, `REMIX_COOKIES` o `REMIX_COOKIES_FROM_BROWSER` (cuenta secundaria de Instagram).
 
@@ -208,3 +208,25 @@ Cada iteración cierra con `npm run typecheck` + `npm run test` en verde y un co
 | Accesible en Obsidian | Iteraciones 1 y 4 |
 | Consultar el contenido | Iteraciones 2 y 3 |
 | Corre en el PC de casa | Iteración 4 |
+
+## Estado de implementación (2026-09-26)
+
+### Iteración 1 — hecha
+
+- `kb:add` con carruseles, posts y reels; fichas y temas en Markdown con zonas auto/usuario; commit por guardado.
+- **Texto de las imágenes**: transcripción literal por slide/cuadro (sección plegada, buscable). Imágenes a `detail: "high"`, hasta `KB_MAX_IMAGES` (12).
+- **Reels**: el video se baja una vez; de ahí salen los cuadros (uno cada ~3 s, entre 5 y 12, JPEG 768 px) y el audio.
+- **Transcripción con pista**: el caption se pasa como `prompt`; el modelo lista `nameFixes` ("Cloud" → "Claude") y `names.ts` los aplica en toda la ficha si el nombre correcto aparece en caption/imágenes/comentarios.
+- **Comentarios**: yt-dlp no evalúa el generador de comentarios en carruseles y solo trae la primera página; se piden **paginados** (hasta 10 páginas) con la API de Python de yt-dlp. Se guardan solo los aportes, sin nombres.
+- **Temas**: nombre equivalente → existente; si no, embeddings (≥ 0,80 se une; 0,55–0,80 decide `gpt-4o-mini`). Calibrado con pares reales.
+- **Deshacer**: `kb:undo ["<url|id>"]` = `git revert` del último guardado (salta los ya revertidos), borra galerías huérfanas y reindexa.
+- **Robustez**: respuestas del modelo con caracteres de control (tildes corruptas) se reintentan y limpian; links de herramientas solo si son `http(s)`; temperatura 0,2.
+- **Pendiente**: validar el criterio de aceptación con 5 posts variados (probado con 2: un carrusel de fotos y un reel).
+
+### Iteración 2 — hecha
+
+- `src/kb/db.ts` (índice en `<base>/.index/kb.sqlite`, fuera de git), `embed.ts` (embeddings con caché), `indexer.ts` (trozos por sección, incluidas "Mis notas"), `search.ts` (FTS5 sin tildes + coseno, fusión RRF, filtros de fecha), `ask.ts` (respuesta con citas `[n]`, "no está en tu base").
+- `kb:add` indexa al guardar; `kb:reindex [-- --full]` sincroniza con el Markdown.
+- Verificado con preguntas por herramienta, por idea vaga, por fecha, por comentarios y fuera de la base.
+
+### Iteraciones 3 y 4 — pendientes
