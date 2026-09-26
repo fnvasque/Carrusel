@@ -262,13 +262,47 @@ function ring(id, t, at, x, y, size, dur = 0.35) {
   set(id, { left: `${x - s / 2}px`, top: `${y - s / 2}px`, width: `${s}px`, height: `${s}px`, opacity: p > 0 && p < 1 ? String(1 - p) : "0" });
 }
 
-function render(t) {
+// Línea de tiempo: [tiempo de diseño, tiempo real]. Los tramos planos son pausas
+// de lectura (el diseño se congela mientras el tiempo real avanza); las entradas
+// y los cortes conservan su velocidad original.
+const KNOTS = [
+  [0, 0], [0.86, 1.08], [0.86, 2.08], [1.0, 2.22],
+  [1.3, 2.62], [1.3, 3.22], [1.9, 4.02], [2.2, 4.32],
+  [2.62, 4.87], [3.2, 5.97], [3.2, 6.77], [3.4, 6.97],
+  [3.82, 7.5], [3.82, 8.4], [4.6, 9.2],
+  [5.15, 10.0], [5.5, 10.5], [5.5, 12.2], [5.8, 12.5],
+  [6.78, 13.62], [6.78, 14.62], [7.0, 14.84],
+  [7.4, 15.44], [7.85, 16.03], [7.85, 17.43], [8.0, 17.58],
+  [8.55, 18.23], [10.0, 20.43],
+];
+const DURATION = KNOTS[KNOTS.length - 1][1];
+function toDesign(T) {
+  for (let i = 1; i < KNOTS.length; i++) {
+    const [d0, r0] = KNOTS[i - 1], [d1, r1] = KNOTS[i];
+    if (T <= r1) return r1 === r0 ? d1 : lerp(d0, d1, (T - r0) / (r1 - r0));
+  }
+  return KNOTS[KNOTS.length - 1][0];
+}
+function toReal(d) {
+  for (let i = 1; i < KNOTS.length; i++) {
+    const [d0, r0] = KNOTS[i - 1], [d1, r1] = KNOTS[i];
+    if (d <= d1 && d1 > d0) return lerp(r0, r1, (d - d0) / (d1 - d0));
+  }
+  return DURATION;
+}
+
+function render(T) {
+  draw(toDesign(T), T);
+}
+
+// t = tiempo de diseño (coreografía); rt = tiempo real (movimiento ambiente que no se congela en las pausas).
+function draw(t, rt) {
   // Visibilidad por escena.
   SCENES.forEach(([a, b], i) => set(`s${i + 1}`, { opacity: t >= a && t < b ? 1 : 0 }));
   const si = SCENES.findIndex(([a, b]) => t >= a && t < b);
 
   // Fondo: grilla en movimiento (se congela en el cierre).
-  const gt = Math.min(t, 8.5);
+  const gt = Math.min(rt, toReal(8.5));
   set("grid", { transform: `perspective(900px) rotateX(${lerp(8, 0, prog(t, 8, 8.4))}deg) translateY(${(gt * 180) % 120}px)` });
 
   // Flash de 1-2 frames en cada corte + shake de cámara.
@@ -322,7 +356,7 @@ function render(t) {
 
   // 4 · ANALYZE
   if (si === 3) {
-    set("bigword", { transform: `translateX(${-200 - (t - 3.4) * 1400}px)` });
+    set("bigword", { transform: `translateX(${-200 - (rt - toReal(3.4)) * 500}px)` });
     const pos = [[80, 330], [560, 330], [80, 1260], [560, 1260]];
     const from = [[-600, -500], [600, -500], [-600, 500], [600, 500]];
     const conv = inExpo(prog(t, 4.08, 4.42));
@@ -332,9 +366,9 @@ function render(t) {
       const y = lerp(from[i][1], 0, p) + (960 - 165 - pos[i][1]) * conv;
       set(id, { left: `${pos[i][0]}px`, top: `${pos[i][1]}px`, transform: `translate(${x}px,${y}px) rotate(${(1 - p) * (i % 2 ? 18 : -18) + conv * 40 * (i % 2 ? 1 : -1)}deg) scale(${lerp(1, 0.1, conv)})`, opacity: String(clamp(p * 2) * (1 - conv * 0.8)), filter: `blur(${conv * 10}px)` });
     });
-    [...$("wave").children].forEach((b, i) => { b.style.height = `${24 + 120 * Math.abs(Math.sin(t * 22 + i * 0.7) * Math.sin(i * 1.3 + t * 5))}px`; });
+    [...$("wave").children].forEach((b, i) => { b.style.height = `${24 + 120 * Math.abs(Math.sin(rt * 14 + i * 0.7) * Math.sin(i * 1.3 + rt * 3))}px`; });
     const cp = outExpo(prog(t, 4.35, 4.5));
-    set("core", { opacity: String(cp), transform: `scale(${lerp(0.2, 2.2, cp) * (1 + 0.1 * Math.sin(t * 40))})` });
+    set("core", { opacity: String(cp), transform: `scale(${lerp(0.2, 2.2, cp) * (1 + 0.1 * Math.sin(rt * 12))})` });
     ring("ring3", t, 4.4, 540, 960, 1300, 0.3);
   }
 
@@ -347,7 +381,7 @@ function render(t) {
     const title = "Resumir Gmail con IA en 5 min";
     const n = Math.floor(title.length * prog(t, 4.8, 5.15));
     $("ttl").textContent = title.slice(0, n);
-    set("caret", { opacity: t < 5.3 && Math.floor(t * 8) % 2 === 0 ? 1 : 0 });
+    set("caret", { opacity: t < 5.3 && Math.floor(rt * 3) % 2 === 0 ? 1 : 0 });
     ["sec1", "sec2", "sec3"].forEach((id, i) => { const p = outExpo(prog(t, 5.1 + i * 0.1, 5.3 + i * 0.1)); set(id, { opacity: String(p), transform: `translateY(${(1 - p) * 60}px)` }); });
     ["c1", "c2", "c3"].forEach((id, i) => { const p = outBack(prog(t, 5.22 + i * 0.05, 5.38 + i * 0.05)); set(id, { transform: `scale(${lerp(0.3, 1, p)})`, display: "inline-block" }); });
   }
@@ -355,10 +389,10 @@ function render(t) {
   // 6 · GRAPH
   if (si === 5) {
     const zoom = lerp(2.2, 0.95, outExpo(prog(t, 5.8, 6.5)));
-    set("graph", { transform: `scale(${zoom}) rotate(${(t - 5.8) * 6}deg)` });
+    set("graph", { transform: `scale(${zoom}) rotate(${(rt - toReal(5.8)) * 3}deg)` });
     // Nodos hoja aparecen en cascada.
-    LEAVES.forEach((l, i) => { const p = outBack(prog(t, 5.85 + l.d * 0.5, 6.0 + l.d * 0.5)); set(`ln${i}`, { transform: `translate(-50%,-50%) scale(${p})`, background: Math.sin(t * 9 + i) > 0.85 ? "#C6FF3D" : "#3a3a4c" }); $(`le${i}`).style.opacity = String(clamp(p)); });
-    TOPICS.forEach((tp, i) => { const p = outBack(prog(t, 5.8 + i * 0.04, 6.0 + i * 0.04)); set(`tn${i}`, { transform: `translate(-50%,-50%) scale(${p * (tp.main ? 1 + 0.08 * Math.sin(t * 10) : 1)})` }); });
+    LEAVES.forEach((l, i) => { const p = outBack(prog(t, 5.85 + l.d * 0.5, 6.0 + l.d * 0.5)); set(`ln${i}`, { transform: `translate(-50%,-50%) scale(${p})`, background: Math.sin(rt * 4 + i) > 0.85 ? "#C6FF3D" : "#3a3a4c" }); $(`le${i}`).style.opacity = String(clamp(p)); });
+    TOPICS.forEach((tp, i) => { const p = outBack(prog(t, 5.8 + i * 0.04, 6.0 + i * 0.04)); set(`tn${i}`, { transform: `translate(-50%,-50%) scale(${p * (tp.main ? 1 + 0.08 * Math.sin(rt * 5) : 1)})` }); });
     // La ficha nueva vuela y se engancha a su tema.
     const f = outExpo(prog(t, 6.15, 6.45));
     const nx = lerp(540, NEW.x, f), ny = lerp(1500, NEW.y, f);
@@ -376,7 +410,7 @@ function render(t) {
     set("ask", { transform: `scale(${lerp(1.4, 1, a)})`, opacity: String(a) });
     const q = "¿qué guardé para editar video?";
     $("q").textContent = q.slice(0, Math.floor(q.length * prog(t, 7.05, 7.4)));
-    set("caret2", { opacity: t < 7.45 && Math.floor(t * 8) % 2 === 0 ? 1 : 0 });
+    set("caret2", { opacity: t < 7.45 && Math.floor(rt * 3) % 2 === 0 ? 1 : 0 });
     const an = outBack(prog(t, 7.45, 7.6));
     set("ans", { opacity: String(clamp(an * 2)), transform: `translateY(${(1 - an) * 200}px) scale(${lerp(0.8, 1, an)})` });
     ["a1", "a2", "a3"].forEach((id, i) => { const p = outBack(prog(t, 7.55 + i * 0.07, 7.7 + i * 0.07)); set(id, { opacity: String(clamp(p * 2)), transform: `translateX(${(1 - p) * 120}px)` }); });
@@ -393,6 +427,7 @@ function render(t) {
   }
 }
 window.render = render;
+window.DURATION = DURATION;
 render(0);
 </script>
 </body></html>

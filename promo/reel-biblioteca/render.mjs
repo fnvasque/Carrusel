@@ -6,7 +6,8 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
 await page.goto(new URL("./reel.html", import.meta.url).href);
 await page.evaluate(() => document.fonts.ready);
-const list = times.length ? times : Array.from({ length: 300 }, (_, i) => i / 30);
+const duration = await page.evaluate(() => window.DURATION);
+const list = times.length ? times : Array.from({ length: Math.round(duration * 30) }, (_, i) => i / 30);
 let i = 0;
 for (const t of list) {
   await page.evaluate((x) => window.render(x), t);
