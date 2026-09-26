@@ -6,6 +6,7 @@ import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
   resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
 } from "../src/kb/markdown.ts";
+import { frameCount } from "../src/kb/media.ts";
 import type { Ficha } from "../src/kb/types.ts";
 
 /**
@@ -246,6 +247,14 @@ check("renderFicha: texto de las imágenes en un callout plegado, fuera del dige
   assert.ok(!fichaDigest(body).includes("5 PROMPTS"));
   const reel = matter(renderFicha(ficha({ extraction: { ...ficha().extraction, imageTexts: [{ image: 3, text: "Paso 1" }] } }), "T", [])).content;
   assert.ok(reel.includes("**Cuadro 3**"));
+});
+
+check("frameCount: un cuadro cada ~3 s, entre 5 y el máximo", () => {
+  assert.equal(frameCount(8, 12), 5);
+  assert.equal(frameCount(30, 12), 10);
+  assert.equal(frameCount(90, 12), 12);
+  assert.equal(frameCount(undefined, 12), 5);
+  assert.equal(frameCount(60, 3), 3);
 });
 
 check("safeUrl: solo links http(s) absolutos", () => {

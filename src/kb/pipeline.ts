@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
-import { fetchImageAsDataUri, ingest, localImageToDataUri } from "../remix/ingest.ts";
+import { fetchImageAsDataUri, ingest, localImageToDataUri, probeDuration } from "../remix/ingest.ts";
 import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
-import { downloadAudio, fetchPostMeta } from "./instagram.ts";
+import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
-import { toSpeechMp3, writeThumbnail } from "./media.ts";
+import { frameCount, toSpeechMp3, videoFrames, writeThumbnail } from "./media.ts";
 import { isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import {
   adjuntosDir, commitPaths, findFichaById, fuentesDir, kbDir, listFichas, listTopics,
@@ -31,7 +31,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   }
   const url = input.url ? normalizeInstagramUrl(input.url) : undefined;
 
-  // 1) Descarga: metadatos + comentarios (yt-dlp) y medios (cadena del remix).
+  // 1) Descarga: metadatos + comentarios (yt-dlp) y medios (imágenes, cuadros del reel).
   progress("descargando");
   const meta: PostMeta | null = url ? await fetchPostMeta(url, cookies) : null;
   let source: { type: string; caption: string; mediaDataUris: string[] } = { type: "unknown", caption: "", mediaDataUris: [] };
@@ -45,7 +45,17 @@ export async function addPost(input: AddInput): Promise<AddResult> {
       if (uri) images.push(uri);
     }
   }
-  // Reels (frames del video), o si lo anterior no alcanzó: cadena de ingesta del remix.
+  // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
+  // MAX_IMAGES) y, más abajo, el audio para transcribir.
+  let video: Awaited<ReturnType<typeof downloadVideo>> = null;
+  if (url && meta?.isVideo) {
+    video = await downloadVideo(url, cookies);
+    if (video) {
+      const duration = await probeDuration(video.path);
+      images = await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration);
+    }
+  }
+  // Si lo anterior no alcanzó: cadena de ingesta del remix.
   if (!images.length) {
     try {
       source = await ingest({
@@ -58,7 +68,10 @@ export async function addPost(input: AddInput): Promise<AddResult> {
       });
     } catch (err) {
       // Sin medios ni caption desde la ingesta: se sigue si yt-dlp o las capturas aportaron algo.
-      if (!meta?.caption && !input.images?.length) throw err;
+      if (!meta?.caption && !input.images?.length) {
+        await video?.cleanup();
+        throw err;
+      }
     }
     images = [...source.mediaDataUris];
   }
@@ -79,7 +92,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   const isVideo = meta?.isVideo ?? source.type === "reel";
   if (url && isVideo) {
     progress("transcribiendo");
-    const audio = await downloadAudio(url, cookies);
+    const audio = video ?? (await downloadAudio(url, cookies));
     if (audio) {
       try {
         const mp3 = await toSpeechMp3(audio.path);
@@ -91,6 +104,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
       }
     }
   }
+  await video?.cleanup();
 
   // 3) Identidad del post y ficha previa (re-compartir actualiza, no duplica).
   const id = (url && shortcodeFromUrl(url)) || `manual-${createHash("sha256").update(images.join("|") + caption).digest("hex").slice(0, 10)}`;

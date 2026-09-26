@@ -220,30 +220,40 @@ export function parseJsonOutput(stdout: string): YtDlpInfo | null {
 }
 
 /**
- * Descarga solo el audio de un reel a un archivo temporal (para transcribir).
- * Devuelve la ruta y una función para limpiarlo, o null si no se pudo.
+ * Descarga el audio (para transcribir) o el video completo (cuadros + audio) de
+ * un reel a un temporal. Devuelve la ruta y una función para limpiarlo, o null.
  */
-export async function downloadAudio(
+async function downloadMedia(
   url: string,
   cookies: { cookies?: string; cookiesFromBrowser?: string },
+  what: "audio" | "video",
 ): Promise<{ path: string; cleanup: () => Promise<void> } | null> {
   if (!(await ytDlpAvailable())) return null;
   const id = createHash("sha256").update(url).digest("hex").slice(0, 16);
-  const dir = join(CACHE_DIR, `audio-${id}`);
+  const dir = join(CACHE_DIR, `${what}-${id}`);
   const cleanup = () => rm(dir, { recursive: true, force: true }).catch(() => {});
   await mkdir(dir, { recursive: true });
   const res = await runYtDlp([
-    "-f", "ba/b",
-    "-o", join(dir, "audio.%(ext)s"),
+    // Video: el mejor formato con audio incluido; si no hay, video + audio unidos (ffmpeg).
+    "-f", what === "audio" ? "ba/b" : "b/bv*+ba",
+    "-o", join(dir, `${what}.%(ext)s`),
     "--no-playlist",
     "--no-warnings",
     ...resolveCookies(cookies),
     url,
   ]);
-  const files = await readdir(dir).catch(() => [] as string[]);
+  const files = (await readdir(dir).catch(() => [] as string[])).filter((f) => !f.endsWith(".part"));
   if (res.code !== 0 || !files.length) {
     await cleanup();
     return null;
   }
   return { path: join(dir, files[0]), cleanup };
 }
+
+/** Solo el audio de un reel (para transcribir). */
+export const downloadAudio = (url: string, cookies: { cookies?: string; cookiesFromBrowser?: string }) =>
+  downloadMedia(url, cookies, "audio");
+
+/** El video completo de un reel (para sacar cuadros y audio de un mismo archivo). */
+export const downloadVideo = (url: string, cookies: { cookies?: string; cookiesFromBrowser?: string }) =>
+  downloadMedia(url, cookies, "video");

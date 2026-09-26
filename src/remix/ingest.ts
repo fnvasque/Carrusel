@@ -135,7 +135,7 @@ export async function hasFfmpeg(): Promise<boolean> {
 }
 
 /** Duración del video en segundos, parseada del stderr de ffmpeg. */
-function probeDuration(path: string): Promise<number | undefined> {
+export function probeDuration(path: string): Promise<number | undefined> {
   return new Promise((resolveP) => {
     const proc = spawn("ffmpeg", ["-i", path]);
     let stderr = "";

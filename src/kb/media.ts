@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 import { hasFfmpeg } from "../remix/ingest.ts";
@@ -61,5 +61,47 @@ export async function writeThumbnail(dataUri: string, outBase: string): Promise<
     return undefined;
   } finally {
     await rm(tmp, { force: true }).catch(() => {});
+  }
+}
+
+/** Un cuadro cada tantos segundos de video (reels). */
+const FRAME_EVERY_SECONDS = 3;
+/** Mínimo de cuadros por video (reels muy cortos o sin duración conocida). */
+const MIN_FRAMES = 5;
+
+/**
+ * Cuántos cuadros sacar de un video: uno cada ~3 s, entre 5 y `max`.
+ * Función pura (testeable).
+ */
+export function frameCount(durationSeconds: number | undefined, max: number): number {
+  const wanted = durationSeconds && durationSeconds > 0 ? Math.ceil(durationSeconds / FRAME_EVERY_SECONDS) : MIN_FRAMES;
+  return Math.max(1, Math.min(max, Math.max(MIN_FRAMES, wanted)));
+}
+
+/**
+ * Cuadros equiespaciados de un video local como data URIs JPEG de 768 px de
+ * ancho: es la resolución que el modelo usa en detail "high", y pesa ~10x menos
+ * que un PNG a tamaño completo. Devuelve [] si no hay ffmpeg o falla.
+ */
+export async function videoFrames(path: string, n: number, durationSeconds?: number): Promise<string[]> {
+  if (n <= 0 || !(await hasFfmpeg())) return [];
+  const dir = join(CACHE_DIR, `frames-${createHash("sha256").update(path).digest("hex").slice(0, 16)}`);
+  try {
+    await mkdir(dir, { recursive: true });
+    // fps tal que salgan n cuadros repartidos en todo el video; sin duración, 1 por segundo.
+    const fps = durationSeconds && durationSeconds > 0 ? (n / durationSeconds).toFixed(4) : "1";
+    const ok = await runFfmpeg([
+      "-i", path, "-vf", `fps=${fps},scale='min(768,iw)':-2`, "-frames:v", String(n), "-q:v", "4", "-y",
+      join(dir, "frame-%02d.jpg"),
+    ]);
+    if (!ok) return [];
+    const files = (await readdir(dir)).filter((f) => f.endsWith(".jpg")).sort().slice(0, n);
+    const out: string[] = [];
+    for (const f of files) out.push(`data:image/jpeg;base64,${(await readFile(join(dir, f))).toString("base64")}`);
+    return out;
+  } catch {
+    return [];
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
