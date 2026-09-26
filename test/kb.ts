@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import matter from "gray-matter";
 import { findInstagramUrl, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
-import { cleanComments, parseJsonOutput, parseYtDlpInfo } from "../src/kb/instagram.ts";
+import { cleanComments, parseJsonOutput, parseYtDlpInfo, pythonForYtDlp } from "../src/kb/instagram.ts";
 import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
-  resolveTopicName, safeFileName, topicKey, unwikilink,
+  resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
 } from "../src/kb/markdown.ts";
 import type { Ficha } from "../src/kb/types.ts";
 
@@ -197,6 +197,54 @@ check("renderTopic lista fuentes con wikilinks y conserva Mis notas", () => {
   assert.ok(content.includes("## Fuentes (1)"));
   assert.ok(content.includes("Ideas propias"));
   assert.ok(!content.includes("## Técnicas"));
+});
+
+check("carrusel: comentarios como generador sin evaluar → vacíos, pero con comment_count", () => {
+  const gen = "<generator object InstagramBaseIE._get_comments at 0x109d83ac0>";
+  assert.deepEqual(cleanComments(gen), []);
+  const meta = parseYtDlpInfo({
+    _type: "playlist",
+    channel: "usuario",
+    comment_count: 205,
+    entries: [
+      { thumbnails: [{ url: "https://x/1.jpg", width: 1080 }], comments: gen },
+      { thumbnails: [{ url: "https://x/2.jpg", width: 1080 }], comments: gen },
+    ],
+  });
+  assert.deepEqual(meta.comments, []);
+  assert.equal(meta.commentCount, 205);
+  assert.equal(meta.hasVideo, false);
+});
+
+check("parseYtDlpInfo: hasVideo detecta slides de video en un carrusel mixto", () => {
+  const mixto = parseYtDlpInfo({ _type: "playlist", entries: [{ thumbnail: "https://x/1.jpg" }, { duration: 12, vcodec: "h264" }] });
+  assert.equal(mixto.isVideo, false);
+  assert.equal(mixto.hasVideo, true);
+  assert.equal(parseYtDlpInfo({ duration: 30 }).hasVideo, true);
+});
+
+check("pythonForYtDlp: usa el intérprete del shebang, o python3 + PYTHONPATH (zipapp)", () => {
+  assert.deepEqual(pythonForYtDlp("/opt/homebrew/bin/yt-dlp", "#!/opt/homebrew/Cellar/yt-dlp/x/libexec/bin/python"), {
+    cmd: "/opt/homebrew/Cellar/yt-dlp/x/libexec/bin/python", args: [],
+  });
+  assert.deepEqual(pythonForYtDlp("/usr/bin/yt-dlp", "#!/usr/bin/env python3"), { cmd: "/usr/bin/env", args: ["python3"] });
+  assert.deepEqual(pythonForYtDlp("/usr/local/bin/yt-dlp", "PK\u0003\u0004"), {
+    cmd: "python3", args: [], env: { PYTHONPATH: "/usr/local/bin/yt-dlp" },
+  });
+});
+
+check("safeUrl: solo links http(s) absolutos", () => {
+  assert.equal(safeUrl("https://higgsfield.ai/seedance"), "https://higgsfield.ai/seedance");
+  assert.equal(safeUrl("/"), undefined);
+  assert.equal(safeUrl("higgsfield.ai"), undefined);
+  assert.equal(safeUrl("https://"), undefined);
+  assert.equal(safeUrl(null), undefined);
+  const body = renderFicha(
+    ficha({ extraction: { ...ficha().extraction, tools: [{ name: "Seedance", purpose: "video", url: "/" }, { name: "Make", purpose: "flujos", url: "https://make.com" }] } }),
+    "T", [],
+  );
+  assert.ok(!body.includes("[link](/)"));
+  assert.ok(body.includes("[link](https://make.com)"));
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

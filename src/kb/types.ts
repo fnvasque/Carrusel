@@ -57,8 +57,12 @@ export interface PostMeta {
   publishedAt?: string;
   kind?: PostKind;
   isVideo: boolean;
+  /** ¿Algún medio del post es video? (en un carrusel mixto, alguna slide). */
+  hasVideo: boolean;
   caption?: string;
   comments: KbComment[];
+  /** Comentarios que declara Instagram (aunque yt-dlp no los haya traído). */
+  commentCount?: number;
   /** URLs de las imágenes del post (una por slide), para carruseles de fotos que yt-dlp no descarga. */
   imageUrls: string[];
 }

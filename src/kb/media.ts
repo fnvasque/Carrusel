@@ -34,19 +34,31 @@ export async function toSpeechMp3(input: string): Promise<string | undefined> {
 }
 
 /**
- * Guarda una miniatura WebP (ancho 480) a partir de un data URI, para mostrarla
- * en la ficha de Obsidian sin inflar el repo. Devuelve true si la escribió.
+ * Guarda una miniatura (ancho 480) a partir de un data URI, para mostrarla en la
+ * ficha de Obsidian sin inflar el repo. Prefiere WebP; si el ffmpeg instalado no
+ * trae el encoder de WebP (p. ej. el de Homebrew), cae a JPG. `outBase` va sin
+ * extensión. Devuelve la ruta escrita, o undefined si no se pudo.
  */
-export async function writeThumbnail(dataUri: string, outPath: string): Promise<boolean> {
+export async function writeThumbnail(dataUri: string, outBase: string): Promise<string | undefined> {
   const m = dataUri.match(/^data:image\/([\w+.-]+);base64,(.+)$/);
-  if (!m || !(await hasFfmpeg())) return false;
+  if (!m || !(await hasFfmpeg())) return undefined;
   const id = createHash("sha256").update(dataUri).digest("hex").slice(0, 16);
   const tmp = join(CACHE_DIR, `thumb-${id}.${m[1] === "jpeg" ? "jpg" : m[1]}`);
   try {
     await mkdir(CACHE_DIR, { recursive: true });
-    await mkdir(dirname(outPath), { recursive: true });
+    await mkdir(dirname(outBase), { recursive: true });
     await writeFile(tmp, Buffer.from(m[2], "base64"));
-    return await runFfmpeg(["-i", tmp, "-vf", "scale='min(480,iw)':-2", "-q:v", "70", "-y", outPath]);
+    const scale = ["-vf", "scale='min(480,iw)':-2"];
+    const attempts: [string, string[]][] = [
+      [".webp", ["-q:v", "70"]],
+      [".jpg", ["-q:v", "5"]],
+    ];
+    for (const [ext, quality] of attempts) {
+      const out = outBase + ext;
+      if (await runFfmpeg(["-i", tmp, ...scale, ...quality, "-frames:v", "1", "-y", out])) return out;
+      await rm(out, { force: true }).catch(() => {});
+    }
+    return undefined;
   } finally {
     await rm(tmp, { force: true }).catch(() => {});
   }

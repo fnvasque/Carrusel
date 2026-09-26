@@ -102,6 +102,12 @@ function section(title: string, content: string): string {
   return content.trim() ? `## ${title}\n\n${content.trim()}` : "";
 }
 
+/** URL utilizable en un link: solo http(s) absoluta (el modelo a veces devuelve "/" o texto). */
+export function safeUrl(url: string | null | undefined): string | undefined {
+  const u = url?.trim();
+  return u && /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u) ? u : undefined;
+}
+
 const KIND_LABEL: Record<Ficha["kind"], string> = { reel: "reel", post: "post", carrusel: "carrusel", manual: "capturas" };
 
 /** Zona automática de una ficha. */
@@ -116,7 +122,7 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
   const topics = `Tema: ${wikilink(topic)}` + (secondary.length ? ` · También en: ${secondary.map((s) => wikilink(s)).join(", ")}` : "");
 
   const tools = e.tools
-    .map((t) => `- **${t.name}**${t.purpose ? ` — ${t.purpose}` : ""}${t.url ? ` ([link](${t.url}))` : ""}`)
+    .map((t) => `- **${t.name}**${t.purpose ? ` — ${t.purpose}` : ""}${safeUrl(t.url) ? ` ([link](${safeUrl(t.url)}))` : ""}`)
     .join("\n");
   const comments = [
     bullets(e.fromComments),

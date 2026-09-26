@@ -35,29 +35,32 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   progress("descargando");
   const meta: PostMeta | null = url ? await fetchPostMeta(url, cookies) : null;
   let source: { type: string; caption: string; mediaDataUris: string[] } = { type: "unknown", caption: "", mediaDataUris: [] };
-  try {
-    source = await ingest({
-      url,
-      caption: input.caption,
-      image: input.images?.length ? input.images : undefined,
-      es: "neutro",
-      outDir: "",
-      ...cookies,
-    });
-  } catch (err) {
-    // Sin medios ni caption desde la ingesta: se sigue si yt-dlp o las capturas aportaron algo.
-    if (!meta?.caption && !input.images?.length) throw err;
-  }
-  let images = [...source.mediaDataUris];
-  // Carrusel de fotos: yt-dlp no descarga las imágenes, pero trae sus URLs. Si la
-  // ingesta obtuvo menos slides que las que tiene el post, se bajan desde ahí.
-  if (meta && meta.imageUrls.length > images.length) {
-    const fromMeta: string[] = [];
+  let images: string[] = [];
+  // Carrusel o post solo de fotos: yt-dlp no descarga las imágenes, pero trae sus URLs.
+  // Se bajan directo desde ahí (la ingesta del remix no aportaría nada y solo
+  // avisaría de un "login wall" que en realidad ya se venció con yt-dlp).
+  if (meta && !meta.hasVideo && meta.imageUrls.length) {
     for (const u of meta.imageUrls.slice(0, MAX_INGEST_IMAGES)) {
       const uri = await fetchImageAsDataUri(u);
-      if (uri) fromMeta.push(uri);
+      if (uri) images.push(uri);
     }
-    if (fromMeta.length > images.length) images = fromMeta;
+  }
+  // Reels (frames del video), o si lo anterior no alcanzó: cadena de ingesta del remix.
+  if (!images.length) {
+    try {
+      source = await ingest({
+        url,
+        caption: input.caption,
+        image: input.images?.length ? input.images : undefined,
+        es: "neutro",
+        outDir: "",
+        ...cookies,
+      });
+    } catch (err) {
+      // Sin medios ni caption desde la ingesta: se sigue si yt-dlp o las capturas aportaron algo.
+      if (!meta?.caption && !input.images?.length) throw err;
+    }
+    images = [...source.mediaDataUris];
   }
   progress("descargando", `${images.length} imagen(es)`);
   // Las capturas se suman a lo descargado (p. ej. capturas de comentarios).
@@ -125,10 +128,8 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     extraction,
   };
   const baseName = previous?.baseName ?? fichaBaseName(ficha);
-  const thumbPath = join(adjuntosDir(), `${id}.webp`);
-  if (images[0] && (await writeThumbnail(images[0], thumbPath))) {
-    ficha.thumbnail = relative(kbDir(), thumbPath).split("\\").join("/");
-  }
+  const thumbPath = images[0] ? await writeThumbnail(images[0], join(adjuntosDir(), id)) : undefined;
+  if (thumbPath) ficha.thumbnail = relative(kbDir(), thumbPath).split("\\").join("/");
   const fichaPath = previous?.path ?? join(fuentesDir(), `${baseName}.md`);
   await writeNote(fichaPath, renderFicha(ficha, main.name, secondary, previous?.raw));
 
@@ -138,7 +139,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // Si la ficha cambió de tema, el tema anterior también debe actualizarse.
   if (previous?.topic && previous.topic !== main.name) affected.add(previous.topic);
   const touched = [fichaPath];
-  if (ficha.thumbnail) touched.push(thumbPath);
+  if (thumbPath) touched.push(thumbPath);
   const all = await listFichas();
   for (const topic of affected) {
     const members = all.filter((f) => f.topic === topic || f.secondary.includes(topic));
