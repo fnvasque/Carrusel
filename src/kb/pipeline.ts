@@ -83,7 +83,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     if (audio) {
       try {
         const mp3 = await toSpeechMp3(audio.path);
-        if (mp3) transcript = (await transcribe(mp3)) || undefined;
+        if (mp3) transcript = (await transcribe(mp3, caption)) || undefined;
       } catch (err) {
         console.warn(`⚠️  No se pudo transcribir: ${err instanceof Error ? err.message : err}`);
       } finally {

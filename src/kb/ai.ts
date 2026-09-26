@@ -25,11 +25,20 @@ function getClient(): OpenAI {
   return client;
 }
 
-/** Transcribe un audio (MP3 mono) a texto. Modelo configurable por KB_TRANSCRIBE_MODEL. */
-export async function transcribe(path: string): Promise<string> {
+/** Tope de caracteres del caption que se pasa como pista a la transcripción. */
+const MAX_HINT_CHARS = 800;
+
+/**
+ * Transcribe un audio (MP3 mono) a texto. Modelo configurable por KB_TRANSCRIBE_MODEL.
+ * `hint` (el caption del post) orienta el vocabulario: sin él, nombres propios
+ * como "Claude" se transcriben como palabras comunes ("Cloud").
+ */
+export async function transcribe(path: string, hint?: string): Promise<string> {
+  const prompt = hint?.trim().slice(0, MAX_HINT_CHARS);
   const res = await getClient().audio.transcriptions.create({
     file: createReadStream(path),
     model: process.env.KB_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe",
+    ...(prompt ? { prompt } : {}),
   });
   return res.text.trim();
 }
@@ -41,6 +50,7 @@ Reglas:
 - Sé concreto y fiel al contenido: no inventes herramientas, pasos ni datos que no estén en las imágenes, el caption, la transcripción o los comentarios.
 - De los comentarios rescata solo lo que aporta (tips, alternativas, correcciones, precios, links). Nunca incluyas nombres de usuario.
 - Temas: reutiliza un tema existente si encaja razonablemente. Crea uno nuevo solo si ninguno sirve; debe ser amplio y reutilizable (ej. "Automatización con IA", no "Automatizar Gmail con Make"). Los temas secundarios SOLO pueden ser existentes.
+- La transcripción es automática y puede confundir nombres propios (ej. "Cloud" en vez de "Claude", "Meik" en vez de "Make"). Corrige esos nombres usando el caption, el texto de las imágenes y los comentarios, y escribe siempre el nombre correcto de herramientas y marcas.
 - Si el contenido es escaso (solo una imagen sin texto), dilo con confidence "low".
 `.trim();
 
