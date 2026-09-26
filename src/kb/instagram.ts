@@ -95,17 +95,33 @@ export async function fetchPostMeta(
   cookies: { cookies?: string; cookiesFromBrowser?: string },
 ): Promise<PostMeta | null> {
   if (!(await ytDlpAvailable())) return null;
-  const res = await runYtDlp([
-    "-J",
-    "--write-comments",
-    "--ignore-no-formats-error",
-    "--no-warnings",
-    ...resolveCookies(cookies),
-    url,
-  ]);
-  if (res.code !== 0 || !res.stdout) return null;
+  // Primero con comentarios; si falla (a veces la API de comentarios es lo que se
+  // cae), se reintenta sin ellos para no perder caption, autor e imágenes.
+  for (const withComments of [true, false]) {
+    const res = await runYtDlp([
+      "-J",
+      ...(withComments ? ["--write-comments"] : []),
+      "--ignore-no-formats-error",
+      "--no-warnings",
+      ...resolveCookies(cookies),
+      url,
+    ]);
+    // En carruseles de fotos yt-dlp puede terminar con código ≠ 0 aunque imprima
+    // el JSON completo: se usa la salida si es parseable, sin mirar el código.
+    const info = parseJsonOutput(res.stdout);
+    if (info) return parseYtDlpInfo(info);
+    const reason = res.stderr.trim().split("\n").filter(Boolean).pop() ?? `código ${res.code}`;
+    console.warn(`⚠️  yt-dlp no devolvió metadatos${withComments ? " (con comentarios)" : ""}: ${reason}`);
+  }
+  return null;
+}
+
+/** Parsea la salida de `yt-dlp -J` (el JSON es la última línea no vacía). */
+export function parseJsonOutput(stdout: string): YtDlpInfo | null {
+  const line = stdout.trim().split("\n").filter((l) => l.trim().startsWith("{")).pop();
+  if (!line) return null;
   try {
-    return parseYtDlpInfo(JSON.parse(res.stdout) as YtDlpInfo);
+    return JSON.parse(line) as YtDlpInfo;
   } catch {
     return null;
   }

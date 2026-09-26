@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import matter from "gray-matter";
 import { findInstagramUrl, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
-import { cleanComments, parseYtDlpInfo } from "../src/kb/instagram.ts";
+import { cleanComments, parseJsonOutput, parseYtDlpInfo } from "../src/kb/instagram.ts";
 import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
   resolveTopicName, safeFileName, topicKey, unwikilink,
@@ -111,6 +111,12 @@ check("parseYtDlpInfo distingue reel / carrusel / post y arma autor y fecha", ()
   assert.equal(carrusel.author, "@otra");
   assert.deepEqual(carrusel.imageUrls, ["https://cdn/1.jpg", "https://cdn/2.jpg"]);
   assert.equal(parseYtDlpInfo({ description: "foto" }).kind, "post");
+});
+
+check("parseJsonOutput toma el JSON aunque haya ruido antes, y null si no hay", () => {
+  assert.equal(parseJsonOutput('WARNING: x\n{"_type":"playlist","id":"A"}\n')?.["_type"], "playlist");
+  assert.equal(parseJsonOutput("null\n"), null);
+  assert.equal(parseJsonOutput('{"roto": '), null);
 });
 
 // --- temas ---
