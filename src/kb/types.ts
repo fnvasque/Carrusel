@@ -17,7 +17,7 @@ export const ExtractionSchema = z.object({
   title: z.string().describe("Título corto y descriptivo en español (máx. 80 caracteres), sin emojis"),
   summary: z.string().describe("Qué es el post, en 1-3 frases"),
   keyIdeas: z.array(z.string()).describe("Ideas clave, accionables y concretas (3-7)"),
-  tools: z.array(ToolSchema).describe("Herramientas mencionadas o mostradas"),
+  tools: z.array(ToolSchema).describe("TODAS las herramientas, apps, proyectos, kits, plantillas o servicios que el post nombra o muestra, uno por ítem (no los agrupes bajo la plataforma que usan)"),
   steps: z.array(z.string()).describe("Pasos si el post enseña un proceso; si no, []"),
   resources: z.array(z.string()).describe("Links, prompts, libros, cuentas o recursos citados"),
   imageTexts: z

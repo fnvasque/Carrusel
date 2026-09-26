@@ -16,6 +16,9 @@ function model(): string {
   return process.env.KB_MODEL ?? "gpt-4o";
 }
 
+/** Temperatura baja: fichas consistentes entre corridas (misma entrada → misma ficha). */
+const TEMPERATURE = 0.2;
+
 /** Cliente OpenAI lazy con guardia de API key (mismo patrón que src/ai/analyze.ts). */
 function getClient(): OpenAI {
   if (!process.env.OPENAI_API_KEY) {
@@ -89,6 +92,7 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
 
   const res = await getClient().beta.chat.completions.parse({
     model: model(),
+    temperature: TEMPERATURE,
     messages: [
       { role: "system", content: EXTRACT_SYSTEM },
       { role: "user", content },
@@ -109,6 +113,7 @@ Reglas: en español; agrupa y deduplica lo que se repite entre fuentes; prioriza
 export async function synthesizeTopic(topic: string, fichasText: string[]): Promise<TopicSynthesis> {
   const res = await getClient().beta.chat.completions.parse({
     model: model(),
+    temperature: TEMPERATURE,
     messages: [
       { role: "system", content: SYNTH_SYSTEM },
       {
