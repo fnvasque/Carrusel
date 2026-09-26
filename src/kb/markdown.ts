@@ -129,6 +129,13 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
     e.audienceQuestions.length ? `**Preguntas de la audiencia**\n\n${bullets(e.audienceQuestions)}` : "",
   ].filter(Boolean).join("\n\n");
 
+  const label = f.kind === "reel" ? "Cuadro" : "Imagen";
+  const imageTexts = (e.imageTexts ?? [])
+    .filter((t) => t.text.trim())
+    // Un ">" al inicio de línea se escapa para no anidar citas dentro del callout.
+    .map((t) => `**${label} ${t.image}**\n${t.text.trim().replace(/^(\s*)>/gm, "$1\\>")}`)
+    .join("\n\n");
+
   return [
     `# ${e.title}`,
     f.thumbnail ? `![[${f.thumbnail}|320]]` : "",
@@ -141,6 +148,7 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
     section("Pasos", numbered(e.steps)),
     section("Recursos", bullets(e.resources)),
     section("De los comentarios", comments),
+    imageTexts ? callout("quote", "Texto de las imágenes", imageTexts, true) : "",
     f.caption.trim() ? callout("quote", "Caption original", f.caption, true) : "",
     f.transcript?.trim() ? callout("quote", "Transcripción", f.transcript, true) : "",
   ].filter(Boolean).join("\n\n");
@@ -209,7 +217,8 @@ export function renderTopic(
 export function fichaDigest(body: string, maxChars = 2500): string {
   return autoZone(body)
     .replace(/^!\[\[.*\]\]$/gm, "")
-    .replace(/^> \[!quote\][\s\S]*?(?=\n(?!>)|$)/gm, "")
+    // Callouts de cita completos (encabezado + todas sus líneas "> …").
+    .replace(/^> \[!quote\].*(?:\n>.*)*/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
     .slice(0, maxChars);

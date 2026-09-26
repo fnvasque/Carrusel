@@ -44,6 +44,7 @@ const ficha = (over: Partial<Ficha> = {}): Ficha => ({
     tools: [{ name: "Make", url: null, purpose: "orquestar el flujo" }],
     steps: ["Conectar Gmail", "Agregar módulo de ChatGPT"],
     resources: [],
+    imageTexts: [],
     fromComments: ["n8n es una alternativa gratis"],
     audienceQuestions: ["¿Cuánto cuesta?"],
     mainTopic: "Automatización con IA",
@@ -231,6 +232,20 @@ check("pythonForYtDlp: usa el intérprete del shebang, o python3 + PYTHONPATH (z
   assert.deepEqual(pythonForYtDlp("/usr/local/bin/yt-dlp", "PK\u0003\u0004"), {
     cmd: "python3", args: [], env: { PYTHONPATH: "/usr/local/bin/yt-dlp" },
   });
+});
+
+check("renderFicha: texto de las imágenes en un callout plegado, fuera del digest del tema", () => {
+  const f = ficha({
+    kind: "carrusel",
+    extraction: { ...ficha().extraction, imageTexts: [{ image: 1, text: "5 PROMPTS\nque uso a diario\n> comentá GUIA" }, { image: 2, text: "  " }] },
+  });
+  const body = matter(renderFicha(f, "T", [])).content;
+  assert.ok(body.includes("> [!quote]- Texto de las imágenes\n> **Imagen 1**\n> 5 PROMPTS\n> que uso a diario"));
+  assert.ok(body.includes("> \\> comentá GUIA"));
+  assert.ok(!body.includes("Imagen 2"));
+  assert.ok(!fichaDigest(body).includes("5 PROMPTS"));
+  const reel = matter(renderFicha(ficha({ extraction: { ...ficha().extraction, imageTexts: [{ image: 3, text: "Paso 1" }] } }), "T", [])).content;
+  assert.ok(reel.includes("**Cuadro 3**"));
 });
 
 check("safeUrl: solo links http(s) absolutos", () => {

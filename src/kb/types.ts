@@ -20,6 +20,12 @@ export const ExtractionSchema = z.object({
   tools: z.array(ToolSchema).describe("Herramientas mencionadas o mostradas"),
   steps: z.array(z.string()).describe("Pasos si el post enseña un proceso; si no, []"),
   resources: z.array(z.string()).describe("Links, prompts, libros, cuentas o recursos citados"),
+  imageTexts: z
+    .array(z.object({
+      image: z.number().int().describe("Número de la imagen adjunta (1 = la primera)"),
+      text: z.string().describe("Texto visible en esa imagen, transcrito literal y completo, en su idioma original"),
+    }))
+    .describe("Texto de cada imagen que tenga texto legible, en orden; omite las que no tengan texto"),
   fromComments: z.array(z.string()).describe("Aportes útiles de los comentarios: tips, alternativas, correcciones, datos"),
   audienceQuestions: z.array(z.string()).describe("Preguntas o dudas que se repiten en los comentarios"),
   mainTopic: z.string().describe("Tema principal: uno existente si encaja, o uno nuevo, amplio y reutilizable"),

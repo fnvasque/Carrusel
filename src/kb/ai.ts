@@ -3,8 +3,8 @@ import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type KbComment, type TopicInfo, type TopicSynthesis } from "./types.ts";
 
-/** Tope de imágenes que se adjuntan al modelo (coste/latencia). */
-const MAX_IMAGES = 8;
+/** Tope de imágenes que se descargan y adjuntan al modelo (coste/latencia). Configurable por KB_MAX_IMAGES. */
+export const MAX_IMAGES = Math.max(1, Number(process.env.KB_MAX_IMAGES) || 12);
 
 /** Tope de caracteres de transcripción/caption que se envían al modelo. */
 const MAX_TEXT_CHARS = 12_000;
@@ -51,6 +51,7 @@ Reglas:
 - De los comentarios rescata solo lo que aporta (tips, alternativas, correcciones, precios, links). Nunca incluyas nombres de usuario.
 - Temas: reutiliza un tema existente si encaja razonablemente. Crea uno nuevo solo si ninguno sirve; debe ser amplio y reutilizable (ej. "Automatización con IA", no "Automatizar Gmail con Make"). Los temas secundarios SOLO pueden ser existentes.
 - La transcripción es automática y puede confundir nombres propios (ej. "Cloud" en vez de "Claude", "Meik" en vez de "Make"). Corrige esos nombres usando el caption, el texto de las imágenes y los comentarios, y escribe siempre el nombre correcto de herramientas y marcas.
+- Transcribe en imageTexts el texto de cada imagen tal cual aparece (títulos, listas, prompts, código, datos), sin resumir ni traducir. Es para poder buscarlo después.
 - Si el contenido es escaso (solo una imagen sin texto), dilo con confidence "low".
 `.trim();
 
@@ -84,7 +85,7 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
     `\nTemas existentes en la base:\n${topicList}`;
 
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [{ type: "text", text }];
-  for (const url of images) content.push({ type: "image_url", image_url: { url, detail: "auto" } });
+  for (const url of images) content.push({ type: "image_url", image_url: { url, detail: "high" } });
 
   const res = await getClient().beta.chat.completions.parse({
     model: model(),

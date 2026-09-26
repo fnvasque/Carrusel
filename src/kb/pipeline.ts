@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
-import { fetchImageAsDataUri, ingest, localImageToDataUri, MAX_INGEST_IMAGES } from "../remix/ingest.ts";
-import { extractFicha, synthesizeTopic, transcribe } from "./ai.ts";
+import { fetchImageAsDataUri, ingest, localImageToDataUri } from "../remix/ingest.ts";
+import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadAudio, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
 import { toSpeechMp3, writeThumbnail } from "./media.ts";
@@ -40,7 +40,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // Se bajan directo desde ahí (la ingesta del remix no aportaría nada y solo
   // avisaría de un "login wall" que en realidad ya se venció con yt-dlp).
   if (meta && !meta.hasVideo && meta.imageUrls.length) {
-    for (const u of meta.imageUrls.slice(0, MAX_INGEST_IMAGES)) {
+    for (const u of meta.imageUrls.slice(0, MAX_IMAGES)) {
       const uri = await fetchImageAsDataUri(u);
       if (uri) images.push(uri);
     }
