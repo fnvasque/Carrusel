@@ -26,6 +26,12 @@ export const ExtractionSchema = z.object({
       text: z.string().describe("Texto visible en esa imagen, transcrito literal y completo, en su idioma original"),
     }))
     .describe("Texto de cada imagen que tenga texto legible, en orden; omite las que no tengan texto"),
+  nameFixes: z
+    .array(z.object({
+      wrong: z.string().describe("Palabra mal transcrita tal como aparece en la transcripción (ej. Cloud)"),
+      right: z.string().describe("Nombre correcto según el caption o las imágenes (ej. Claude)"),
+    }))
+    .describe("Nombres propios que la transcripción escribió mal; [] si no hay"),
   fromComments: z.array(z.string()).describe("Aportes útiles de los comentarios: tips, alternativas, correcciones, datos"),
   audienceQuestions: z.array(z.string()).describe("Preguntas o dudas que se repiten en los comentarios"),
   mainTopic: z.string().describe("Tema principal: uno existente si encaja, o uno nuevo, amplio y reutilizable"),

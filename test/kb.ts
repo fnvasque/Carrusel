@@ -7,6 +7,7 @@ import {
   resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
 } from "../src/kb/markdown.ts";
 import { frameCount } from "../src/kb/media.ts";
+import { applyNameFixes, validFixes } from "../src/kb/names.ts";
 import type { Ficha } from "../src/kb/types.ts";
 
 /**
@@ -46,6 +47,7 @@ const ficha = (over: Partial<Ficha> = {}): Ficha => ({
     steps: ["Conectar Gmail", "Agregar módulo de ChatGPT"],
     resources: [],
     imageTexts: [],
+    nameFixes: [],
     fromComments: ["n8n es una alternativa gratis"],
     audienceQuestions: ["¿Cuánto cuesta?"],
     mainTopic: "Automatización con IA",
@@ -255,6 +257,32 @@ check("frameCount: un cuadro cada ~3 s, entre 5 y el máximo", () => {
   assert.equal(frameCount(90, 12), 12);
   assert.equal(frameCount(undefined, 12), 5);
   assert.equal(frameCount(60, 3), 3);
+});
+
+check("applyNameFixes: corrige nombres en toda la ficha y la transcripción, no en el texto de imágenes", () => {
+  const ex = {
+    ...ficha().extraction,
+    title: "Cinco proyectos con Cloud",
+    tools: [{ name: "Cloud Banana", url: null, purpose: "imágenes con Cloud" }],
+    keyIdeas: ["Cloudflare no se toca", "cloud edita solo"],
+    imageTexts: [{ image: 1, text: "Claude Code construye todo" }],
+    nameFixes: [{ wrong: "Cloud", right: "Claude" }],
+  };
+  const { extraction, transcript } = applyNameFixes(ex, "La gente tiene Cloud y no lo usa.", "Comenta CLAUDE\nClaude Code construye todo");
+  assert.equal(extraction.title, "Cinco proyectos con Claude");
+  assert.equal(extraction.tools[0].name, "Claude Banana");
+  assert.equal(extraction.tools[0].purpose, "imágenes con Claude");
+  assert.deepEqual(extraction.keyIdeas, ["Cloudflare no se toca", "Claude edita solo"]);
+  assert.equal(extraction.imageTexts[0].text, "Claude Code construye todo");
+  assert.equal(transcript, "La gente tiene Claude y no lo usa.");
+});
+
+check("validFixes: descarta correcciones sin evidencia o cuando la palabra es legítima", () => {
+  const fixes = [{ wrong: "Cloud", right: "Claude" }];
+  assert.deepEqual(validFixes(fixes, "Comenta CLAUDE"), fixes);
+  assert.deepEqual(validFixes(fixes, "sin el nombre correcto"), []);
+  assert.deepEqual(validFixes(fixes, "Claude en Google Cloud"), []);
+  assert.deepEqual(validFixes([{ wrong: "IA", right: "AI" }], "AI"), []);
 });
 
 check("safeUrl: solo links http(s) absolutos", () => {

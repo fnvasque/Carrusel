@@ -5,6 +5,7 @@ import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
 import { frameCount, toSpeechMp3, videoFrames, writeThumbnail } from "./media.ts";
+import { applyNameFixes } from "./names.ts";
 import { isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import {
   adjuntosDir, commitPaths, findFichaById, fuentesDir, kbDir, listFichas, listTopics,
@@ -116,7 +117,12 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   progress("analizando");
   const topics = await listTopics();
   const kind: PostKind = url ? (meta?.kind ?? (source.type === "reel" ? "reel" : "post")) : "manual";
-  const extraction = await extractFicha({ kind, caption, transcript, comments, notes, images, topics });
+  const raw = await extractFicha({ kind, caption, transcript, comments, notes, images, topics });
+  // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
+  const evidence = [caption, ...raw.imageTexts.map((t) => t.text), ...comments.map((c) => c.text)].join("\n");
+  const fixed = applyNameFixes(raw, transcript, evidence);
+  const extraction = fixed.extraction;
+  transcript = fixed.transcript;
 
   const existingNames = topics.map((t) => t.name);
   const main = resolveTopicName(extraction.mainTopic, existingNames);

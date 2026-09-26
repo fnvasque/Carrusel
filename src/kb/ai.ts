@@ -50,7 +50,7 @@ Reglas:
 - Sé concreto y fiel al contenido: no inventes herramientas, pasos ni datos que no estén en las imágenes, el caption, la transcripción o los comentarios.
 - De los comentarios rescata solo lo que aporta (tips, alternativas, correcciones, precios, links). Nunca incluyas nombres de usuario.
 - Temas: reutiliza un tema existente si encaja razonablemente. Crea uno nuevo solo si ninguno sirve; debe ser amplio y reutilizable (ej. "Automatización con IA", no "Automatizar Gmail con Make"). Los temas secundarios SOLO pueden ser existentes.
-- La transcripción es automática y puede confundir nombres propios (ej. "Cloud" en vez de "Claude", "Meik" en vez de "Make"). Corrige esos nombres usando el caption, el texto de las imágenes y los comentarios, y escribe siempre el nombre correcto de herramientas y marcas.
+- La transcripción es automática y puede confundir nombres propios (ej. "Cloud" en vez de "Claude", "Meik" en vez de "Make"). Corrige esos nombres usando el caption, el texto de las imágenes y los comentarios, escribe siempre el nombre correcto de herramientas y marcas, y lista cada corrección en nameFixes.
 - Transcribe en imageTexts el texto de cada imagen tal cual aparece (títulos, listas, prompts, código, datos), sin resumir ni traducir. Es para poder buscarlo después.
 - Si el contenido es escaso (solo una imagen sin texto), dilo con confidence "low".
 `.trim();
