@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync, realpathSync } from "node:fs";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, relative, resolve } from "node:path";
 import matter from "gray-matter";
 import { asDate, unwikilink } from "./markdown.ts";
@@ -93,6 +93,15 @@ export async function writeNote(path: string, content: string): Promise<void> {
 
 // --- git ---
 
+/** Ruta real (resuelve enlaces como /var → /private/var en macOS), para compararla con la raíz que da git. */
+const real = (p: string): string => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
 function git(args: string[], cwd: string): Promise<{ code: number; out: string }> {
   return new Promise((resolveP) => {
     const proc = spawn("git", args, { cwd });
@@ -115,11 +124,69 @@ export async function commitPaths(paths: string[], message: string): Promise<str
   const top = await git(["rev-parse", "--show-toplevel"], cwd);
   if (top.code !== 0) return undefined;
   const root = top.out.trim();
-  const rel = paths.map((p) => relative(root, p));
+  const rel = paths.map((p) => relative(root, existsSync(p) ? real(p) : join(real(join(p, "..")), basename(p))));
   if ((await git(["add", "--", ...rel], root)).code !== 0) return undefined;
   const commit = await git(["commit", "-m", message, "--", ...rel], root);
   if (commit.code !== 0) return undefined;
   const head = await git(["rev-parse", "--short", "HEAD"], root);
   if (process.env.KB_GIT_PUSH === "1") await git(["push"], root);
   return head.code === 0 ? head.out.trim() : undefined;
+}
+
+// --- deshacer ---
+
+export interface KbCommit {
+  sha: string;
+  subject: string;
+}
+
+/**
+ * Último guardado del sistema ("kb: agrega/actualiza …") que todavía no fue
+ * deshecho. Con `path`, el último que tocó esa ficha.
+ */
+export async function findLastSave(path?: string): Promise<KbCommit | undefined> {
+  const cwd = kbDir();
+  const top = await git(["rev-parse", "--show-toplevel"], cwd);
+  if (top.code !== 0) return undefined;
+  const root = top.out.trim();
+  const log = await git(["log", "-n", "200", "--format=%H%x1f%s%x1f%b%x1e", "--", relative(root, real(path ?? cwd)) || "."], root);
+  if (log.code !== 0) return undefined;
+  const entries = log.out.split("\x1e").map((e) => e.trim()).filter(Boolean).map((e) => {
+    const [sha, subject, body = ""] = e.split("\x1f");
+    return { sha, subject, body };
+  });
+  // Commits ya revertidos: los "Revert" traen "This reverts commit <sha>".
+  const reverted = new Set(entries.flatMap((e) => [...e.body.matchAll(/This reverts commit ([0-9a-f]{7,40})/g)].map((m) => m[1])));
+  return entries
+    .filter((e) => /^kb: (agrega|actualiza) /.test(e.subject) && ![...reverted].some((r) => e.sha.startsWith(r)))
+    .map(({ sha, subject }) => ({ sha, subject }))[0];
+}
+
+/** Revierte un guardado. Si choca con cambios posteriores, aborta y lanza un error claro. */
+export async function revertSave(c: KbCommit): Promise<string> {
+  const root = (await git(["rev-parse", "--show-toplevel"], kbDir())).out.trim();
+  const res = await git(["revert", "--no-edit", c.sha], root);
+  if (res.code !== 0) {
+    await git(["revert", "--abort"], root);
+    throw new Error(
+      `No pude deshacer "${c.subject}" automáticamente: cambios posteriores tocaron los mismos archivos. ` +
+      `Deshaz primero los guardados más nuevos, o revierte a mano con git revert ${c.sha.slice(0, 7)}.`,
+    );
+  }
+  return (await git(["rev-parse", "--short", "HEAD"], root)).out.trim();
+}
+
+/** Borra galerías (_adjuntos/slides/<id>) de posts que ya no tienen ficha. Devuelve cuántas. */
+export async function removeOrphanGalleries(): Promise<number> {
+  const dir = join(adjuntosDir(), "slides");
+  if (!existsSync(dir)) return 0;
+  const ids = new Set((await listFichas()).map((f) => f.id).filter(Boolean));
+  let removed = 0;
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && !ids.has(entry.name)) {
+      await rm(join(dir, entry.name), { recursive: true, force: true });
+      removed++;
+    }
+  }
+  return removed;
 }

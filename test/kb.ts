@@ -9,6 +9,10 @@ import {
 import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, validFixes } from "../src/kb/names.ts";
+import { chunkFicha, splitText } from "../src/kb/indexer.ts";
+import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
+import { citedNumbers, groupSources } from "../src/kb/ask.ts";
+import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import type { Ficha } from "../src/kb/types.ts";
 
 /**
@@ -314,6 +318,93 @@ check("safeUrl: solo links http(s) absolutos", () => {
   );
   assert.ok(!body.includes("[link](/)"));
   assert.ok(body.includes("[link](https://make.com)"));
+});
+
+// --- iteración 2: índice y consultas ---
+check("chunkFicha: secciones y callouts de cita, sin Origen ni galería; incluye Mis notas", () => {
+  const f = {
+    ...ficha(),
+    gallery: ["_adjuntos/slides/ABC123/01.jpg"],
+    extraction: { ...ficha().extraction, imageTexts: [{ image: 1, text: "5 PROMPTS" }] },
+  };
+  const body = matter(renderFicha(f, "Automatización con IA", [])).content.replace("## Mis notas\n", "## Mis notas\n\nProbar con el cliente X\n");
+  const chunks = chunkFicha(body);
+  const sections = chunks.map((c) => c.section);
+  assert.ok(sections.includes("Qué es"));
+  assert.ok(sections.includes("Ideas clave"));
+  assert.ok(sections.includes("Herramientas"));
+  assert.ok(sections.includes("Texto de las imágenes"));
+  assert.ok(sections.includes("Transcripción"));
+  assert.ok(sections.includes("Caption original"));
+  assert.ok(!sections.includes("Origen"));
+  assert.ok(!sections.some((s) => s.startsWith("Imágenes")));
+  assert.equal(chunks.find((c) => c.section === "Mis notas")?.text, "Probar con el cliente X");
+  assert.equal(chunks.find((c) => c.section === "Texto de las imágenes")?.text, "**Cuadro 1**\n5 PROMPTS");
+  assert.ok(!chunks.some((c) => c.text.includes("> ")));
+});
+
+check("splitText: respeta el máximo partiendo por párrafos y líneas", () => {
+  const long = Array.from({ length: 30 }, (_, i) => `Párrafo ${i} ${"x".repeat(80)}`).join("\n\n");
+  const parts = splitText(long, 400);
+  assert.ok(parts.length > 1);
+  assert.ok(parts.every((p) => p.length <= 400));
+  assert.equal(parts.join("\n\n"), long);
+  assert.ok(splitText("y".repeat(1000), 300).every((p) => p.length <= 300));
+});
+
+check("parseDateRange: hoy, ayer, esta semana, semana pasada, últimos N días, meses", () => {
+  const today = "2026-09-26"; // sábado
+  assert.deepEqual(parseDateRange("¿qué guardé hoy?", today), { from: "2026-09-26", to: "2026-09-26", label: "hoy" });
+  assert.equal(parseDateRange("lo de ayer", today)?.from, "2026-09-25");
+  assert.deepEqual(parseDateRange("qué guardé esta semana", today), { from: "2026-09-21", to: "2026-09-26", label: "esta semana" });
+  assert.deepEqual(parseDateRange("la semana pasada", today), { from: "2026-09-14", to: "2026-09-20", label: "la semana pasada" });
+  assert.equal(parseDateRange("últimos 10 días", today)?.from, "2026-09-17");
+  assert.deepEqual(parseDateRange("el mes pasado", today), { from: "2026-08-01", to: "2026-08-31", label: "el mes pasado" });
+  assert.equal(parseDateRange("este mes", today)?.from, "2026-09-01");
+  assert.equal(parseDateRange("herramientas para video", today), undefined);
+});
+
+check("ftsQuery: palabras relevantes entre comillas; sin stopwords ni símbolos peligrosos", () => {
+  assert.equal(ftsQuery("¿Qué herramientas guardé para editar video?"), '"herramientas" OR "editar" OR "video"');
+  assert.equal(ftsQuery('prompts "UGC" AND NEAR(x)'), '"prompts" OR "ugc" OR "and" OR "near"');
+  assert.equal(ftsQuery("¿qué es?"), undefined);
+});
+
+check("rrfFuse: premia lo que aparece arriba en ambas listas", () => {
+  const s = rrfFuse([[1, 2, 3], [3, 1, 4]]);
+  const order = [...s.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  assert.deepEqual(order.slice(0, 2), [1, 3]);
+});
+
+check("groupSources y citedNumbers: fuentes numeradas por ficha y citas usadas", () => {
+  const hit = (baseName: string, chunkId: number): Hit => ({
+    chunkId, postId: baseName, section: "Qué es", text: `t${chunkId}`, score: 1, title: baseName, path: `${baseName}.md`, baseName,
+  });
+  const g = groupSources([hit("a", 1), hit("b", 2), hit("a", 3), hit("a", 4), hit("c", 5)], 2, 2);
+  assert.deepEqual(g.map((x) => [x.source.n, x.source.baseName, x.chunks.map((c) => c.chunkId)]), [[1, "a", [1, 3]], [2, "b", [2]]]);
+  assert.deepEqual(citedNumbers("Usa Make [1] y n8n [2, 3]. Otra vez [1]."), [1, 2, 3]);
+  assert.deepEqual(citedNumbers("sin citas"), []);
+});
+
+check("closestTopic: reutiliza el tema más parecido solo sobre el umbral", () => {
+  const v = (...xs: number[]) => Float32Array.from(xs);
+  const existing = [{ name: "Automatización con IA", vector: v(1, 0, 0) }, { name: "Diseño", vector: v(0, 1, 0) }];
+  const m = closestTopic(v(0.9, 0.436, 0), existing, 0.8);
+  assert.equal(m?.name, "Automatización con IA");
+  assert.ok(Math.abs((m?.score ?? 0) - 0.9) < 1e-6);
+  assert.equal(closestTopic(v(0.7, 0.714, 0), existing, 0.8), undefined);
+  assert.equal(closestTopic(v(1, 0, 0), [], 0.8), undefined);
+});
+
+check("reviewCandidates: solo la zona dudosa [piso, umbral), del más al menos parecido", () => {
+  const v = (...xs: number[]) => Float32Array.from(xs);
+  const existing = [
+    { name: "Casi igual", vector: v(0.9, 0.436, 0) },
+    { name: "Dudoso alto", vector: v(0.75, 0.661, 0) },
+    { name: "Dudoso bajo", vector: v(0.6, 0.8, 0) },
+    { name: "Distinto", vector: v(0, 1, 0) },
+  ];
+  assert.deepEqual(reviewCandidates(v(1, 0, 0), existing, 0.55, 0.8).map((c) => c.name), ["Dudoso alto", "Dudoso bajo"]);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

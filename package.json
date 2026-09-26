@@ -13,7 +13,10 @@
     "calibrate": "tsx src/score/calibrate.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx test/smoke.ts && tsx test/kb.ts",
-    "kb:add": "tsx src/kb/cli.ts"
+    "kb:add": "tsx src/kb/cli.ts add",
+    "kb:ask": "tsx src/kb/cli.ts ask",
+    "kb:undo": "tsx src/kb/cli.ts undo",
+    "kb:reindex": "tsx src/kb/cli.ts reindex"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

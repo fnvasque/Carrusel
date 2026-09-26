@@ -104,7 +104,7 @@ export interface TopicInfo {
 }
 
 /** Etapas del pipeline, para reportar progreso (CLI hoy, Telegram después). */
-export type Stage = "descargando" | "comentarios" | "transcribiendo" | "analizando" | "guardando" | "temas" | "commit";
+export type Stage = "descargando" | "comentarios" | "transcribiendo" | "analizando" | "guardando" | "temas" | "commit" | "indexando";
 
 export interface AddInput {
   url?: string;
@@ -123,5 +123,7 @@ export interface AddResult {
   created: boolean;
   topicsUpdated: string[];
   newTopic: boolean;
+  /** Si el modelo propuso un tema nuevo pero se unió a uno existente parecido, el nombre propuesto. */
+  topicMergedFrom?: string;
   commit?: string;
 }

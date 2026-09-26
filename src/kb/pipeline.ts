@@ -6,6 +6,8 @@ import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
 import { frameCount, toSpeechMp3, videoFrames, writeGallery, writeThumbnail } from "./media.ts";
 import { applyNameFixes } from "./names.ts";
+import { reindex } from "./indexer.ts";
+import { resolveTopic } from "./topics.ts";
 import { isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import {
   adjuntosDir, commitPaths, findFichaById, fuentesDir, kbDir, listFichas, listTopics,
@@ -125,7 +127,8 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   transcript = fixed.transcript;
 
   const existingNames = topics.map((t) => t.name);
-  const main = resolveTopicName(extraction.mainTopic, existingNames);
+  // Tema: por nombre equivalente o, si es nuevo, por parecido de significado con los existentes.
+  const main = await resolveTopic(extraction.mainTopic, existingNames);
   const secondary = extraction.secondaryTopics
     .map((s) => resolveTopicName(s, existingNames))
     .filter((s) => !s.isNew && s.name !== main.name)
@@ -189,12 +192,21 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     commit = await commitPaths(touched, `kb: ${previous ? "actualiza" : "agrega"} "${extraction.title}" (${main.name})`);
   }
 
+  // 8) Índice para consultas (derivado: si falla, `npm run kb:reindex` lo repara).
+  progress("indexando");
+  try {
+    await reindex();
+  } catch (err) {
+    console.warn(`⚠️  No pude actualizar el índice (corre npm run kb:reindex): ${err instanceof Error ? err.message : err}`);
+  }
+
   return {
     ficha,
     path: fichaPath,
     created: !previous,
     topicsUpdated: [...affected],
     newTopic: main.isNew,
+    topicMergedFrom: main.mergedFrom,
     commit,
   };
 }

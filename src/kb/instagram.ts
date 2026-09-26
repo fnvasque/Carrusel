@@ -119,10 +119,11 @@ export async function fetchPostMeta(
     const info = parseJsonOutput(res.stdout);
     if (info) {
       const meta = parseYtDlpInfo(info);
-      // Carruseles: yt-dlp no evalúa el generador de comentarios al volcar el JSON
-      // (bug del extractor de Instagram). Se piden aparte vía su API de Python.
-      if (withComments && !meta.comments.length && (meta.commentCount ?? 0) > 0) {
-        meta.comments = cleanComments(await fetchCommentsViaPython(url, cookies));
+      // yt-dlp trae como mucho la primera página (~15) y en carruseles ninguna (no
+      // evalúa el generador al volcar el JSON). Si faltan, se piden paginados vía Python.
+      if (withComments && (meta.commentCount ?? 0) > meta.comments.length) {
+        const more = cleanComments(await fetchCommentsViaPython(url, cookies));
+        if (more.length > meta.comments.length) meta.comments = more;
       }
       return meta;
     }
@@ -140,17 +141,38 @@ export async function fetchPostMeta(
 const COMMENTS_PY = `
 import json, sys, types
 import yt_dlp
+MAX_PAGES = 10
 opts = yt_dlp.parse_options(sys.argv[1:]).ydl_opts
 opts.update(quiet=True, no_warnings=True, skip_download=True, getcomments=True, ignore_no_formats_error=True)
+out = []
 with yt_dlp.YoutubeDL(opts) as ydl:
     info = ydl.extract_info(sys.argv[-1], download=False, process=False)
-    comments = info.get("comments")
-    for e in info.get("entries") or []:
-        if comments is None and e.get("comments") is not None:
-            comments = e["comments"]
-    if isinstance(comments, types.GeneratorType):
-        comments = list(comments)
-    print(json.dumps([{"text": c.get("text"), "like_count": c.get("like_count")} for c in comments or []]))
+    try:
+        # Paginado con la API interna del extractor (next_min_id); ~15 comentarios por página.
+        from yt_dlp.extractor.instagram import _id_to_pk
+        ie = ydl.get_info_extractor("Instagram")
+        pk, min_id = _id_to_pk(info["id"]), None
+        for _ in range(MAX_PAGES):
+            q = "can_support_threading=true&permalink_enabled=false" + (f"&min_id={min_id}" if min_id else "")
+            data = ie._download_json(f"{ie._API_BASE_URL}/media/{pk}/comments/?{q}", info["id"],
+                                     headers=ie._api_headers, fatal=False, note=False) or {}
+            page = data.get("comments") or []
+            out += [{"text": c.get("text"), "like_count": c.get("comment_like_count")} for c in page]
+            min_id = data.get("next_min_id")
+            if not page or not min_id:
+                break
+    except Exception:
+        out = []
+    if not out:
+        # Plan B (API interna cambió): el generador de yt-dlp, solo la primera página.
+        comments = info.get("comments")
+        for e in info.get("entries") or []:
+            if comments is None and e.get("comments") is not None:
+                comments = e["comments"]
+        if isinstance(comments, types.GeneratorType):
+            comments = list(comments)
+        out = [{"text": c.get("text"), "like_count": c.get("like_count")} for c in comments or [] if isinstance(c, dict)]
+print(json.dumps(out))
 `;
 
 /** Ruta del ejecutable yt-dlp en el PATH (o undefined). */
