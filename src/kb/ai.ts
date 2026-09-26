@@ -16,6 +16,37 @@ function model(): string {
   return process.env.KB_MODEL ?? "gpt-4o";
 }
 
+/** Caracteres de control (menos \t y \n). El modelo a veces los emite en lugar de una tilde ("monetizaci\x10n"). */
+const CONTROL_CHARS = /[\u0000-\u0008\u000B-\u001F\u007F]/g;
+
+export function hasControlChars(value: unknown): boolean {
+  if (typeof value === "string") return /[\u0000-\u0008\u000B-\u001F\u007F]/.test(value);
+  if (Array.isArray(value)) return value.some(hasControlChars);
+  if (value && typeof value === "object") return Object.values(value).some(hasControlChars);
+  return false;
+}
+
+/** Quita caracteres de control de todos los strings de una respuesta. Función pura (testeable). */
+export function stripControlChars<T>(value: T): T {
+  if (typeof value === "string") return value.replace(CONTROL_CHARS, "") as T;
+  if (Array.isArray(value)) return value.map(stripControlChars) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, stripControlChars(v)])) as T;
+  }
+  return value;
+}
+
+/**
+ * Ejecuta una llamada al modelo y, si la respuesta trae caracteres de control
+ * (tildes corruptas), la repite una vez; si persisten, los elimina.
+ */
+async function cleanCall<T>(call: () => Promise<T>): Promise<T> {
+  const first = await call();
+  if (!hasControlChars(first)) return first;
+  const second = await call();
+  return hasControlChars(second) ? stripControlChars(second) : second;
+}
+
 /** Temperatura baja: fichas consistentes entre corridas (misma entrada → misma ficha). */
 const TEMPERATURE = 0.2;
 
@@ -90,18 +121,20 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [{ type: "text", text }];
   for (const url of images) content.push({ type: "image_url", image_url: { url, detail: "high" } });
 
-  const res = await getClient().beta.chat.completions.parse({
-    model: model(),
-    temperature: TEMPERATURE,
-    messages: [
-      { role: "system", content: EXTRACT_SYSTEM },
-      { role: "user", content },
-    ],
-    response_format: zodResponseFormat(ExtractionSchema, "ficha"),
+  return cleanCall(async () => {
+    const res = await getClient().beta.chat.completions.parse({
+      model: model(),
+      temperature: TEMPERATURE,
+      messages: [
+        { role: "system", content: EXTRACT_SYSTEM },
+        { role: "user", content },
+      ],
+      response_format: zodResponseFormat(ExtractionSchema, "ficha"),
+    });
+    const parsed = res.choices[0]?.message.parsed;
+    if (!parsed) throw new Error("El modelo no devolvió una ficha válida.");
+    return parsed;
   });
-  const parsed = res.choices[0]?.message.parsed;
-  if (!parsed) throw new Error("El modelo no devolvió una ficha válida.");
-  return parsed;
 }
 
 const SYNTH_SYSTEM = `
@@ -111,19 +144,21 @@ Reglas: en español; agrupa y deduplica lo que se repite entre fuentes; prioriza
 
 /** Sintetiza la página de un tema a partir del texto de sus fichas. */
 export async function synthesizeTopic(topic: string, fichasText: string[]): Promise<TopicSynthesis> {
-  const res = await getClient().beta.chat.completions.parse({
-    model: model(),
-    temperature: TEMPERATURE,
-    messages: [
-      { role: "system", content: SYNTH_SYSTEM },
-      {
-        role: "user",
-        content: `Tema: ${topic}\n\nFichas (${fichasText.length}):\n\n${fichasText.map((f, i) => `### Fuente ${i + 1}\n${f}`).join("\n\n")}`,
-      },
-    ],
-    response_format: zodResponseFormat(TopicSynthesisSchema, "tema"),
+  return cleanCall(async () => {
+    const res = await getClient().beta.chat.completions.parse({
+      model: model(),
+      temperature: TEMPERATURE,
+      messages: [
+        { role: "system", content: SYNTH_SYSTEM },
+        {
+          role: "user",
+          content: `Tema: ${topic}\n\nFichas (${fichasText.length}):\n\n${fichasText.map((f, i) => `### Fuente ${i + 1}\n${f}`).join("\n\n")}`,
+        },
+      ],
+      response_format: zodResponseFormat(TopicSynthesisSchema, "tema"),
+    });
+    const parsed = res.choices[0]?.message.parsed;
+    if (!parsed) throw new Error("El modelo no devolvió una síntesis válida.");
+    return parsed;
   });
-  const parsed = res.choices[0]?.message.parsed;
-  if (!parsed) throw new Error("El modelo no devolvió una síntesis válida.");
-  return parsed;
 }

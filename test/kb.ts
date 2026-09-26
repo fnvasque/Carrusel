@@ -6,6 +6,7 @@ import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
   resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
 } from "../src/kb/markdown.ts";
+import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, validFixes } from "../src/kb/names.ts";
 import type { Ficha } from "../src/kb/types.ts";
@@ -283,6 +284,22 @@ check("validFixes: descarta correcciones sin evidencia o cuando la palabra es le
   assert.deepEqual(validFixes(fixes, "sin el nombre correcto"), []);
   assert.deepEqual(validFixes(fixes, "Claude en Google Cloud"), []);
   assert.deepEqual(validFixes([{ wrong: "IA", right: "AI" }], "AI"), []);
+});
+
+check("renderFicha: galería plegada con todas las imágenes, fuera del digest", () => {
+  const body = matter(renderFicha({ ...ficha(), gallery: ["_adjuntos/slides/ABC123/01.jpg", "_adjuntos/slides/ABC123/02.jpg"] }, "T", [])).content;
+  assert.ok(body.includes("> [!example]- Imágenes (2)\n> ![[_adjuntos/slides/ABC123/01.jpg|240]] ![[_adjuntos/slides/ABC123/02.jpg|240]]"));
+  assert.ok(!fichaDigest(body).includes("slides/ABC123"));
+  assert.ok(!matter(renderFicha(ficha(), "T", [])).content.includes("[!example]"));
+});
+
+check("stripControlChars: limpia tildes corruptas en toda la respuesta, conserva saltos de línea", () => {
+  const dirty = { description: "La monetizaci\u0010n", essentials: ["a\nb", "atenci\u0010n"], n: 3 };
+  assert.ok(hasControlChars(dirty));
+  const clean = stripControlChars(dirty);
+  assert.deepEqual(clean, { description: "La monetizacin", essentials: ["a\nb", "atencin"], n: 3 });
+  assert.ok(!hasControlChars(clean));
+  assert.ok(!hasControlChars({ t: "línea 1\nlínea 2\ttab" }));
 });
 
 check("safeUrl: solo links http(s) absolutos", () => {

@@ -39,7 +39,7 @@ export async function toSpeechMp3(input: string): Promise<string | undefined> {
  * trae el encoder de WebP (p. ej. el de Homebrew), cae a JPG. `outBase` va sin
  * extensión. Devuelve la ruta escrita, o undefined si no se pudo.
  */
-export async function writeThumbnail(dataUri: string, outBase: string): Promise<string | undefined> {
+export async function writeThumbnail(dataUri: string, outBase: string, width = 480): Promise<string | undefined> {
   const m = dataUri.match(/^data:image\/([\w+.-]+);base64,(.+)$/);
   if (!m || !(await hasFfmpeg())) return undefined;
   const id = createHash("sha256").update(dataUri).digest("hex").slice(0, 16);
@@ -48,7 +48,7 @@ export async function writeThumbnail(dataUri: string, outBase: string): Promise<
     await mkdir(CACHE_DIR, { recursive: true });
     await mkdir(dirname(outBase), { recursive: true });
     await writeFile(tmp, Buffer.from(m[2], "base64"));
-    const scale = ["-vf", "scale='min(480,iw)':-2"];
+    const scale = ["-vf", `scale='min(${width},iw)':-2`];
     const attempts: [string, string[]][] = [
       [".webp", ["-q:v", "70"]],
       [".jpg", ["-q:v", "5"]],
@@ -104,4 +104,25 @@ export async function videoFrames(path: string, n: number, durationSeconds?: num
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+/** Ancho de las imágenes de la galería (legibles en Obsidian, livianas en disco). */
+const GALLERY_WIDTH = 720;
+
+/**
+ * Guarda TODAS las imágenes del post en `dir` (01.jpg, 02.jpg…), reemplazando las
+ * de un guardado anterior. La carpeta lleva su propio .gitignore: las imágenes se
+ * ven en Obsidian pero no entran al repo (lo mantiene liviano). Devuelve las rutas.
+ */
+export async function writeGallery(images: string[], dir: string): Promise<string[]> {
+  if (!images.length) return [];
+  await rm(dir, { recursive: true, force: true }).catch(() => {});
+  await mkdir(dir, { recursive: true });
+  const out: string[] = [];
+  for (const [i, uri] of images.entries()) {
+    const path = await writeThumbnail(uri, join(dir, String(i + 1).padStart(2, "0")), GALLERY_WIDTH);
+    if (path) out.push(path);
+  }
+  await writeFile(join(dirname(dir), ".gitignore"), "# Galerías de cada post: se ven en Obsidian, no van a git.\n*\n", "utf8");
+  return out;
 }

@@ -148,6 +148,9 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
     section("Pasos", numbered(e.steps)),
     section("Recursos", bullets(e.resources)),
     section("De los comentarios", comments),
+    f.gallery?.length
+      ? callout("example", `Imágenes (${f.gallery.length})`, f.gallery.map((g) => `![[${g}|240]]`).join(" "), true)
+      : "",
     imageTexts ? callout("quote", "Texto de las imágenes", imageTexts, true) : "",
     f.caption.trim() ? callout("quote", "Caption original", f.caption, true) : "",
     f.transcript?.trim() ? callout("quote", "Transcripción", f.transcript, true) : "",
@@ -217,6 +220,8 @@ export function renderTopic(
 export function fichaDigest(body: string, maxChars = 2500): string {
   return autoZone(body)
     .replace(/^!\[\[.*\]\]$/gm, "")
+    // Galería de imágenes (callout "example").
+    .replace(/^> \[!example\].*(?:\n>.*)*/gm, "")
     // Callouts de cita completos (encabezado + todas sus líneas "> …").
     .replace(/^> \[!quote\].*(?:\n>.*)*/gm, "")
     .replace(/\n{3,}/g, "\n\n")

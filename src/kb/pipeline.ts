@@ -4,7 +4,7 @@ import { fetchImageAsDataUri, ingest, localImageToDataUri, probeDuration } from 
 import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
-import { frameCount, toSpeechMp3, videoFrames, writeThumbnail } from "./media.ts";
+import { frameCount, toSpeechMp3, videoFrames, writeGallery, writeThumbnail } from "./media.ts";
 import { applyNameFixes } from "./names.ts";
 import { isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import {
@@ -149,7 +149,11 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   };
   const baseName = previous?.baseName ?? fichaBaseName(ficha);
   const thumbPath = images[0] ? await writeThumbnail(images[0], join(adjuntosDir(), id)) : undefined;
-  if (thumbPath) ficha.thumbnail = relative(kbDir(), thumbPath).split("\\").join("/");
+  const rel = (p: string): string => relative(kbDir(), p).split("\\").join("/");
+  if (thumbPath) ficha.thumbnail = rel(thumbPath);
+  // Galería completa (fuera de git): todas las slides/cuadros para verlos en Obsidian.
+  const gallery = await writeGallery(images, join(adjuntosDir(), "slides", id));
+  if (gallery.length) ficha.gallery = gallery.map(rel);
   const fichaPath = previous?.path ?? join(fuentesDir(), `${baseName}.md`);
   await writeNote(fichaPath, renderFicha(ficha, main.name, secondary, previous?.raw));
 

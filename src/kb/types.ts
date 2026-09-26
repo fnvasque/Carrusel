@@ -92,6 +92,8 @@ export interface Ficha {
   notes: string[];
   partial: boolean;
   thumbnail?: string;
+  /** Todas las imágenes del post (fuera de git), rutas relativas a la base. */
+  gallery?: string[];
   extraction: Extraction;
 }
 
