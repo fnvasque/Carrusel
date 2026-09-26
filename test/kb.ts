@@ -99,9 +99,17 @@ check("parseYtDlpInfo distingue reel / carrusel / post y arma autor y fecha", ()
   assert.equal(reel.author, "@usuario");
   assert.equal(reel.publishedAt, "2025-09-26");
   assert.equal(reel.comments.length, 1);
-  const carrusel = parseYtDlpInfo({ _type: "playlist", entries: [{ channel: "otra", description: "x" }] });
+  const carrusel = parseYtDlpInfo({
+    _type: "playlist",
+    entries: [
+      { channel: "otra", description: "x", thumbnails: [{ url: "https://cdn/1-small.jpg", width: 320 }, { url: "https://cdn/1.jpg", width: 1080 }] },
+      { thumbnail: "https://cdn/2.jpg" },
+      { thumbnail: "https://cdn/2.jpg" },
+    ],
+  });
   assert.equal(carrusel.kind, "carrusel");
   assert.equal(carrusel.author, "@otra");
+  assert.deepEqual(carrusel.imageUrls, ["https://cdn/1.jpg", "https://cdn/2.jpg"]);
   assert.equal(parseYtDlpInfo({ description: "foto" }).kind, "post");
 });
 

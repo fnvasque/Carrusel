@@ -59,6 +59,8 @@ export interface PostMeta {
   isVideo: boolean;
   caption?: string;
   comments: KbComment[];
+  /** URLs de las imágenes del post (una por slide), para carruseles de fotos que yt-dlp no descarga. */
+  imageUrls: string[];
 }
 
 /** Ficha lista para renderizar: extracción + metadatos del post. */

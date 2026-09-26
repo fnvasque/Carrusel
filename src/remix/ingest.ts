@@ -101,7 +101,7 @@ export function extractVideoUrl(html: string): string | undefined {
 }
 
 /** Descarga una imagen remota y la devuelve como data URI. */
-async function fetchImageAsDataUri(url: string): Promise<string | undefined> {
+export async function fetchImageAsDataUri(url: string): Promise<string | undefined> {
   try {
     const res = await fetch(url, { headers: { "User-Agent": UA } });
     if (!res.ok) return undefined;

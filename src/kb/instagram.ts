@@ -27,6 +27,8 @@ interface YtDlpInfo {
   title?: string;
   duration?: number;
   vcodec?: string;
+  thumbnail?: string;
+  thumbnails?: { url?: string; width?: number; preference?: number }[];
   comments?: YtDlpComment[];
   entries?: YtDlpInfo[];
 }
@@ -51,6 +53,15 @@ export function cleanComments(raw: YtDlpComment[] | undefined): KbComment[] {
   return out.sort((a, b) => b.likes - a.likes).slice(0, MAX_COMMENTS);
 }
 
+/** Mejor imagen de una entrada: la miniatura más ancha, o `thumbnail` si no hay lista. */
+function bestImage(info: YtDlpInfo): string | undefined {
+  const thumbs = (info.thumbnails ?? []).filter((t) => typeof t.url === "string");
+  if (thumbs.length) {
+    return thumbs.reduce((a, b) => ((b.width ?? b.preference ?? 0) >= (a.width ?? a.preference ?? 0) ? b : a)).url;
+  }
+  return info.thumbnail;
+}
+
 /** Convierte el JSON de `yt-dlp -J` en metadatos del post. Función pura (testeable). */
 export function parseYtDlpInfo(info: YtDlpInfo): PostMeta {
   const first = info.entries?.[0];
@@ -60,6 +71,9 @@ export function parseYtDlpInfo(info: YtDlpInfo): PostMeta {
   const handle = info.channel ?? first?.channel;
   const ts = info.timestamp ?? first?.timestamp;
   const comments = cleanComments(info.comments?.length ? info.comments : first?.comments);
+  // Una imagen por slide (en un carrusel de fotos yt-dlp no descarga nada, pero sí trae sus URLs).
+  const slides = isPlaylist ? (info.entries ?? []) : [info];
+  const imageUrls = [...new Set(slides.map(bestImage).filter((u): u is string => !!u))];
   return {
     author: handle ? `@${handle.replace(/^@/, "")}` : undefined,
     publishedAt: typeof ts === "number" ? new Date(ts * 1000).toISOString().slice(0, 10) : undefined,
@@ -67,6 +81,7 @@ export function parseYtDlpInfo(info: YtDlpInfo): PostMeta {
     isVideo,
     caption: info.description ?? first?.description ?? undefined,
     comments,
+    imageUrls,
   };
 }
 

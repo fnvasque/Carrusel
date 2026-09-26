@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
-import { ingest, localImageToDataUri } from "../remix/ingest.ts";
+import { fetchImageAsDataUri, ingest, localImageToDataUri, MAX_INGEST_IMAGES } from "../remix/ingest.ts";
 import { extractFicha, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadAudio, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
@@ -48,8 +48,19 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     // Sin medios ni caption desde la ingesta: se sigue si yt-dlp o las capturas aportaron algo.
     if (!meta?.caption && !input.images?.length) throw err;
   }
+  let images = [...source.mediaDataUris];
+  // Carrusel de fotos: yt-dlp no descarga las imágenes, pero trae sus URLs. Si la
+  // ingesta obtuvo menos slides que las que tiene el post, se bajan desde ahí.
+  if (meta && meta.imageUrls.length > images.length) {
+    const fromMeta: string[] = [];
+    for (const u of meta.imageUrls.slice(0, MAX_INGEST_IMAGES)) {
+      const uri = await fetchImageAsDataUri(u);
+      if (uri) fromMeta.push(uri);
+    }
+    if (fromMeta.length > images.length) images = fromMeta;
+  }
+  progress("descargando", `${images.length} imagen(es)`);
   // Las capturas se suman a lo descargado (p. ej. capturas de comentarios).
-  const images = [...source.mediaDataUris];
   if (url && input.images?.length) {
     for (const p of input.images) {
       const uri = await localImageToDataUri(p);
