@@ -27,6 +27,7 @@ export interface StoredFicha {
   id?: string;
   title: string;
   author?: string;
+  url?: string;
   savedAt?: string;
   topic?: string;
   secondary: string[];
@@ -53,6 +54,7 @@ export async function listFichas(): Promise<StoredFicha[]> {
       id: typeof data.id === "string" ? data.id : undefined,
       title: typeof data.titulo === "string" ? data.titulo : baseName,
       author: typeof data.autor === "string" ? data.autor : undefined,
+      url: typeof data.url === "string" ? data.url : undefined,
       savedAt: asDate(data.guardado),
       topic: unwikilink(data.tema),
       secondary: Array.isArray(data.temas_secundarios)

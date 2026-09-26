@@ -16,9 +16,11 @@
     "kb:add": "tsx src/kb/cli.ts add",
     "kb:ask": "tsx src/kb/cli.ts ask",
     "kb:undo": "tsx src/kb/cli.ts undo",
-    "kb:reindex": "tsx src/kb/cli.ts reindex"
+    "kb:reindex": "tsx src/kb/cli.ts reindex",
+    "kb:bot": "tsx src/kb/bot.ts"
   },
   "dependencies": {
+    "grammy": "^1.46.0",
     "gray-matter": "^4.0.3",
     "openai": "^4.67.0",
     "playwright": "^1.48.0",

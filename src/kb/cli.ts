@@ -4,7 +4,7 @@ import { reindex } from "./indexer.ts";
 import { addPost } from "./pipeline.ts";
 import { findInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import { findFichaById, findLastSave, removeOrphanGalleries, revertSave } from "./store.ts";
-import type { AddInput, Stage } from "./types.ts";
+import { STAGE_LABEL, type AddInput } from "./types.ts";
 
 /**
  * CLI de la base de conocimiento:
@@ -37,16 +37,6 @@ function parseArgs(argv: string[]): AddInput {
   return input;
 }
 
-const STAGE_LABEL: Record<Stage, string> = {
-  descargando: "📥 Descargando el post…",
-  comentarios: "💬 Comentarios",
-  transcribiendo: "🎙  Transcribiendo el audio…",
-  analizando: "🧠 Analizando…",
-  guardando: "💾 Guardando la ficha…",
-  temas: "🗂  Actualizando temas…",
-  commit: "📌 Commit…",
-  indexando: "🔎 Indexando para consultas…",
-};
 
 async function cmdAdd(argv: string[]): Promise<void> {
   const input = parseArgs(argv);

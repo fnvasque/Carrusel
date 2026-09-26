@@ -237,6 +237,23 @@ npm run kb:reindex                     # reconstruye el índice desde el Markdow
 - **Cada guardado es un commit** con solo sus archivos (desactivable con `KB_GIT=0`;
   `KB_GIT_PUSH=1` hace push de respaldo). `kb:undo` lo revierte con `git revert`.
 
+### Bot de Telegram
+
+```bash
+npm run kb:bot
+```
+
+Necesita `TELEGRAM_BOT_TOKEN` (de @BotFather) y `TELEGRAM_ALLOWED_CHAT_IDS` (tu chat; el bot
+ignora a cualquier otro) en `.env`. Usa long polling: no necesita URL pública.
+
+- **Guardar**: en Instagram → Compartir → el bot. El texto que acompañe al link se guarda como nota.
+  Un mensaje de progreso se va editando y al final llega la ficha resumida con
+  **↩️ Deshacer** (git revert) y **🏷 Cambiar tema** (temas más usados u "✏️ Otro").
+- **Capturas**: fotos sueltas o en álbum se suman al último link (30 min); sin link, son una ficha nueva.
+- **Preguntar**: cualquier texto que no sea link se responde con `kb:ask` (citas con link al post).
+- **Comandos**: `/temas`, `/tema <nombre>`, `/ultimos`, `/ayuda`.
+- Cola persistente en el índice: un guardado a la vez y, si el bot se reinicia, retoma lo pendiente.
+
 Configuración en Mac:
 
 ```bash

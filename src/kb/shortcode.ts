@@ -12,6 +12,20 @@ export function findInstagramUrl(text: string): string | undefined {
   return m?.[0];
 }
 
+/** Todos los links de posts/reels de Instagram de un texto, sin repetir el mismo post. */
+export function findInstagramUrls(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of text.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/[^\s<>"]+/gi)) {
+    const code = shortcodeFromUrl(m[0]);
+    if (code && !seen.has(code)) {
+      seen.add(code);
+      out.push(m[0]);
+    }
+  }
+  return out;
+}
+
 export function isInstagramUrl(url: string): boolean {
   return IG_PATH.test(url);
 }

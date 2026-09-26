@@ -106,6 +106,18 @@ export interface TopicInfo {
 /** Etapas del pipeline, para reportar progreso (CLI hoy, Telegram después). */
 export type Stage = "descargando" | "comentarios" | "transcribiendo" | "analizando" | "guardando" | "temas" | "commit" | "indexando";
 
+/** Texto de cada etapa del guardado (CLI y mensajes de progreso del bot). */
+export const STAGE_LABEL: Record<Stage, string> = {
+  descargando: "📥 Descargando el post…",
+  comentarios: "💬 Comentarios",
+  transcribiendo: "🎙 Transcribiendo el audio…",
+  analizando: "🧠 Analizando…",
+  guardando: "💾 Guardando la ficha…",
+  temas: "🗂 Actualizando temas…",
+  commit: "📌 Commit…",
+  indexando: "🔎 Indexando para consultas…",
+};
+
 export interface AddInput {
   url?: string;
   note?: string;

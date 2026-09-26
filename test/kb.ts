@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import matter from "gray-matter";
-import { findInstagramUrl, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
+import { findInstagramUrl, findInstagramUrls, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
 import { cleanComments, parseJsonOutput, parseYtDlpInfo, pythonForYtDlp } from "../src/kb/instagram.ts";
 import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
@@ -13,6 +13,12 @@ import { chunkFicha, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
 import { citedNumbers, groupSources } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
+import { escapeHtml, formatAnswer, formatSaved, mdToTelegramHtml, noteFromMessage, splitMessage } from "../src/kb/telegram.ts";
+import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
+import { closeDb } from "../src/kb/db.ts";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join as joinPath } from "node:path";
 import type { Ficha } from "../src/kb/types.ts";
 
 /**
@@ -419,6 +425,80 @@ check("reviewCandidates: solo la zona dudosa [piso, umbral), del más al menos p
     { name: "Distinto", vector: v(0, 1, 0) },
   ];
   assert.deepEqual(reviewCandidates(v(1, 0, 0), existing, 0.55, 0.8).map((c) => c.name), ["Dudoso alto", "Dudoso bajo"]);
+});
+
+// --- iteración 3: bot de Telegram ---
+check("findInstagramUrls: todos los posts de un mensaje, sin repetir", () => {
+  const text = "mira https://www.instagram.com/reel/AAA111/?igsh=x y https://instagram.com/p/BBB222/ y otra vez https://www.instagram.com/reel/AAA111/";
+  assert.deepEqual(findInstagramUrls(text).map((u) => shortcodeFromUrl(u)), ["AAA111", "BBB222"]);
+  assert.deepEqual(findInstagramUrls("sin links"), []);
+});
+
+check("noteFromMessage: el texto que acompaña al link es la nota", () => {
+  const url = "https://www.instagram.com/reel/AAA111/?igsh=x";
+  assert.equal(noteFromMessage(`para el cliente X ${url}`, [url]), "para el cliente X");
+  assert.equal(noteFromMessage(url, [url]), undefined);
+});
+
+check("splitMessage: respeta el límite y no pierde texto", () => {
+  const long = Array.from({ length: 200 }, (_, i) => `Línea ${i} ${"x".repeat(40)}`).join("\n");
+  const parts = splitMessage(long, 1000);
+  assert.ok(parts.length > 1 && parts.every((p) => p.length <= 1000));
+  assert.equal(parts.join("\n").replace(/\s+/g, ""), long.replace(/\s+/g, ""));
+  assert.deepEqual(splitMessage("corto"), ["corto"]);
+});
+
+check("HTML de Telegram: escapa y convierte negritas; fuentes como links", () => {
+  assert.equal(escapeHtml("a < b & c > d"), "a &lt; b &amp; c &gt; d");
+  assert.equal(mdToTelegramHtml("Usa **Make** <gratis>"), "Usa <b>Make</b> &lt;gratis&gt;");
+  const html = formatAnswer({
+    answer: "Usa **Seedance** [1].",
+    sources: [{ n: 1, title: "UGC <5 min>", author: "@ai._kid", savedAt: "2026-09-26", url: "https://www.instagram.com/p/X/", baseName: "b" }],
+    found: true,
+  });
+  assert.ok(html.includes("Usa <b>Seedance</b> [1]."));
+  assert.ok(html.includes('[1] <a href="https://www.instagram.com/p/X/">UGC &lt;5 min&gt;</a> — @ai._kid · 2026-09-26'));
+});
+
+check("formatSaved: ficha resumida con tema, ideas, herramientas y aviso de parcial", () => {
+  const f = { ...ficha(), partial: true };
+  const html = formatSaved(
+    { ficha: f, path: "x.md", created: true, topicsUpdated: ["Automatización con IA"], newTopic: true },
+    [{ title: "Otro post", baseName: "o" }],
+  );
+  assert.ok(html.startsWith("✅ <b>Guardado:</b> Resumir Gmail con ChatGPT y Make"));
+  assert.ok(html.includes("🗂 Tema: <b>Automatización con IA</b> (nuevo)"));
+  assert.ok(html.includes("🧰 <b>Herramientas:</b> Make"));
+  assert.ok(html.includes("❓ <b>La audiencia pregunta</b>\n• ¿Cuánto cuesta?"));
+  assert.ok(html.includes("🔗 <b>Relacionados</b>\n• Otro post"));
+  assert.ok(html.includes("⚠️"));
+});
+
+check("cola: FIFO, un trabajo a la vez y se retoma tras un corte", () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-queue-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    enqueue(1, { url: "https://www.instagram.com/p/A/" }, 10);
+    enqueue(1, { url: "https://www.instagram.com/p/B/" });
+    assert.equal(pendingCount(), 2);
+    const a = takeNext();
+    assert.equal(a?.payload.url, "https://www.instagram.com/p/A/");
+    assert.equal(a?.statusMsgId, 10);
+    assert.equal(requeueInterrupted(), 1); // "se cortó la luz" con A corriendo
+    assert.equal(takeNext()?.payload.url, "https://www.instagram.com/p/A/");
+    finish(a!.id);
+    const b = takeNext();
+    assert.equal(b?.payload.url, "https://www.instagram.com/p/B/");
+    finish(b!.id, "falló");
+    assert.equal(takeNext(), undefined);
+    assert.equal(pendingCount(), 0);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

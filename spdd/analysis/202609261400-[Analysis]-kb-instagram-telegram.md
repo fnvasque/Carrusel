@@ -230,4 +230,12 @@ Cada iteración cierra con `npm run typecheck` + `npm run test` en verde y un co
 - `kb:add` indexa al guardar; `kb:reindex [-- --full]` sincroniza con el Markdown.
 - Verificado con preguntas por herramienta, por idea vaga, por fecha, por comentarios y fuera de la base.
 
-### Iteraciones 3 y 4 — pendientes
+### Iteración 3 — hecha
+
+- `src/kb/bot.ts` (grammY, long polling, allowlist por `TELEGRAM_ALLOWED_CHAT_IDS`), `queue.ts` (cola persistente en el índice; retoma trabajos interrumpidos), `telegram.ts` (formato HTML, división de mensajes > 4000 caracteres).
+- Link → cola → progreso editable → ficha resumida con **↩️ Deshacer** y **🏷 Cambiar tema** (top 8 temas + "✏️ Otro", resuelto con el mismo freno de temas). Capturas sueltas o en álbum (debounce de 2,5 s) se suman al último link de los 30 min previos; sin link, ficha manual.
+- Texto libre → `ask()`; `/temas`, `/tema`, `/ultimos`, `/ayuda`.
+- Escrituras serializadas (guardado, deshacer, cambio de tema) para que git y las páginas de tema nunca se pisen. `changeTopic()` y `refreshTopics()` en `pipeline.ts` (un tema sin fichas pierde su página).
+- Verificado en vivo desde el teléfono: guardado de un carrusel, ficha con botones y deshacer.
+
+### Iteración 4 — pendiente

@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import matter from "gray-matter";
 import { join, relative } from "node:path";
 import { fetchImageAsDataUri, ingest, localImageToDataUri, probeDuration } from "../remix/ingest.ts";
 import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
-import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
+import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, unwikilink, wikilink, type SourceRef } from "./markdown.ts";
 import { frameCount, toSpeechMp3, videoFrames, writeGallery, writeThumbnail } from "./media.ts";
 import { applyNameFixes, groundToolUrls } from "./names.ts";
 import { reindex } from "./indexer.ts";
@@ -168,23 +171,9 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   if (previous?.topic && previous.topic !== main.name) affected.add(previous.topic);
   const touched = [fichaPath];
   if (thumbPath) touched.push(thumbPath);
-  const all = await listFichas();
-  for (const topic of affected) {
-    const members = all.filter((f) => f.topic === topic || f.secondary.includes(topic));
-    if (!members.length) continue;
-    const recent = members.slice(-MAX_TOPIC_SOURCES);
-    const synthesis = await synthesizeTopic(topic, recent.map((f) => fichaDigest(f.body)));
-    if (topic === main.name && main.isNew && extraction.newTopicDescription) {
-      synthesis.description ||= extraction.newTopicDescription;
-    }
-    const refs: SourceRef[] = members
-      .slice()
-      .reverse()
-      .map((f) => ({ baseName: f.baseName, title: f.title, author: f.author, savedAt: f.savedAt }));
-    const path = topicPath(topic);
-    await writeNote(path, renderTopic(topic, synthesis, refs, today(), await readIfExists(path)));
-    touched.push(path);
-  }
+  touched.push(
+    ...(await refreshTopics(affected, main.isNew && extraction.newTopicDescription ? { [main.name]: extraction.newTopicDescription } : {})),
+  );
 
   // 7) Commit (1 guardado = 1 commit; deshacer = revert).
   let commit: string | undefined;
@@ -210,4 +199,62 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     topicMergedFrom: main.mergedFrom,
     commit,
   };
+}
+
+/**
+ * Regenera las páginas de los temas indicados desde sus fichas (no desde su
+ * versión previa). Si un tema se quedó sin fichas, borra su página. Devuelve las
+ * rutas tocadas (escritas o borradas) para el commit.
+ */
+export async function refreshTopics(topics: Iterable<string>, newDescriptions: Record<string, string> = {}): Promise<string[]> {
+  const touched: string[] = [];
+  const all = await listFichas();
+  for (const topic of topics) {
+    const path = topicPath(topic);
+    const members = all.filter((f) => f.topic === topic || f.secondary.includes(topic));
+    if (!members.length) {
+      if (existsSync(path)) {
+        await rm(path);
+        touched.push(path);
+      }
+      continue;
+    }
+    const recent = members.slice(-MAX_TOPIC_SOURCES);
+    const synthesis = await synthesizeTopic(topic, recent.map((f) => fichaDigest(f.body)));
+    if (newDescriptions[topic]) synthesis.description ||= newDescriptions[topic];
+    const refs: SourceRef[] = members
+      .slice()
+      .reverse()
+      .map((f) => ({ baseName: f.baseName, title: f.title, author: f.author, savedAt: f.savedAt }));
+    await writeNote(path, renderTopic(topic, synthesis, refs, today(), await readIfExists(path)));
+    touched.push(path);
+  }
+  return touched;
+}
+
+/**
+ * Cambia el tema principal de una ficha (botón "Cambiar tema" del bot): reescribe
+ * la propiedad `tema` y la línea "Tema:" de la ficha, regenera el tema anterior
+ * y el nuevo, commitea y reindexa. El nombre pasa por la misma resolución que al
+ * guardar (se une a un tema existente equivalente).
+ */
+export async function changeTopic(id: string, requested: string): Promise<{ from?: string; to: string; commit?: string }> {
+  const f = await findFichaById(id);
+  if (!f) throw new Error(`No encontré la ficha ${id}.`);
+  const topics = (await listTopics()).map((t) => t.name).filter((t) => t !== f.topic);
+  const to = (await resolveTopic(requested, topics)).name;
+  if (to === f.topic) return { from: f.topic, to };
+
+  const { data, content } = matter(f.raw);
+  data.tema = wikilink(to);
+  data.temas_secundarios = (Array.isArray(data.temas_secundarios) ? data.temas_secundarios : []).filter(
+    (t: unknown) => unwikilink(t) !== to,
+  );
+  const body = f.topic ? content.split(`Tema: ${wikilink(f.topic)}`).join(`Tema: ${wikilink(to)}`) : content;
+  await writeNote(f.path, matter.stringify(body, data));
+
+  const touched = [f.path, ...(await refreshTopics([to, ...(f.topic ? [f.topic] : [])]))];
+  const commit = await commitPaths(touched, `kb: actualiza tema de "${f.title}" (${f.topic ?? "sin tema"} → ${to})`);
+  await reindex();
+  return { from: f.topic, to, commit };
 }
