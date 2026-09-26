@@ -4,3 +4,5 @@ output/
 .env
 *.log
 .DS_Store
+knowledge/.obsidian/
+knowledge/.trash/

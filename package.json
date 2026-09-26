@@ -12,13 +12,16 @@
     "record": "tsx src/score/record.ts",
     "calibrate": "tsx src/score/calibrate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx test/smoke.ts"
+    "test": "tsx test/smoke.ts && tsx test/kb.ts",
+    "kb:add": "tsx src/kb/cli.ts"
   },
   "dependencies": {
+    "gray-matter": "^4.0.3",
     "openai": "^4.67.0",
     "playwright": "^1.48.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

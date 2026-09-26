@@ -27,7 +27,7 @@ export async function ytDlpAvailable(): Promise<boolean> {
  * archivo Netscape cookies.txt; `--cookies-from-browser` a un navegador
  * (chrome/firefox/…). Sirven para vencer el login wall de Instagram.
  */
-function resolveCookies(opts: RemixOptions): string[] {
+export function resolveCookies(opts: Pick<RemixOptions, "cookies" | "cookiesFromBrowser">): string[] {
   const flags: string[] = [];
   const file = opts.cookies ?? process.env.REMIX_COOKIES;
   const browser = opts.cookiesFromBrowser ?? process.env.REMIX_COOKIES_FROM_BROWSER;
@@ -37,7 +37,7 @@ function resolveCookies(opts: RemixOptions): string[] {
 }
 
 /** Ejecuta yt-dlp capturando stdout/stderr, con timeout (kill si expira). */
-function runYtDlp(args: string[], timeoutMs = YTDLP_TIMEOUT_MS): Promise<{ code: number; stdout: string; stderr: string }> {
+export function runYtDlp(args: string[], timeoutMs = YTDLP_TIMEOUT_MS): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolveP) => {
     const proc = spawn("yt-dlp", args);
     let stdout = "";

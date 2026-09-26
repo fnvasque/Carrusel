@@ -201,6 +201,40 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
 Iteración 1 trabaja sobre el thumbnail principal + caption; capturar todas las slides de un
 carrusel y transcribir el audio de un reel llegan en iteraciones siguientes.
 
+## Base de conocimiento (kb)
+
+Sistema aparte del generador: guarda posts, reels y carruseles de Instagram que te interesan
+como **fichas ordenadas por tema** en `knowledge/`, un vault de **Obsidian**. Analiza las
+imágenes, el caption, los comentarios y el audio de los reels. Plan completo en
+`spdd/analysis/202609261400-[Analysis]-kb-instagram-telegram.md`.
+
+```bash
+npm run kb:add "https://www.instagram.com/reel/XXXX/" -- --nota="por qué me interesa"
+npm run kb:add "<url>" -- --image=captura-comentarios.png   # suma capturas al post
+npm run kb:add -- --image=captura1.png --image=captura2.png  # solo capturas, sin link
+```
+
+- **Fichas** (`knowledge/fuentes/`): resumen, ideas clave, herramientas, pasos, recursos, lo
+  útil de los comentarios (sin nombres de usuario), caption y transcripción, más una miniatura.
+- **Temas** (`knowledge/temas/`): los crea el bot solo y reutiliza los existentes. Cada página
+  sintetiza todas sus fuentes y se regenera al entrar un post nuevo.
+- **Tus notas se respetan**: el bot solo escribe entre `<!-- kb:auto:start -->` y
+  `<!-- kb:auto:end -->`. `## Mis notas` y las propiedades que agregues en Obsidian no se tocan.
+- **Compartir el mismo post otra vez** actualiza su ficha (se identifica por el shortcode).
+- **Cada guardado es un commit** con solo sus archivos (desactivable con `KB_GIT=0`;
+  `KB_GIT_PUSH=1` hace push de respaldo).
+
+Configuración en Mac:
+
+```bash
+brew install yt-dlp ffmpeg
+cp .env.example .env    # OPENAI_API_KEY y cookies de la cuenta secundaria
+```
+
+En Obsidian: *Open folder as vault* → `knowledge/`. Para las cookies, inicia sesión con la
+cuenta secundaria de Instagram en un perfil aparte del navegador y usa, por ejemplo,
+`REMIX_COOKIES_FROM_BROWSER="chrome:Profile 2"`.
+
 ## Tests
 
 ```bash
