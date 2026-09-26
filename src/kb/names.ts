@@ -58,3 +58,26 @@ export function applyNameFixes(
     transcript: transcript === undefined ? undefined : fixText(transcript, fixes),
   };
 }
+
+/** Dominio de una URL sin "www." (o undefined si no es una URL válida). */
+function hostOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Deja el link de una herramienta solo si su dominio aparece en el post
+ * (caption, texto de imágenes, transcripción o comentarios): el modelo tiende a
+ * completar links "probables" que el post nunca mostró.
+ */
+export function groundToolUrls(extraction: Extraction, evidence: string): Extraction {
+  const text = evidence.toLowerCase();
+  const tools = extraction.tools.map((t) => {
+    const host = t.url ? hostOf(t.url) : undefined;
+    return host && text.includes(host) ? t : { ...t, url: null };
+  });
+  return { ...extraction, tools };
+}

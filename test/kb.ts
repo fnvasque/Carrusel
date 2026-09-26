@@ -8,7 +8,7 @@ import {
 } from "../src/kb/markdown.ts";
 import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
-import { applyNameFixes, validFixes } from "../src/kb/names.ts";
+import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
 import { chunkFicha, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
 import { citedNumbers, groupSources } from "../src/kb/ask.ts";
@@ -280,6 +280,20 @@ check("applyNameFixes: corrige nombres en toda la ficha y la transcripción, no 
   assert.deepEqual(extraction.keyIdeas, ["Cloudflare no se toca", "Claude edita solo"]);
   assert.equal(extraction.imageTexts[0].text, "Claude Code construye todo");
   assert.equal(transcript, "La gente tiene Claude y no lo usa.");
+});
+
+check("groundToolUrls: conserva links cuyo dominio aparece en el post y borra los inventados", () => {
+  const ex = {
+    ...ficha().extraction,
+    tools: [
+      { name: "Magnifique", url: "https://magnifique.com", purpose: "anuncios" },
+      { name: "Higgsfield", url: "https://www.higgsfield.ai/seedance", purpose: "video" },
+      { name: "Make", url: null, purpose: "flujos" },
+      { name: "Raro", url: "no es url", purpose: "x" },
+    ],
+  };
+  const out = groundToolUrls(ex, "Entra a higgsfield.ai y busca Seedance. Magnifique es genial.");
+  assert.deepEqual(out.tools.map((t) => t.url), [null, "https://www.higgsfield.ai/seedance", null, null]);
 });
 
 check("validFixes: descarta correcciones sin evidencia o cuando la palabra es legítima", () => {

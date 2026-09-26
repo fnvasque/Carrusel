@@ -5,7 +5,7 @@ import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, type SourceRef } from "./markdown.ts";
 import { frameCount, toSpeechMp3, videoFrames, writeGallery, writeThumbnail } from "./media.ts";
-import { applyNameFixes } from "./names.ts";
+import { applyNameFixes, groundToolUrls } from "./names.ts";
 import { reindex } from "./indexer.ts";
 import { resolveTopic } from "./topics.ts";
 import { isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
@@ -123,8 +123,9 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text), ...comments.map((c) => c.text)].join("\n");
   const fixed = applyNameFixes(raw, transcript, evidence);
-  const extraction = fixed.extraction;
   transcript = fixed.transcript;
+  // Links de herramientas solo si el post los muestra (el modelo inventa dominios "probables").
+  const extraction = groundToolUrls(fixed.extraction, `${evidence}\n${transcript ?? ""}`);
 
   const existingNames = topics.map((t) => t.name);
   // Tema: por nombre equivalente o, si es nuevo, por parecido de significado con los existentes.

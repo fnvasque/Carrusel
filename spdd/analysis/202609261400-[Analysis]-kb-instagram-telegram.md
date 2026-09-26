@@ -221,7 +221,8 @@ Cada iteración cierra con `npm run typecheck` + `npm run test` en verde y un co
 - **Temas**: nombre equivalente → existente; si no, embeddings (≥ 0,80 se une; 0,55–0,80 decide `gpt-4o-mini`). Calibrado con pares reales.
 - **Deshacer**: `kb:undo ["<url|id>"]` = `git revert` del último guardado (salta los ya revertidos), borra galerías huérfanas y reindexa.
 - **Robustez**: respuestas del modelo con caracteres de control (tildes corruptas) se reintentan y limpian; links de herramientas solo si son `http(s)`; temperatura 0,2.
-- **Pendiente**: validar el criterio de aceptación con 5 posts variados (probado con 2: un carrusel de fotos y un reel).
+- **Links de herramientas anclados**: un link solo se guarda si su dominio aparece en el post (caption, imágenes, audio o comentarios).
+- **Criterio de aceptación cumplido** con 5 posts variados: 2 carruseles (tutorial de video UGC, historia de startup) y 3 reels (proyectos con Claude, tutorial de anuncios para restaurantes con pasos, video de arquitectura en inglés). Resultado: 5 fichas y 3 temas coherentes sin duplicados ("Producción de contenido automatizado", "Monetización con IA", "Emprendimiento y startups"); consultas cruzadas entre posts responden con citas correctas.
 
 ### Iteración 2 — hecha
 
