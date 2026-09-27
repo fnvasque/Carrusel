@@ -4,6 +4,7 @@ import { mkdir, readFile, writeFile, rm, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, extname } from "node:path";
 import { ytDlpAvailable, ingestViaYtDlp } from "./ytdlp.ts";
+import { ingestViaMeta } from "./providers/meta.ts";
 import type { InstagramSource, MediaType, RemixOptions } from "./types.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
@@ -101,7 +102,7 @@ export function extractVideoUrl(html: string): string | undefined {
 }
 
 /** Descarga una imagen remota y la devuelve como data URI. */
-async function fetchImageAsDataUri(url: string): Promise<string | undefined> {
+export async function fetchImageAsDataUri(url: string): Promise<string | undefined> {
   try {
     const res = await fetch(url, { headers: { "User-Agent": UA } });
     if (!res.ok) return undefined;
@@ -233,7 +234,10 @@ interface FetchResult {
   videoUrl?: string;
 }
 
-/** Fetch del HTML público de IG + extracción de caption/imágenes/video. Lanza si no sirve. */
+/**
+ * Fetch del HTML público de IG + extracción de caption/imágenes/video. Lanza si no
+ * sirve. Solo corre con --scrape (va contra los Términos de Instagram).
+ */
 async function fetchPublic(url: string): Promise<FetchResult> {
   const res = await fetch(url, {
     headers: { "User-Agent": UA, "Accept-Language": "es,en;q=0.8" },
@@ -259,13 +263,15 @@ function cachePath(url: string): string {
 /**
  * Convierte la URL (o el input manual) en un `InstagramSource` normalizado con
  * TODAS las imágenes posibles: todas las slides de un carrusel, o varios frames de
- * un reel. Nunca se cae por un fallo de red: degrada a thumbnail/manual. Solo
- * aborta si, al final, no hay ni imágenes ni caption.
+ * un reel. Cadena: API de Meta (Business Discovery) → solo con --scrape: yt-dlp
+ * (sin tu sesión) → scraping público → manual (--caption/--image). Nunca se cae por
+ * un nivel: explica por qué falló y pasa al siguiente. Solo aborta si, al final,
+ * no hay ni imágenes ni caption.
  */
 export async function ingest(opts: RemixOptions): Promise<InstagramSource> {
-  const type: MediaType = opts.url ? detectType(opts.url) : "unknown";
+  let type: MediaType = opts.url ? detectType(opts.url) : "unknown";
 
-  // Caché por URL para no re-fetchear.
+  // Caché por URL para no re-consultar.
   if (opts.url && existsSync(cachePath(opts.url))) {
     try {
       const cached = JSON.parse(await readFile(cachePath(opts.url), "utf8")) as InstagramSource;
@@ -281,44 +287,36 @@ export async function ingest(opts: RemixOptions): Promise<InstagramSource> {
   let caption = "";
   let mediaDataUris: string[] = [];
   let mode: InstagramSource["source"] = "manual";
+  let metaError: string | undefined;
 
-  // Fuente preferente: yt-dlp (más confiable; vence login wall con cookies).
-  if (opts.url && (await ytDlpAvailable())) {
+  // Fuente preferente: API oficial de Meta (sin tu sesión ni scraping).
+  if (opts.url) {
     try {
-      const r = await ingestViaYtDlp(opts.url, opts);
-      if (r && (r.mediaDataUris.length || r.caption)) {
-        caption = r.caption;
-        mediaDataUris = r.mediaDataUris;
-        mode = "fetch";
-        console.log(`✓ yt-dlp: ${mediaDataUris.length} medio(s).`);
-      }
-    } catch {
-      console.warn("⚠️  yt-dlp falló; sigo con scraping público.");
+      const r = await ingestViaMeta(opts.url, opts);
+      caption = r.caption;
+      mediaDataUris = r.mediaDataUris;
+      if (r.type !== "unknown") type = r.type;
+      mode = "meta";
+      console.log(`✓ API de Meta: ${mediaDataUris.length} medio(s).`);
+    } catch (err) {
+      metaError = err instanceof Error ? err.message : String(err);
+      console.warn(`⚠️  API de Meta: ${metaError}`);
     }
   }
 
-  // Degradación 1: scraping público (si yt-dlp no aportó media).
-  if (opts.url && !mediaDataUris.length) {
-    try {
-      const fetched = await fetchPublic(opts.url);
-      caption = caption || fetched.caption;
-      mode = "fetch";
-
-      if (type === "reel" && fetched.videoUrl) {
-        // Reel: preferir frames del video para el análisis slide-por-slide.
-        mediaDataUris = await extractReelFrames(fetched.videoUrl, opts.frames ?? 5);
-      }
-      if (!mediaDataUris.length && fetched.imageUrls.length) {
-        // Carrusel/post (o reel sin frames): descargar todas las imágenes.
-        for (const u of fetched.imageUrls) {
-          const uri = await fetchImageAsDataUri(u);
-          if (uri) mediaDataUris.push(uri);
-        }
-      }
-      console.log(`✓ Contenido público de Instagram obtenido (${mediaDataUris.length} imagen/es).`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`⚠️  No se pudo leer Instagram (${msg}). Uso el input manual si lo diste.`);
+  // Respaldo opt-in: yt-dlp (sin tu sesión) y scraping público.
+  if (opts.url && !mediaDataUris.length && !caption) {
+    if (opts.scrape) {
+      console.warn(
+        "⚠️  --scrape: uso yt-dlp y el HTML público de Instagram. Va contra sus Términos y puede marcar tu IP; úsalo solo como último recurso.",
+      );
+      await scrapeFallback(opts.url, type, opts, (r) => {
+        caption = caption || r.caption;
+        mediaDataUris = r.mediaDataUris;
+        mode = "fetch";
+      });
+    } else if (metaError) {
+      console.log("ℹ️  Sigo con el modo manual (--caption/--image). El scraping está desactivado (--scrape lo habilita, no recomendado).");
     }
   }
 
@@ -336,7 +334,9 @@ export async function ingest(opts: RemixOptions): Promise<InstagramSource> {
 
   if (!caption && !mediaDataUris.length) {
     throw new Error(
-      "No hay nada que analizar. Pasa un link público accesible, o usa --caption \"...\" y/o --image ruta.png",
+      "No hay nada que analizar." +
+        (metaError ? ` La API de Meta no pudo leer el post (${metaError}).` : "") +
+        ' Usa --user=cuenta si falta, o pasa el contenido a mano con --caption "..." y/o --image ruta.png',
     );
   }
 
@@ -358,4 +358,40 @@ export async function ingest(opts: RemixOptions): Promise<InstagramSource> {
   }
 
   return source;
+}
+
+/** Respaldo --scrape: yt-dlp sin tu sesión y, si no alcanza, el HTML público. Nunca lanza. */
+async function scrapeFallback(
+  url: string,
+  type: MediaType,
+  opts: RemixOptions,
+  onResult: (r: { caption: string; mediaDataUris: string[] }) => void,
+): Promise<void> {
+  if (await ytDlpAvailable()) {
+    try {
+      const r = await ingestViaYtDlp(url, opts);
+      if (r && (r.mediaDataUris.length || r.caption)) {
+        console.log(`✓ yt-dlp: ${r.mediaDataUris.length} medio(s).`);
+        onResult(r);
+        if (r.mediaDataUris.length) return;
+      }
+    } catch {
+      console.warn("⚠️  yt-dlp falló; sigo con el HTML público.");
+    }
+  }
+  try {
+    const fetched = await fetchPublic(url);
+    let media: string[] = [];
+    if (type === "reel" && fetched.videoUrl) media = await extractReelFrames(fetched.videoUrl, opts.frames ?? 5);
+    if (!media.length) {
+      for (const u of fetched.imageUrls) {
+        const uri = await fetchImageAsDataUri(u);
+        if (uri) media.push(uri);
+      }
+    }
+    console.log(`✓ Contenido público de Instagram obtenido (${media.length} imagen/es).`);
+    onResult({ caption: fetched.caption, mediaDataUris: media });
+  } catch (err) {
+    console.warn(`⚠️  No se pudo leer el HTML público (${err instanceof Error ? err.message : err}).`);
+  }
 }

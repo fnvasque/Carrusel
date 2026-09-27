@@ -9,8 +9,11 @@ import type { Pillar, Format } from "../templates/types.ts";
 /** Tipo de pieza de Instagram detectada a partir de la URL. */
 export type MediaType = "reel" | "post" | "carousel" | "unknown";
 
-/** De dónde salió la `InstagramSource`: scraping público o input manual. */
-export type SourceMode = "fetch" | "manual";
+/**
+ * De dónde salió la `InstagramSource`: API oficial de Meta (Business Discovery),
+ * scraping (solo con --scrape) o input manual.
+ */
+export type SourceMode = "meta" | "fetch" | "manual";
 
 /** Confianza del análisis (baja cuando solo hay thumbnail o caption pobre). */
 export type Confidence = "low" | "medium" | "high";
@@ -100,10 +103,15 @@ export interface RemixOptions {
   reel?: boolean;
   /** Frames a extraer de un reel para el análisis (--frames=N, default 5). */
   frames?: number;
-  /** Ruta a un archivo cookies.txt (Netscape) para yt-dlp (vence login wall). */
-  cookies?: string;
-  /** Navegador del que yt-dlp toma cookies (chrome/firefox/…). */
-  cookiesFromBrowser?: string;
+  /** Cuenta dueña del post para Business Discovery (--user=cuenta), si la URL no la trae. */
+  user?: string;
+  /** Tope de páginas de 50 posts que se recorren buscando el post (--max-pages, default 10). */
+  maxPages?: number;
+  /**
+   * Habilita yt-dlp (sin tu sesión) y el scraping del HTML público como respaldo
+   * (--scrape). Van contra los Términos de Instagram: desactivado por defecto.
+   */
+  scrape?: boolean;
   /** Score de viralidad objetivo del loop de calidad (--min-score, default THRESHOLD=75). */
   minScore?: number;
   /** Intentos máximos de mejora por variación (--max-tries, default 3). */

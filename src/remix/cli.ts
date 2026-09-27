@@ -21,8 +21,9 @@ function parseArgs(argv: string[]): RemixOptions {
     else if (arg.startsWith("--es=")) opts.es = (arg.slice("--es=".length) === "cl" ? "cl" : "neutro") as SpanishVariant;
     else if (arg.startsWith("--out=")) opts.outDir = arg.slice("--out=".length);
     else if (arg.startsWith("--frames=")) opts.frames = Number(arg.slice("--frames=".length)) || undefined;
-    else if (arg.startsWith("--cookies=")) opts.cookies = arg.slice("--cookies=".length);
-    else if (arg.startsWith("--cookies-from-browser=")) opts.cookiesFromBrowser = arg.slice("--cookies-from-browser=".length);
+    else if (arg.startsWith("--user=")) opts.user = arg.slice("--user=".length).replace(/^@/, "").trim() || undefined;
+    else if (arg.startsWith("--max-pages=")) opts.maxPages = Number(arg.slice("--max-pages=".length)) || undefined;
+    else if (arg === "--scrape") opts.scrape = true;
     else if (arg.startsWith("--min-score=")) opts.minScore = Number(arg.slice("--min-score=".length)) || undefined;
     else if (arg.startsWith("--max-tries=")) opts.maxTries = Number(arg.slice("--max-tries=".length)) || undefined;
     else if (arg === "--no-improve") opts.noImprove = true;
@@ -35,19 +36,19 @@ function parseArgs(argv: string[]): RemixOptions {
 }
 
 function usage(): void {
-  console.error("Uso: npm run remix <url-instagram> [--es=cl] [--out=carousels] [--render] [--reel] [--frames=N]");
+  console.error("Uso: npm run remix <url-instagram> [--user=cuenta] [--es=cl] [--out=carousels] [--render] [--reel] [--frames=N]");
   console.error("     npm run remix --caption=\"texto del post\" --image=ruta.png   (modo manual)");
-  console.error("\n  --render   tras emitir, genera los PNGs 4:5 de cada variación");
-  console.error("  --reel     tras emitir, compone el Reel 9:16 de cada variación (requiere ffmpeg)");
-  console.error("  --frames=N frames a extraer de un reel para el análisis (default 5)");
+  console.error("\n  --user=cuenta  cuenta dueña del post (Business/Creator), si el link no trae el @usuario");
+  console.error("  --max-pages=N  páginas de 50 posts a recorrer buscando el post (default 10)");
+  console.error("  --render       tras emitir, genera los PNGs 4:5 de cada variación");
+  console.error("  --reel         tras emitir, compone el Reel 9:16 de cada variación (requiere ffmpeg)");
+  console.error("  --frames=N     frames a extraer de un reel para el análisis (default 5)");
   console.error("  --min-score=N  objetivo de viralidad del loop de calidad (default 75)");
   console.error("  --max-tries=N  intentos de mejora por variación (default 3)");
   console.error("  --no-improve   desactiva el loop de calidad (más rápido/barato)");
-  console.error("  --cookies=cookies.txt              cookies (Netscape) para yt-dlp (vence login wall)");
-  console.error("  --cookies-from-browser=chrome      toma cookies del navegador (chrome/firefox/…)");
-  console.error("  (también vía env REMIX_COOKIES / REMIX_COOKIES_FROM_BROWSER)");
-  console.error("\nUsa yt-dlp si está instalado (más confiable); si no, scraping público; si no, --caption/--image.");
-  console.error("Genera 2 variaciones (.ts) en carousels/ listas para `npm run generate` / `npm run reel`.");
+  console.error("  --scrape       respaldo con yt-dlp y el HTML público (va contra los Términos de IG; no recomendado)");
+  console.error("\nLee el post con la API oficial de Meta (Business Discovery; configura .env y corre npm run meta:check).");
+  console.error("Si no se puede, usa --caption/--image. Genera 2 variaciones (.ts) en carousels/ listas para `npm run generate` / `npm run reel`.");
 }
 
 async function main(): Promise<void> {
