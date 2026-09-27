@@ -1,4 +1,4 @@
-Trabaja en una rama nueva, creada desde `main` actualizado: `git fetch origin && git checkout -b feat/remix-por-dm origin/main`. Si la ingesta vía API de Meta (prompt `spdd/prompt/202609271500-[Feat]-remix-ingesta-api-meta.md`) todavía no está en `main`, créala desde la rama donde esté implementada.
+Trabaja en una rama nueva creada desde la rama que ya tiene la ingesta vía API de Meta: `git fetch origin && git checkout -b feat/remix-por-dm origin/claude/meta-api-migration-sq2l4y` (si esa rama ya se mergeó a `main`, créala desde `origin/main`).
 
 Lee primero el análisis `spdd/analysis/202609281000-[Analysis]-remix-por-dm.md`. Tiene el contexto completo: el flujo, las incógnitas, el setup en Meta y las fases.
 
