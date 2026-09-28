@@ -236,11 +236,19 @@ META_GRAPH_VERSION=v26.0
 
 Sistema aparte del generador: guarda posts, reels y carruseles de Instagram que te interesan
 como **fichas ordenadas por tema** en `knowledge/`, un vault de **Obsidian**. Analiza las
-imágenes, el caption, los comentarios y el audio de los reels. Plan completo en
+imágenes, el caption y el audio de los reels. Plan completo en
 `spdd/analysis/202609261400-[Analysis]-kb-instagram-telegram.md`.
 
+Lee los posts con la **API oficial de Meta** (Business Discovery, igual que el remix: ver
+"Configuración de Meta"), sin tu sesión de Instagram ni scraping. Por eso:
+
+- Necesita saber **de qué cuenta es el post** (`--user=cuenta`, o el link con el @usuario).
+- Solo lee cuentas **Business o Creator** públicas.
+- La API **no entrega el texto de los comentarios** de posts ajenos: si importan, suma capturas.
+- Algunos reels vienen sin video (p. ej. audio con copyright): se analiza su portada y no hay transcripción.
+
 ```bash
-npm run kb:add "https://www.instagram.com/reel/XXXX/" -- --nota="por qué me interesa"
+npm run kb:add "https://www.instagram.com/reel/XXXX/" -- --user=cuenta --nota="por qué me interesa"
 npm run kb:add "<url>" -- --image=captura-comentarios.png   # suma capturas al post
 npm run kb:add -- --image=captura1.png --image=captura2.png  # solo capturas, sin link
 npm run kb:ask "¿qué herramientas guardé para editar video?"   # pregunta a tu base
@@ -250,7 +258,7 @@ npm run kb:reindex                     # reconstruye el índice desde el Markdow
 ```
 
 - **Fichas** (`knowledge/fuentes/`): resumen, ideas clave, herramientas, pasos, recursos, lo
-  útil de los comentarios (sin nombres de usuario), caption, transcripción y el **texto literal
+  útil de los comentarios (de capturas; sin nombres de usuario), caption, transcripción y el **texto literal
   de cada imagen** (slides del carrusel o un cuadro cada ~3 s del reel, hasta 12).
 - **Imágenes**: la miniatura (`_adjuntos/<id>.jpg`) va a git; la galería completa
   (`_adjuntos/slides/<id>/`) se ve en la ficha pero queda **fuera de git** (repo liviano).
@@ -277,7 +285,9 @@ npm run kb:bot
 Necesita `TELEGRAM_BOT_TOKEN` (de @BotFather) y `TELEGRAM_ALLOWED_CHAT_IDS` (tu chat; el bot
 ignora a cualquier otro) en `.env`. Usa long polling: no necesita URL pública.
 
-- **Guardar**: en Instagram → Compartir → el bot. El texto que acompañe al link se guarda como nota.
+- **Guardar**: en Instagram → Compartir → el bot. Como el link compartido no trae la cuenta, el bot
+  pregunta el **@usuario** (con botones de las cuentas que ya guardaste), o mándalo junto al link:
+  «@cuenta https://…». El resto del texto que acompañe al link se guarda como nota.
   Un mensaje de progreso se va editando y al final llega la ficha resumida con
   **↩️ Deshacer** (git revert) y **🏷 Cambiar tema** (temas más usados u "✏️ Otro").
 - **Capturas**: fotos sueltas o en álbum se suman al último link (30 min); sin link, son una ficha nueva.
@@ -288,13 +298,12 @@ ignora a cualquier otro) en `.env`. Usa long polling: no necesita URL pública.
 Configuración en Mac:
 
 ```bash
-brew install yt-dlp ffmpeg
-cp .env.example .env    # OPENAI_API_KEY y cookies de la cuenta secundaria
+brew install ffmpeg
+cp .env.example .env    # OPENAI_API_KEY, variables META_* y del bot de Telegram
+npm run meta:check      # verifica la conexión con la API de Meta
 ```
 
-En Obsidian: *Open folder as vault* → `knowledge/`. Para las cookies, inicia sesión con la
-cuenta secundaria de Instagram en un perfil aparte del navegador y usa, por ejemplo,
-`REMIX_COOKIES_FROM_BROWSER="chrome:Profile 2"`.
+En Obsidian: *Open folder as vault* → `knowledge/`.
 
 ## Tests
 

@@ -8,7 +8,7 @@ import { STAGE_LABEL, type AddInput } from "./types.ts";
 
 /**
  * CLI de la base de conocimiento:
- *   npm run kb:add "<url-instagram>" -- --nota="por qué me interesa" [--image=captura.png ...]
+ *   npm run kb:add "<url-instagram>" -- --user=cuenta [--nota="por qué me interesa"] [--image=captura.png ...]
  *   npm run kb:add -- --image=captura1.png --image=captura2.png   (solo capturas)
  *   npm run kb:ask "¿qué herramientas guardé para editar video?"
  *   npm run kb:undo                    (deshace el último guardado)
@@ -29,8 +29,7 @@ function parseArgs(argv: string[]): AddInput {
     if (arg.startsWith("--nota=")) input.note = arg.slice("--nota=".length);
     else if (arg.startsWith("--image=")) input.images!.push(arg.slice("--image=".length));
     else if (arg.startsWith("--caption=")) input.caption = arg.slice("--caption=".length);
-    else if (arg.startsWith("--cookies=")) input.cookies = arg.slice("--cookies=".length);
-    else if (arg.startsWith("--cookies-from-browser=")) input.cookiesFromBrowser = arg.slice("--cookies-from-browser=".length);
+    else if (arg.startsWith("--user=")) input.user = arg.slice("--user=".length).replace(/^@/, "").trim() || undefined;
     else if (arg === "--no-commit") input.commit = false;
     else if (!arg.startsWith("--") && !input.url) input.url = findInstagramUrl(arg) ?? arg;
   }
@@ -41,7 +40,8 @@ function parseArgs(argv: string[]): AddInput {
 async function cmdAdd(argv: string[]): Promise<void> {
   const input = parseArgs(argv);
   if (!input.url && !input.images?.length && !input.caption) {
-    console.error('Uso: npm run kb:add "<url-instagram>" -- [--nota="..."] [--image=captura.png] [--no-commit]');
+    console.error('Uso: npm run kb:add "<url-instagram>" -- --user=cuenta [--nota="..."] [--image=captura.png] [--no-commit]');
+    console.error("     (--user: cuenta dueña del post, Business/Creator; no hace falta si el link la trae)");
     console.error("     npm run kb:add -- --image=captura.png [--caption=\"...\"]   (solo capturas)");
     process.exit(1);
   }

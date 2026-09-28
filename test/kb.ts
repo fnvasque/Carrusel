@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import matter from "gray-matter";
 import { findInstagramUrl, findInstagramUrls, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
-import { cleanComments, parseJsonOutput, parseYtDlpInfo, pythonForYtDlp } from "../src/kb/instagram.ts";
+import { metaToPostMeta, resolveUser } from "../src/kb/instagram.ts";
 import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
   resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
@@ -13,7 +13,9 @@ import { chunkFicha, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
 import { citedNumbers, groupSources } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
-import { escapeHtml, formatAnswer, formatSaved, mdToTelegramHtml, noteFromMessage, splitMessage } from "../src/kb/telegram.ts";
+import {
+  escapeHtml, formatAnswer, formatSaved, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
+} from "../src/kb/telegram.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -92,48 +94,6 @@ check("shortcodeFromUrl / isInstagramUrl / findInstagramUrl", () => {
 });
 
 // --- yt-dlp ---
-check("cleanComments: sin vacíos/menciones/duplicados, ordenados por likes", () => {
-  const out = cleanComments([
-    { text: "@amigo", like_count: 50 },
-    { text: "  Usa n8n,   es gratis ", like_count: 3 },
-    { text: "usa n8n, es gratis", like_count: 1 },
-    { text: "🔥🔥", like_count: 9 },
-    { text: "¿Cuánto cuesta Make?", like_count: 10 },
-    { text: 42 },
-  ]);
-  assert.deepEqual(out, [
-    { text: "¿Cuánto cuesta Make?", likes: 10 },
-    { text: "Usa n8n, es gratis", likes: 3 },
-  ]);
-});
-
-check("parseYtDlpInfo distingue reel / carrusel / post y arma autor y fecha", () => {
-  const reel = parseYtDlpInfo({ channel: "usuario", timestamp: 1_758_844_800, duration: 30, description: "cap", comments: [{ text: "buenísimo dato", like_count: 2 }] });
-  assert.equal(reel.kind, "reel");
-  assert.equal(reel.isVideo, true);
-  assert.equal(reel.author, "@usuario");
-  assert.equal(reel.publishedAt, "2025-09-26");
-  assert.equal(reel.comments.length, 1);
-  const carrusel = parseYtDlpInfo({
-    _type: "playlist",
-    entries: [
-      { channel: "otra", description: "x", thumbnails: [{ url: "https://cdn/1-small.jpg", width: 320 }, { url: "https://cdn/1.jpg", width: 1080 }] },
-      { thumbnail: "https://cdn/2.jpg" },
-      { thumbnail: "https://cdn/2.jpg" },
-    ],
-  });
-  assert.equal(carrusel.kind, "carrusel");
-  assert.equal(carrusel.author, "@otra");
-  assert.deepEqual(carrusel.imageUrls, ["https://cdn/1.jpg", "https://cdn/2.jpg"]);
-  assert.equal(parseYtDlpInfo({ description: "foto" }).kind, "post");
-});
-
-check("parseJsonOutput toma el JSON aunque haya ruido antes, y null si no hay", () => {
-  assert.equal(parseJsonOutput('WARNING: x\n{"_type":"playlist","id":"A"}\n')?.["_type"], "playlist");
-  assert.equal(parseJsonOutput("null\n"), null);
-  assert.equal(parseJsonOutput('{"roto": '), null);
-});
-
 // --- temas ---
 check("resolveTopicName reutiliza el existente ignorando acentos/mayúsculas", () => {
   const existing = ["Automatización con IA", "Edición de video"];
@@ -212,40 +172,6 @@ check("renderTopic lista fuentes con wikilinks y conserva Mis notas", () => {
   assert.ok(content.includes("## Fuentes (1)"));
   assert.ok(content.includes("Ideas propias"));
   assert.ok(!content.includes("## Técnicas"));
-});
-
-check("carrusel: comentarios como generador sin evaluar → vacíos, pero con comment_count", () => {
-  const gen = "<generator object InstagramBaseIE._get_comments at 0x109d83ac0>";
-  assert.deepEqual(cleanComments(gen), []);
-  const meta = parseYtDlpInfo({
-    _type: "playlist",
-    channel: "usuario",
-    comment_count: 205,
-    entries: [
-      { thumbnails: [{ url: "https://x/1.jpg", width: 1080 }], comments: gen },
-      { thumbnails: [{ url: "https://x/2.jpg", width: 1080 }], comments: gen },
-    ],
-  });
-  assert.deepEqual(meta.comments, []);
-  assert.equal(meta.commentCount, 205);
-  assert.equal(meta.hasVideo, false);
-});
-
-check("parseYtDlpInfo: hasVideo detecta slides de video en un carrusel mixto", () => {
-  const mixto = parseYtDlpInfo({ _type: "playlist", entries: [{ thumbnail: "https://x/1.jpg" }, { duration: 12, vcodec: "h264" }] });
-  assert.equal(mixto.isVideo, false);
-  assert.equal(mixto.hasVideo, true);
-  assert.equal(parseYtDlpInfo({ duration: 30 }).hasVideo, true);
-});
-
-check("pythonForYtDlp: usa el intérprete del shebang, o python3 + PYTHONPATH (zipapp)", () => {
-  assert.deepEqual(pythonForYtDlp("/opt/homebrew/bin/yt-dlp", "#!/opt/homebrew/Cellar/yt-dlp/x/libexec/bin/python"), {
-    cmd: "/opt/homebrew/Cellar/yt-dlp/x/libexec/bin/python", args: [],
-  });
-  assert.deepEqual(pythonForYtDlp("/usr/bin/yt-dlp", "#!/usr/bin/env python3"), { cmd: "/usr/bin/env", args: ["python3"] });
-  assert.deepEqual(pythonForYtDlp("/usr/local/bin/yt-dlp", "PK\u0003\u0004"), {
-    cmd: "python3", args: [], env: { PYTHONPATH: "/usr/local/bin/yt-dlp" },
-  });
 });
 
 check("renderFicha: texto de las imágenes en un callout plegado, fuera del digest del tema", () => {
@@ -499,6 +425,57 @@ check("cola: FIFO, un trabajo a la vez y se retoma tras un corte", () => {
     else process.env.KB_DIR = prev;
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// --- Meta: lectura de posts (Business Discovery) ---
+check("metaToPostMeta: carrusel con slides de foto y de video (portada)", () => {
+  const m = metaToPostMeta({
+    id: "1", media_type: "CAROUSEL_ALBUM", caption: "cap", timestamp: "2026-09-21T10:00:00+0000", comments_count: 205,
+    permalink: "https://www.instagram.com/p/AAA/",
+    children: { data: [
+      { media_type: "IMAGE", media_url: "https://cdn/1.jpg" },
+      { media_type: "VIDEO", media_url: "https://cdn/2.mp4", thumbnail_url: "https://cdn/2.jpg" },
+    ] },
+  }, "@ai._kid");
+  assert.equal(m.kind, "carrusel");
+  assert.equal(m.author, "@ai._kid");
+  assert.equal(m.publishedAt, "2026-09-21");
+  assert.deepEqual(m.imageUrls, ["https://cdn/1.jpg", "https://cdn/2.jpg"]);
+  assert.equal(m.isVideo, false);
+  assert.equal(m.hasVideo, true);
+  assert.equal(m.videoUrl, undefined);
+  assert.equal(m.commentCount, 205);
+  assert.deepEqual(m.comments, []);
+});
+
+check("metaToPostMeta: reel con video, reel sin media_url y foto", () => {
+  const reel = metaToPostMeta({ id: "2", media_type: "VIDEO", media_url: "https://cdn/r.mp4", thumbnail_url: "https://cdn/r.jpg" }, "natgeo");
+  assert.equal(reel.kind, "reel");
+  assert.equal(reel.videoUrl, "https://cdn/r.mp4");
+  assert.deepEqual(reel.imageUrls, ["https://cdn/r.jpg"]);
+  const sinVideo = metaToPostMeta({ id: "3", media_type: "VIDEO", thumbnail_url: "https://cdn/t.jpg" }, "natgeo");
+  assert.equal(sinVideo.videoUrl, undefined);
+  assert.deepEqual(sinVideo.imageUrls, ["https://cdn/t.jpg"]);
+  const foto = metaToPostMeta({ id: "4", media_type: "IMAGE", media_url: "https://cdn/f.jpg" }, "natgeo");
+  assert.equal(foto.kind, "post");
+  assert.deepEqual(foto.imageUrls, ["https://cdn/f.jpg"]);
+});
+
+check("resolveUser: --user (con o sin @) gana; si no, el que trae el link", () => {
+  assert.equal(resolveUser("https://www.instagram.com/p/AAA/", "@natgeo"), "natgeo");
+  assert.equal(resolveUser("https://www.instagram.com/natgeo/p/AAA/"), "natgeo");
+  assert.equal(resolveUser("https://www.instagram.com/reel/AAA/?igsh=x"), undefined);
+});
+
+check("@usuario en Telegram: mencionado junto al link o como respuesta suelta", () => {
+  const url = "https://www.instagram.com/reel/AAA111/?igsh=x";
+  assert.equal(handleInText(`@natgeo ${url} para el cliente X`), "natgeo");
+  assert.equal(handleInText(`${url} de @ia.punto.es`), "ia.punto.es");
+  assert.equal(handleInText("correo@dominio.com"), undefined);
+  assert.equal(noteFromMessage(`@natgeo ${url} para el cliente X`, [url], "natgeo"), "para el cliente X");
+  assert.equal(handleReply("@natgeo"), "natgeo");
+  assert.equal(handleReply(" ai._kid "), "ai._kid");
+  assert.equal(handleReply("¿qué guardé sobre video?"), undefined);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

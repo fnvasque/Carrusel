@@ -8,6 +8,8 @@ import { openDb } from "./db.ts";
 
 export interface JobPayload {
   url?: string;
+  /** Cuenta dueña del post (Business Discovery). */
+  user?: string;
   note?: string;
   caption?: string;
   /** Rutas locales de capturas enviadas por Telegram. */

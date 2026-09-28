@@ -63,7 +63,7 @@ export interface KbComment {
   likes: number;
 }
 
-/** Metadatos del post obtenidos de yt-dlp (todo opcional: puede fallar). */
+/** Metadatos del post leídos con la API de Meta (Business Discovery). */
 export interface PostMeta {
   author?: string;
   publishedAt?: string;
@@ -73,10 +73,12 @@ export interface PostMeta {
   hasVideo: boolean;
   caption?: string;
   comments: KbComment[];
-  /** Comentarios que declara Instagram (aunque yt-dlp no los haya traído). */
+  /** Comentarios que tiene el post (la API no entrega su texto en posts ajenos). */
   commentCount?: number;
-  /** URLs de las imágenes del post (una por slide), para carruseles de fotos que yt-dlp no descarga. */
+  /** URLs de las imágenes del post (una por slide; en videos, su portada). */
   imageUrls: string[];
+  /** Video del reel (media_url de la API); ausente si Meta no lo entrega (p. ej. audio con copyright). */
+  videoUrl?: string;
 }
 
 /** Ficha lista para renderizar: extracción + metadatos del post. */
@@ -123,8 +125,8 @@ export interface AddInput {
   note?: string;
   images?: string[];
   caption?: string;
-  cookies?: string;
-  cookiesFromBrowser?: string;
+  /** Cuenta dueña del post (Business Discovery), si el link no la trae. */
+  user?: string;
   commit?: boolean;
   onProgress?: (stage: Stage, detail?: string) => void;
 }

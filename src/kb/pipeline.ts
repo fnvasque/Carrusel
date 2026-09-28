@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import matter from "gray-matter";
 import { join, relative } from "node:path";
-import { fetchImageAsDataUri, ingest, localImageToDataUri, probeDuration } from "../remix/ingest.ts";
+import { fetchImageAsDataUri, localImageToDataUri, probeDuration } from "../remix/ingest.ts";
 import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
-import { downloadAudio, downloadVideo, fetchPostMeta } from "./instagram.ts";
+import { downloadVideo, fetchPostViaMeta, NeedsUserError } from "./instagram.ts";
 import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, unwikilink, wikilink, type SourceRef } from "./markdown.ts";
 import { frameCount, toSpeechMp3, videoFrames, writeGallery, writeThumbnail } from "./media.ts";
 import { applyNameFixes, groundToolUrls } from "./names.ts";
@@ -24,90 +24,77 @@ const MAX_TOPIC_SOURCES = 40;
 const today = (): string => new Date().toISOString().slice(0, 10);
 
 /**
- * Guarda un post en la base: descarga (imágenes/frames, caption, comentarios,
- * audio) → transcripción → ficha → tema → páginas de tema → commit.
- * Nunca se cae por una descarga parcial: guarda lo que obtuvo y lo marca.
+ * Guarda un post en la base: lectura vía la API de Meta (caption, imágenes o
+ * video del reel) → cuadros y transcripción → ficha → tema → páginas de tema →
+ * commit. Sin tu sesión de Instagram ni scraping. Si Meta no puede leer el post
+ * pero hay capturas, guarda la ficha desde ellas.
  */
 export async function addPost(input: AddInput): Promise<AddResult> {
   const progress = input.onProgress ?? (() => {});
-  const cookies = { cookies: input.cookies, cookiesFromBrowser: input.cookiesFromBrowser };
 
   if (input.url && !isInstagramUrl(input.url)) {
     throw new Error("Ese link no es de un post, reel o carrusel de Instagram.");
   }
   const url = input.url ? normalizeInstagramUrl(input.url) : undefined;
 
-  // 1) Descarga: metadatos + comentarios (yt-dlp) y medios (imágenes, cuadros del reel).
+  // 1) Lectura del post con la API de Meta. El @usuario sale del link original
+  //    (la URL normalizada ya no lo trae) o de input.user.
   progress("descargando");
-  const meta: PostMeta | null = url ? await fetchPostMeta(url, cookies) : null;
-  let source: { type: string; caption: string; mediaDataUris: string[] } = { type: "unknown", caption: "", mediaDataUris: [] };
-  let images: string[] = [];
-  // Carrusel o post solo de fotos: yt-dlp no descarga las imágenes, pero trae sus URLs.
-  // Se bajan directo desde ahí (la ingesta del remix no aportaría nada y solo
-  // avisaría de un "login wall" que en realidad ya se venció con yt-dlp).
-  if (meta && !meta.hasVideo && meta.imageUrls.length) {
-    for (const u of meta.imageUrls.slice(0, MAX_IMAGES)) {
-      const uri = await fetchImageAsDataUri(u);
-      if (uri) images.push(uri);
+  let meta: PostMeta | null = null;
+  if (input.url) {
+    try {
+      meta = await fetchPostViaMeta(input.url, input.user);
+    } catch (err) {
+      // Sin capturas no hay nada que guardar: el error sube (el bot pregunta el @usuario, etc.).
+      if (!input.images?.length || err instanceof NeedsUserError) throw err;
+      console.warn(`⚠️  API de Meta: ${err instanceof Error ? err.message : err} Guardo desde las capturas.`);
     }
   }
+
+  let images: string[] = [];
+  let video: Awaited<ReturnType<typeof downloadVideo>> = null;
   // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
-  let video: Awaited<ReturnType<typeof downloadVideo>> = null;
-  if (url && meta?.isVideo) {
-    video = await downloadVideo(url, cookies);
+  if (meta?.videoUrl) {
+    video = await downloadVideo(meta.videoUrl);
     if (video) {
       const duration = await probeDuration(video.path);
       images = await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration);
     }
   }
-  // Si lo anterior no alcanzó: cadena de ingesta del remix.
-  if (!images.length) {
-    try {
-      source = await ingest({
-        url,
-        caption: input.caption,
-        image: input.images?.length ? input.images : undefined,
-        es: "neutro",
-        outDir: "",
-        ...cookies,
-      });
-    } catch (err) {
-      // Sin medios ni caption desde la ingesta: se sigue si yt-dlp o las capturas aportaron algo.
-      if (!meta?.caption && !input.images?.length) {
-        await video?.cleanup();
-        throw err;
-      }
+  // Fotos (o la portada de un reel cuyo video Meta no entrega).
+  if (meta && !images.length) {
+    for (const u of meta.imageUrls.slice(0, MAX_IMAGES)) {
+      const uri = await fetchImageAsDataUri(u);
+      if (uri) images.push(uri);
     }
-    images = [...source.mediaDataUris];
   }
   progress("descargando", `${images.length} imagen(es)`);
-  // Las capturas se suman a lo descargado (p. ej. capturas de comentarios).
-  if (url && input.images?.length) {
-    for (const p of input.images) {
-      const uri = await localImageToDataUri(p);
-      if (uri && !images.includes(uri)) images.push(uri);
-    }
+  // Las capturas se suman a lo descargado (p. ej. capturas de comentarios) o son la fuente.
+  for (const p of input.images ?? []) {
+    const uri = await localImageToDataUri(p);
+    if (uri && !images.includes(uri)) images.push(uri);
   }
-  const caption = meta?.caption || source.caption || input.caption || "";
+  const caption = meta?.caption || input.caption || "";
+  if (!caption && !images.length) {
+    await video?.cleanup();
+    throw new Error("No hay nada que analizar: ni caption ni imágenes. Manda capturas del post.");
+  }
   const comments = meta?.comments ?? [];
-  progress("comentarios", comments.length ? `${comments.length} comentarios` : "sin comentarios");
+  progress(
+    "comentarios",
+    meta?.commentCount ? `${meta.commentCount} en el post (la API no da su texto: mándame capturas si importan)` : "sin comentarios",
+  );
 
-  // 2) Transcripción (solo videos).
+  // 2) Transcripción (solo reels con video disponible).
   let transcript: string | undefined;
-  const isVideo = meta?.isVideo ?? source.type === "reel";
-  if (url && isVideo) {
+  if (video) {
     progress("transcribiendo");
-    const audio = video ?? (await downloadAudio(url, cookies));
-    if (audio) {
-      try {
-        const mp3 = await toSpeechMp3(audio.path);
-        if (mp3) transcript = (await transcribe(mp3, caption)) || undefined;
-      } catch (err) {
-        console.warn(`⚠️  No se pudo transcribir: ${err instanceof Error ? err.message : err}`);
-      } finally {
-        await audio.cleanup();
-      }
+    try {
+      const mp3 = await toSpeechMp3(video.path);
+      if (mp3) transcript = (await transcribe(mp3, caption)) || undefined;
+    } catch (err) {
+      console.warn(`⚠️  No se pudo transcribir: ${err instanceof Error ? err.message : err}`);
     }
   }
   await video?.cleanup();
@@ -121,7 +108,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // 4) Extracción con el modelo (incluye asignación de tema).
   progress("analizando");
   const topics = await listTopics();
-  const kind: PostKind = url ? (meta?.kind ?? (source.type === "reel" ? "reel" : "post")) : "manual";
+  const kind: PostKind = url ? (meta?.kind ?? "post") : "manual";
   const raw = await extractFicha({ kind, caption, transcript, comments, notes, images, topics });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text), ...comments.map((c) => c.text)].join("\n");
@@ -151,7 +138,8 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     caption,
     transcript,
     notes,
-    partial: !!url && (!images.length || (!caption && !transcript)),
+    // Parcial: Meta no pudo leer el post (se guardó desde capturas) o faltó contenido.
+    partial: !!url && (!meta || !images.length || (!caption && !transcript)),
     extraction,
   };
   const baseName = previous?.baseName ?? fichaBaseName(ficha);
@@ -220,7 +208,16 @@ export async function refreshTopics(topics: Iterable<string>, newDescriptions: R
       continue;
     }
     const recent = members.slice(-MAX_TOPIC_SOURCES);
-    const synthesis = await synthesizeTopic(topic, recent.map((f) => fichaDigest(f.body)));
+    let synthesis: Awaited<ReturnType<typeof synthesizeTopic>>;
+    try {
+      synthesis = await synthesizeTopic(topic, recent.map((f) => fichaDigest(f.body)));
+    } catch (err) {
+      // Un tema que no se pudo resumir no bloquea el guardado: se conserva su página
+      // anterior (la ficha ya quedó bien); si no existía, se crea con la lista de fuentes.
+      console.warn(`⚠️  No pude resumir el tema "${topic}" (${err instanceof Error ? err.message : err}). Lo reintento en el próximo guardado.`);
+      if (existsSync(path)) continue;
+      synthesis = { description: newDescriptions[topic] ?? "", essentials: [], tools: [], techniques: [], questions: [] };
+    }
     if (newDescriptions[topic]) synthesis.description ||= newDescriptions[topic];
     const refs: SourceRef[] = members
       .slice()

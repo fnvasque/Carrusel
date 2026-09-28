@@ -6,9 +6,12 @@ import { reindex } from "./indexer.ts";
 import { topicKey } from "./markdown.ts";
 import { addPost, changeTopic } from "./pipeline.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job } from "./queue.ts";
+import { resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import { findFichaById, findLastSave, listFichas, listTopics, removeOrphanGalleries, revertSave, temasDir } from "./store.ts";
-import { escapeHtml, formatAnswer, formatFichaList, formatSaved, HELP, noteFromMessage, splitMessage } from "./telegram.ts";
+import {
+  escapeHtml, formatAnswer, formatFichaList, formatSaved, handleInText, handleReply, HELP, noteFromMessage, splitMessage,
+} from "./telegram.ts";
 import { STAGE_LABEL } from "./types.ts";
 
 /**
@@ -41,7 +44,9 @@ const TG_DIR = join(process.cwd(), ".cache", "kb", "telegram");
 const bot = new Bot(token);
 
 // --- estado por chat (en memoria; lo persistente está en la cola) ---
-const lastLink = new Map<number, { url: string; at: number }>();
+const lastLink = new Map<number, { url: string; user: string; at: number }>();
+/** Links que esperan el @usuario (la API de Meta lo necesita y los links compartidos no lo traen). */
+const awaitingUser = new Map<number, { urls: string[]; note?: string; options: string[] }>();
 const pendingPhotos = new Map<number, { paths: string[]; caption?: string; timer?: NodeJS.Timeout }>();
 /** Cambio de tema en curso: la ficha y los temas ofrecidos (por índice, por el límite de 64 bytes del callback). */
 const topicChoice = new Map<number, { id: string; options: string[]; awaitingName?: boolean }>();
@@ -96,6 +101,7 @@ async function runJob(job: Job): Promise<void> {
   try {
     const r = await addPost({
       url: payload.url,
+      user: payload.user,
       note: payload.note,
       caption: payload.caption,
       images: payload.images,
@@ -108,7 +114,14 @@ async function runJob(job: Job): Promise<void> {
     finish(job.id);
   } catch (err) {
     finish(job.id, errText(err));
-    await edit(api, chatId, job.statusMsgId, `❌ No pude guardar${payload.url ? " el post" : ""}: ${escapeHtml(errText(err))}\n\nSi es un post privado o Instagram lo bloqueó, mándame capturas y lo guardo desde ahí.`);
+    await edit(
+      api,
+      chatId,
+      job.statusMsgId,
+      `❌ No pude guardar${payload.url ? " el post" : ""}: ${escapeHtml(errText(err))}\n\n` +
+        "Si la cuenta no es Business/Creator o el post es privado, mándame capturas y lo guardo desde ahí. " +
+        "Si el @usuario estaba mal, vuelve a mandar el link con el @ correcto.",
+    );
   } finally {
     for (const p of payload.images ?? []) await rm(p, { force: true }).catch(() => {});
   }
@@ -183,14 +196,22 @@ bot.on("message:text", async (ctx) => {
     return void (await applyTopic(chatId, choice.id, text.trim()));
   }
 
+  // Respuesta a "¿de qué cuenta es?".
+  const waiting = awaitingUser.get(chatId);
+  const reply = waiting ? handleReply(text) : undefined;
+  if (waiting && reply) {
+    awaitingUser.delete(chatId);
+    return void (await saveLinks(chatId, waiting.urls, reply, waiting.note));
+  }
+
   const urls = findInstagramUrls(text);
   if (urls.length) {
-    const note = noteFromMessage(text, urls);
-    for (const url of urls) {
-      lastLink.set(chatId, { url, at: Date.now() });
-      await queueSave(chatId, { url, note }, "Recibido, lo guardo…");
-    }
-    return;
+    const mentioned = handleInText(text);
+    const note = noteFromMessage(text, urls, mentioned);
+    // La API de Meta necesita la cuenta: del @ del mensaje, del link, o se pregunta.
+    const user = mentioned ?? resolveUser(urls[0]);
+    if (user) return void (await saveLinks(chatId, urls, user, note));
+    return void (await askForUser(chatId, urls, note));
   }
 
   await ctx.replyWithChatAction("typing");
@@ -200,6 +221,33 @@ bot.on("message:text", async (ctx) => {
     await ctx.reply(`❌ No pude responder: ${errText(err)}`);
   }
 });
+
+async function saveLinks(chatId: number, urls: string[], user: string, note?: string): Promise<void> {
+  for (const url of urls) {
+    lastLink.set(chatId, { url, user, at: Date.now() });
+    await queueSave(chatId, { url, user, note }, `Recibido, lo leo de @${escapeHtml(user)}…`);
+  }
+}
+
+/** Cuentas de las que ya guardaste posts (las más recientes primero), para ofrecerlas como botones. */
+async function recentAuthors(limit = 6): Promise<string[]> {
+  const authors = (await listFichas()).map((f) => f.author?.replace(/^@/, "")).filter((a): a is string => !!a).reverse();
+  return [...new Set(authors)].slice(0, limit);
+}
+
+async function askForUser(chatId: number, urls: string[], note?: string): Promise<void> {
+  const options = await recentAuthors();
+  awaitingUser.set(chatId, { urls, note, options });
+  const kb = new InlineKeyboard();
+  options.forEach((u, i) => kb.text(`@${u}`, `user:${i}`).row());
+  await bot.api.sendMessage(
+    chatId,
+    "👤 ¿De qué cuenta es este post? Respóndeme con el <b>@usuario</b>" + (options.length ? " o elige una:" : ".") +
+      "\n<i>La API de Meta necesita la cuenta (solo Business/Creator) y el link compartido no la trae. " +
+      "Tip: manda el link junto al @, ej. «@natgeo https://…».</i>",
+    { parse_mode: "HTML", reply_markup: options.length ? kb : undefined },
+  );
+}
 
 // --- capturas (sueltas o álbum) ---
 
@@ -219,10 +267,10 @@ async function flushPhotos(chatId: number): Promise<void> {
   pendingPhotos.delete(chatId);
   if (!pending?.paths.length) return;
   const link = lastLink.get(chatId);
-  const recent = link && Date.now() - link.at < LINK_WINDOW_MS ? link.url : undefined;
+  const recent = link && Date.now() - link.at < LINK_WINDOW_MS ? link : undefined;
   const n = pending.paths.length;
   if (recent) {
-    await queueSave(chatId, { url: recent, images: pending.paths, note: pending.caption }, `Sumo ${n} captura(s) al último post…`);
+    await queueSave(chatId, { url: recent.url, user: recent.user, images: pending.paths, note: pending.caption }, `Sumo ${n} captura(s) al último post…`);
   } else {
     await queueSave(chatId, { images: pending.paths, caption: pending.caption }, `Guardo ${n} captura(s) como ficha nueva…`);
   }
@@ -239,8 +287,11 @@ bot.on(["message:photo", "message:document"], async (ctx) => {
   pending.paths.push(path);
   if (ctx.message.caption) {
     const urls = findInstagramUrls(ctx.message.caption);
-    if (urls[0]) lastLink.set(chatId, { url: urls[0], at: Date.now() });
-    pending.caption = noteFromMessage(ctx.message.caption, urls) ?? pending.caption;
+    const mentioned = handleInText(ctx.message.caption);
+    const user = urls[0] ? (mentioned ?? resolveUser(urls[0])) : undefined;
+    // Capturas con link: si se sabe la cuenta, se intenta leer el post; si no, la ficha sale de las capturas.
+    if (urls[0] && user) lastLink.set(chatId, { url: urls[0], user, at: Date.now() });
+    pending.caption = noteFromMessage(ctx.message.caption, urls, mentioned) ?? pending.caption;
   }
   clearTimeout(pending.timer);
   pending.timer = setTimeout(() => void flushPhotos(chatId), ALBUM_DEBOUNCE_MS);
@@ -267,6 +318,16 @@ bot.on("callback_query:data", async (ctx) => {
   if (chatId === undefined) return;
   const [action, id, arg] = ctx.callbackQuery.data.split(":");
   await ctx.answerCallbackQuery();
+
+  if (action === "user") {
+    const waiting = awaitingUser.get(chatId);
+    const user = waiting?.options[Number(id)];
+    await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+    if (!waiting || !user) return void (await ctx.reply("Ese menú expiró; vuelve a mandar el link."));
+    awaitingUser.delete(chatId);
+    await saveLinks(chatId, waiting.urls, user, waiting.note);
+    return;
+  }
 
   if (action === "undo") {
     try {

@@ -91,10 +91,21 @@ export function formatFichaList(fichas: (Pick<StoredFicha, "title" | "savedAt" |
     .join("\n");
 }
 
-/** Texto del mensaje de un link compartido sin el link (se guarda como nota del usuario). */
-export function noteFromMessage(text: string, urls: string[]): string | undefined {
+/** Primer @usuario mencionado en un mensaje (sin la @), o undefined. */
+export function handleInText(text: string): string | undefined {
+  return text.match(/(?:^|\s)@([\w.]{2,30})\b/)?.[1];
+}
+
+/** Si el mensaje es SOLO un @usuario (respuesta a "¿de qué cuenta es?"), lo devuelve sin la @. */
+export function handleReply(text: string): string | undefined {
+  return text.trim().match(/^@?([\w.]{2,30})$/)?.[1];
+}
+
+/** Texto del mensaje de un link compartido sin el link ni el @usuario (se guarda como nota). */
+export function noteFromMessage(text: string, urls: string[], user?: string): string | undefined {
   let note = text;
   for (const u of urls) note = note.split(u).join(" ");
+  if (user) note = note.split(`@${user}`).join(" ");
   note = note.replace(/\s+/g, " ").trim();
   return note.length >= 3 ? note : undefined;
 }
@@ -102,7 +113,10 @@ export function noteFromMessage(text: string, urls: string[]): string | undefine
 export const HELP = [
   "<b>Knowgram</b> guarda lo que te interesa de Instagram y te lo devuelve cuando lo necesitas.",
   "",
-  "📥 <b>Guardar:</b> en Instagram → Compartir → este chat. Puedes agregar una nota en el mismo mensaje.",
+  "📥 <b>Guardar:</b> en Instagram → Compartir → este chat. Si no me dices de qué cuenta es, te pregunto el @usuario " +
+    "(también puedes mandarlo junto al link: «@cuenta https://…»). Lo que escribas además queda como nota.",
+  "ℹ️ Leo los posts con la API oficial de Meta: solo cuentas Business o Creator, y sin el texto de los comentarios " +
+    "(si te importan, mándame capturas).",
   "🖼 <b>Complementar:</b> manda capturas después del link (sueltas o en álbum) y se suman a esa ficha.",
   "❓ <b>Preguntar:</b> escribe cualquier pregunta; respondo solo con tu base y cito las fichas.",
   "",

@@ -137,6 +137,9 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
   });
 }
 
+/** Tope de tokens de salida de la síntesis de un tema. */
+const MAX_SYNTH_TOKENS = 3000;
+
 const SYNTH_SYSTEM = `
 Mantienes la página de un TEMA en una base de conocimiento personal. Recibes las fichas de todas las fuentes de ese tema y escribes una síntesis que responda "¿qué sé de este tema?".
 Reglas: en español; agrupa y deduplica lo que se repite entre fuentes; prioriza lo concreto y accionable; no inventes nada que no esté en las fichas; no cites nombres de usuario.
@@ -144,21 +147,30 @@ Reglas: en español; agrupa y deduplica lo que se repite entre fuentes; prioriza
 
 /** Sintetiza la página de un tema a partir del texto de sus fichas. */
 export async function synthesizeTopic(topic: string, fichasText: string[]): Promise<TopicSynthesis> {
-  return cleanCall(async () => {
-    const res = await getClient().beta.chat.completions.parse({
-      model: model(),
-      temperature: TEMPERATURE,
-      messages: [
-        { role: "system", content: SYNTH_SYSTEM },
-        {
-          role: "user",
-          content: `Tema: ${topic}\n\nFichas (${fichasText.length}):\n\n${fichasText.map((f, i) => `### Fuente ${i + 1}\n${f}`).join("\n\n")}`,
-        },
-      ],
-      response_format: zodResponseFormat(TopicSynthesisSchema, "tema"),
+  // Tope de salida: si el modelo entra en bucle, falla rápido en vez de gastar tokens.
+  // Un reintento pidiendo más brevedad; si vuelve a fallar, el error sube (refreshTopics lo maneja).
+  const attempt = (brief: boolean) =>
+    cleanCall(async () => {
+      const res = await getClient().beta.chat.completions.parse({
+        model: model(),
+        temperature: TEMPERATURE,
+        max_tokens: MAX_SYNTH_TOKENS,
+        messages: [
+          { role: "system", content: brief ? `${SYNTH_SYSTEM}\nSé muy breve: máximo 6 ítems por lista, una frase cada uno.` : SYNTH_SYSTEM },
+          {
+            role: "user",
+            content: `Tema: ${topic}\n\nFichas (${fichasText.length}):\n\n${fichasText.map((f, i) => `### Fuente ${i + 1}\n${f}`).join("\n\n")}`,
+          },
+        ],
+        response_format: zodResponseFormat(TopicSynthesisSchema, "tema"),
+      });
+      const parsed = res.choices[0]?.message.parsed;
+      if (!parsed) throw new Error("El modelo no devolvió una síntesis válida.");
+      return parsed;
     });
-    const parsed = res.choices[0]?.message.parsed;
-    if (!parsed) throw new Error("El modelo no devolvió una síntesis válida.");
-    return parsed;
-  });
+  try {
+    return await attempt(false);
+  } catch {
+    return attempt(true);
+  }
 }
