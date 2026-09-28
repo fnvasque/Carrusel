@@ -6,7 +6,7 @@ import { reindex } from "./indexer.ts";
 import { topicKey } from "./markdown.ts";
 import { addPost, changeTopic } from "./pipeline.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job } from "./queue.ts";
-import { resolveUser } from "./instagram.ts";
+import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import { findFichaById, findLastSave, listFichas, listTopics, removeOrphanGalleries, revertSave, temasDir } from "./store.ts";
 import { sendDm } from "../meta/messages.ts";
@@ -122,6 +122,11 @@ async function runJob(job: Job): Promise<void> {
     finish(job.id);
   } catch (err) {
     finish(job.id, errText(err));
+    if (err instanceof NeedsUserError && payload.url) {
+      // No se pudo descubrir la cuenta: se pregunta (con la respuesta, se reintenta).
+      if (job.statusMsgId) await api.deleteMessage(chatId, job.statusMsgId).catch(() => {});
+      return void (await askForUser(chatId, [payload.url], payload.note));
+    }
     await edit(
       api,
       chatId,
@@ -148,9 +153,22 @@ async function runDmJob(job: Job): Promise<void> {
     await sendDm(to, `${formatSavedText(r)}\n\n↩️ Para deshacer o cambiar el tema, usa Telegram o la terminal.`).catch(dmFailed);
   } catch (err) {
     finish(job.id, errText(err));
+    if (err instanceof NeedsUserError && p.url) return void (await askDmUser(to, [p.url], p.note, p.caption));
     console.warn(`⚠️  DM no guardado: ${errText(err)}`);
     await sendDm(to, `❌ No pude guardar el post: ${errText(err)}`).catch(dmFailed);
   }
+}
+
+/** Pregunta por DM de qué cuenta es el post (con respuestas rápidas de cuentas ya guardadas). */
+async function askDmUser(to: string, urls: string[], note?: string, caption?: string): Promise<void> {
+  dmAwaitingUser.set(to, { urls, note, caption, at: Date.now() });
+  const recent = (await recentAuthors(12)).map((u) => `@${u}`);
+  await sendDm(
+    to,
+    "👤 No pude descubrir de qué cuenta es este post. Respóndeme con el @usuario" + (recent.length ? " o toca una:" : ".") +
+      "\n(La API de Meta necesita la cuenta, solo Business/Creator.)",
+    recent,
+  ).catch(dmFailed);
 }
 
 const dmFailed = (err: unknown) => console.warn(`⚠️  No pude responder por DM: ${errText(err)}`);
@@ -236,10 +254,9 @@ bot.on("message:text", async (ctx) => {
   if (urls.length) {
     const mentioned = handleInText(text);
     const note = noteFromMessage(text, urls, mentioned);
-    // La API de Meta necesita la cuenta: del @ del mensaje, del link, o se pregunta.
-    const user = mentioned ?? resolveUser(urls[0]);
-    if (user) return void (await saveLinks(chatId, urls, user, note));
-    return void (await askForUser(chatId, urls, note));
+    // La API de Meta necesita la cuenta: del @ del mensaje o del link; si no, se intenta
+    // descubrir al guardar y solo se pregunta si no hubo forma.
+    return void (await saveLinks(chatId, urls, mentioned ?? resolveUser(urls[0]), note));
   }
 
   await ctx.replyWithChatAction("typing");
@@ -250,10 +267,10 @@ bot.on("message:text", async (ctx) => {
   }
 });
 
-async function saveLinks(chatId: number, urls: string[], user: string, note?: string): Promise<void> {
+async function saveLinks(chatId: number, urls: string[], user: string | undefined, note?: string): Promise<void> {
   for (const url of urls) {
-    lastLink.set(chatId, { url, user, at: Date.now() });
-    await queueSave(chatId, { url, user, note }, `Recibido, lo leo de @${escapeHtml(user)}…`);
+    if (user) lastLink.set(chatId, { url, user, at: Date.now() });
+    await queueSave(chatId, { url, user, note }, user ? `Recibido, lo leo de @${escapeHtml(user)}…` : "Recibido, busco de qué cuenta es…");
   }
 }
 
@@ -419,7 +436,7 @@ bot.catch((err) => console.error(`❌ Bot: ${errText(err.error)}`));
 const igAllowed = new Set((process.env.INBOX_ALLOWED_SENDERS ?? "").split(",").map((s) => s.trim()).filter(Boolean));
 
 /** Shares por DM que esperan el @usuario, por remitente (se descartan a los 30 min). */
-const dmAwaitingUser = new Map<string, { urls: string[]; note?: string; at: number }>();
+const dmAwaitingUser = new Map<string, { urls: string[]; note?: string; caption?: string; at: number }>();
 
 async function onDm(ev: DmEvent): Promise<void> {
   if (!igAllowed.has(ev.senderId)) {
@@ -427,9 +444,9 @@ async function onDm(ev: DmEvent): Promise<void> {
     return;
   }
   const reply = (text: string, quick: string[] = []) => sendDm(ev.senderId, text, quick).catch(dmFailed);
-  const enqueueLinks = async (urls: string[], user: string, note?: string) => {
-    for (const url of urls) enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note });
-    await reply(`📥 Recibido, lo leo de @${user} y lo guardo…`);
+  const enqueueLinks = async (urls: string[], user: string | undefined, note?: string, caption?: string) => {
+    for (const url of urls) enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note, caption });
+    await reply(user ? `📥 Recibido, lo leo de @${user} y lo guardo…` : "📥 Recibido, busco de qué cuenta es y lo guardo…");
     void work();
   };
 
@@ -438,7 +455,7 @@ async function onDm(ev: DmEvent): Promise<void> {
   const handle = waiting && ev.text && !ev.attachments.length ? handleReply(ev.text) : undefined;
   if (waiting && handle && Date.now() - waiting.at < LINK_WINDOW_MS) {
     dmAwaitingUser.delete(ev.senderId);
-    return void (await enqueueLinks(waiting.urls, handle, waiting.note));
+    return void (await enqueueLinks(waiting.urls, handle, waiting.note, waiting.caption));
   }
 
   const action = dmAction(ev);
@@ -454,15 +471,9 @@ async function onDm(ev: DmEvent): Promise<void> {
     const mentioned = handleInText(action.text);
     const user = mentioned ?? resolveUser(action.urls[0]);
     const note = action.text ? noteFromMessage(action.text, action.urls, mentioned) : undefined;
-    if (user) return void (await enqueueLinks(action.urls, user, note));
-    // La API de Meta necesita la cuenta dueña y el share no la trae: se pregunta.
-    dmAwaitingUser.set(ev.senderId, { urls: action.urls, note, at: Date.now() });
-    const recent = (await recentAuthors(12)).map((u) => `@${u}`);
-    await reply(
-      "👤 ¿De qué cuenta es este post? Respóndeme con el @usuario" + (recent.length ? " o toca una:" : ".") +
-        "\n(La API de Meta necesita la cuenta, solo Business/Creator, y el mensaje compartido no la trae.)",
-      recent,
-    );
+    // Sin cuenta, el guardado intenta descubrirla (menciones, cuentas guardadas, hashtags del caption);
+    // si no puede, runDmJob la pregunta.
+    await enqueueLinks(action.urls, user, note, action.caption);
   } else if (action.kind === "question") {
     try {
       await reply(formatAnswerText(await ask(action.text)));

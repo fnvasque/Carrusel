@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import matter from "gray-matter";
 import { findInstagramUrl, findInstagramUrls, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
 import { metaToPostMeta, resolveUser } from "../src/kb/instagram.ts";
+import { hashtagsIn, mentionsIn, pickHashtags } from "../src/kb/discover.ts";
 import { dmAction, parseWebhook, validSignature } from "../src/kb/inbox.ts";
 import { splitDm } from "../src/meta/messages.ts";
 import { createHmac } from "node:crypto";
@@ -546,6 +547,23 @@ check("formatos en texto plano para DM: ficha y respuesta sin HTML", () => {
   assert.ok(!/<\/?b>/.test(txt));
   const ans = formatAnswerText({ answer: "Usa **Make** [1].", sources: [{ n: 1, title: "T", url: "https://www.instagram.com/p/X/", baseName: "b" }], found: true });
   assert.equal(ans, "Usa Make [1].\n\n📚 Fuentes\n[1] T — https://www.instagram.com/p/X/");
+});
+
+// --- descubrir la cuenta de un post compartido ---
+check("mentionsIn / hashtagsIn: menciones y hashtags del caption", () => {
+  assert.deepEqual(mentionsIn("Colab con @ia.punto.es y @natgeo. Escríbeme a hola@mail.com"), ["ia.punto.es", "natgeo"]);
+  assert.deepEqual(mentionsIn(undefined), []);
+  assert.deepEqual(hashtagsIn("#AIWebsite #webdesign #aiwebsite #UIDesign"), ["aiwebsite", "webdesign", "uidesign"]);
+});
+
+check("pickHashtags: sin genéricos, primero los ya usados (gratis) y respeta el cupo semanal", () => {
+  const tags = ["reels", "creativecoding", "ai", "webdesign", "aiwebsite", "uidesign"];
+  // A igual largo se conserva el orden del caption (webdesign antes que aiwebsite).
+  assert.deepEqual(pickHashtags(tags, new Set()), ["creativecoding", "webdesign", "aiwebsite"]);
+  assert.deepEqual(pickHashtags(tags, new Set(["uidesign"])), ["uidesign", "creativecoding", "webdesign"]);
+  const full = new Set(Array.from({ length: 28 }, (_, i) => `t${i}`));
+  assert.deepEqual(pickHashtags(tags, full), []);
+  assert.deepEqual(pickHashtags(["uidesign", ...tags], new Set([...full, "uidesign"])), ["uidesign"]);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

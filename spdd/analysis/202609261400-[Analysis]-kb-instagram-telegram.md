@@ -249,6 +249,14 @@ Cada iteración cierra con `npm run typecheck` + `npm run test` en verde y un co
 - `src/kb/inbox.ts`: webhook `node:http` (verificación `hub.challenge`, firma `X-Hub-Signature-256` con el app secret, idempotencia por `mid`, 200 inmediato); `parseWebhook` / `dmAction` puros. Corre dentro de `npm run kb:bot` y usa la misma cola: los guardados de Telegram y de Instagram nunca se pisan.
 - Reels: video + caption vienen en el DM (sin @usuario). Posts: su imagen. Link escrito: requiere «@cuenta». Texto: pregunta (`ask`).
 - `src/meta/messages.ts`: envío de DMs con el token de la Página (`me/messages`), partido en mensajes de ≤ 1000 caracteres. Allowlist por IGSID (`INBOX_ALLOWED_SENDERS`).
-- **Pendiente (spike)**: capturar payloads reales de reel, post y carrusel con `--debug-payload` y ajustar `parseWebhook`/`dmAction` y sus tests a ellos. Hoy siguen el formato documentado.
+- **Payloads reales (spike hecho)**: `ig_post` trae la imagen (CDN `lookaside.fbsbx.com`) y el caption, sin link ni cuenta; `ig_reel` trae el **link** del reel, el caption y `reel_video_id`, sin video ni cuenta. Ni el id ni la API de conversaciones (`GET /{mid}?fields=shares`) dan la cuenta; oEmbed sí la daría, pero exige App Review ("Meta oEmbed Read").
+
+### Descubrir la cuenta de un post (2026-09-28)
+
+- `src/kb/discover.ts`, usado por `fetchPostViaMeta` cuando no hay @: (1) @menciones del caption/mensaje y cuentas ya guardadas → Business Discovery (verifica que el shortcode esté en su feed: nunca atribuye mal); (2) hashtags del caption → **Hashtag Search** (`ig_hashtag_search` + `recent_media`/`top_media`), que funciona en modo desarrollo y entrega `media_url` sin saber la cuenta (la ficha queda sin autor).
+- Medido: cada página de hashtag tarda ~17 s; en paralelo Meta las frena (936 s), así que va en secuencia, a lo ancho (página 1 de recientes de cada hashtag, luego la 2, luego destacados), con tope de 120 s. Campos mínimos (`id,media_type,media_url,permalink,timestamp`): con caption/children, Meta responde "reduce the amount of data".
+- Cupo de 30 hashtags distintos por semana: se registran en `hashtag_usage`, se priorizan los ya usados y se descartan los genéricos (#reels, #ai…). Máximo 3 por post.
+- Resultados reales: reel con cuenta ya guardada → 1 s; reel nuevo con #herramientasia → 44 s con video; reel de hace más de 24 h con hashtags masivos → no se encuentra (se pregunta el @).
+- Mejora futura: pedir **App Review de Meta oEmbed Read** daría la cuenta de cualquier post público al instante.
 
 ### Iteración 4 — pendiente

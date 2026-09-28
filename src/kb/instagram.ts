@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   DEFAULT_MAX_PAGES, extractShortcode, extractUsername, findMediaViaBusinessDiscovery, type MetaMedia,
 } from "../remix/providers/meta.ts";
+import { discoverPost } from "./discover.ts";
 import type { PostKind, PostMeta } from "./types.ts";
 
 /**
@@ -28,7 +29,7 @@ export function resolveUser(url: string, user?: string): string | undefined {
 }
 
 /** Convierte un post de la API en metadatos de ficha. Función pura (testeable). */
-export function metaToPostMeta(m: MetaMedia, username: string): PostMeta {
+export function metaToPostMeta(m: MetaMedia, username?: string): PostMeta {
   const kind: PostKind = m.media_type === "VIDEO" ? "reel" : m.media_type === "CAROUSEL_ALBUM" ? "carrusel" : "post";
   const children = m.children?.data ?? [];
   const slides = kind === "carrusel" && children.length ? children : [m];
@@ -37,7 +38,7 @@ export function metaToPostMeta(m: MetaMedia, username: string): PostMeta {
     .map((c) => (c.media_type === "VIDEO" ? c.thumbnail_url : (c.media_url ?? c.thumbnail_url)))
     .filter((u): u is string => !!u);
   return {
-    author: `@${username.replace(/^@/, "")}`,
+    author: username ? `@${username.replace(/^@/, "")}` : undefined,
     publishedAt: m.timestamp?.slice(0, 10),
     kind,
     isVideo: kind === "reel",
@@ -48,13 +49,34 @@ export function metaToPostMeta(m: MetaMedia, username: string): PostMeta {
   };
 }
 
-/** Metadatos y medios de un post vía Business Discovery. Lanza NeedsUserError si falta el @usuario. */
-export async function fetchPostViaMeta(url: string, user?: string, maxPages = DEFAULT_MAX_PAGES): Promise<PostMeta> {
+export interface DiscoveryHints {
+  /** Caption conocido (p. ej. el que trae un DM compartido): da @menciones y hashtags. */
+  caption?: string;
+  /** Texto que acompañó al link. */
+  text?: string;
+  /** Cuentas ya guardadas en la base (candidatas). */
+  knownAccounts?: string[];
+}
+
+/**
+ * Metadatos y medios de un post vía la API de Meta. Con la cuenta, Business
+ * Discovery directo; sin ella, se intenta descubrir (menciones, cuentas ya
+ * guardadas, hashtags). Lanza NeedsUserError solo si no hubo forma.
+ */
+export async function fetchPostViaMeta(
+  url: string,
+  user?: string,
+  hints: DiscoveryHints = {},
+  log: (msg: string) => void = () => {},
+): Promise<PostMeta> {
   const shortcode = extractShortcode(url);
   if (!shortcode) throw new Error("Ese link no es de un post, reel o carrusel de Instagram.");
   const username = resolveUser(url, user);
-  if (!username) throw new NeedsUserError();
-  return metaToPostMeta(await findMediaViaBusinessDiscovery(username, shortcode, maxPages), username);
+  if (username) return metaToPostMeta(await findMediaViaBusinessDiscovery(username, shortcode, DEFAULT_MAX_PAGES), username);
+  log("buscando de qué cuenta es…");
+  const found = await discoverPost(shortcode, hints, log);
+  if (!found) throw new NeedsUserError();
+  return metaToPostMeta(found.media, found.username);
 }
 
 /**

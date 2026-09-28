@@ -43,7 +43,12 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   let meta: PostMeta | null = null;
   if (input.url) {
     try {
-      meta = await fetchPostViaMeta(input.url, input.user);
+      const knownAccounts = [
+        ...new Set((await listFichas()).map((f) => f.author?.replace(/^@/, "")).filter((a): a is string => !!a).reverse()),
+      ];
+      meta = await fetchPostViaMeta(input.url, input.user, { caption: input.caption, text: input.note, knownAccounts }, (msg) =>
+        progress("descargando", msg),
+      );
     } catch (err) {
       // Sin capturas no hay nada que guardar: el error sube (el bot pregunta el @usuario, etc.).
       if (!input.images?.length || err instanceof NeedsUserError) throw err;

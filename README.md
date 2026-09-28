@@ -242,7 +242,12 @@ imágenes, el caption y el audio de los reels. Plan completo en
 Lee los posts con la **API oficial de Meta** (Business Discovery, igual que el remix: ver
 "Configuración de Meta"), sin tu sesión de Instagram ni scraping. Por eso:
 
-- Necesita saber **de qué cuenta es el post** (`--user=cuenta`, o el link con el @usuario).
+- Necesita saber **de qué cuenta es el post**. Si no se indica (`--user=cuenta`, el @ en el link o
+  en el mensaje), se **descubre sola**: @menciones del caption y cuentas que ya guardaste
+  (verificadas con Business Discovery), y si no, los **hashtags del caption** con Hashtag Search
+  (posts de las últimas 24 h y destacados; trae el video aunque no se sepa la cuenta). Hashtag
+  Search permite 30 hashtags distintos por semana: se usan como máximo 3 por post y se lleva la
+  cuenta. Solo si nada funciona, el bot pregunta el @.
 - Solo lee cuentas **Business o Creator** públicas.
 - Algunos reels vienen sin video (p. ej. audio con copyright): se analiza su portada y no hay transcripción.
 

@@ -98,17 +98,17 @@ const REQUEST_TIMEOUT_MS = 45_000;
  * fetch con timeout y UN reintento ante fallas de red (no ante errores de Graph,
  * que son respuestas válidas). El error nunca incluye la URL, que lleva el token.
  */
-async function fetchWithRetry(url: URL, attempts = 2): Promise<Response> {
+async function fetchWithRetry(url: URL, attempts = 2, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
   let last: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
-      return await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+      return await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     } catch (err) {
       last = err;
     }
   }
   const e = last as { name?: string; cause?: { code?: string } } | undefined;
-  const why = e?.name === "TimeoutError" ? `sin respuesta en ${REQUEST_TIMEOUT_MS / 1000} s` : (e?.cause?.code ?? e?.name ?? "error de red");
+  const why = e?.name === "TimeoutError" ? `sin respuesta en ${timeoutMs / 1000} s` : (e?.cause?.code ?? e?.name ?? "error de red");
   throw new GraphError(`No pude conectar con la API de Meta (${why}). Revisa tu conexión y vuelve a intentar.`);
 }
 
@@ -117,6 +117,9 @@ export interface GraphGetOptions {
   accessToken?: string;
   /** Agregar appsecret_proof (default: sí, si hay META_APP_SECRET y se usa el token de .env). */
   proof?: boolean;
+  /** Tiempo máximo por intento (ms) e intentos ante fallas de red (default 45 s y 2). */
+  timeoutMs?: number;
+  attempts?: number;
   config?: MetaConfig;
 }
 
@@ -137,7 +140,7 @@ export async function graphGet<T = Record<string, unknown>>(
   const useProof = opts.proof ?? opts.accessToken === undefined;
   if (useProof && cfg.appSecret) url.searchParams.set("appsecret_proof", appSecretProof(token, cfg.appSecret));
 
-  const res = await fetchWithRetry(url);
+  const res = await fetchWithRetry(url, opts.attempts, opts.timeoutMs);
 
   const usage = maxUsagePercent(res.headers.get("x-app-usage"), res.headers.get("x-business-use-case-usage"));
   if (usage !== undefined && usage >= USAGE_WARN_PCT) {
