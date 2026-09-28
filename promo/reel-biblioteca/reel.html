@@ -1,0 +1,433 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Anton;src:url(../../src/fonts/Anton-400.woff2)}
+@font-face{font-family:Inter;font-weight:400;src:url(../../src/fonts/Inter-400.woff2)}
+@font-face{font-family:Inter;font-weight:600;src:url(../../src/fonts/Inter-600.woff2)}
+@font-face{font-family:Inter;font-weight:700;src:url(../../src/fonts/Inter-700.woff2)}
+@font-face{font-family:Mono;src:url(../../src/fonts/JetBrainsMono-500.woff2)}
+:root{--bg:#06060A;--lime:#C6FF3D;--vio:#7C5CFF;--pink:#FF3D7F;--ink:#F4F4F6;--mute:#8A8A99;--card:#13131A;--line:#23232E}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;background:var(--bg);overflow:hidden}
+body{font-family:Inter,sans-serif;color:var(--ink)}
+#stage{position:absolute;inset:0;transform-origin:50% 50%}
+.abs{position:absolute}
+.scene{position:absolute;inset:0;opacity:0}
+.anton{font-family:Anton,sans-serif;text-transform:uppercase;letter-spacing:.5px;line-height:.92}
+.mono{font-family:Mono,monospace}
+#grid{position:absolute;inset:-400px;background-image:linear-gradient(rgba(198,255,61,.07) 2px,transparent 2px),linear-gradient(90deg,rgba(198,255,61,.07) 2px,transparent 2px);background-size:120px 120px}
+#vignette{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 45%,transparent 40%,rgba(0,0,0,.75) 100%);pointer-events:none}
+#flash{position:absolute;inset:0;background:var(--lime);opacity:0;mix-blend-mode:normal}
+#label{position:absolute;left:72px;top:150px;font-size:30px;color:var(--lime);letter-spacing:4px;opacity:0}
+#label b{color:var(--ink);font-weight:400}
+.slam{position:absolute;left:0;right:0;text-align:center;will-change:transform}
+/* scene 2 */
+.post{width:780px;height:1040px;left:150px;top:420px;background:var(--card);border-radius:44px;border:2px solid var(--line);overflow:hidden}
+.post .hd{height:110px;display:flex;align-items:center;gap:22px;padding:0 34px;font-weight:600;font-size:32px}
+.avatar{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--pink),var(--vio),var(--lime),var(--pink));padding:5px}
+.avatar i{display:block;width:100%;height:100%;border-radius:50%;background:#2a2a36}
+.post .img{height:700px;background:linear-gradient(150deg,#7C5CFF 0%,#FF3D7F 60%,#FF9E3D 100%);position:relative;overflow:hidden}
+.post .img .t{position:absolute;left:54px;bottom:60px;right:54px;font-size:96px;color:#fff}
+.post .img .o{position:absolute;border-radius:50%;border:3px solid rgba(255,255,255,.35)}
+.icons{display:flex;gap:40px;padding:30px 36px 0}
+.icons svg{width:58px;height:58px;stroke:#fff;fill:none;stroke-width:2.2}
+.cap{padding:22px 36px;display:flex;flex-direction:column;gap:14px}
+.cap i{display:block;height:18px;border-radius:9px;background:#2a2a36}
+.sheet{left:0;right:0;height:560px;bottom:0;background:#1B1B24;border-radius:48px 48px 0 0;border-top:2px solid var(--line)}
+.sheet .ttl{text-align:center;font-weight:600;font-size:34px;margin-top:40px;color:var(--mute)}
+.apps{display:flex;justify-content:center;gap:48px;margin-top:60px}
+.app{width:150px;text-align:center;font-size:26px;color:var(--mute)}
+.app .c{width:150px;height:150px;border-radius:50%;background:#2a2a36;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.app.tg .c{background:#2AABEE}
+.app .c svg{width:78px;height:78px}
+.ring{position:absolute;border-radius:50%;border:6px solid var(--lime);opacity:0}
+/* scene 3 */
+.chat{left:60px;right:60px;top:330px;bottom:560px;background:#0E0E14;border-radius:48px;border:2px solid var(--line);overflow:hidden}
+.chat .top{height:130px;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:24px;padding:0 40px;font-weight:700;font-size:36px}
+.chat .top small{display:block;font-weight:400;font-size:26px;color:var(--lime)}
+.bot{width:80px;height:80px;border-radius:24px;background:var(--lime);display:flex;align-items:center;justify-content:center}
+.bubble{position:absolute;padding:34px 40px;border-radius:40px;font-size:44px;line-height:1.3}
+.me{right:40px;background:var(--vio);border-bottom-right-radius:10px;color:#fff}
+.it{left:40px;background:#1D1D27;border-bottom-left-radius:10px}
+.row{display:flex;align-items:center;gap:24px;font-size:40px;margin-top:30px;font-family:Mono,monospace}
+.chk{width:52px;height:52px;border-radius:50%;background:var(--lime);display:flex;align-items:center;justify-content:center}
+.chk svg{width:26px;height:26px;stroke:#06060A;stroke-width:4;fill:none}
+.bar{height:14px;border-radius:7px;background:#2a2a36;margin-top:30px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--lime);width:0}
+/* scene 4 */
+.tile{width:440px;height:330px;background:var(--card);border:2px solid var(--line);border-radius:36px;padding:30px}
+.tile h4{font-family:Mono,monospace;font-weight:400;font-size:28px;color:var(--lime);letter-spacing:3px;margin-bottom:22px}
+.core{width:40px;height:40px;border-radius:50%;background:var(--lime);left:520px;top:940px;box-shadow:0 0 120px 40px rgba(198,255,61,.55)}
+.outline{position:absolute;white-space:nowrap;font-size:420px;color:transparent;-webkit-text-stroke:3px rgba(124,92,255,.45)}
+/* scene 5 */
+.note{left:70px;right:70px;top:280px;background:#101017;border:2px solid var(--line);border-radius:44px;padding:56px 56px 60px;transform-origin:50% 0}
+.props{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:34px}
+.prop{font-family:Mono,monospace;font-size:26px;padding:10px 20px;border-radius:14px;background:#1D1D27;color:var(--mute)}
+.prop b{color:var(--lime);font-weight:400}
+.note h1{font-family:Inter;font-weight:700;font-size:64px;line-height:1.1;margin-bottom:40px;min-height:140px}
+.note h2{font-size:34px;font-weight:700;color:var(--vio);margin:30px 0 16px}
+.note li{list-style:none;font-size:34px;line-height:1.35;color:#D8D8E0;padding-left:34px;position:relative;margin-bottom:10px}
+.note li:before{content:"";position:absolute;left:0;top:18px;width:14px;height:14px;border-radius:50%;background:var(--lime)}
+.chips{display:flex;gap:16px}
+.chip{font-size:34px;font-weight:600;padding:14px 28px;border-radius:40px;border:2px solid var(--lime);color:var(--lime)}
+.caret{display:inline-block;width:6px;height:60px;background:var(--lime);vertical-align:-6px;margin-left:6px}
+/* scene 6 */
+#graph{position:absolute;inset:0;transform-origin:540px 900px}
+.node{position:absolute;border-radius:50%;transform:translate(-50%,-50%)}
+.nlabel{position:absolute;transform:translate(-50%,0);font-size:30px;font-weight:600;white-space:nowrap;color:var(--mute)}
+/* scene 7 */
+.ask{left:60px;right:60px;top:420px;height:150px;border-radius:75px;background:#15151D;border:3px solid var(--vio);display:flex;align-items:center;padding:0 50px;font-size:44px}
+.ans{left:60px;right:60px;top:640px;background:#101017;border:2px solid var(--line);border-radius:44px;padding:50px}
+.ans .h{font-size:40px;font-weight:700;margin-bottom:26px}
+.ans .r{display:flex;align-items:center;gap:26px;font-size:38px;padding:24px 0;border-top:2px solid var(--line)}
+.ans .n{font-family:Anton;font-size:56px;color:var(--lime);width:50px}
+.ans .r span.d{color:var(--mute);font-size:32px}
+.cite{margin-left:auto;display:flex;gap:10px}
+.cite i{font-style:normal;font-family:Mono;font-size:26px;padding:6px 14px;border-radius:10px;background:var(--lime);color:#06060A}
+</style></head>
+<body>
+<div id="stage">
+  <div id="grid"></div>
+
+  <!-- 1 HOOK -->
+  <div class="scene" id="s1">
+    <div class="slam anton" id="h1a" style="top:560px;font-size:190px">Guardas</div>
+    <div class="slam anton" id="h1b" style="top:770px;font-size:225px;color:var(--lime)"><span id="cnt">0</span> posts</div>
+    <div class="slam anton" id="h1c" style="top:1030px;font-size:150px">y no encuentras</div>
+    <div class="slam anton" id="h1d" style="top:1190px;font-size:230px;color:var(--pink)">ninguno.</div>
+  </div>
+
+  <!-- 2 SHARE -->
+  <div class="scene" id="s2">
+    <div class="abs post" id="post">
+      <div class="hd"><div class="avatar"><i></i></div>@creador.ia<span style="margin-left:auto;color:var(--mute)">•••</span></div>
+      <div class="img"><div class="o" style="width:520px;height:520px;right:-120px;top:-140px"></div><div class="o" style="width:300px;height:300px;right:80px;top:80px"></div>
+        <div class="t anton">5 IAs que hacen tu trabajo</div></div>
+      <div class="icons">
+        <svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z"/></svg>
+        <svg viewBox="0 0 24 24" id="sendicon"><path d="M22 3 11 14M22 3l-7 19-4-8-8-4z"/></svg>
+      </div>
+      <div class="cap"><i style="width:88%"></i><i style="width:64%"></i></div>
+    </div>
+    <div class="ring" id="ring1"></div>
+    <div class="abs sheet" id="sheet"><div class="ttl">Compartir en…</div>
+      <div class="apps">
+        <div class="app"><div class="c"></div>Copiar</div>
+        <div class="app tg" id="tgapp"><div class="c"><svg viewBox="0 0 24 24"><path fill="#fff" d="M21.5 3.5 2.8 10.7c-1 .4-1 1.6 0 1.9l4.7 1.5 1.8 5.6c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3-15.4c.2-1-.8-1.8-1.7-1.5zM9.6 14.6l8.2-7.4-6.5 8.5-.3 3z"/></svg></div>Telegram</div>
+        <div class="app"><div class="c"></div>Más</div>
+      </div></div>
+    <div class="ring" id="ring2"></div>
+  </div>
+
+  <!-- 3 TELEGRAM -->
+  <div class="scene" id="s3">
+    <div class="abs chat" id="chat">
+      <div class="top"><div class="bot"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#06060A" stroke-width="2.4"><path d="M4 5h11a5 5 0 0 1 5 5v9H9a5 5 0 0 1-5-5z"/><path d="M8 11h8M8 15h5"/></svg></div>
+        <div>Mi biblioteca<small id="typing">bot · en línea</small></div></div>
+      <div class="bubble me mono" id="b1" style="top:190px;font-size:38px">instagram.com/reel/C9x…</div>
+      <div class="bubble it" id="b2" style="top:370px;width:840px">
+        <div style="font-weight:700">Analizando el reel…</div>
+        <div class="row" id="r1"><div class="chk"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></div>8 imágenes</div>
+        <div class="row" id="r2"><div class="chk"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></div>124 comentarios</div>
+        <div class="row" id="r3"><div class="chk"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></div>audio transcrito</div>
+        <div class="row" id="r4"><div class="chk"><svg viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></svg></div>ideas extraídas</div>
+        <div class="bar"><i id="bar"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 ANALYZE -->
+  <div class="scene" id="s4">
+    <div class="outline anton" id="bigword" style="top:700px">ANALIZA ANALIZA ANALIZA</div>
+    <div class="abs tile" id="t1"><h4>IMÁGENES</h4>
+      <div style="display:flex;gap:14px"><div style="width:110px;height:170px;border-radius:16px;background:linear-gradient(150deg,#7C5CFF,#FF3D7F)"></div><div style="width:110px;height:170px;border-radius:16px;background:linear-gradient(150deg,#FF3D7F,#FF9E3D)"></div><div style="width:110px;height:170px;border-radius:16px;background:linear-gradient(150deg,#3D8BFF,#7C5CFF)"></div></div></div>
+    <div class="abs tile" id="t2"><h4>CAPTION</h4><div style="font-size:30px;line-height:1.4;color:#D8D8E0">Automatiza tu correo con IA en 5 minutos.</div></div>
+    <div class="abs tile" id="t3"><h4>COMENTARIOS</h4>
+      <div class="bubble it" style="position:relative;left:0;font-size:28px;padding:14px 22px;margin-bottom:12px;display:inline-block">¿Es gratis?</div><br>
+      <div class="bubble it" style="position:relative;left:0;font-size:28px;padding:14px 22px;display:inline-block">Usa n8n, es gratis</div></div>
+    <div class="abs tile" id="t4"><h4>AUDIO</h4><div id="wave" style="display:flex;align-items:center;gap:9px;height:170px"></div></div>
+    <div class="abs core" id="core"></div>
+    <div class="ring" id="ring3" style="border-color:var(--lime)"></div>
+  </div>
+
+  <!-- 5 FICHA -->
+  <div class="scene" id="s5">
+    <div class="abs note" id="note">
+      <div class="props"><span class="prop" id="p1">tema: <b>Automatización con IA</b></span><span class="prop" id="p2">tipo: <b>reel</b></span><span class="prop" id="p3">comentarios: <b>124</b></span></div>
+      <h1><span id="ttl"></span><span class="caret" id="caret"></span></h1>
+      <div id="sec1"><h2>Ideas clave</h2><ul><li>Filtra por remitente y ahorra créditos</li><li>Recibe el resumen cada mañana</li></ul></div>
+      <div id="sec2"><h2>Herramientas</h2><div class="chips"><span class="chip" id="c1">Make</span><span class="chip" id="c2">ChatGPT</span><span class="chip" id="c3">Gmail</span></div></div>
+      <div id="sec3"><h2>De los comentarios</h2><ul><li>n8n es una alternativa gratis</li></ul></div>
+    </div>
+  </div>
+
+  <!-- 6 GRAPH -->
+  <div class="scene" id="s6">
+    <div id="graph"><svg id="edges" width="1080" height="1920" style="position:absolute;inset:0"></svg><div id="nodes"></div></div>
+    <div class="slam anton" id="gcount" style="top:1480px;font-size:110px">12 temas · <span style="color:var(--lime)">847</span> fichas</div>
+  </div>
+
+  <!-- 7 ASK -->
+  <div class="scene" id="s7">
+    <div class="abs ask" id="ask"><span id="q"></span><span class="caret" id="caret2" style="height:50px"></span></div>
+    <div class="abs ans" id="ans">
+      <div class="h">Tienes 6 posts sobre eso:</div>
+      <div class="r" id="a1"><span class="n">1</span><div>CapCut<br><span class="d">subtítulos automáticos</span></div><span class="cite"><i>1</i><i>2</i><i>5</i></span></div>
+      <div class="r" id="a2"><span class="n">2</span><div>Descript<br><span class="d">editar borrando texto</span></div><span class="cite"><i>3</i><i>4</i></span></div>
+      <div class="r" id="a3"><span class="n">3</span><div>Runway<br><span class="d">quitar el fondo</span></div><span class="cite"><i>6</i></span></div>
+    </div>
+  </div>
+
+  <!-- 8 HOLD -->
+  <div class="scene" id="s8">
+    <div class="slam anton" id="e1" style="top:580px;font-size:160px">Tu Instagram,</div>
+    <div class="slam anton" id="e2" style="top:750px;font-size:160px">convertido en</div>
+    <div class="slam anton" id="e3" style="top:920px;font-size:165px;color:var(--lime)">conocimiento.</div>
+    <div class="slam mono" id="e4" style="top:1190px;font-size:40px;letter-spacing:6px;color:var(--mute)">GUARDA → ORDENA → PREGUNTA</div>
+  </div>
+
+  <div id="label" class="mono"></div>
+  <div id="vignette"></div>
+</div>
+<div id="flash"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const outExpo = (x) => (x >= 1 ? 1 : 1 - Math.pow(2, -10 * x));
+const inExpo = (x) => (x <= 0 ? 0 : Math.pow(2, 10 * x - 10));
+const outBack = (x) => { const c = 2.2; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const inOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+// Ruido determinista para el shake.
+const noise = (t, s) => Math.sin(t * 91.7 + s * 13.1) * 0.6 + Math.sin(t * 57.3 + s * 7.7) * 0.4;
+
+const CUTS = [1.0, 2.2, 3.4, 4.6, 5.8, 7.0, 8.0];
+const SCENES = [[0, 1.0], [1.0, 2.2], [2.2, 3.4], [3.4, 4.6], [4.6, 5.8], [5.8, 7.0], [7.0, 8.0], [8.0, 10.01]];
+const LABELS = ["", "01 / <b>COMPARTES</b>", "02 / <b>TELEGRAM</b>", "03 / <b>ANALIZA</b>", "04 / <b>FICHA</b>", "05 / <b>ORDENA</b>", "06 / <b>PREGUNTA</b>", ""];
+
+function set(el, o) { const e = typeof el === "string" ? $(el) : el; for (const k in o) e.style[k] = o[k]; }
+
+// Entrada tipo "slam": escala grande + blur → 1, con aberración cromática al impactar.
+function slam(id, t, at, dur = 0.16, from = 2.6) {
+  const p = prog(t, at, at + dur);
+  const e = outExpo(p);
+  const hit = clamp(1 - (t - at - dur) / 0.12);
+  const ab = p >= 1 ? 10 * hit : 0;
+  set(id, {
+    opacity: p > 0 ? 1 : 0,
+    transform: `scale(${lerp(from, 1, e)})`,
+    filter: `blur(${(1 - e) * 18}px)`,
+    textShadow: ab > 0.3 ? `${-ab}px 0 #FF3D7F, ${ab}px 0 #00E5FF` : "none",
+  });
+}
+
+// Salida "whip": desplazamiento rápido con estiramiento (motion blur falso).
+function whip(t, a, b, dx, dy) {
+  const p = inExpo(prog(t, a, b));
+  const s = 1 + p * 0.5;
+  return { transform: `translate(${dx * p}px,${dy * p}px) scale(${dx ? s : 1},${dy ? s : 1})`, filter: `blur(${p * 24}px)`, opacity: String(1 - p * 0.6) };
+}
+
+// --- Grafo (posiciones deterministas) ---
+const TOPICS = [
+  { n: "Automatización con IA", x: 540, y: 880, r: 46, main: true },
+  { n: "Edición de video", x: 250, y: 560, r: 30 },
+  { n: "Prompts", x: 840, y: 520, r: 30 },
+  { n: "Diseño", x: 230, y: 1230, r: 26 },
+  { n: "Productividad", x: 850, y: 1250, r: 28 },
+];
+let rng = 7; const rand = () => ((rng = (rng * 16807) % 2147483647) / 2147483647);
+const LEAVES = [];
+TOPICS.forEach((tp, ti) => { const k = tp.main ? 7 : 5; for (let i = 0; i < k; i++) { const a = rand() * Math.PI * 2, d = 110 + rand() * 120; LEAVES.push({ x: tp.x + Math.cos(a) * d, y: tp.y + Math.sin(a) * d, t: ti, r: 9 + rand() * 7, d: rand() }); } });
+const NEW = { x: 540 + 150, y: 880 - 170 };
+(function buildGraph() {
+  const svg = $("edges"), nodes = $("nodes");
+  let html = "", edges = "";
+  TOPICS.forEach((tp, i) => { if (i) edges += `<line x1="540" y1="880" x2="${tp.x}" y2="${tp.y}" stroke="#2c2c3a" stroke-width="3"/>`; });
+  LEAVES.forEach((l, i) => { const tp = TOPICS[l.t]; edges += `<line id="le${i}" x1="${tp.x}" y1="${tp.y}" x2="${l.x}" y2="${l.y}" stroke="#262634" stroke-width="2"/>`; html += `<div class="node" id="ln${i}" style="left:${l.x}px;top:${l.y}px;width:${l.r * 2}px;height:${l.r * 2}px;background:#3a3a4c"></div>`; });
+  edges += `<line id="newedge" x1="540" y1="880" x2="540" y2="880" stroke="#C6FF3D" stroke-width="5"/>`;
+  TOPICS.forEach((tp, i) => { html += `<div class="node" id="tn${i}" style="left:${tp.x}px;top:${tp.y}px;width:${tp.r * 2}px;height:${tp.r * 2}px;background:${tp.main ? "#C6FF3D" : "#7C5CFF"}"></div><div class="nlabel" style="left:${tp.x}px;top:${tp.y + tp.r + 14}px;${tp.main ? "color:#F4F4F6;font-size:36px" : ""}">${tp.n}</div>`; });
+  html += `<div class="node" id="newnode" style="width:40px;height:40px;background:#fff;box-shadow:0 0 60px 20px rgba(198,255,61,.6)"></div><div class="ring" id="ring4"></div>`;
+  svg.innerHTML = edges; nodes.innerHTML = html;
+  let w = ""; for (let i = 0; i < 26; i++) w += `<i style="display:block;width:7px;border-radius:4px;background:#C6FF3D"></i>`;
+  $("wave").innerHTML = w;
+})();
+
+function ring(id, t, at, x, y, size, dur = 0.35) {
+  const p = prog(t, at, at + dur);
+  const s = size * outExpo(p);
+  set(id, { left: `${x - s / 2}px`, top: `${y - s / 2}px`, width: `${s}px`, height: `${s}px`, opacity: p > 0 && p < 1 ? String(1 - p) : "0" });
+}
+
+// Línea de tiempo: [tiempo de diseño, tiempo real]. Los tramos planos son pausas
+// de lectura (el diseño se congela mientras el tiempo real avanza); las entradas
+// y los cortes conservan su velocidad original.
+const KNOTS = [
+  [0, 0], [0.86, 1.08], [0.86, 2.08], [1.0, 2.22],
+  [1.3, 2.62], [1.3, 3.22], [1.9, 4.02], [2.2, 4.32],
+  [2.62, 4.87], [3.2, 5.97], [3.2, 6.77], [3.4, 6.97],
+  [3.82, 7.5], [3.82, 8.4], [4.6, 9.2],
+  [5.15, 10.0], [5.5, 10.5], [5.5, 12.2], [5.8, 12.5],
+  [6.78, 13.62], [6.78, 14.62], [7.0, 14.84],
+  [7.4, 15.44], [7.85, 16.03], [7.85, 17.43], [8.0, 17.58],
+  [8.55, 18.23], [10.0, 20.43],
+];
+const DURATION = KNOTS[KNOTS.length - 1][1];
+function toDesign(T) {
+  for (let i = 1; i < KNOTS.length; i++) {
+    const [d0, r0] = KNOTS[i - 1], [d1, r1] = KNOTS[i];
+    if (T <= r1) return r1 === r0 ? d1 : lerp(d0, d1, (T - r0) / (r1 - r0));
+  }
+  return KNOTS[KNOTS.length - 1][0];
+}
+function toReal(d) {
+  for (let i = 1; i < KNOTS.length; i++) {
+    const [d0, r0] = KNOTS[i - 1], [d1, r1] = KNOTS[i];
+    if (d <= d1 && d1 > d0) return lerp(r0, r1, (d - d0) / (d1 - d0));
+  }
+  return DURATION;
+}
+
+function render(T) {
+  draw(toDesign(T), T);
+}
+
+// t = tiempo de diseño (coreografía); rt = tiempo real (movimiento ambiente que no se congela en las pausas).
+function draw(t, rt) {
+  // Visibilidad por escena.
+  SCENES.forEach(([a, b], i) => set(`s${i + 1}`, { opacity: t >= a && t < b ? 1 : 0 }));
+  const si = SCENES.findIndex(([a, b]) => t >= a && t < b);
+
+  // Fondo: grilla en movimiento (se congela en el cierre).
+  const gt = Math.min(rt, toReal(8.5));
+  set("grid", { transform: `perspective(900px) rotateX(${lerp(8, 0, prog(t, 8, 8.4))}deg) translateY(${(gt * 180) % 120}px)` });
+
+  // Flash de 1-2 frames en cada corte + shake de cámara.
+  let fl = 0, sh = 0;
+  for (const c of CUTS) { const d = t - c; if (d >= 0 && d < 0.1) { fl = Math.max(fl, d < 1 / 30 ? 0.7 : 0.3 * (1 - d / 0.1)); sh = Math.max(sh, 1 - d / 0.25); } else if (d >= 0 && d < 0.25) sh = Math.max(sh, 1 - d / 0.25); }
+  set("flash", { opacity: String(fl), background: [2.2, 5.8, 8.0].some((c) => Math.abs(t - c) < 0.1) ? "#FFFFFF" : "#C6FF3D" });
+  const amp = sh * 22 + (t > 0.62 && t < 0.8 ? 14 : 0);
+  set("stage", { transform: t < 8.4 ? `translate(${noise(t, 1) * amp}px,${noise(t, 2) * amp}px) rotate(${noise(t, 3) * amp * 0.04}deg)` : "none" });
+
+  // Etiqueta de sección.
+  const lab = LABELS[si] || "";
+  $("label").innerHTML = lab;
+  set("label", { opacity: lab ? String(outExpo(prog(t, SCENES[si][0] + 0.05, SCENES[si][0] + 0.2))) : "0", transform: `translateX(${lerp(-40, 0, outExpo(prog(t, SCENES[si]?.[0] + 0.05, SCENES[si]?.[0] + 0.2)))}px)` });
+
+  // 1 · HOOK
+  if (si === 0) {
+    slam("h1a", t, 0.0, 0.14);
+    slam("h1b", t, 0.12, 0.14);
+    $("cnt").textContent = Math.round(847 * outExpo(prog(t, 0.12, 0.5)));
+    slam("h1c", t, 0.5, 0.12, 2.0);
+    slam("h1d", t, 0.62, 0.12, 3.2);
+    if (t > 0.86) ["h1a", "h1b", "h1c", "h1d"].forEach((id, i) => set(id, whip(t, 0.86 + i * 0.02, 1.0, 0, -900)));
+  }
+
+  // 2 · SHARE
+  if (si === 1) {
+    const pin = outBack(prog(t, 1.0, 1.28));
+    const fly = inExpo(prog(t, 1.9, 2.2));
+    set("post", {
+      transform: `translate(${fly * 700}px,${lerp(900, 0, pin) - fly * 1300}px) rotate(${lerp(8, -2, pin) + fly * 25}deg) scale(${lerp(1, 0.25, fly)})`,
+      filter: `blur(${fly * 14}px)`,
+    });
+    ring("ring1", t, 1.42, 411, 1289, 220);
+    const sh = outExpo(prog(t, 1.5, 1.7)) - inExpo(prog(t, 1.95, 2.15));
+    set("sheet", { transform: `translateY(${(1 - sh) * 600}px)` });
+    ring("ring2", t, 1.8, 540, 1577, 260);
+    set("tgapp", { transform: `scale(${1 + 0.15 * Math.sin(prog(t, 1.8, 1.95) * Math.PI)})` });
+  }
+
+  // 3 · TELEGRAM
+  if (si === 2) {
+    const push = 1 + 0.06 * prog(t, 2.2, 3.25);
+    const out = inExpo(prog(t, 3.22, 3.4));
+    set("chat", { transform: `scale(${push + out * 2.4})`, filter: `blur(${out * 20}px)`, opacity: String(1 - out * 0.5) });
+    const b1 = outBack(prog(t, 2.24, 2.42)); set("b1", { transform: `translateX(${(1 - b1) * 500}px) scale(${lerp(0.6, 1, b1)})`, opacity: String(clamp(b1 * 2)) });
+    const b2 = outBack(prog(t, 2.45, 2.62)); set("b2", { transform: `translateX(${(1 - b2) * -500}px) scale(${lerp(0.6, 1, b2)})`, opacity: String(clamp(b2 * 2)) });
+    ["r1", "r2", "r3", "r4"].forEach((id, i) => { const p = outBack(prog(t, 2.62 + i * 0.14, 2.74 + i * 0.14)); set(id, { opacity: String(clamp(p * 2)), transform: `translateX(${(1 - p) * 60}px)` }); });
+    set("bar", { width: `${outExpo(prog(t, 2.6, 3.2)) * 100}%` });
+    $("typing").textContent = t > 2.42 && t < 3.2 ? "escribiendo…" : "bot · en línea";
+  }
+
+  // 4 · ANALYZE
+  if (si === 3) {
+    set("bigword", { transform: `translateX(${-200 - (rt - toReal(3.4)) * 500}px)` });
+    const pos = [[80, 330], [560, 330], [80, 1260], [560, 1260]];
+    const from = [[-600, -500], [600, -500], [-600, 500], [600, 500]];
+    const conv = inExpo(prog(t, 4.08, 4.42));
+    ["t1", "t2", "t3", "t4"].forEach((id, i) => {
+      const p = outBack(prog(t, 3.4 + i * 0.06, 3.62 + i * 0.06));
+      const x = lerp(from[i][0], 0, p) + (540 - 220 - pos[i][0]) * conv;
+      const y = lerp(from[i][1], 0, p) + (960 - 165 - pos[i][1]) * conv;
+      set(id, { left: `${pos[i][0]}px`, top: `${pos[i][1]}px`, transform: `translate(${x}px,${y}px) rotate(${(1 - p) * (i % 2 ? 18 : -18) + conv * 40 * (i % 2 ? 1 : -1)}deg) scale(${lerp(1, 0.1, conv)})`, opacity: String(clamp(p * 2) * (1 - conv * 0.8)), filter: `blur(${conv * 10}px)` });
+    });
+    [...$("wave").children].forEach((b, i) => { b.style.height = `${24 + 120 * Math.abs(Math.sin(rt * 14 + i * 0.7) * Math.sin(i * 1.3 + rt * 3))}px`; });
+    const cp = outExpo(prog(t, 4.35, 4.5));
+    set("core", { opacity: String(cp), transform: `scale(${lerp(0.2, 2.2, cp) * (1 + 0.1 * Math.sin(rt * 12))})` });
+    ring("ring3", t, 4.4, 540, 960, 1300, 0.3);
+  }
+
+  // 5 · FICHA
+  if (si === 4) {
+    const inP = outExpo(prog(t, 4.6, 4.85));
+    const out = inExpo(prog(t, 5.62, 5.8));
+    set("note", { transform: `perspective(1400px) rotateX(${lerp(35, 0, inP)}deg) translateY(${lerp(300, 0, inP)}px) scale(${lerp(1, 0.04, out)})`, opacity: String(inP), filter: `blur(${out * 8}px)` });
+    ["p1", "p2", "p3"].forEach((id, i) => { const p = outBack(prog(t, 4.7 + i * 0.05, 4.85 + i * 0.05)); set(id, { opacity: String(clamp(p * 2)), transform: `scale(${lerp(0.5, 1, p)})`, display: "inline-block" }); });
+    const title = "Resumir Gmail con IA en 5 min";
+    const n = Math.floor(title.length * prog(t, 4.8, 5.15));
+    $("ttl").textContent = title.slice(0, n);
+    set("caret", { opacity: t < 5.3 && Math.floor(rt * 3) % 2 === 0 ? 1 : 0 });
+    ["sec1", "sec2", "sec3"].forEach((id, i) => { const p = outExpo(prog(t, 5.1 + i * 0.1, 5.3 + i * 0.1)); set(id, { opacity: String(p), transform: `translateY(${(1 - p) * 60}px)` }); });
+    ["c1", "c2", "c3"].forEach((id, i) => { const p = outBack(prog(t, 5.22 + i * 0.05, 5.38 + i * 0.05)); set(id, { transform: `scale(${lerp(0.3, 1, p)})`, display: "inline-block" }); });
+  }
+
+  // 6 · GRAPH
+  if (si === 5) {
+    const zoom = lerp(2.2, 0.95, outExpo(prog(t, 5.8, 6.5)));
+    set("graph", { transform: `scale(${zoom}) rotate(${(rt - toReal(5.8)) * 3}deg)` });
+    // Nodos hoja aparecen en cascada.
+    LEAVES.forEach((l, i) => { const p = outBack(prog(t, 5.85 + l.d * 0.5, 6.0 + l.d * 0.5)); set(`ln${i}`, { transform: `translate(-50%,-50%) scale(${p})`, background: Math.sin(rt * 4 + i) > 0.85 ? "#C6FF3D" : "#3a3a4c" }); $(`le${i}`).style.opacity = String(clamp(p)); });
+    TOPICS.forEach((tp, i) => { const p = outBack(prog(t, 5.8 + i * 0.04, 6.0 + i * 0.04)); set(`tn${i}`, { transform: `translate(-50%,-50%) scale(${p * (tp.main ? 1 + 0.08 * Math.sin(rt * 5) : 1)})` }); });
+    // La ficha nueva vuela y se engancha a su tema.
+    const f = outExpo(prog(t, 6.15, 6.45));
+    const nx = lerp(540, NEW.x, f), ny = lerp(1500, NEW.y, f);
+    set("newnode", { left: `${nx}px`, top: `${ny}px`, transform: `translate(-50%,-50%) scale(${lerp(0.4, 1, f)})`, opacity: String(clamp(prog(t, 6.1, 6.2))) });
+    const e = $("newedge"); const ep = outExpo(prog(t, 6.45, 6.6));
+    e.setAttribute("x2", String(lerp(540, NEW.x, ep))); e.setAttribute("y2", String(lerp(880, NEW.y, ep)));
+    ring("ring4", t, 6.45, NEW.x, NEW.y, 240);
+    slam("gcount", t, 6.5, 0.14, 2.2);
+    if (t > 6.85) set("graph", { ...whip(t, 6.85, 7.0, -1100, 0), transform: `translateX(${-1100 * inExpo(prog(t, 6.85, 7.0))}px) scale(${zoom})` });
+  }
+
+  // 7 · ASK
+  if (si === 6) {
+    const a = outExpo(prog(t, 7.0, 7.12));
+    set("ask", { transform: `scale(${lerp(1.4, 1, a)})`, opacity: String(a) });
+    const q = "¿qué guardé para editar video?";
+    $("q").textContent = q.slice(0, Math.floor(q.length * prog(t, 7.05, 7.4)));
+    set("caret2", { opacity: t < 7.45 && Math.floor(rt * 3) % 2 === 0 ? 1 : 0 });
+    const an = outBack(prog(t, 7.45, 7.6));
+    set("ans", { opacity: String(clamp(an * 2)), transform: `translateY(${(1 - an) * 200}px) scale(${lerp(0.8, 1, an)})` });
+    ["a1", "a2", "a3"].forEach((id, i) => { const p = outBack(prog(t, 7.55 + i * 0.07, 7.7 + i * 0.07)); set(id, { opacity: String(clamp(p * 2)), transform: `translateX(${(1 - p) * 120}px)` }); });
+    if (t > 7.86) ["ask", "ans"].forEach((id) => set(id, whip(t, 7.86, 8.0, 0, 1100)));
+  }
+
+  // 8 · HOLD (cierre estático desde ~8.4 s)
+  if (si === 7) {
+    slam("e1", t, 8.0, 0.13, 2.4);
+    slam("e2", t, 8.1, 0.13, 2.4);
+    slam("e3", t, 8.2, 0.14, 3.0);
+    const p = outExpo(prog(t, 8.38, 8.55));
+    set("e4", { opacity: String(p), transform: `translateY(${(1 - p) * 30}px)`, letterSpacing: `${lerp(20, 6, p)}px` });
+  }
+}
+window.render = render;
+window.DURATION = DURATION;
+render(0);
+</script>
+</body></html>

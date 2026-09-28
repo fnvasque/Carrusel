@@ -6,6 +6,9 @@ import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
 import { THRESHOLD } from "../src/score/virality.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
+import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
+import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
+import { daysLeft } from "../src/meta/check.ts";
 
 /**
  * Smoke tests offline del pipeline de remix: solo funciones puras (parsing de
@@ -214,6 +217,78 @@ check("projectOutcome aplica las rectas y clampa a 0", () => {
 check("pearson da 1 en correlación perfecta y null con <3 puntos", () => {
   assert.equal(pearson([1, 2, 3], [2, 4, 6]), 1);
   assert.equal(pearson([1, 2], [1, 2]), null);
+});
+
+// --- Meta: proveedor de ingesta (funciones puras, sin red) ---
+check("extractShortcode soporta /p/, /reel/, /reels/, /tv/ y /{usuario}/p/{code}/", () => {
+  assert.equal(extractShortcode("https://www.instagram.com/p/DdvB-rtl-UR/"), "DdvB-rtl-UR");
+  assert.equal(extractShortcode("https://www.instagram.com/reel/Ddy_O-ORVdh/?igsh=abc"), "Ddy_O-ORVdh");
+  assert.equal(extractShortcode("https://instagram.com/reels/AbC123/"), "AbC123");
+  assert.equal(extractShortcode("https://www.instagram.com/tv/XyZ/"), "XyZ");
+  assert.equal(extractShortcode("https://www.instagram.com/natgeo/p/Code_1/"), "Code_1");
+  assert.equal(extractShortcode("https://www.instagram.com/natgeo/"), undefined);
+});
+
+check("extractUsername solo devuelve el usuario si la URL lo trae", () => {
+  assert.equal(extractUsername("https://www.instagram.com/natgeo/p/Code_1/"), "natgeo");
+  assert.equal(extractUsername("https://www.instagram.com/ia.punto.es/reel/AbC/"), "ia.punto.es");
+  assert.equal(extractUsername("https://www.instagram.com/p/DdvB-rtl-UR/"), undefined);
+  assert.equal(extractUsername("https://www.instagram.com/reel/Ddy_O-ORVdh/"), undefined);
+});
+
+check("findByShortcode compara solo el shortcode (/reel/ vs /p/)", () => {
+  const list = [
+    { id: "1", permalink: "https://www.instagram.com/p/AAA/" },
+    { id: "2", permalink: "https://www.instagram.com/reel/BBB/" },
+    { id: "3" },
+  ];
+  assert.equal(findByShortcode(list, "BBB")?.id, "2");
+  assert.equal(findByShortcode([{ id: "4", permalink: "https://www.instagram.com/p/CCC/" }], "CCC")?.id, "4");
+  assert.equal(findByShortcode(list, "ZZZ"), undefined);
+});
+
+check("hasMorePages: sigue con cursor y página llena (la API no trae paging.next)", () => {
+  assert.equal(hasMorePages(50, "QVFI"), true);
+  assert.equal(hasMorePages(12, "QVFI"), false);
+  assert.equal(hasMorePages(50, undefined), false);
+});
+
+check("mediaTypeOf mapea media_type de la API", () => {
+  assert.equal(mediaTypeOf("VIDEO"), "reel");
+  assert.equal(mediaTypeOf("CAROUSEL_ALBUM"), "carousel");
+  assert.equal(mediaTypeOf("IMAGE"), "post");
+  assert.equal(mediaTypeOf(undefined), "unknown");
+});
+
+// --- Meta: cliente (funciones puras) ---
+check("translateGraphError: token, permisos, cuota, Business Discovery y secret", () => {
+  assert.match(translateGraphError({ code: 190, message: "Error validating access token" }), /venció o es inválido/);
+  assert.match(translateGraphError({ code: 10, message: "x" }), /falta un permiso/);
+  assert.match(translateGraphError({ code: 200, message: "x" }), /falta un permiso/);
+  assert.match(translateGraphError({ code: 100, message: "Unknown field" }), /falta un permiso o el campo no existe/);
+  for (const code of [4, 17, 32, 613]) assert.match(translateGraphError({ code, message: "x" }), /límite de uso/);
+  assert.match(translateGraphError({ code: 110, error_subcode: 2207013, message: "x" }), /Business o Creator/);
+  assert.match(translateGraphError({ code: 100, message: "Invalid appsecret_proof provided" }), /META_APP_SECRET/);
+  assert.ok(!translateGraphError({ message: "bad access_token=EAAB123 here" }).includes("EAAB123"));
+});
+
+check("maxUsagePercent lee X-App-Usage y X-Business-Use-Case-Usage", () => {
+  assert.equal(maxUsagePercent('{"call_count":12,"total_time":85,"total_cputime":3}', null), 85);
+  assert.equal(maxUsagePercent(null, '{"123":[{"type":"instagram","call_count":40,"total_time":5,"total_cputime":2}]}'), 40);
+  assert.equal(maxUsagePercent(null, null), undefined);
+  assert.equal(maxUsagePercent("no json", null), undefined);
+});
+
+check("appSecretProof es HMAC-SHA256 hex del token", () => {
+  assert.equal(appSecretProof("token", "secret"), "e941110e3d2bfe82621f0e3e1434730d7305d106c5f68c87165d0b27a4611a4a");
+  assert.notEqual(appSecretProof("token", "secret"), appSecretProof("token", "otro"));
+});
+
+check("daysLeft: días al vencimiento; 0 = no expira", () => {
+  const now = Date.UTC(2026, 8, 27);
+  assert.equal(daysLeft(now / 1000 + 5 * 86_400, now), 5);
+  assert.equal(daysLeft(0, now), Infinity);
+  assert.equal(daysLeft(undefined, now), undefined);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);
