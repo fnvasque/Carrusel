@@ -9,8 +9,11 @@ import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job }
 import { resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import { findFichaById, findLastSave, listFichas, listTopics, removeOrphanGalleries, revertSave, temasDir } from "./store.ts";
+import { sendDm } from "../meta/messages.ts";
+import { dmAction, startInbox, type DmEvent } from "./inbox.ts";
 import {
-  escapeHtml, formatAnswer, formatFichaList, formatSaved, handleInText, handleReply, HELP, noteFromMessage, splitMessage,
+  escapeHtml, formatAnswer, formatAnswerText, formatFichaList, formatSaved, formatSavedText, handleInText, handleReply, HELP,
+  noteFromMessage, splitMessage,
 } from "./telegram.ts";
 import { STAGE_LABEL } from "./types.ts";
 
@@ -19,7 +22,11 @@ import { STAGE_LABEL } from "./types.ts";
  * Es solo otra puerta de entrada: guarda con addPost(), responde con ask() y
  * deshace con git revert, igual que la CLI.
  *
- *   npm run kb:bot
+ * Si hay META_WEBHOOK_VERIFY_TOKEN, además recibe los DMs de la cuenta de
+ * Instagram (webhook de Meta): un post compartido a @ia.punto.es se guarda igual
+ * y la respuesta llega por DM.
+ *
+ *   npm run kb:bot [-- --debug-payload]
  */
 
 try {
@@ -96,6 +103,7 @@ async function work(): Promise<void> {
 }
 
 async function runJob(job: Job): Promise<void> {
+  if (job.payload.channel === "instagram") return runDmJob(job);
   const { chatId, payload } = job;
   const api = bot.api;
   try {
@@ -126,6 +134,26 @@ async function runJob(job: Job): Promise<void> {
     for (const p of payload.images ?? []) await rm(p, { force: true }).catch(() => {});
   }
 }
+
+/** Guardado pedido por DM de Instagram: sin mensajes de progreso; el resultado vuelve por DM. */
+async function runDmJob(job: Job): Promise<void> {
+  const p = job.payload;
+  const to = p.igSender!;
+  try {
+    const r = await addPost({
+      url: p.url, user: p.user, note: p.note, caption: p.caption, videoUrl: p.videoUrl, mediaUrls: p.mediaUrls, sourceId: p.sourceId,
+    });
+    finish(job.id);
+    console.log(`📬 DM guardado: ${r.ficha.extraction.title}`);
+    await sendDm(to, `${formatSavedText(r)}\n\n↩️ Para deshacer o cambiar el tema, usa Telegram o la terminal.`).catch(dmFailed);
+  } catch (err) {
+    finish(job.id, errText(err));
+    console.warn(`⚠️  DM no guardado: ${errText(err)}`);
+    await sendDm(to, `❌ No pude guardar el post: ${errText(err)}`).catch(dmFailed);
+  }
+}
+
+const dmFailed = (err: unknown) => console.warn(`⚠️  No pude responder por DM: ${errText(err)}`);
 
 async function queueSave(chatId: number, payload: Job["payload"], label: string): Promise<void> {
   const ahead = pendingCount();
@@ -385,6 +413,62 @@ bot.on("callback_query:data", async (ctx) => {
 
 bot.catch((err) => console.error(`❌ Bot: ${errText(err.error)}`));
 
+// --- DMs de Instagram (webhook de Meta) ---
+
+/** Remitentes (IGSID) autorizados a guardar por DM. */
+const igAllowed = new Set((process.env.INBOX_ALLOWED_SENDERS ?? "").split(",").map((s) => s.trim()).filter(Boolean));
+
+async function onDm(ev: DmEvent): Promise<void> {
+  if (!igAllowed.has(ev.senderId)) {
+    console.warn(`🚫 DM de un remitente no autorizado (IGSID ${ev.senderId}). Si eres tú, agrégalo a INBOX_ALLOWED_SENDERS en .env y reinicia.`);
+    return;
+  }
+  const action = dmAction(ev);
+  console.log(`📬 DM recibido: ${action.kind}`);
+  const reply = (text: string) => sendDm(ev.senderId, text).catch(dmFailed);
+  if (action.kind === "save-media") {
+    enqueue(0, {
+      channel: "instagram", igSender: ev.senderId, videoUrl: action.videoUrl, mediaUrls: action.mediaUrls, caption: action.caption,
+      sourceId: action.sourceId,
+    });
+    await reply("📥 Recibido, lo guardo en tu base…");
+    void work();
+  } else if (action.kind === "save-link") {
+    const mentioned = handleInText(action.text);
+    const user = mentioned ?? resolveUser(action.urls[0]);
+    if (!user) return void (await reply("👤 ¿De qué cuenta es? Mándame el link junto al @cuenta, por ejemplo: @natgeo https://…"));
+    const note = noteFromMessage(action.text, action.urls, mentioned);
+    for (const url of action.urls) enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note });
+    await reply(`📥 Recibido, lo leo de @${user}…`);
+    void work();
+  } else if (action.kind === "question") {
+    try {
+      await reply(formatAnswerText(await ask(action.text)));
+    } catch (err) {
+      await reply(`❌ No pude responder: ${errText(err)}`);
+    }
+  } else {
+    await reply(`🤔 ${action.reason}. Compárteme un post o reel (Compartir → Enviar), o un link con el @cuenta.`);
+  }
+}
+
+function startInstagramInbox(): void {
+  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN?.trim();
+  if (!verifyToken) return;
+  const appSecret = process.env.META_APP_SECRET?.trim();
+  if (!appSecret) throw new Error("El webhook de Instagram necesita META_APP_SECRET para validar la firma de Meta.");
+  if (!igAllowed.size) {
+    console.warn("⚠️  INBOX_ALLOWED_SENDERS está vacío: ignoraré todos los DMs y registraré el IGSID de quien escriba.");
+  }
+  startInbox({
+    port: Number(process.env.KB_INBOX_PORT) || 8787,
+    verifyToken,
+    appSecret,
+    debugPayload: process.argv.includes("--debug-payload"),
+    onEvent: (ev) => void onDm(ev),
+  });
+}
+
 // --- arranque ---
 
 const resumed = requeueInterrupted();
@@ -396,5 +480,6 @@ await bot.api.setMyCommands([
 ]);
 console.log(`🤖 Bot en marcha (chats autorizados: ${[...allowed].join(", ")}). Base: ${temasDir().replace(/\/temas$/, "")}`);
 if (resumed) console.log(`↻ Retomo ${resumed} guardado(s) que quedaron a medias.`);
+startInstagramInbox();
 void work();
 await bot.start({ drop_pending_updates: false });

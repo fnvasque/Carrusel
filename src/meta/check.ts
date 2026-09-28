@@ -17,6 +17,9 @@ export const REQUIRED_SCOPES = [
   "business_management",
 ];
 
+/** Permisos extra para recibir y responder DMs (solo si el webhook está configurado). */
+export const DM_SCOPES = ["instagram_manage_messages", "pages_manage_metadata"];
+
 /** Días de margen antes del vencimiento a partir de los cuales se avisa. */
 const EXPIRY_WARN_DAYS = 10;
 
@@ -78,7 +81,8 @@ async function main(): Promise<void> {
     }
     const scopes = d.scopes ?? [];
     console.log(`  Permisos: ${scopes.join(", ") || "(ninguno)"}`);
-    const missing = REQUIRED_SCOPES.filter((s) => !scopes.includes(s));
+    const needed = process.env.META_WEBHOOK_VERIFY_TOKEN?.trim() ? [...REQUIRED_SCOPES, ...DM_SCOPES] : REQUIRED_SCOPES;
+    const missing = needed.filter((s) => !scopes.includes(s));
     if (missing.length) {
       console.error(`✗ Faltan permisos: ${missing.join(", ")}. Vuelve a generar el token marcándolos.`);
       ok = false;

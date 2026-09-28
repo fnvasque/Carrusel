@@ -151,3 +151,37 @@ export async function graphGet<T = Record<string, unknown>>(
   }
   return body;
 }
+
+/**
+ * POST a la Graph API con cuerpo JSON (p. ej. enviar un DM). Mismas reglas que
+ * graphGet: appsecret_proof, errores traducidos y el token nunca en mensajes.
+ */
+export async function graphPost<T = Record<string, unknown>>(
+  path: string,
+  body: unknown,
+  opts: GraphGetOptions = {},
+): Promise<T> {
+  const cfg = opts.config ?? metaConfig();
+  const token = opts.accessToken ?? cfg.accessToken;
+  const url = new URL(`https://graph.facebook.com/${cfg.graphVersion}/${path.replace(/^\//, "")}`);
+  url.searchParams.set("access_token", token);
+  if ((opts.proof ?? true) && cfg.appSecret) url.searchParams.set("appsecret_proof", appSecretProof(token, cfg.appSecret));
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const e = err as { name?: string; cause?: { code?: string } };
+    throw new GraphError(`No pude conectar con la API de Meta (${e?.cause?.code ?? e?.name ?? "error de red"}).`);
+  }
+  const json = (await res.json().catch(() => ({}))) as { error?: RawGraphError } & T;
+  if (!res.ok || json.error) {
+    const e = json.error ?? { message: `HTTP ${res.status}` };
+    throw new GraphError(translateGraphError(e), e.code, e.error_subcode);
+  }
+  return json;
+}

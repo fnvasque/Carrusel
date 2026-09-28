@@ -238,4 +238,17 @@ Cada iteración cierra con `npm run typecheck` + `npm run test` en verde y un co
 - Escrituras serializadas (guardado, deshacer, cambio de tema) para que git y las páginas de tema nunca se pisen. `changeTopic()` y `refreshTopics()` en `pipeline.ts` (un tema sin fichas pierde su página).
 - Verificado en vivo desde el teléfono: guardado de un carrusel, ficha con botones y deshacer.
 
+### Migración a la API de Meta (2026-09-27)
+
+- Lectura de posts con Business Discovery (`src/kb/instagram.ts`), sin sesión de Instagram, yt-dlp ni scraping. Exige el @usuario dueño del post: `--user` en la CLI; el bot lo pregunta (botones con cuentas ya guardadas) o lo toma de «@cuenta link». oEmbed daría el autor desde el link, pero requiere App Review.
+- La API no entrega el texto de los comentarios de posts ajenos: **se eliminaron los comentarios** de la ficha, los temas y el bot.
+
+### DMs a @ia.punto.es (2026-09-27)
+
+- Decisión del usuario: un DM con un post compartido **guarda la ficha** (no el remix) y la cuenta **responde por DM**. Reemplaza, para la base de conocimiento, al plan `202609281000-[Analysis]-remix-por-dm.md` (que era para el remix).
+- `src/kb/inbox.ts`: webhook `node:http` (verificación `hub.challenge`, firma `X-Hub-Signature-256` con el app secret, idempotencia por `mid`, 200 inmediato); `parseWebhook` / `dmAction` puros. Corre dentro de `npm run kb:bot` y usa la misma cola: los guardados de Telegram y de Instagram nunca se pisan.
+- Reels: video + caption vienen en el DM (sin @usuario). Posts: su imagen. Link escrito: requiere «@cuenta». Texto: pregunta (`ask`).
+- `src/meta/messages.ts`: envío de DMs con el token de la Página (`me/messages`), partido en mensajes de ≤ 1000 caracteres. Allowlist por IGSID (`INBOX_ALLOWED_SENDERS`).
+- **Pendiente (spike)**: capturar payloads reales de reel, post y carrusel con `--debug-payload` y ajustar `parseWebhook`/`dmAction` y sus tests a ellos. Hoy siguen el formato documentado.
+
 ### Iteración 4 — pendiente

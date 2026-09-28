@@ -7,6 +7,13 @@ import { openDb } from "./db.ts";
  */
 
 export interface JobPayload {
+  /** Origen: Telegram (default) o un DM de Instagram, que se responde por DM a `igSender`. */
+  channel?: "telegram" | "instagram";
+  igSender?: string;
+  /** Medios que llegaron dentro de un DM (sin link): video de un reel e imágenes. */
+  videoUrl?: string;
+  mediaUrls?: string[];
+  sourceId?: string;
   url?: string;
   /** Cuenta dueña del post (Business Discovery). */
   user?: string;

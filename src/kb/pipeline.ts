@@ -55,16 +55,17 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   let video: Awaited<ReturnType<typeof downloadVideo>> = null;
   // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
-  if (meta?.videoUrl) {
-    video = await downloadVideo(meta.videoUrl);
+  const videoUrl = meta?.videoUrl ?? (meta ? undefined : input.videoUrl);
+  if (videoUrl) {
+    video = await downloadVideo(videoUrl);
     if (video) {
       const duration = await probeDuration(video.path);
       images = await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration);
     }
   }
-  // Fotos (o la portada de un reel cuyo video Meta no entrega).
-  if (meta && !images.length) {
-    for (const u of meta.imageUrls.slice(0, MAX_IMAGES)) {
+  // Fotos (o la portada de un reel cuyo video Meta no entrega), o las imágenes de un DM.
+  if (!images.length) {
+    for (const u of (meta?.imageUrls ?? input.mediaUrls ?? []).slice(0, MAX_IMAGES)) {
       const uri = await fetchImageAsDataUri(u);
       if (uri) images.push(uri);
     }
@@ -95,7 +96,10 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   await video?.cleanup();
 
   // 3) Identidad del post y ficha previa (re-compartir actualiza, no duplica).
-  const id = (url && shortcodeFromUrl(url)) || `manual-${createHash("sha256").update(images.join("|") + caption).digest("hex").slice(0, 10)}`;
+  const id =
+    (url && shortcodeFromUrl(url)) ||
+    (input.sourceId && `dm-${input.sourceId.replace(/[^\w-]/g, "").slice(-24)}`) ||
+    `manual-${createHash("sha256").update(images.join("|") + caption).digest("hex").slice(0, 10)}`;
   const previous = await findFichaById(id);
   const notes = [...(previous?.notes ?? [])];
   if (input.note?.trim() && !notes.includes(input.note.trim())) notes.push(input.note.trim());
@@ -103,7 +107,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // 4) Extracción con el modelo (incluye asignación de tema).
   progress("analizando");
   const topics = await listTopics();
-  const kind: PostKind = url ? (meta?.kind ?? "post") : "manual";
+  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl ? "reel" : input.mediaUrls?.length ? "post" : "manual";
   const raw = await extractFicha({ kind, caption, transcript, notes, images, topics });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");
@@ -134,7 +138,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     transcript,
     notes,
     // Parcial: Meta no pudo leer el post (se guardó desde capturas) o faltó contenido.
-    partial: !!url && (!meta || !images.length || (!caption && !transcript)),
+    partial: (!!url && (!meta || !images.length || (!caption && !transcript))) || (!!input.videoUrl && !transcript && !images.length),
     extraction,
   };
   const baseName = previous?.baseName ?? fichaBaseName(ficha);

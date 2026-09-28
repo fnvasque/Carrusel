@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import matter from "gray-matter";
 import { findInstagramUrl, findInstagramUrls, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
 import { metaToPostMeta, resolveUser } from "../src/kb/instagram.ts";
+import { dmAction, parseWebhook, validSignature } from "../src/kb/inbox.ts";
+import { splitDm } from "../src/meta/messages.ts";
+import { createHmac } from "node:crypto";
 import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
   resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
@@ -14,7 +17,7 @@ import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts
 import { citedNumbers, groupSources } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import {
-  escapeHtml, formatAnswer, formatSaved, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
+  escapeHtml, formatAnswer, formatAnswerText, formatSaved, formatSavedText, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
 } from "../src/kb/telegram.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
@@ -471,6 +474,63 @@ check("@usuario en Telegram: mencionado junto al link o como respuesta suelta", 
   assert.equal(handleReply("@natgeo"), "natgeo");
   assert.equal(handleReply(" ai._kid "), "ai._kid");
   assert.equal(handleReply("¿qué guardé sobre video?"), undefined);
+});
+
+// --- DMs de Instagram (webhook de Meta) ---
+const igWebhook = (messaging: unknown[]) => ({ object: "instagram", entry: [{ id: "17841475604423386", time: 1, messaging }] });
+
+check("validSignature: HMAC-SHA256 del body crudo con el app secret", () => {
+  const body = Buffer.from('{"object":"instagram"}');
+  const sig = "sha256=" + createHmac("sha256", "secreto").update(body).digest("hex");
+  assert.equal(validSignature(body, sig, "secreto"), true);
+  assert.equal(validSignature(body, sig, "otro"), false);
+  assert.equal(validSignature(Buffer.from('{"object":"x"}'), sig, "secreto"), false);
+  assert.equal(validSignature(body, undefined, "secreto"), false);
+  assert.equal(validSignature(body, "sha256=corta", "secreto"), false);
+});
+
+check("parseWebhook: mensajes con adjuntos; ignora ecos, borrados, lecturas y otros objetos", () => {
+  const events = parseWebhook(igWebhook([
+    { sender: { id: "111" }, timestamp: 5, message: { mid: "m1", attachments: [{ type: "ig_reel", payload: { url: "https://cdn/v.mp4", title: "caption del reel", reel_video_id: "999" } }] } },
+    { sender: { id: "222" }, message: { mid: "m2", text: "respuesta", is_echo: true } },
+    { sender: { id: "111" }, message: { mid: "m3", is_deleted: true } },
+    { sender: { id: "111" }, read: { mid: "m1" } },
+  ]));
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], {
+    mid: "m1", senderId: "111", timestamp: 5, text: undefined,
+    attachments: [{ type: "ig_reel", url: "https://cdn/v.mp4", title: "caption del reel", mediaId: "999" }],
+  });
+  assert.deepEqual(parseWebhook({ object: "page", entry: [] }), []);
+  assert.deepEqual(parseWebhook(null), []);
+});
+
+check("dmAction: reel, post, link con @, pregunta y adjunto desconocido", () => {
+  const ev = (over: object) => ({ mid: "m", senderId: "111", attachments: [], ...over });
+  assert.deepEqual(dmAction(ev({ attachments: [{ type: "ig_reel", url: "https://cdn/v.mp4", title: "cap", mediaId: "999" }] })), {
+    kind: "save-media", videoUrl: "https://cdn/v.mp4", mediaUrls: [], caption: "cap", sourceId: "999",
+  });
+  assert.deepEqual(dmAction(ev({ attachments: [{ type: "share", url: "https://cdn/i.jpg" }] })), {
+    kind: "save-media", videoUrl: undefined, mediaUrls: ["https://cdn/i.jpg"], caption: undefined, sourceId: "m",
+  });
+  assert.equal(dmAction(ev({ text: "@natgeo https://www.instagram.com/p/AAA/" })).kind, "save-link");
+  assert.deepEqual(dmAction(ev({ text: "¿qué guardé de video?" })), { kind: "question", text: "¿qué guardé de video?" });
+  assert.equal(dmAction(ev({ attachments: [{ type: "audio", url: "https://cdn/a.mp3" }] })).kind, "unsupported");
+});
+
+check("splitDm: mensajes ≤ 1000 caracteres sin perder texto", () => {
+  const long = Array.from({ length: 60 }, (_, i) => `Línea ${i} ${"y".repeat(40)}`).join("\n");
+  const parts = splitDm(long);
+  assert.ok(parts.length > 1 && parts.every((p) => p.length <= 1000));
+  assert.equal(parts.join("\n"), long);
+});
+
+check("formatos en texto plano para DM: ficha y respuesta sin HTML", () => {
+  const txt = formatSavedText({ ficha: ficha(), path: "x.md", created: true, topicsUpdated: ["Automatización con IA"], newTopic: false });
+  assert.ok(txt.startsWith("✅ Guardado: Resumir Gmail con ChatGPT y Make"));
+  assert.ok(!/<\/?b>/.test(txt));
+  const ans = formatAnswerText({ answer: "Usa **Make** [1].", sources: [{ n: 1, title: "T", url: "https://www.instagram.com/p/X/", baseName: "b" }], found: true });
+  assert.equal(ans, "Usa Make [1].\n\n📚 Fuentes\n[1] T — https://www.instagram.com/p/X/");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

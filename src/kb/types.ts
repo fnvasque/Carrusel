@@ -114,6 +114,11 @@ export interface AddInput {
   caption?: string;
   /** Cuenta dueña del post (Business Discovery), si el link no la trae. */
   user?: string;
+  /** Medios que llegaron directo (p. ej. en un DM compartido): video de un reel e imágenes. */
+  videoUrl?: string;
+  mediaUrls?: string[];
+  /** Id estable del contenido cuando no hay link (p. ej. id del reel compartido por DM). */
+  sourceId?: string;
   commit?: boolean;
   onProgress?: (stage: Stage, detail?: string) => void;
 }

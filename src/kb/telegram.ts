@@ -77,6 +77,27 @@ export function formatAnswer(a: Answer): string {
   return parts.join("\n\n");
 }
 
+/** Ficha resumida en texto plano (los DMs de Instagram no admiten HTML). */
+export function formatSavedText(r: AddResult): string {
+  const e = r.ficha.extraction;
+  const lines = [
+    `✅ ${r.created ? "Guardado" : "Actualizado"}: ${e.title}`,
+    `🗂 Tema: ${r.topicsUpdated[0] ?? e.mainTopic}${r.newTopic ? " (nuevo)" : ""}`,
+    "",
+    e.summary,
+  ];
+  if (e.keyIdeas.length) lines.push("", "💡 Ideas clave", ...e.keyIdeas.slice(0, 4).map((i) => `• ${i}`));
+  if (e.tools.length) lines.push("", `🧰 Herramientas: ${e.tools.map((t) => t.name).join(" · ")}`);
+  if (r.ficha.partial) lines.push("", "⚠️ No pude leer todo el contenido; la ficha quedó parcial.");
+  return lines.join("\n");
+}
+
+/** Respuesta a una pregunta en texto plano, con las fuentes y sus links. */
+export function formatAnswerText(a: Answer): string {
+  const src = a.sources.map((s) => `[${s.n}] ${s.title}${s.url ? ` — ${s.url}` : ""}`);
+  return [a.answer.replace(/\*\*(.+?)\*\*/g, "$1"), src.length ? `📚 Fuentes\n${src.join("\n")}` : ""].filter(Boolean).join("\n\n");
+}
+
 /** Lista de fichas (para /ultimos y /tema). */
 export function formatFichaList(fichas: (Pick<StoredFicha, "title" | "savedAt" | "author"> & { url?: string })[]): string {
   return fichas

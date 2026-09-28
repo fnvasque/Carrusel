@@ -294,6 +294,37 @@ ignora a cualquier otro) en `.env`. Usa long polling: no necesita URL pública.
 - **Comandos**: `/temas`, `/tema <nombre>`, `/ultimos`, `/ayuda`.
 - Cola persistente en el índice: un guardado a la vez y, si el bot se reinicia, retoma lo pendiente.
 
+### DMs a @ia.punto.es
+
+Compartir un post o reel **por DM a la cuenta de Instagram** (Compartir → Enviar) también lo
+guarda, y la cuenta te responde por DM con la ficha resumida. Lo recibe el mismo `npm run kb:bot`
+a través de un webhook de Meta, así que necesita el computador encendido y un túnel HTTPS.
+
+- Un **reel** trae su video y caption dentro del DM (cuadros + transcripción), sin pedir el @usuario.
+- Un **post** trae su imagen. Un **link** escrito a mano necesita el @: «@cuenta https://…».
+- Un **texto** sin link es una pregunta: responde con tu base, como `kb:ask`.
+- Deshacer y cambiar tema siguen en Telegram o la terminal.
+
+Configuración (una vez):
+
+1. En la app de Instagram de @ia.punto.es: *Configuración → Mensajes y respuestas → Herramientas
+   conectadas → Permitir acceso a mensajes*.
+2. En tu app de Meta → *Roles de la app → Instagram Testers*: agrega la cuenta desde la que vas a
+   enviar los DMs y acepta la invitación en Instagram (*Configuración → Apps y sitios web*).
+3. Regenera el token en el Explorador de la API Graph agregando `instagram_manage_messages` y
+   `pages_manage_metadata`, extiéndelo a long-lived y actualiza `META_ACCESS_TOKEN`.
+4. En `.env`: `META_WEBHOOK_VERIFY_TOKEN` (un texto al azar que eliges tú). Corre `npm run kb:bot` y
+   un túnel al puerto 8787, p. ej. `ngrok http --url=<tu-dominio-estático>.ngrok-free.app 8787`.
+5. En tu app de Meta → *Webhooks* → objeto **Instagram** → URL `https://<tu-dominio>/webhook`, el
+   mismo token de verificación, y suscribe el campo **`messages`**.
+6. Suscribe la Página a la app (Explorador, con el token de la Página):
+   `POST /{page-id}/subscribed_apps?subscribed_fields=messages`.
+7. Mándale un DM a @ia.punto.es: el bot registra tu **IGSID**; agrégalo a `INBOX_ALLOWED_SENDERS`
+   y reinicia. Solo los remitentes de esa lista pueden guardar.
+
+`npm run meta:check` revisa también los permisos de mensajes cuando el webhook está configurado.
+`npm run kb:bot -- --debug-payload` guarda los webhooks crudos en `.cache/kb/inbox-raw/` para depurar.
+
 Configuración en Mac:
 
 ```bash
