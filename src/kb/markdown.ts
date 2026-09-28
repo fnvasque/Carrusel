@@ -124,10 +124,6 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
   const tools = e.tools
     .map((t) => `- **${t.name}**${t.purpose ? ` — ${t.purpose}` : ""}${safeUrl(t.url) ? ` ([link](${safeUrl(t.url)}))` : ""}`)
     .join("\n");
-  const comments = [
-    bullets(e.fromComments),
-    e.audienceQuestions.length ? `**Preguntas de la audiencia**\n\n${bullets(e.audienceQuestions)}` : "",
-  ].filter(Boolean).join("\n\n");
 
   const label = f.kind === "reel" ? "Cuadro" : "Imagen";
   const imageTexts = (e.imageTexts ?? [])
@@ -147,7 +143,6 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
     section("Herramientas", tools),
     section("Pasos", numbered(e.steps)),
     section("Recursos", bullets(e.resources)),
-    section("De los comentarios", comments),
     f.gallery?.length
       ? callout("example", `Imágenes (${f.gallery.length})`, f.gallery.map((g) => `![[${g}|240]]`).join(" "), true)
       : "",
@@ -206,7 +201,6 @@ export function renderTopic(
     section("Lo esencial", bullets(s.essentials)),
     section("Herramientas mencionadas", tools),
     section("Técnicas", bullets(s.techniques)),
-    section("Preguntas frecuentes", bullets(s.questions)),
     section(`Fuentes (${sources.length})`, refs),
   ].filter(Boolean).join("\n\n");
   const data = { tags: ["kb/tema"], descripcion: s.description, fuentes: sources.length, actualizado: today };

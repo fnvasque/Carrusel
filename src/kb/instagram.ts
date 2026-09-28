@@ -10,8 +10,7 @@ import type { PostKind, PostMeta } from "./types.ts";
  * Lectura de posts vía la API oficial de Meta (Business Discovery), sin tu
  * sesión de Instagram ni scraping. La API no busca por link: necesita el
  * @usuario dueño del post y recorre su feed hasta dar con el shortcode.
- * Limitaciones: solo cuentas Business/Creator públicas, y no entrega el texto de
- * los comentarios de posts ajenos (solo cuántos hay): para eso, capturas.
+ * Limitación: solo cuentas Business/Creator públicas.
  */
 
 const CACHE_DIR = join(process.cwd(), ".cache", "kb");
@@ -44,8 +43,6 @@ export function metaToPostMeta(m: MetaMedia, username: string): PostMeta {
     isVideo: kind === "reel",
     hasVideo: kind === "reel" || children.some((c) => c.media_type === "VIDEO"),
     caption: m.caption,
-    comments: [],
-    commentCount: m.comments_count,
     imageUrls: [...new Set(imageUrls)],
     videoUrl: kind === "reel" ? m.media_url : undefined,
   };

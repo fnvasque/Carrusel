@@ -14,8 +14,7 @@ import type { MediaType, RemixOptions } from "../types.ts";
 export const DEFAULT_MAX_PAGES = 10;
 
 const PAGE_SIZE = 50;
-const MEDIA_FIELDS =
-  "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,comments_count,children{media_type,media_url,thumbnail_url}";
+const MEDIA_FIELDS = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,children{media_type,media_url,thumbnail_url}";
 
 /** Segmentos de ruta de Instagram que no son un @usuario. */
 const RESERVED = new Set(["p", "reel", "reels", "tv", "stories", "explore", "accounts", "direct"]);
@@ -31,7 +30,6 @@ export interface MetaMedia extends MetaChild {
   caption?: string;
   permalink?: string;
   timestamp?: string;
-  comments_count?: number;
   children?: { data?: MetaChild[] };
 }
 

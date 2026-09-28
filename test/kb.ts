@@ -61,8 +61,6 @@ const ficha = (over: Partial<Ficha> = {}): Ficha => ({
     resources: [],
     imageTexts: [],
     nameFixes: [],
-    fromComments: ["n8n es una alternativa gratis"],
-    audienceQuestions: ["¿Cuánto cuesta?"],
     mainTopic: "Automatización con IA",
     newTopicDescription: null,
     secondaryTopics: [],
@@ -160,7 +158,7 @@ check("fichaDigest quita caption/transcripción e imágenes", () => {
 
 // --- tema ---
 check("renderTopic lista fuentes con wikilinks y conserva Mis notas", () => {
-  const s = { description: "Flujos con IA", essentials: ["Empieza simple"], tools: [{ name: "Make", purpose: "orquestar" }], techniques: [], questions: [] };
+  const s = { description: "Flujos con IA", essentials: ["Empieza simple"], tools: [{ name: "Make", purpose: "orquestar" }], techniques: [] };
   const refs = [{ baseName: "2026-09-26-usuario-ABC123", title: "Resumir Gmail", author: "@usuario", savedAt: "2026-09-26" }];
   const v1 = renderTopic("Automatización con IA", s, refs, "2026-09-26");
   const withNotes = v1.replace("## Mis notas\n\n", "## Mis notas\n\nIdeas propias\n");
@@ -395,7 +393,6 @@ check("formatSaved: ficha resumida con tema, ideas, herramientas y aviso de parc
   assert.ok(html.startsWith("✅ <b>Guardado:</b> Resumir Gmail con ChatGPT y Make"));
   assert.ok(html.includes("🗂 Tema: <b>Automatización con IA</b> (nuevo)"));
   assert.ok(html.includes("🧰 <b>Herramientas:</b> Make"));
-  assert.ok(html.includes("❓ <b>La audiencia pregunta</b>\n• ¿Cuánto cuesta?"));
   assert.ok(html.includes("🔗 <b>Relacionados</b>\n• Otro post"));
   assert.ok(html.includes("⚠️"));
 });
@@ -430,7 +427,7 @@ check("cola: FIFO, un trabajo a la vez y se retoma tras un corte", () => {
 // --- Meta: lectura de posts (Business Discovery) ---
 check("metaToPostMeta: carrusel con slides de foto y de video (portada)", () => {
   const m = metaToPostMeta({
-    id: "1", media_type: "CAROUSEL_ALBUM", caption: "cap", timestamp: "2026-09-21T10:00:00+0000", comments_count: 205,
+    id: "1", media_type: "CAROUSEL_ALBUM", caption: "cap", timestamp: "2026-09-21T10:00:00+0000",
     permalink: "https://www.instagram.com/p/AAA/",
     children: { data: [
       { media_type: "IMAGE", media_url: "https://cdn/1.jpg" },
@@ -444,8 +441,6 @@ check("metaToPostMeta: carrusel con slides de foto y de video (portada)", () => 
   assert.equal(m.isVideo, false);
   assert.equal(m.hasVideo, true);
   assert.equal(m.videoUrl, undefined);
-  assert.equal(m.commentCount, 205);
-  assert.deepEqual(m.comments, []);
 });
 
 check("metaToPostMeta: reel con video, reel sin media_url y foto", () => {

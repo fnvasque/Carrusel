@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type KbComment, type TopicInfo, type TopicSynthesis } from "./types.ts";
+import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type TopicInfo, type TopicSynthesis } from "./types.ts";
 
 /** Tope de imágenes que se descargan y adjuntan al modelo (coste/latencia). Configurable por KB_MAX_IMAGES. */
 export const MAX_IMAGES = Math.max(1, Number(process.env.KB_MAX_IMAGES) || 12);
@@ -81,10 +81,9 @@ const EXTRACT_SYSTEM = `
 Eres el bibliotecario de una base de conocimiento personal. El usuario guarda posts de Instagram que le interesan y tú los conviertes en fichas ordenadas y útiles para consultarlas después.
 Reglas:
 - Escribe SIEMPRE en español, aunque el post esté en otro idioma.
-- Sé concreto y fiel al contenido: no inventes herramientas, pasos ni datos que no estén en las imágenes, el caption, la transcripción o los comentarios.
-- De los comentarios rescata solo lo que aporta (tips, alternativas, correcciones, precios, links). Nunca incluyas nombres de usuario.
+- Sé concreto y fiel al contenido: no inventes herramientas, pasos ni datos que no estén en las imágenes, el caption o la transcripción.
 - Temas: reutiliza un tema existente si encaja razonablemente. Crea uno nuevo solo si ninguno sirve; debe ser amplio y reutilizable (ej. "Automatización con IA", no "Automatizar Gmail con Make"). Los temas secundarios SOLO pueden ser existentes.
-- La transcripción es automática y puede confundir nombres propios (ej. "Cloud" en vez de "Claude", "Meik" en vez de "Make"). Corrige esos nombres usando el caption, el texto de las imágenes y los comentarios, escribe siempre el nombre correcto de herramientas y marcas, y lista cada corrección en nameFixes.
+- La transcripción es automática y puede confundir nombres propios (ej. "Cloud" en vez de "Claude", "Meik" en vez de "Make"). Corrige esos nombres usando el caption y el texto de las imágenes, escribe siempre el nombre correcto de herramientas y marcas, y lista cada corrección en nameFixes.
 - Transcribe en imageTexts el texto de cada imagen tal cual aparece (títulos, listas, prompts, código, datos), sin resumir ni traducir. Es para poder buscarlo después.
 - Si el contenido es escaso (solo una imagen sin texto), dilo con confidence "low".
 `.trim();
@@ -93,20 +92,16 @@ export interface ExtractInput {
   kind: string;
   caption: string;
   transcript?: string;
-  comments: KbComment[];
   notes: string[];
   images: string[];
   topics: TopicInfo[];
 }
 
-/** Analiza un post (imágenes + caption + transcripción + comentarios) y devuelve la ficha estructurada. */
+/** Analiza un post (imágenes + caption + transcripción) y devuelve la ficha estructurada. */
 export async function extractFicha(input: ExtractInput): Promise<Extraction> {
   const topicList = input.topics.length
     ? input.topics.map((t) => `- ${t.name}${t.description ? `: ${t.description}` : ""}`).join("\n")
     : "(todavía no hay temas: crea el primero)";
-  const comments = input.comments.length
-    ? input.comments.map((c) => `- (${c.likes}♥) ${c.text}`).join("\n")
-    : "(sin comentarios disponibles)";
   const images = input.images.slice(0, MAX_IMAGES);
 
   const text =
@@ -115,7 +110,6 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
     (input.notes.length ? `Nota del usuario (qué le interesó): ${input.notes.join(" / ")}\n` : "") +
     `\nCaption:\n"""${input.caption.slice(0, MAX_TEXT_CHARS) || "(sin caption)"}"""\n` +
     (input.transcript ? `\nTranscripción del audio:\n"""${input.transcript.slice(0, MAX_TEXT_CHARS)}"""\n` : "") +
-    `\nComentarios (más votados primero):\n${comments}\n` +
     `\nTemas existentes en la base:\n${topicList}`;
 
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [{ type: "text", text }];

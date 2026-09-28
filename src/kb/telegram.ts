@@ -57,8 +57,6 @@ export function formatSaved(r: AddResult, related: Pick<StoredFicha, "title" | "
   ];
   if (e.keyIdeas.length) lines.push("", `💡 <b>Ideas clave</b>\n${bullets(e.keyIdeas, 4)}`);
   if (e.tools.length) lines.push("", `🧰 <b>Herramientas:</b> ${e.tools.map((t) => escapeHtml(t.name)).join(" · ")}`);
-  if (e.fromComments.length) lines.push("", `💬 <b>De los comentarios</b>\n${bullets(e.fromComments, 2)}`);
-  if (e.audienceQuestions.length) lines.push("", `❓ <b>La audiencia pregunta</b>\n${bullets(e.audienceQuestions, 2)}`);
   if (related.length) lines.push("", `🔗 <b>Relacionados</b>\n${related.slice(0, 3).map((f) => `• ${escapeHtml(f.title)}`).join("\n")}`);
   if (r.ficha.partial) lines.push("", "⚠️ No pude descargar todo el post. Mándame capturas y las sumo a esta ficha.");
   return lines.join("\n");
@@ -115,8 +113,7 @@ export const HELP = [
   "",
   "📥 <b>Guardar:</b> en Instagram → Compartir → este chat. Si no me dices de qué cuenta es, te pregunto el @usuario " +
     "(también puedes mandarlo junto al link: «@cuenta https://…»). Lo que escribas además queda como nota.",
-  "ℹ️ Leo los posts con la API oficial de Meta: solo cuentas Business o Creator, y sin el texto de los comentarios " +
-    "(si te importan, mándame capturas).",
+  "ℹ️ Leo los posts con la API oficial de Meta: solo cuentas Business o Creator.",
   "🖼 <b>Complementar:</b> manda capturas después del link (sueltas o en álbum) y se suman a esa ficha.",
   "❓ <b>Preguntar:</b> escribe cualquier pregunta; respondo solo con tu base y cito las fichas.",
   "",

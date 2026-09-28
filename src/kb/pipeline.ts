@@ -70,7 +70,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     }
   }
   progress("descargando", `${images.length} imagen(es)`);
-  // Las capturas se suman a lo descargado (p. ej. capturas de comentarios) o son la fuente.
+  // Las capturas se suman a lo descargado o, si Meta no pudo leer el post, son la fuente.
   for (const p of input.images ?? []) {
     const uri = await localImageToDataUri(p);
     if (uri && !images.includes(uri)) images.push(uri);
@@ -80,11 +80,6 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     await video?.cleanup();
     throw new Error("No hay nada que analizar: ni caption ni imágenes. Manda capturas del post.");
   }
-  const comments = meta?.comments ?? [];
-  progress(
-    "comentarios",
-    meta?.commentCount ? `${meta.commentCount} en el post (la API no da su texto: mándame capturas si importan)` : "sin comentarios",
-  );
 
   // 2) Transcripción (solo reels con video disponible).
   let transcript: string | undefined;
@@ -109,9 +104,9 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   progress("analizando");
   const topics = await listTopics();
   const kind: PostKind = url ? (meta?.kind ?? "post") : "manual";
-  const raw = await extractFicha({ kind, caption, transcript, comments, notes, images, topics });
+  const raw = await extractFicha({ kind, caption, transcript, notes, images, topics });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
-  const evidence = [caption, ...raw.imageTexts.map((t) => t.text), ...comments.map((c) => c.text)].join("\n");
+  const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");
   const fixed = applyNameFixes(raw, transcript, evidence);
   transcript = fixed.transcript;
   // Links de herramientas solo si el post los muestra (el modelo inventa dominios "probables").
@@ -216,7 +211,7 @@ export async function refreshTopics(topics: Iterable<string>, newDescriptions: R
       // anterior (la ficha ya quedó bien); si no existía, se crea con la lista de fuentes.
       console.warn(`⚠️  No pude resumir el tema "${topic}" (${err instanceof Error ? err.message : err}). Lo reintento en el próximo guardado.`);
       if (existsSync(path)) continue;
-      synthesis = { description: newDescriptions[topic] ?? "", essentials: [], tools: [], techniques: [], questions: [] };
+      synthesis = { description: newDescriptions[topic] ?? "", essentials: [], tools: [], techniques: [] };
     }
     if (newDescriptions[topic]) synthesis.description ||= newDescriptions[topic];
     const refs: SourceRef[] = members

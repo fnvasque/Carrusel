@@ -32,8 +32,6 @@ export const ExtractionSchema = z.object({
       right: z.string().describe("Nombre correcto según el caption o las imágenes (ej. Claude)"),
     }))
     .describe("Nombres propios que la transcripción escribió mal; [] si no hay"),
-  fromComments: z.array(z.string()).describe("Aportes útiles de los comentarios: tips, alternativas, correcciones, datos"),
-  audienceQuestions: z.array(z.string()).describe("Preguntas o dudas que se repiten en los comentarios"),
   mainTopic: z.string().describe("Tema principal: uno existente si encaja, o uno nuevo, amplio y reutilizable"),
   newTopicDescription: z.string().nullable().describe("Si mainTopic es nuevo, descripción de 1 frase; si existe, null"),
   secondaryTopics: z.array(z.string()).describe("0-2 temas EXISTENTES relacionados (nunca nuevos)"),
@@ -49,19 +47,12 @@ export const TopicSynthesisSchema = z.object({
   essentials: z.array(z.string()).describe("Lo esencial que se sabe del tema, sintetizado de todas las fuentes"),
   tools: z.array(z.object({ name: z.string(), purpose: z.string() })).describe("Herramientas mencionadas en las fuentes"),
   techniques: z.array(z.string()).describe("Técnicas, trucos o procesos concretos"),
-  questions: z.array(z.string()).describe("Preguntas frecuentes de la audiencia"),
 });
 
 export type TopicSynthesis = z.infer<typeof TopicSynthesisSchema>;
 
 /** Tipo de pieza guardada. */
 export type PostKind = "reel" | "post" | "carrusel" | "manual";
-
-/** Comentario ya limpio (sin autor: no se guardan datos personales). */
-export interface KbComment {
-  text: string;
-  likes: number;
-}
 
 /** Metadatos del post leídos con la API de Meta (Business Discovery). */
 export interface PostMeta {
@@ -72,9 +63,6 @@ export interface PostMeta {
   /** ¿Algún medio del post es video? (en un carrusel mixto, alguna slide). */
   hasVideo: boolean;
   caption?: string;
-  comments: KbComment[];
-  /** Comentarios que tiene el post (la API no entrega su texto en posts ajenos). */
-  commentCount?: number;
   /** URLs de las imágenes del post (una por slide; en videos, su portada). */
   imageUrls: string[];
   /** Video del reel (media_url de la API); ausente si Meta no lo entrega (p. ej. audio con copyright). */
@@ -106,12 +94,11 @@ export interface TopicInfo {
 }
 
 /** Etapas del pipeline, para reportar progreso (CLI hoy, Telegram después). */
-export type Stage = "descargando" | "comentarios" | "transcribiendo" | "analizando" | "guardando" | "temas" | "commit" | "indexando";
+export type Stage = "descargando" | "transcribiendo" | "analizando" | "guardando" | "temas" | "commit" | "indexando";
 
 /** Texto de cada etapa del guardado (CLI y mensajes de progreso del bot). */
 export const STAGE_LABEL: Record<Stage, string> = {
   descargando: "📥 Descargando el post…",
-  comentarios: "💬 Comentarios",
   transcribiendo: "🎙 Transcribiendo el audio…",
   analizando: "🧠 Analizando…",
   guardando: "💾 Guardando la ficha…",

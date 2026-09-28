@@ -16,7 +16,7 @@ const wordRe = (w: string, flags = "giu"): RegExp => new RegExp(`(?<![\\p{L}\\d]
 
 /**
  * Filtra las correcciones confiables: el nombre correcto debe aparecer en la
- * evidencia (caption, texto de imágenes, comentarios) y el "incorrecto" NO
+ * evidencia (caption, texto de imágenes) y el "incorrecto" NO
  * (si aparece ahí, es una palabra legítima del post, p. ej. "Google Cloud").
  */
 export function validFixes(fixes: Fix[] | undefined, evidence: string): Fix[] {
@@ -70,7 +70,7 @@ function hostOf(url: string): string | undefined {
 
 /**
  * Deja el link de una herramienta solo si su dominio aparece en el post
- * (caption, texto de imágenes, transcripción o comentarios): el modelo tiende a
+ * (caption, texto de imágenes o transcripción): el modelo tiende a
  * completar links "probables" que el post nunca mostró.
  */
 export function groundToolUrls(extraction: Extraction, evidence: string): Extraction {

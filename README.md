@@ -244,12 +244,11 @@ Lee los posts con la **API oficial de Meta** (Business Discovery, igual que el r
 
 - Necesita saber **de qué cuenta es el post** (`--user=cuenta`, o el link con el @usuario).
 - Solo lee cuentas **Business o Creator** públicas.
-- La API **no entrega el texto de los comentarios** de posts ajenos: si importan, suma capturas.
 - Algunos reels vienen sin video (p. ej. audio con copyright): se analiza su portada y no hay transcripción.
 
 ```bash
 npm run kb:add "https://www.instagram.com/reel/XXXX/" -- --user=cuenta --nota="por qué me interesa"
-npm run kb:add "<url>" -- --image=captura-comentarios.png   # suma capturas al post
+npm run kb:add "<url>" -- --image=captura.png   # suma capturas al post
 npm run kb:add -- --image=captura1.png --image=captura2.png  # solo capturas, sin link
 npm run kb:ask "¿qué herramientas guardé para editar video?"   # pregunta a tu base
 npm run kb:undo                        # deshace el último guardado
@@ -258,7 +257,7 @@ npm run kb:reindex                     # reconstruye el índice desde el Markdow
 ```
 
 - **Fichas** (`knowledge/fuentes/`): resumen, ideas clave, herramientas, pasos, recursos, lo
-  útil de los comentarios (de capturas; sin nombres de usuario), caption, transcripción y el **texto literal
+  caption, transcripción y el **texto literal
   de cada imagen** (slides del carrusel o un cuadro cada ~3 s del reel, hasta 12).
 - **Imágenes**: la miniatura (`_adjuntos/<id>.jpg`) va a git; la galería completa
   (`_adjuntos/slides/<id>/`) se ve en la ficha pero queda **fuera de git** (repo liviano).
