@@ -34,7 +34,7 @@ export interface DmEvent {
 /** Qué hacer con un DM. */
 export type DmAction =
   | { kind: "save-media"; videoUrl?: string; mediaUrls: string[]; caption?: string; sourceId: string }
-  | { kind: "save-link"; urls: string[]; text: string }
+  | { kind: "save-link"; urls: string[]; text: string; caption?: string }
   | { kind: "question"; text: string }
   | { kind: "unsupported"; reason: string };
 
@@ -85,8 +85,24 @@ export function parseWebhook(body: unknown): DmEvent[] {
 const VIDEO_TYPES = new Set(["ig_reel", "reel", "video", "clip"]);
 const IMAGE_TYPES = new Set(["share", "ig_post", "image", "media_share", "post"]);
 
-/** Decide qué hacer con un DM. Función pura (testeable). */
+/**
+ * Decide qué hacer con un DM. Función pura (testeable).
+ * Formato real (verificado con un reel compartido, 2026-09): el adjunto `ig_reel`
+ * trae en `url` el LINK del post (instagram.com/reel/…), su caption en `title` y
+ * `reel_video_id`, pero no la cuenta dueña ni el video: se trata como un link
+ * (Business Discovery, que necesita el @). Si algún adjunto trae la media directa
+ * (URL de CDN), se usa tal cual.
+ */
 export function dmAction(ev: DmEvent): DmAction {
+  const permalinks = ev.attachments.filter((a) => a.url && findInstagramUrls(a.url).length);
+  if (permalinks.length) {
+    return {
+      kind: "save-link",
+      urls: permalinks.map((a) => findInstagramUrls(a.url!)[0]),
+      text: ev.text ?? "",
+      caption: permalinks.map((a) => a.title).find(Boolean),
+    };
+  }
   const shared = ev.attachments.filter((a) => a.url && (VIDEO_TYPES.has(a.type) || IMAGE_TYPES.has(a.type)));
   if (shared.length) {
     const video = shared.find((a) => VIDEO_TYPES.has(a.type));

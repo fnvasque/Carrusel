@@ -47,10 +47,22 @@ export function splitDm(text: string, max = MAX_DM_CHARS): string[] {
   return out.length ? out : [""];
 }
 
-/** Envía un DM de texto a un usuario (por su IGSID). Los textos largos se parten. */
-export async function sendDm(recipientId: string, text: string): Promise<void> {
+/** Máximo de respuestas rápidas (botones) por mensaje en Instagram. */
+const MAX_QUICK_REPLIES = 13;
+
+/**
+ * Envía un DM de texto a un usuario (por su IGSID). Los textos largos se parten.
+ * `quickReplies` agrega botones de respuesta rápida al último mensaje (al tocarlo,
+ * llega como un DM de texto con ese mismo texto).
+ */
+export async function sendDm(recipientId: string, text: string, quickReplies: string[] = []): Promise<void> {
   const token = await getPageToken();
-  for (const part of splitDm(text)) {
-    await graphPost("me/messages", { recipient: { id: recipientId }, message: { text: part } }, { accessToken: token });
+  const parts = splitDm(text);
+  for (const [i, part] of parts.entries()) {
+    const qr = i === parts.length - 1 ? quickReplies.slice(0, MAX_QUICK_REPLIES) : [];
+    const message = qr.length
+      ? { text: part, quick_replies: qr.map((t) => ({ content_type: "text", title: t.slice(0, 20), payload: t })) }
+      : { text: part };
+    await graphPost("me/messages", { recipient: { id: recipientId }, message }, { accessToken: token });
   }
 }

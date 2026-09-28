@@ -505,10 +505,25 @@ check("parseWebhook: mensajes con adjuntos; ignora ecos, borrados, lecturas y ot
   assert.deepEqual(parseWebhook(null), []);
 });
 
-check("dmAction: reel, post, link con @, pregunta y adjunto desconocido", () => {
+check("dmAction: reel compartido REAL (link + caption, sin cuenta) → link que necesita el @", () => {
+  // Forma real de un ig_reel compartido por DM (2026-09, anonimizada).
+  const [ev] = parseWebhook(igWebhook([{
+    sender: { id: "1064" }, recipient: { id: "1784" }, timestamp: 1790557692001,
+    message: { mid: "aWdf", attachments: [{ type: "ig_reel", payload: {
+      reel_video_id: "18083118176323939", title: "10 series originales de Netflix…\n\n#series",
+      url: "https://www.instagram.com/reel/Ddz6kNTM6Ls/?igsh=abc",
+    } }] },
+  }]));
+  assert.deepEqual(dmAction(ev), {
+    kind: "save-link", urls: ["https://www.instagram.com/reel/Ddz6kNTM6Ls/?igsh=abc"], text: "", caption: "10 series originales de Netflix…\n\n#series",
+  });
+  assert.equal(dmAction({ ...ev, text: "@netflix" }).kind, "save-link");
+});
+
+check("dmAction: media directa (CDN), link con @, pregunta y adjunto desconocido", () => {
   const ev = (over: object) => ({ mid: "m", senderId: "111", attachments: [], ...over });
-  assert.deepEqual(dmAction(ev({ attachments: [{ type: "ig_reel", url: "https://cdn/v.mp4", title: "cap", mediaId: "999" }] })), {
-    kind: "save-media", videoUrl: "https://cdn/v.mp4", mediaUrls: [], caption: "cap", sourceId: "999",
+  assert.deepEqual(dmAction(ev({ attachments: [{ type: "ig_reel", url: "https://scontent.cdninstagram.com/v.mp4", title: "cap", mediaId: "999" }] })), {
+    kind: "save-media", videoUrl: "https://scontent.cdninstagram.com/v.mp4", mediaUrls: [], caption: "cap", sourceId: "999",
   });
   assert.deepEqual(dmAction(ev({ attachments: [{ type: "share", url: "https://cdn/i.jpg" }] })), {
     kind: "save-media", videoUrl: undefined, mediaUrls: ["https://cdn/i.jpg"], caption: undefined, sourceId: "m",

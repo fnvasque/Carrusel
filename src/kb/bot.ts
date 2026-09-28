@@ -418,14 +418,31 @@ bot.catch((err) => console.error(`❌ Bot: ${errText(err.error)}`));
 /** Remitentes (IGSID) autorizados a guardar por DM. */
 const igAllowed = new Set((process.env.INBOX_ALLOWED_SENDERS ?? "").split(",").map((s) => s.trim()).filter(Boolean));
 
+/** Shares por DM que esperan el @usuario, por remitente (se descartan a los 30 min). */
+const dmAwaitingUser = new Map<string, { urls: string[]; note?: string; at: number }>();
+
 async function onDm(ev: DmEvent): Promise<void> {
   if (!igAllowed.has(ev.senderId)) {
     console.warn(`🚫 DM de un remitente no autorizado (IGSID ${ev.senderId}). Si eres tú, agrégalo a INBOX_ALLOWED_SENDERS en .env y reinicia.`);
     return;
   }
+  const reply = (text: string, quick: string[] = []) => sendDm(ev.senderId, text, quick).catch(dmFailed);
+  const enqueueLinks = async (urls: string[], user: string, note?: string) => {
+    for (const url of urls) enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note });
+    await reply(`📥 Recibido, lo leo de @${user} y lo guardo…`);
+    void work();
+  };
+
+  // Respuesta a "¿de qué cuenta es?" (texto o botón de respuesta rápida).
+  const waiting = dmAwaitingUser.get(ev.senderId);
+  const handle = waiting && ev.text && !ev.attachments.length ? handleReply(ev.text) : undefined;
+  if (waiting && handle && Date.now() - waiting.at < LINK_WINDOW_MS) {
+    dmAwaitingUser.delete(ev.senderId);
+    return void (await enqueueLinks(waiting.urls, handle, waiting.note));
+  }
+
   const action = dmAction(ev);
   console.log(`📬 DM recibido: ${action.kind}`);
-  const reply = (text: string) => sendDm(ev.senderId, text).catch(dmFailed);
   if (action.kind === "save-media") {
     enqueue(0, {
       channel: "instagram", igSender: ev.senderId, videoUrl: action.videoUrl, mediaUrls: action.mediaUrls, caption: action.caption,
@@ -436,11 +453,16 @@ async function onDm(ev: DmEvent): Promise<void> {
   } else if (action.kind === "save-link") {
     const mentioned = handleInText(action.text);
     const user = mentioned ?? resolveUser(action.urls[0]);
-    if (!user) return void (await reply("👤 ¿De qué cuenta es? Mándame el link junto al @cuenta, por ejemplo: @natgeo https://…"));
-    const note = noteFromMessage(action.text, action.urls, mentioned);
-    for (const url of action.urls) enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note });
-    await reply(`📥 Recibido, lo leo de @${user}…`);
-    void work();
+    const note = action.text ? noteFromMessage(action.text, action.urls, mentioned) : undefined;
+    if (user) return void (await enqueueLinks(action.urls, user, note));
+    // La API de Meta necesita la cuenta dueña y el share no la trae: se pregunta.
+    dmAwaitingUser.set(ev.senderId, { urls: action.urls, note, at: Date.now() });
+    const recent = (await recentAuthors(12)).map((u) => `@${u}`);
+    await reply(
+      "👤 ¿De qué cuenta es este post? Respóndeme con el @usuario" + (recent.length ? " o toca una:" : ".") +
+        "\n(La API de Meta necesita la cuenta, solo Business/Creator, y el mensaje compartido no la trae.)",
+      recent,
+    );
   } else if (action.kind === "question") {
     try {
       await reply(formatAnswerText(await ask(action.text)));
