@@ -152,9 +152,14 @@ del contenido (en español neutro o chileno), como archivos `.ts` en `carousels/
 para `generate`/`reel`. Analiza el original (hook, estructura, pilar, copy, estilo visual)
 con un modelo multimodal de OpenAI y mapea todo a las plantillas de marca ia.es.
 
+El post se lee con la **API oficial de Meta** (Instagram Graph API vía Facebook Login,
+Business Discovery), **solo lectura** y sin usar tu sesión de Instagram: automatizar con la
+identidad de tu cuenta personal es lo que hace que Instagram la marque. Ver
+`spdd/analysis/202609271400-[Analysis]-migracion-api-meta.md`.
+
 ```bash
-export OPENAI_API_KEY=sk-...
-npm run remix "https://www.instagram.com/p/XXXXXXXXX/"
+npm run meta:check     # verifica la conexión: cuenta, vencimiento y permisos del token
+npm run remix "https://www.instagram.com/p/XXXXXXXXX/" -- --user=cuenta
 # → carousels/<slug>-v1.ts  y  carousels/<slug>-v2.ts  (+ score de viralidad de cada una)
 
 # Flujo end-to-end de un solo comando (emite + renderiza):
@@ -172,22 +177,27 @@ npm run remix "<url>" -- --frames=6              # frames a muestrear de un reel
 npm run remix "<url>" -- --min-score=80          # objetivo del loop de calidad (default 75)
 npm run remix "<url>" -- --max-tries=4           # intentos de mejora por variación (default 3)
 npm run remix "<url>" -- --no-improve            # desactiva el loop (más rápido/barato)
-# Cookies para vencer el login wall (vía yt-dlp):
-npm run remix "<url>" -- --cookies=cookies.txt           # archivo Netscape cookies.txt
-npm run remix "<url>" -- --cookies-from-browser=chrome   # toma cookies del navegador
+npm run remix "<url>" -- --user=natgeo         # cuenta dueña del post (si el link no trae el @usuario)
+npm run remix "<url>" -- --max-pages=20          # páginas de 50 posts a recorrer buscándolo (default 10)
+npm run remix "<url>" -- --scrape                # respaldo con yt-dlp y el HTML público (NO recomendado)
 # Modo manual (último recurso si todo lo demás falla):
 npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2.png
 ```
 
-- **Ingesta robusta (3 niveles)**: usa **yt-dlp** si está instalado (lo más confiable;
-  descarga el carrusel completo y el video del reel, y con cookies vence el login wall) →
-  si no, **scraping público** de `og:meta`/JSON embebido → si no, **modo manual**
-  (`--caption` / múltiples `--image`). Nunca se cae.
+- **Ingesta**: **API de Meta** (Business Discovery) → *solo con `--scrape`*: yt-dlp y el HTML
+  público → **modo manual** (`--caption` / múltiples `--image`). Nunca se cae: si un nivel falla,
+  explica por qué y pasa al siguiente.
+- **Business Discovery** lee posts públicos de cuentas **Business o Creator** (no personales).
+  La API no busca por URL: recorre el feed de la cuenta (páginas de 50, tope `--max-pages`)
+  hasta dar con el shortcode del link. El @usuario sale del link (`instagram.com/cuenta/p/…`)
+  o de `--user=cuenta` (acepta `@`). Los reels sin `media_url` (p. ej. audio con copyright)
+  usan su portada.
+- **`--scrape`** reactiva yt-dlp y el scraping del HTML público **sin tu sesión**. Va contra los
+  Términos de Instagram: está apagado por defecto y avisa al usarse.
 - **Análisis slide por slide**: captura TODAS las imágenes de un carrusel y, para reels,
   extrae varios frames del video con **ffmpeg**. Sin ffmpeg/video, cae al thumbnail.
-- **Binarios opcionales**: `yt-dlp` (`pip install -U yt-dlp`) y `ffmpeg` se detectan en
-  runtime; sin ellos, el remix sigue funcionando con menos alcance. Las cookies también
-  se pueden pasar por env: `REMIX_COOKIES` / `REMIX_COOKIES_FROM_BROWSER`.
+- **Binarios opcionales**: `ffmpeg` (frames de reels) y `yt-dlp` (solo para `--scrape`) se
+  detectan en runtime; sin ellos, el remix sigue funcionando con menos alcance.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
   del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
 - **Loop de calidad**: cada variación se puntúa con el indicador de viralidad y, si está
@@ -198,8 +208,29 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
 - El resultado es **texto editable**: revisa y ajusta el `.ts` antes de publicar; luego
   `npm run generate carousels/<archivo>.ts` (PNGs 4:5) o `npm run reel carousels/<archivo>.ts` (Reel 9:16).
 
-Iteración 1 trabaja sobre el thumbnail principal + caption; capturar todas las slides de un
-carrusel y transcribir el audio de un reel llegan en iteraciones siguientes.
+### Configuración de Meta (una vez)
+
+1. Tu cuenta de Instagram debe ser **profesional (Business o Creator)** y estar vinculada a una
+   **Página de Facebook**.
+2. En developers.facebook.com, crea una app tipo **Negocio** (queda en modo desarrollo; no
+   necesita App Review mientras solo la uses tú) y agrega el producto *Instagram*.
+3. En el **Explorador de la API Graph**, genera un token de usuario con los permisos de solo
+   lectura `instagram_basic`, `instagram_manage_insights`, `pages_show_list`,
+   `pages_read_engagement` y `business_management`, y extiéndelo a **long-lived** (~60 días)
+   en el **Depurador de tokens**.
+4. Completa el `.env` (está en `.gitignore`; nunca lo subas):
+
+```bash
+META_ACCESS_TOKEN=...          # token long-lived (se renueva cada ~60 días)
+META_IG_USER_ID=1784...        # id de tu cuenta de Instagram (GET /me/accounts → instagram_business_account)
+META_APP_ID=...
+META_APP_SECRET=...            # Configuración de la app → Básica → Clave secreta (32 caracteres)
+META_GRAPH_VERSION=v26.0
+```
+
+5. `npm run meta:check` muestra tu @usuario, cuándo vence el token y si falta algún permiso
+   (sale con error si algo falla). Cada request va firmado con `appsecret_proof` cuando hay
+   `META_APP_SECRET`, y avisa si el uso de la cuota de la API pasa del 80%.
 
 ## Base de conocimiento (kb)
 

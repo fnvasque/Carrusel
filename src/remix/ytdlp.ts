@@ -22,22 +22,8 @@ export async function ytDlpAvailable(): Promise<boolean> {
   });
 }
 
-/**
- * Flags de cookies para yt-dlp, desde opciones o env. `--cookies` apunta a un
- * archivo Netscape cookies.txt; `--cookies-from-browser` a un navegador
- * (chrome/firefox/…). Sirven para vencer el login wall de Instagram.
- */
-export function resolveCookies(opts: Pick<RemixOptions, "cookies" | "cookiesFromBrowser">): string[] {
-  const flags: string[] = [];
-  const file = opts.cookies ?? process.env.REMIX_COOKIES;
-  const browser = opts.cookiesFromBrowser ?? process.env.REMIX_COOKIES_FROM_BROWSER;
-  if (file) flags.push("--cookies", file);
-  if (browser) flags.push("--cookies-from-browser", browser);
-  return flags;
-}
-
 /** Ejecuta yt-dlp capturando stdout/stderr, con timeout (kill si expira). */
-export function runYtDlp(args: string[], timeoutMs = YTDLP_TIMEOUT_MS): Promise<{ code: number; stdout: string; stderr: string }> {
+function runYtDlp(args: string[], timeoutMs = YTDLP_TIMEOUT_MS): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolveP) => {
     const proc = spawn("yt-dlp", args);
     let stdout = "";
@@ -54,7 +40,8 @@ export function runYtDlp(args: string[], timeoutMs = YTDLP_TIMEOUT_MS): Promise<
 }
 
 /**
- * Ingiere un post de Instagram con yt-dlp (fuente preferente): obtiene el caption
+ * Ingiere un post de Instagram con yt-dlp, SIN tu sesión de Instagram (solo con
+ * --scrape: va contra los Términos de Instagram). Obtiene el caption
  * con `yt-dlp -J` y descarga TODOS los medios (imágenes del carrusel y/o video del
  * reel) a un temporal; imágenes → data URI, videos → frames vía ffmpeg. Devuelve
  * null si no logra nada (para degradar a scraping). Nunca lanza hacia afuera.
@@ -63,9 +50,6 @@ export async function ingestViaYtDlp(
   url: string,
   opts: RemixOptions,
 ): Promise<{ caption: string; mediaDataUris: string[] } | null> {
-  const cookies = resolveCookies(opts);
-  if (cookies.length) console.log("ℹ️  yt-dlp con cookies (para vencer el login wall).");
-
   const id = createHash("sha256").update(url).digest("hex").slice(0, 16);
   const tmp = join(CACHE_DIR, `ytdlp-${id}`);
 
@@ -74,7 +58,7 @@ export async function ingestViaYtDlp(
 
     // 1) Metadata → caption.
     let caption = "";
-    const meta = await runYtDlp(["-J", "--no-warnings", ...cookies, url]);
+    const meta = await runYtDlp(["-J", "--no-warnings", url]);
     if (meta.code === 0 && meta.stdout) {
       try {
         const json = JSON.parse(meta.stdout) as { description?: string; title?: string };
@@ -88,7 +72,6 @@ export async function ingestViaYtDlp(
     const dl = await runYtDlp([
       "-o", join(tmp, "%(autonumber)s.%(ext)s"),
       "--no-warnings",
-      ...cookies,
       url,
     ]);
 
