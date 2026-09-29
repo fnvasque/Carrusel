@@ -61,9 +61,11 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   let directVideo = false;
   // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
-  const videoUrl = meta?.videoUrl ?? (meta ? undefined : input.videoUrl);
-  if (videoUrl) {
-    video = await downloadVideo(videoUrl);
+  // El video del post; si Meta no lo entrega, el que mandó el usuario (URL o archivo local).
+  const videoUrl = meta?.videoUrl ?? input.videoUrl;
+  if (videoUrl || input.videoFile) {
+    video = videoUrl ? await downloadVideo(videoUrl) : null;
+    if (!video && input.videoFile) video = { path: input.videoFile, cleanup: async () => {} };
     if (video) {
       const duration = await probeDuration(video.path);
       images = await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration);
@@ -122,7 +124,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // 4) Extracción con el modelo (incluye asignación de tema).
   progress("analizando");
   const topics = await listTopics();
-  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
+  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl || input.videoFile || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
   const raw = await extractFicha({ kind, caption, transcript, notes, images, topics });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");
