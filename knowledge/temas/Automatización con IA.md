@@ -2,40 +2,40 @@
 tags:
   - kb/tema
 descripcion: >-
-  La automatizaci3n con IA implica el uso de herramientas y tcnicas de
-  inteligencia artificial para optimizar y automatizar tareas en diversos
-  mbitos.
-fuentes: 8
+  La automatizaci3n con IA implica el uso de herramientas y modelos de
+  inteligencia artificial para optimizar y automatizar tareas repetitivas y
+  complejas.
+fuentes: 9
 actualizado: '2026-09-29'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> La automatizaci3n con IA implica el uso de herramientas y tcnicas de inteligencia artificial para optimizar y automatizar tareas en diversos mbitos.
+> La automatizaci3n con IA implica el uso de herramientas y modelos de inteligencia artificial para optimizar y automatizar tareas repetitivas y complejas.
 
 ## Lo esencial
 
-- La automatización con IA permite optimizar tareas diarias mediante sistemas como Jarvis OS 2.0, que integra herramientas para gestionar memoria, voz e interfaz de usuario.
-- Herramientas como Claude y Codex son fundamentales para realizar el trabajo real en sistemas automatizados.
-- La IA puede simular entrevistas de trabajo, crear contenido automatizado y diseñar proyectos interactivos mediante habilidades específicas.
-- Los agentes de IA pueden desarrollar sus propias herramientas en Python para tareas específicas, reduciendo el uso de recursos.
-- La automatización con IA se aplica en la creación de sitios web animados, gestión de llamadas a clientes y diseño de motion graphics.
+- La automatización con IA permite optimizar tareas diarias mediante sistemas operativos personalizados como Jarvis OS 2.0, que integran herramientas de IA para funciones específicas como memoria, interfaz de usuario y procesamiento de audio.
+- Herramientas como Claude y Codex son fundamentales para realizar tareas complejas y automatizar procesos, mientras que Jev se utiliza para clasificar y enrutar solicitudes rápidamente.
+- La IA puede simular entrevistas de trabajo, crear dashboards para evaluar la satisfacción del cliente y escribir sus propias herramientas en Python cuando no están disponibles.
+- Modelos avanzados como Claude Opus 5.5 y GPT-6 Sol y Luna mejoran la creación de contenido automatizado, incluyendo diseño de motion y sitios web animados.
+- Herramientas como Fastlane y Jev permiten la monetización y filtrado de contenido, respectivamente, demostrando la versatilidad de la IA en diferentes aplicaciones.
 
 ## Herramientas mencionadas
 
-- **Claude Code** — Realizar el trabajo real del sistema y simular entrevistas de trabajo.
-- **Codex** — Realizar el trabajo real del sistema.
-- **Obsidian** — Almacenar la memoria del sistema.
-- **Whisper** — Procesar el audio localmente.
-- **Kokoro** — Responder en voz alta.
-- **Jev** — Clasificar y enrutar solicitudes.
-- **Cockpit** — Proveer la interfaz del sistema.
-- **HUD** — Proveer la interfaz del sistema.
+- **Claude Code** — Realizar el trabajo real del sistema operativo Jarvis 2.0 y simular entrevistas de trabajo.
+- **Codex** — Realizar el trabajo real del sistema operativo Jarvis 2.0.
+- **Obsidian** — Almacenar la memoria del sistema operativo Jarvis 2.0.
+- **Whisper** — Procesar el audio localmente en el sistema operativo Jarvis 2.0.
+- **Kokoro** — Responder en voz alta en el sistema operativo Jarvis 2.0.
+- **Jev** — Clasificar y enrutar solicitudes, filtrar contenido en X.
+- **Cockpit** — Proveer la interfaz del sistema operativo Jarvis 2.0.
+- **HUD** — Proveer la interfaz del sistema operativo Jarvis 2.0.
 - **Fastlane** — Herramienta de contenido corto con IA para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
 - **Notion** — Almacenar notas de las llamadas.
 - **Three.js** — Crear escenas 3D interactivas.
-- **GSAP** — Animaciones fluidas y control de desplazamiento.
+- **GSAP** — Ofrecer animaciones fluidas y control de desplazamiento.
 - **Design DNA** — Extraer y aplicar diseño de sitios web.
 - **Motion Design** — Facilitar animaciones Lottie y SVG.
 - **Genjutsu** — Aportar dirección creativa y pulido final.
@@ -43,24 +43,23 @@ actualizado: '2026-09-29'
 - **OpenArt** — Plataforma utilizada para el diseño de motion.
 - **Opus 5.5** — Crear sitios web animados en 5 minutos.
 - **Prompts Library** — Proveer prompts para el diseño del sitio web.
-- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
-- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
+- **GPT-6 Sol y Luna** — Modelos de IA avanzados con mejoras de Astra.
 - **MiMo-V2.6** — Modelo de IA de Xiaomi con un billón de parámetros.
 - **Muse Charm** — Tecnología de Meta para videollamadas de cuerpo completo.
 
 ## Técnicas
 
-- Conectar el cerebro del sistema usando Claude Code o Codex.
-- Construir la memoria del sistema con Obsidian.
-- Añadir la voz al sistema con Whisper y Kokoro.
-- Instalar la interfaz del sistema con Cockpit y HUD.
-- Simular entrevistas de trabajo con Claude para mejorar respuestas.
-- Escribir funciones en Python para crear herramientas específicas del agente de IA.
-- Utilizar habilidades de diseño en Claude Code para mejorar proyectos interactivos.
-- Crear sitios web animados rápidamente usando Opus 5.5 y otras herramientas.
+- Instalar y configurar un sistema operativo Jarvis 2.0 para automatizar tareas diarias.
+- Usar Claude para simular entrevistas de trabajo y recibir retroalimentación.
+- Desarrollar un dashboard interno con Claude para evaluar la satisfacción del cliente.
+- Escribir funciones en Python para crear herramientas personalizadas cuando no están disponibles.
+- Instalar habilidades de diseño en Claude Code para mejorar proyectos interactivos.
+- Crear sitios web animados en 5 minutos usando Opus 5.5 y otras herramientas de IA.
+- Filtrar contenido en plataformas como X usando Jev para moderar y ordenar información.
 
-## Fuentes (8)
+## Fuentes (9)
 
+- [[2026-09-29-pirucisternas-Dd2UvhRAiRn|Filtrar contenido en X usando Jev]] — @pirucisternas · 2026-09-29
 - [[2026-09-29-dm-17949934836051344|Novedades en IA: Claude Opus 5.5 y más]] · 2026-09-29
 - [[2026-09-28-thinkingods-Ddy4ydnsz-B|Creación de sitios web animados en 5 minutos]] — @thinkingods · 2026-09-28
 - [[2026-09-28-dm-18185771137413189|10 estilos de diseño de motion con MiniMax]] · 2026-09-28
