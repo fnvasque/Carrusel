@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
 import OpenAI from "openai";
+import { OPENAI_OPTS } from "./types.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type TopicInfo, type TopicSynthesis } from "./types.ts";
 
@@ -55,7 +56,7 @@ function getClient(): OpenAI {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Falta OPENAI_API_KEY. Agrégala a .env para analizar posts.");
   }
-  client ??= new OpenAI();
+  client ??= new OpenAI(OPENAI_OPTS);
   return client;
 }
 
@@ -102,7 +103,8 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
   const topicList = input.topics.length
     ? input.topics.map((t) => `- ${t.name}${t.description ? `: ${t.description}` : ""}`).join("\n")
     : "(todavía no hay temas: crea el primero)";
-  const images = input.images.slice(0, MAX_IMAGES);
+  // Solo imágenes: un data URI de video (p. ej. un post que es video) lo rechaza la API.
+  const images = input.images.filter((u) => u.startsWith("data:image/")).slice(0, MAX_IMAGES);
 
   const text =
     `Tipo de pieza: ${input.kind}. ` +

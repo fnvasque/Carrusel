@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
+import { OPENAI_OPTS } from "./types.ts";
 import { fromBlob, openDb, toBlob } from "./db.ts";
 
 /**
@@ -16,7 +17,7 @@ const BATCH = 96;
 let client: OpenAI | null = null;
 function getClient(): OpenAI {
   if (!process.env.OPENAI_API_KEY) throw new Error("Falta OPENAI_API_KEY. Agrégala a .env.");
-  client ??= new OpenAI();
+  client ??= new OpenAI(OPENAI_OPTS);
   return client;
 }
 

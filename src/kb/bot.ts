@@ -144,17 +144,19 @@ async function runJob(job: Job): Promise<void> {
 async function runDmJob(job: Job): Promise<void> {
   const p = job.payload;
   const to = p.igSender!;
+  const started = Date.now();
+  const secs = () => `${Math.round((Date.now() - started) / 1000)} s`;
   try {
     const r = await addPost({
       url: p.url, user: p.user, note: p.note, caption: p.caption, videoUrl: p.videoUrl, mediaUrls: p.mediaUrls, sourceId: p.sourceId,
     });
     finish(job.id);
-    console.log(`📬 DM guardado: ${r.ficha.extraction.title}`);
+    console.log(`📬 DM guardado en ${secs()}: ${r.ficha.extraction.title}`);
     await sendDm(to, `${formatSavedText(r)}\n\n↩️ Para deshacer o cambiar el tema, usa Telegram o la terminal.`).catch(dmFailed);
   } catch (err) {
     finish(job.id, errText(err));
     if (err instanceof NeedsUserError && p.url) return void (await askDmUser(to, [p.url], p.note, p.caption));
-    console.warn(`⚠️  DM no guardado: ${errText(err)}`);
+    console.warn(`⚠️  DM no guardado (${secs()}): ${errText(err)}`);
     await sendDm(to, `❌ No pude guardar el post: ${errText(err)}`).catch(dmFailed);
   }
 }
@@ -439,6 +441,7 @@ const igAllowed = new Set((process.env.INBOX_ALLOWED_SENDERS ?? "").split(",").m
 const dmAwaitingUser = new Map<string, { urls: string[]; note?: string; caption?: string; at: number }>();
 
 async function onDm(ev: DmEvent): Promise<void> {
+  if (ev.isEcho) return onEcho(ev);
   if (!igAllowed.has(ev.senderId)) {
     console.warn(`🚫 DM de un remitente no autorizado (IGSID ${ev.senderId}). Si eres tú, agrégalo a INBOX_ALLOWED_SENDERS en .env y reinicia.`);
     return;
@@ -483,6 +486,25 @@ async function onDm(ev: DmEvent): Promise<void> {
   } else {
     await reply(`🤔 ${action.reason}. Compárteme un post o reel (Compartir → Enviar), o un link con el @cuenta.`);
   }
+}
+
+/**
+ * Ecos: mensajes enviados por @ia.punto.es (sus respuestas, o lo que escribas tú
+ * desde su bandeja). Solo se usa uno: si hay una pregunta "¿de qué cuenta es?"
+ * pendiente con esa persona y el eco es exactamente un @usuario, vale como
+ * respuesta. Todo lo demás se ignora (así la cuenta nunca se responde a sí misma).
+ */
+async function onEcho(ev: DmEvent): Promise<void> {
+  const to = ev.recipientId;
+  const waiting = to ? dmAwaitingUser.get(to) : undefined;
+  const handle = waiting && ev.text && !ev.attachments.length ? handleReply(ev.text) : undefined;
+  if (!to || !waiting || !handle || !igAllowed.has(to) || Date.now() - waiting.at >= LINK_WINDOW_MS) return;
+  dmAwaitingUser.delete(to);
+  console.log(`📬 Respuesta desde la bandeja de la cuenta: @${handle}`);
+  for (const url of waiting.urls) {
+    enqueue(0, { channel: "instagram", igSender: to, url, user: handle, note: waiting.note, caption: waiting.caption });
+  }
+  void work();
 }
 
 function startInstagramInbox(): void {

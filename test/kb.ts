@@ -490,16 +490,18 @@ check("validSignature: HMAC-SHA256 del body crudo con el app secret", () => {
   assert.equal(validSignature(body, "sha256=corta", "secreto"), false);
 });
 
-check("parseWebhook: mensajes con adjuntos; ignora ecos, borrados, lecturas y otros objetos", () => {
+check("parseWebhook: mensajes con adjuntos; ecos marcados; ignora borrados, lecturas y otros objetos", () => {
   const events = parseWebhook(igWebhook([
     { sender: { id: "111" }, timestamp: 5, message: { mid: "m1", attachments: [{ type: "ig_reel", payload: { url: "https://cdn/v.mp4", title: "caption del reel", reel_video_id: "999" } }] } },
     { sender: { id: "222" }, message: { mid: "m2", text: "respuesta", is_echo: true } },
     { sender: { id: "111" }, message: { mid: "m3", is_deleted: true } },
     { sender: { id: "111" }, read: { mid: "m1" } },
   ]));
-  assert.equal(events.length, 1);
+  assert.equal(events.length, 2);
+  assert.equal(events[1].isEcho, true);
+  assert.equal(events[1].text, "respuesta");
   assert.deepEqual(events[0], {
-    mid: "m1", senderId: "111", timestamp: 5, text: undefined,
+    mid: "m1", senderId: "111", recipientId: undefined, isEcho: undefined, timestamp: 5, text: undefined,
     attachments: [{ type: "ig_reel", url: "https://cdn/v.mp4", title: "caption del reel", mediaId: "999" }],
   });
   assert.deepEqual(parseWebhook({ object: "page", entry: [] }), []);

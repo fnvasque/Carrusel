@@ -3,6 +3,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { cosine, embedTexts } from "./embed.ts";
 import { resolveTopicName } from "./markdown.ts";
+import { OPENAI_OPTS } from "./types.ts";
 
 /**
  * Freno a la proliferación de temas: si el modelo propone un tema nuevo cuyo
@@ -51,7 +52,7 @@ const JudgeSchema = z.object({
 /** Pregunta a un modelo barato si el tema propuesto es uno de los candidatos. */
 async function judgeSameTopic(proposed: string, candidates: string[]): Promise<string | undefined> {
   if (!process.env.OPENAI_API_KEY) return undefined;
-  const res = await new OpenAI().beta.chat.completions.parse({
+  const res = await new OpenAI(OPENAI_OPTS).beta.chat.completions.parse({
     model: process.env.KB_JUDGE_MODEL ?? "gpt-4o-mini",
     temperature: 0,
     messages: [
