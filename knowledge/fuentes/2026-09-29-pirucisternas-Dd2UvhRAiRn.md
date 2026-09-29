@@ -1,5 +1,5 @@
 ---
-titulo: Filtrar contenido en X usando Jev
+titulo: 'Filtrar contenido en X con Jev, modelo de decisión IA'
 tipo: reel
 autor: '@pirucisternas'
 url: 'https://www.instagram.com/reel/Dd2UvhRAiRn/'
@@ -14,17 +14,17 @@ herramientas:
   - Claude
 tags:
   - kb/fuente
-  - jev
   - inteligencia-artificial
   - automatización
-  - moderación
-  - contenido
+  - filtrado-de-contenido
+  - modelos-de-decisión
+  - openai
 idioma: es
 confianza: high
 parcial: false
 ---
 <!-- kb:auto:start -->
-# Filtrar contenido en X usando Jev
+# Filtrar contenido en X con Jev, modelo de decisión IA
 
 ![[_adjuntos/Dd2UvhRAiRn.jpg|320]]
 
@@ -34,20 +34,20 @@ parcial: false
 
 ## Qué es
 
-El post describe cómo usar Jev, un modelo de IA de decisión, para filtrar contenido en X.
+El post describe cómo usar Jev, un modelo de decisión de IA, para filtrar contenido en X, eliminando publicaciones irrelevantes.
 
 ## Ideas clave
 
-- Jev es un modelo de decisión, no un LLM, creado por Diogo Almeida.
-- Filtra contenido en X identificando y ocultando posts de relleno.
-- El proceso es rápido y económico, costando 25 centavos por 30,000 posts al mes.
-- Jev puede usarse para moderar comentarios, ordenar correos y DMs.
-- Claude ayuda a crear un filtro que interactúa con Jev.
+- Jev es un modelo de decisión de IA que no genera texto, sino que elige opciones.
+- Fue creado por Diogo Almeida, investigador de OpenAI.
+- Se utiliza para filtrar contenido irrelevante en X, moderar comentarios y más.
+- El proceso de filtrado es rápido y económico, costando 25 centavos por 30,000 posts al mes.
+- Claude ayuda a configurar un filtro que usa Jev para decidir si un post es relleno.
 
 ## Herramientas
 
-- **Jev** — Filtrar y decidir sobre contenido en X.
-- **Claude** — Crear un filtro que interactúa con Jev.
+- **Jev** — Modelo de decisión de IA para filtrar contenido.
+- **Claude** — Configurar filtros que interactúan con Jev.
 
 > [!example]- Imágenes (1)
 > ![[_adjuntos/slides/Dd2UvhRAiRn/01.jpg|240]]
