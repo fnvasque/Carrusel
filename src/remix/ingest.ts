@@ -101,13 +101,19 @@ export function extractVideoUrl(html: string): string | undefined {
   return m ? unescapeUrl(m[1]) : undefined;
 }
 
-/** Descarga una imagen remota y la devuelve como data URI. */
+/** Tiempo máximo para descargar un medio (ms): un CDN colgado no debe bloquear la cola. */
+const MEDIA_TIMEOUT_MS = 30_000;
+
+/**
+ * Descarga un medio remoto y lo devuelve como data URI con su tipo real
+ * (`data:image/…` o `data:video/…`: quien lo use debe revisar cuál es).
+ */
 export async function fetchImageAsDataUri(url: string): Promise<string | undefined> {
   try {
-    const res = await fetch(url, { headers: { "User-Agent": UA } });
+    const res = await fetch(url, { headers: { "User-Agent": UA }, signal: AbortSignal.timeout(MEDIA_TIMEOUT_MS) });
     if (!res.ok) return undefined;
     const buf = Buffer.from(await res.arrayBuffer());
-    const mime = res.headers.get("content-type") ?? "image/jpeg";
+    const mime = (res.headers.get("content-type") ?? "image/jpeg").split(";")[0].trim();
     return `data:${mime};base64,${buf.toString("base64")}`;
   } catch {
     return undefined;

@@ -58,6 +58,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
 
   let images: string[] = [];
   let video: Awaited<ReturnType<typeof downloadVideo>> = null;
+  let directVideo = false;
   // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
   const videoUrl = meta?.videoUrl ?? (meta ? undefined : input.videoUrl);
@@ -72,7 +73,16 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   if (!images.length) {
     for (const u of (meta?.imageUrls ?? input.mediaUrls ?? []).slice(0, MAX_IMAGES)) {
       const uri = await fetchImageAsDataUri(u);
-      if (uri) images.push(uri);
+      if (uri?.startsWith("data:image/")) images.push(uri);
+      else if (uri?.startsWith("data:video/") && !video) {
+        // Un "post" que en realidad es video (el DM lo manda como mp4): cuadros + audio, como un reel.
+        video = await downloadVideo(u);
+        directVideo = !!video;
+        if (video) {
+          const duration = await probeDuration(video.path);
+          images.push(...(await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration)));
+        }
+      }
     }
   }
   progress("descargando", `${images.length} imagen(es)`);
@@ -112,7 +122,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   // 4) Extracción con el modelo (incluye asignación de tema).
   progress("analizando");
   const topics = await listTopics();
-  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl ? "reel" : input.mediaUrls?.length ? "post" : "manual";
+  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
   const raw = await extractFicha({ kind, caption, transcript, notes, images, topics });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");

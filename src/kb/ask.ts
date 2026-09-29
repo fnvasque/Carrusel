@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { OPENAI_OPTS } from "./types.ts";
 import { parseDateRange, search, type DateRange, type Hit } from "./search.ts";
 
 /**
@@ -18,7 +19,7 @@ const askModel = (): string => process.env.KB_ASK_MODEL ?? process.env.KB_MODEL 
 let client: OpenAI | null = null;
 function getClient(): OpenAI {
   if (!process.env.OPENAI_API_KEY) throw new Error("Falta OPENAI_API_KEY. Agrégala a .env.");
-  client ??= new OpenAI();
+  client ??= new OpenAI(OPENAI_OPTS);
   return client;
 }
 
