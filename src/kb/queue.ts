@@ -12,6 +12,8 @@ export interface JobPayload {
   igSender?: string;
   /** Medios que llegaron dentro de un DM (sin link): video de un reel e imágenes. */
   videoUrl?: string;
+  /** Video local (p. ej. grabación de pantalla enviada por Telegram). */
+  videoFile?: string;
   mediaUrls?: string[];
   sourceId?: string;
   url?: string;

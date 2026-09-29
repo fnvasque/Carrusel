@@ -113,6 +113,7 @@ async function runJob(job: Job): Promise<void> {
       note: payload.note,
       caption: payload.caption,
       images: payload.images,
+      videoFile: payload.videoFile,
       onProgress: (stage, detail) => void edit(api, chatId, job.statusMsgId, `${STAGE_LABEL[stage]}${detail ? ` <i>${escapeHtml(detail)}</i>` : ""}`),
     });
     const topic = r.topicsUpdated[0];
@@ -136,7 +137,7 @@ async function runJob(job: Job): Promise<void> {
         "Si el @usuario estaba mal, vuelve a mandar el link con el @ correcto.",
     );
   } finally {
-    for (const p of payload.images ?? []) await rm(p, { force: true }).catch(() => {});
+    for (const p of [...(payload.images ?? []), ...(payload.videoFile ? [payload.videoFile] : [])]) await rm(p, { force: true }).catch(() => {});
   }
 }
 
@@ -323,6 +324,31 @@ async function flushPhotos(chatId: number): Promise<void> {
   }
 }
 
+/** Límite de descarga de archivos de la Bot API de Telegram. */
+const TG_MAX_FILE_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Videos (p. ej. una grabación de pantalla de un reel cuyo video Meta no entrega):
+ * se suman al último link de los 30 min (cuadros + transcripción); sin link, ficha nueva.
+ */
+bot.on(["message:video", "message:video_note", "message:animation"], async (ctx) => {
+  const chatId = ctx.chat.id;
+  const v = ctx.message.video ?? ctx.message.video_note ?? ctx.message.animation;
+  if (!v) return;
+  if ((v.file_size ?? 0) > TG_MAX_FILE_BYTES) {
+    return void (await ctx.reply("🎬 Ese video pesa más de 20 MB (límite de Telegram para bots). Graba solo la parte importante, o mándalo por DM a @ia.punto.es."));
+  }
+  const path = await savePhoto(ctx.api, v.file_id);
+  const link = lastLink.get(chatId);
+  const recent = link && Date.now() - link.at < LINK_WINDOW_MS ? link : undefined;
+  const note = ctx.message.caption?.trim() || undefined;
+  if (recent) {
+    await queueSave(chatId, { url: recent.url, user: recent.user, videoFile: path, note }, "🎬 Sumo el video al último post…");
+  } else {
+    await queueSave(chatId, { videoFile: path, caption: note }, "🎬 Guardo el video como ficha nueva…");
+  }
+});
+
 bot.on(["message:photo", "message:document"], async (ctx) => {
   const chatId = ctx.chat.id;
   const photo = ctx.message.photo?.at(-1); // la de mayor resolución
@@ -439,6 +465,8 @@ const igAllowed = new Set((process.env.INBOX_ALLOWED_SENDERS ?? "").split(",").m
 
 /** Shares por DM que esperan el @usuario, por remitente (se descartan a los 30 min). */
 const dmAwaitingUser = new Map<string, { urls: string[]; note?: string; caption?: string; at: number }>();
+/** Último post compartido por DM de cada remitente: un video enviado después se suma a ese post. */
+const dmLastLink = new Map<string, { url: string; user?: string; caption?: string; at: number }>();
 
 async function onDm(ev: DmEvent): Promise<void> {
   if (ev.isEcho) return onEcho(ev);
@@ -448,7 +476,10 @@ async function onDm(ev: DmEvent): Promise<void> {
   }
   const reply = (text: string, quick: string[] = []) => sendDm(ev.senderId, text, quick).catch(dmFailed);
   const enqueueLinks = async (urls: string[], user: string | undefined, note?: string, caption?: string) => {
-    for (const url of urls) enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note, caption });
+    for (const url of urls) {
+      enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note, caption });
+      dmLastLink.set(ev.senderId, { url, user, caption, at: Date.now() });
+    }
     await reply(user ? `📥 Recibido, lo leo de @${user} y lo guardo…` : "📥 Recibido, busco de qué cuenta es y lo guardo…");
     void work();
   };
@@ -463,6 +494,14 @@ async function onDm(ev: DmEvent): Promise<void> {
 
   const action = dmAction(ev);
   console.log(`📬 DM recibido: ${action.kind}`);
+  const last = dmLastLink.get(ev.senderId);
+  if (action.kind === "save-media" && action.videoUrl && !action.mediaUrls.length && last && Date.now() - last.at < LINK_WINDOW_MS) {
+    // Un video enviado justo después de compartir un post (p. ej. una grabación de pantalla
+    // de un reel cuyo video Meta no entrega): se suma a ese post.
+    enqueue(0, { channel: "instagram", igSender: ev.senderId, url: last.url, user: last.user, caption: last.caption, videoUrl: action.videoUrl });
+    await reply("🎬 Sumo el video al último post que compartiste…");
+    return void work();
+  }
   if (action.kind === "save-media") {
     enqueue(0, {
       channel: "instagram", igSender: ev.senderId, videoUrl: action.videoUrl, mediaUrls: action.mediaUrls, caption: action.caption,
@@ -503,6 +542,7 @@ async function onEcho(ev: DmEvent): Promise<void> {
   console.log(`📬 Respuesta desde la bandeja de la cuenta: @${handle}`);
   for (const url of waiting.urls) {
     enqueue(0, { channel: "instagram", igSender: to, url, user: handle, note: waiting.note, caption: waiting.caption });
+    dmLastLink.set(to, { url, user: handle, caption: waiting.caption, at: Date.now() });
   }
   void work();
 }
