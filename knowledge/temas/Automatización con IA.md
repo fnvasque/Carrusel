@@ -2,24 +2,24 @@
 tags:
   - kb/tema
 descripcion: >-
-  La automatizacin con IA implica el uso de herramientas y tnicas de
-  inteligencia artificial para optimizar y automatizar tareas diarias y procesos
-  de negocio.
-fuentes: 7
+  La automatizaci3n con IA implica el uso de herramientas y tcnicas de
+  inteligencia artificial para optimizar y automatizar tareas en diversos
+  mbitos.
+fuentes: 8
 actualizado: '2026-09-29'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> La automatizacin con IA implica el uso de herramientas y tnicas de inteligencia artificial para optimizar y automatizar tareas diarias y procesos de negocio.
+> La automatizaci3n con IA implica el uso de herramientas y tcnicas de inteligencia artificial para optimizar y automatizar tareas en diversos mbitos.
 
 ## Lo esencial
 
-- La automatización con IA permite optimizar tareas diarias mediante sistemas como Jarvis OS 2.0, que integra herramientas para memoria, procesamiento de audio e interfaces de usuario.
-- Herramientas de IA como Claude y Codex son utilizadas para realizar tareas específicas, desde simulaciones de entrevistas hasta la creación de dashboards internos para evaluar la satisfacción del cliente.
-- La IA puede escribir sus propias herramientas en Python para tareas específicas, lo que reduce el uso de recursos en tareas repetitivas.
-- Existen habilidades de diseño que pueden ser instaladas en herramientas de IA para mejorar la creación de proyectos interactivos y visualmente atractivos.
-- Herramientas como Fastlane y MiniMax permiten la creación de contenido automatizado, como estilos de diseño de motion y contenido corto para solopreneurs.
+- La automatización con IA permite optimizar tareas diarias mediante sistemas como Jarvis OS 2.0, que integra herramientas para gestionar memoria, voz e interfaz de usuario.
+- Herramientas como Claude y Codex son fundamentales para realizar el trabajo real en sistemas automatizados.
+- La IA puede simular entrevistas de trabajo, crear contenido automatizado y diseñar proyectos interactivos mediante habilidades específicas.
+- Los agentes de IA pueden desarrollar sus propias herramientas en Python para tareas específicas, reduciendo el uso de recursos.
+- La automatización con IA se aplica en la creación de sitios web animados, gestión de llamadas a clientes y diseño de motion graphics.
 
 ## Herramientas mencionadas
 
@@ -34,7 +34,6 @@ actualizado: '2026-09-29'
 - **Fastlane** — Herramienta de contenido corto con IA para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
 - **Notion** — Almacenar notas de las llamadas.
-- **Python** — Escribir funciones para herramientas del agente de IA.
 - **Three.js** — Crear escenas 3D interactivas.
 - **GSAP** — Animaciones fluidas y control de desplazamiento.
 - **Design DNA** — Extraer y aplicar diseño de sitios web.
@@ -44,17 +43,25 @@ actualizado: '2026-09-29'
 - **OpenArt** — Plataforma utilizada para el diseño de motion.
 - **Opus 5.5** — Crear sitios web animados en 5 minutos.
 - **Prompts Library** — Proveer prompts para el diseño del sitio web.
+- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
+- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
+- **MiMo-V2.6** — Modelo de IA de Xiaomi con un billón de parámetros.
+- **Muse Charm** — Tecnología de Meta para videollamadas de cuerpo completo.
 
 ## Técnicas
 
-- Instalar un sistema operativo de automatización como Jarvis OS 2.0 con herramientas de IA.
-- Simular entrevistas de trabajo con Claude para mejorar habilidades de respuesta.
-- Escribir herramientas personalizadas en Python para tareas específicas cuando no hay una solución disponible.
-- Instalar habilidades de diseño en herramientas de IA para mejorar proyectos visuales.
-- Utilizar dashboards internos para evaluar la satisfacción del cliente mediante IA.
+- Conectar el cerebro del sistema usando Claude Code o Codex.
+- Construir la memoria del sistema con Obsidian.
+- Añadir la voz al sistema con Whisper y Kokoro.
+- Instalar la interfaz del sistema con Cockpit y HUD.
+- Simular entrevistas de trabajo con Claude para mejorar respuestas.
+- Escribir funciones en Python para crear herramientas específicas del agente de IA.
+- Utilizar habilidades de diseño en Claude Code para mejorar proyectos interactivos.
+- Crear sitios web animados rápidamente usando Opus 5.5 y otras herramientas.
 
-## Fuentes (7)
+## Fuentes (8)
 
+- [[2026-09-29-dm-17949934836051344|Novedades en IA: Claude Opus 5.5 y más]] · 2026-09-29
 - [[2026-09-28-thinkingods-Ddy4ydnsz-B|Creación de sitios web animados en 5 minutos]] — @thinkingods · 2026-09-28
 - [[2026-09-28-dm-18185771137413189|10 estilos de diseño de motion con MiniMax]] · 2026-09-28
 - [[2026-09-28-dm-18138080305717127|Instalación de habilidades de diseño en Claude Code]] · 2026-09-28
