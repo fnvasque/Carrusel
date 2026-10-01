@@ -1,40 +1,44 @@
 ---
 tags:
   - kb/tema
-descripcion: Automatizacin de tareas mediante el uso de inteligencia artificial.
-fuentes: 16
+descripcion: >-
+  La automatizacin con IA se centra en el uso de herramientas y tnicas de
+  inteligencia artificial para optimizar y automatizar tareas repetitivas y
+  complejas.
+fuentes: 17
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> Automatizacin de tareas mediante el uso de inteligencia artificial.
+> La automatizacin con IA se centra en el uso de herramientas y tnicas de inteligencia artificial para optimizar y automatizar tareas repetitivas y complejas.
 
 ## Lo esencial
 
-- La automatización con IA implica el uso de herramientas y modelos de inteligencia artificial para realizar tareas repetitivas o complejas de manera eficiente.
-- Sistemas como Jarvis OS 2.0 integran múltiples herramientas de IA para gestionar tareas diarias, incluyendo procesamiento de audio, almacenamiento de memoria y clasificación de solicitudes.
-- Herramientas como Claude Code, Codex, y Jev son fundamentales para la automatización, permitiendo desde la ejecución de tareas hasta la optimización de decisiones específicas.
-- La orquestación de sistemas multi-agente permite coordinar diferentes agentes con roles específicos para alcanzar metas complejas de manera eficiente.
-- La creación de contenido automatizado, como la conversión de videos largos en contenido corto, es una aplicación común de la automatización con IA.
-- La integración de modelos de decisión como Jev en sistemas RAG ayuda a verificar y asegurar la precisión de las respuestas generadas por IA.
+- La automatización con IA implica el uso de herramientas de inteligencia artificial para optimizar tareas diarias y procesos complejos.
+- Sistemas como Jarvis OS 2.0 integran múltiples herramientas de IA para gestionar tareas diarias de manera automatizada.
+- Herramientas como Claude, Codex y Jev son fundamentales para la automatización, cada una con funciones específicas como procesamiento de lenguaje, clasificación de tareas y optimización de decisiones.
+- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para alcanzar objetivos complejos de manera eficiente.
+- El uso de IA en la automatización puede incluir desde la creación de contenido hasta la simulación de entrevistas de trabajo y la gestión de sistemas de decisión.
+- La automatización también se aplica en la producción de contenido, como la conversión de videos largos en contenido corto para plataformas como YouTube y TikTok.
+- Las herramientas de IA pueden ser configuradas para mejorar la eficiencia en tareas específicas, como la reducción de costos de vuelos mediante prompts personalizados.
 
 ## Herramientas mencionadas
 
-- **Claude Code** — Realizar el trabajo real del sistema operativo automatizado.
-- **Codex** — Realizar el trabajo real del sistema operativo automatizado.
-- **Obsidian** — Almacenar la memoria del sistema automatizado.
-- **Whisper** — Procesar el audio localmente en sistemas automatizados.
-- **Kokoro** — Responder en voz alta en sistemas automatizados.
-- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones específicas y verificar en sistemas RAG.
-- **Cockpit** — Proveer la interfaz del sistema automatizado.
-- **HUD** — Proveer la interfaz del sistema automatizado.
+- **Claude Code** — Realizar el trabajo real del sistema en Jarvis OS 2.0.
+- **Codex** — Realizar el trabajo real del sistema en Jarvis OS 2.0.
+- **Obsidian** — Almacenar la memoria del sistema en Jarvis OS 2.0.
+- **Whisper** — Procesar el audio localmente en Jarvis OS 2.0.
+- **Kokoro** — Responder en voz alta en Jarvis OS 2.0.
+- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones específicas.
+- **Cockpit** — Proveer la interfaz del sistema en Jarvis OS 2.0.
+- **HUD** — Proveer la interfaz del sistema en Jarvis OS 2.0.
 - **Fastlane** — Herramienta de contenido corto con IA para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
 - **Notion** — Almacenar notas de las llamadas.
 - **Python** — Escribir funciones para herramientas del agente de IA.
 - **Three.js** — Crear escenas 3D interactivas.
-- **GSAP** — Animaciones fluidas y control de desplazamiento.
+- **GSAP** — Ofrecer animaciones fluidas y control de desplazamiento.
 - **Design DNA** — Extraer y aplicar diseño de sitios web.
 - **Motion Design** — Facilitar animaciones Lottie y SVG.
 - **Genjutsu** — Aportar dirección creativa y pulido final.
@@ -54,20 +58,21 @@ actualizado: '2026-10-01'
 - **Planning Agent** — Descompone tareas y crea estrategias.
 - **Execution Agent** — Ejecuta tareas usando herramientas.
 - **Review Agent** — Valida resultados y asegura calidad.
+- **Sonnet 5.5** — Mejorar los resultados al usar los prompts.
 
 ## Técnicas
 
-- Conectar el cerebro usando Claude Code o Codex para automatizar tareas.
-- Construir la memoria del sistema con Obsidian.
-- Añadir la voz con Whisper y Kokoro para interacción de audio.
-- Instalar la interfaz con Cockpit y HUD para interacción visual.
-- Usar Claude para simular entrevistas de trabajo y mejorar respuestas.
-- Escribir funciones en Python para crear herramientas personalizadas.
-- Integrar Jev en sistemas RAG para verificación y seguridad.
-- Orquestar sistemas multi-agente para coordinar tareas complejas.
+- Configurar un sistema operativo automatizado como Jarvis OS 2.0 para gestionar tareas diarias.
+- Usar Claude para simular entrevistas de trabajo y recibir retroalimentación.
+- Escribir funciones en Python para crear herramientas personalizadas cuando no están disponibles.
+- Instalar habilidades de diseño en Claude Code para mejorar proyectos interactivos.
+- Convertir videos largos en contenido corto para plataformas como YouTube y TikTok usando herramientas como Higgsfield.
+- Orquestar sistemas multi-agente para coordinar agentes con diferentes roles en tareas complejas.
+- Usar prompts personalizados con Claude para reducir costos de vuelos.
 
-## Fuentes (16)
+## Fuentes (17)
 
+- [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
 - [[2026-10-01-bhawna.io-DdgmEKfh_QF|Conceptos clave para dominar la IA agentiva en 2027]] — @bhawna.io · 2026-10-01
 - [[2026-09-30-dm-17882592102502890|Orquestación de Sistemas Multi-Agente]] · 2026-09-30
 - [[2026-09-29-pirucisternas-Dd2UvhRAiRn|Filtrar contenido en X con Jev, modelo de decisión IA]] — @pirucisternas · 2026-09-29
