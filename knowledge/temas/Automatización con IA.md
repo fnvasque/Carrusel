@@ -1,78 +1,62 @@
 ---
 tags:
   - kb/tema
-descripcion: Automatización de tareas mediante el uso de inteligencia artificial.
-fuentes: 23
+descripcion: Automatizacin de tareas y procesos mediante el uso de inteligencia artificial.
+fuentes: 24
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> Automatización de tareas mediante el uso de inteligencia artificial.
+> Automatizacin de tareas y procesos mediante el uso de inteligencia artificial.
 
 ## Lo esencial
 
-- La automatización con IA implica el uso de herramientas y sistemas para realizar tareas repetitivas o complejas de manera eficiente y con mínima intervención humana.
-- Sistemas como Jarvis OS 2.0 integran múltiples herramientas de IA para gestionar tareas diarias, incluyendo procesamiento de audio, almacenamiento de memoria y clasificación de solicitudes.
-- Herramientas como Claude y Jev son utilizadas para simular entrevistas, optimizar decisiones y verificar tareas en sistemas de IA.
-- La orquestación de sistemas multi-agente permite coordinar diferentes agentes de IA para lograr objetivos complejos de manera eficiente.
-- El uso de playbooks y la ingeniería de bucles son métodos para simplificar y mejorar la gestión de agentes de IA.
-- Repositorios de GitHub ofrecen recursos para reducir costos y facilitar la creación de aplicaciones mediante IA.
+- La automatización con IA permite gestionar tareas diarias y complejas mediante sistemas operativos personalizados como Jarvis OS 2.0, que integra herramientas como Claude Code, Codex, Obsidian, Whisper, Kokoro, Jev y Cockpit.
+- Herramientas como Claude y Jev son utilizadas para simular entrevistas, optimizar decisiones específicas y verificar procesos en sistemas RAG, mejorando la eficiencia y reduciendo costos.
+- La creación de contenido automatizado se facilita con herramientas como Fastlane, Higgsfield y MiniMax, que transforman contenido largo en formatos cortos y atractivos para plataformas como YouTube y redes sociales.
+- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para alcanzar metas complejas de manera eficiente, utilizando componentes como agentes, herramientas, orquestador, comunicación, memoria y evaluación.
+- El uso de playbooks y repositorios de GitHub simplifica la implementación de agentes de IA y la creación de aplicaciones completas con un solo prompt, reduciendo costos y facilitando la gestión de proyectos de IA.
 
 ## Herramientas mencionadas
 
-- **Claude Code** — Realizar el trabajo principal en sistemas automatizados.
-- **Codex** — Realizar el trabajo principal en sistemas automatizados.
+- **Claude Code** — Ejecutar procesos de automatización y simulación de entrevistas.
+- **Codex** — Funcionar como motor principal en sistemas operativos automatizados.
 - **Obsidian** — Almacenar y gestionar la memoria del sistema.
-- **Whisper** — Procesar el audio localmente.
+- **Whisper** — Procesar audio localmente.
 - **Kokoro** — Responder en voz alta.
-- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones específicas.
+- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones y verificar procesos en sistemas RAG.
 - **Cockpit** — Proveer la interfaz del sistema.
-- **HUD** — Proveer la interfaz del sistema.
-- **Fastlane** — Crear contenido corto con IA.
+- **Fastlane** — Crear contenido corto automatizado para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
-- **Notion** — Almacenar notas de las llamadas.
+- **Notion** — Almacenar notas de llamadas.
 - **Three.js** — Crear escenas 3D interactivas.
 - **GSAP** — Ofrecer animaciones fluidas y control de desplazamiento.
 - **Design DNA** — Extraer y aplicar diseño de sitios web.
 - **Motion Design** — Facilitar animaciones Lottie y SVG.
 - **Genjutsu** — Aportar dirección creativa y pulido final.
 - **MiniMax** — Crear estilos de diseño de motion.
-- **OpenArt** — Plataforma para diseño de motion.
 - **Opus 5.5** — Crear sitios web animados rápidamente.
 - **Higgsfield** — Convertir videos largos en contenido corto.
-- **Claude Opus 5.5** — Modelo de IA avanzado para diversas aplicaciones.
-- **GPT-6 Sol y Luna** — Modelos de IA con mejoras de Astra.
-- **MiMo-V2.6** — Modelo de IA de Xiaomi.
-- **Muse Charm** — Tecnología para videollamadas de cuerpo completo.
-- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
-- **Research Agent** — Encontrar y recopilar información.
-- **Analysis Agent** — Analizar datos y generar insights.
-- **Planning Agent** — Descomponer tareas y crear estrategias.
-- **Execution Agent** — Ejecutar tareas usando herramientas.
-- **Review Agent** — Validar resultados y asegurar calidad.
-- **GitHub** — Plataforma para alojar repositorios de código abierto.
-- **Sonnet 5.5** — Mejorar resultados al usar prompts con Claude.
-- **Company Brain** — Almacenar la memoria de la empresa.
-- **Composio** — Proveer herramientas para el sistema.
-- **Jarvis** — Servir como la interfaz del sistema.
+- **GitHub** — Alojar repositorios para crear aplicaciones y reducir costos en IA.
 
 ## Técnicas
 
-- Conectar el cerebro del sistema usando herramientas como Claude Code o Codex.
+- Conectar el cerebro del sistema usando Claude Code o Codex.
 - Construir la memoria del sistema con Obsidian.
-- Añadir capacidades de voz con Whisper y Kokoro.
-- Instalar interfaces de usuario con Cockpit y HUD.
-- Simular entrevistas de trabajo con Claude para mejorar respuestas.
-- Escribir funciones en Python para crear herramientas específicas cuando no están disponibles.
+- Añadir la voz al sistema con Whisper y Kokoro.
+- Instalar la interfaz del sistema con Cockpit y HUD.
+- Usar Claude para simular entrevistas de trabajo y recibir retroalimentación.
+- Implementar Jev como capa de verificación en sistemas RAG para evitar errores comunes.
+- Coordinar agentes en sistemas multi-agente para tareas complejas.
 - Utilizar playbooks para simplificar la gestión de agentes de IA.
-- Implementar la orquestación de sistemas multi-agente para coordinar tareas complejas.
-- Usar prompts para reducir costos en servicios como vuelos.
+- Crear aplicaciones completas a partir de un solo prompt usando repositorios de GitHub.
 
-## Fuentes (23)
+## Fuentes (24)
 
 - [[2026-10-01-dm-18165912187486007|Repositorios de GitHub para crear apps con un solo prompt]] · 2026-10-01
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
+- [[2026-10-01-dm-18105181870932144|Sistema de memoria agentica en IA: tres niveles]] · 2026-10-01
 - [[2026-10-01-dm-17985691448881680|Construye el cerebro de tu empresa con JEV]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
 - [[2026-10-01-dm-17925788511423636|Repositorios de GitHub para reducir gastos en IA]] · 2026-10-01

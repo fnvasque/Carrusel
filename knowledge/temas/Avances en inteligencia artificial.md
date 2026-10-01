@@ -1,45 +1,48 @@
 ---
 tags:
   - kb/tema
-descripcion: Avances recientes en inteligencia artificial y sus aplicaciones.
-fuentes: 16
+descripcion: >-
+  Avances recientes en inteligencia artificial que incluyen nuevos modelos,
+  herramientas y técnicas para mejorar la automatización y la eficiencia en
+  diversas aplicaciones.
+fuentes: 17
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Avances recientes en inteligencia artificial y sus aplicaciones.
+> Avances recientes en inteligencia artificial que incluyen nuevos modelos, herramientas y técnicas para mejorar la automatización y la eficiencia en diversas aplicaciones.
 
 ## Lo esencial
 
-- Claude Opus 5.5 es un modelo avanzado de IA de Anthropic utilizado para crear juegos y escenas 3D rápidamente.
-- OpenAI lanzó GPT-6 Sol y Luna, modelos más accesibles con mejoras significativas.
-- Jev es una herramienta que optimiza decisiones específicas en IA, evitando el uso de modelos de lenguaje grandes para tareas simples y actuando como capa de verificación en sistemas RAG.
-- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para tareas complejas, mejorando la eficiencia y escalabilidad.
-- La ingeniería de bucles y el uso de playbooks simplifican y mejoran la gestión de agentes de IA.
-- Existen juegos educativos como Tensor Trust que enseñan conceptos avanzados de IA como la inyección de prompts y seguridad.
-- Herramientas como Claude y Jev se utilizan para automatizar y optimizar procesos en diversas aplicaciones, desde la gestión de tareas hasta la reducción de costos en vuelos.
+- Claude Opus 5.5 y GPT-6 Sol y Luna son modelos avanzados que mejoran la accesibilidad y capacidades de la IA.
+- Jev es una herramienta eficiente para decisiones específicas y verificación en sistemas RAG, evitando el uso de LLM generales para tareas simples.
+- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
+- La ingeniería de bucles y el uso de playbooks simplifican la gestión de agentes de IA, mejorando la detección de errores y la eficiencia del sistema.
+- Herramientas como MiniMax y OpenArt facilitan la creación de estilos de motion design, mientras que juegos como Tensor Trust enseñan conceptos avanzados de IA.
+- Claude y otras herramientas ayudan a reducir costos en diversas áreas, como vuelos y diseño de interfaces, mediante el uso de prompts y técnicas de optimización.
 
 ## Herramientas mencionadas
 
-- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras de accesibilidad.
-- **Jev** — Optimizar decisiones específicas y verificar en sistemas RAG.
+- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
+- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
+- **Jev** — Optimizar decisiones específicas y verificación en sistemas RAG.
 - **MiniMax** — Crear estilos de motion design.
-- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
+- **OpenArt** — Plataforma para crear diseños de movimiento.
 - **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
-- **Claude** — Automatizar procesos y mejorar diseño y texto.
+- **Claude** — Reducir costos de vuelos y mejorar diseño y texto mediante prompts.
 
 ## Técnicas
 
-- Uso de Jev para filtrar contenido irrelevante en plataformas sociales.
-- Implementación de sistemas multi-agente para coordinar tareas complejas.
-- Aplicación de ingeniería de bucles para detectar errores en código.
-- Uso de prompts con Claude para reducir costos de vuelos.
+- Orquestación de sistemas multi-agente para coordinar tareas complejas.
+- Ingeniería de bucles para detectar errores en código.
+- Uso de playbooks para simplificar la gestión de agentes de IA.
+- Implementación de sistemas de memoria agentica en tres niveles.
 
-## Fuentes (16)
+## Fuentes (17)
 
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
+- [[2026-10-01-dm-18105181870932144|Sistema de memoria agentica en IA: tres niveles]] · 2026-10-01
 - [[2026-10-01-dm-17985691448881680|Construye el cerebro de tu empresa con JEV]] · 2026-10-01
 - [[2026-10-01-dm-17942770941086621|Juegos para aprender conceptos de IA]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
