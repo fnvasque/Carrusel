@@ -1,39 +1,38 @@
 ---
 tags:
   - kb/tema
-descripcion: >-
-  La automatizacin con IA se refiere al uso de inteligencia artificial para
-  realizar tareas automticamente, mejorando la eficiencia y reduciendo la
-  necesidad de intervencin humana.
-fuentes: 15
-actualizado: '2026-09-30'
+descripcion: Automatizacin de tareas mediante el uso de inteligencia artificial.
+fuentes: 16
+actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> La automatizacin con IA se refiere al uso de inteligencia artificial para realizar tareas automticamente, mejorando la eficiencia y reduciendo la necesidad de intervencin humana.
+> Automatizacin de tareas mediante el uso de inteligencia artificial.
 
 ## Lo esencial
 
-- La automatización con IA implica el uso de herramientas y modelos de inteligencia artificial para realizar tareas de manera automática y eficiente.
-- Sistemas como Jarvis OS 2.0 integran múltiples herramientas de IA para gestionar tareas diarias, desde procesamiento de audio hasta clasificación de solicitudes.
-- Herramientas como Claude, Codex, y Jev son utilizadas para diferentes funciones, desde simular entrevistas de trabajo hasta optimizar decisiones específicas.
-- La automatización puede aplicarse a la creación de contenido, como transformar videos largos en contenido corto para plataformas como YouTube.
-- La orquestación de sistemas multi-agente permite coordinar diferentes agentes de IA para manejar tareas complejas de manera eficiente.
+- La automatización con IA implica el uso de herramientas y modelos de inteligencia artificial para realizar tareas repetitivas o complejas de manera eficiente.
+- Sistemas como Jarvis OS 2.0 integran múltiples herramientas de IA para gestionar tareas diarias, incluyendo procesamiento de audio, almacenamiento de memoria y clasificación de solicitudes.
+- Herramientas como Claude Code, Codex, y Jev son fundamentales para la automatización, permitiendo desde la ejecución de tareas hasta la optimización de decisiones específicas.
+- La orquestación de sistemas multi-agente permite coordinar diferentes agentes con roles específicos para alcanzar metas complejas de manera eficiente.
+- La creación de contenido automatizado, como la conversión de videos largos en contenido corto, es una aplicación común de la automatización con IA.
+- La integración de modelos de decisión como Jev en sistemas RAG ayuda a verificar y asegurar la precisión de las respuestas generadas por IA.
 
 ## Herramientas mencionadas
 
 - **Claude Code** — Realizar el trabajo real del sistema operativo automatizado.
 - **Codex** — Realizar el trabajo real del sistema operativo automatizado.
-- **Obsidian** — Almacenar la memoria del sistema.
-- **Whisper** — Procesar el audio localmente.
-- **Kokoro** — Responder en voz alta.
-- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones específicas.
-- **Cockpit** — Proveer la interfaz del sistema.
-- **HUD** — Proveer la interfaz del sistema.
+- **Obsidian** — Almacenar la memoria del sistema automatizado.
+- **Whisper** — Procesar el audio localmente en sistemas automatizados.
+- **Kokoro** — Responder en voz alta en sistemas automatizados.
+- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones específicas y verificar en sistemas RAG.
+- **Cockpit** — Proveer la interfaz del sistema automatizado.
+- **HUD** — Proveer la interfaz del sistema automatizado.
 - **Fastlane** — Herramienta de contenido corto con IA para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
 - **Notion** — Almacenar notas de las llamadas.
+- **Python** — Escribir funciones para herramientas del agente de IA.
 - **Three.js** — Crear escenas 3D interactivas.
 - **GSAP** — Animaciones fluidas y control de desplazamiento.
 - **Design DNA** — Extraer y aplicar diseño de sitios web.
@@ -43,7 +42,7 @@ actualizado: '2026-09-30'
 - **OpenArt** — Plataforma utilizada para el diseño de motion.
 - **Opus 5.5** — Crear sitios web animados en 5 minutos.
 - **Prompts Library** — Proveer prompts para el diseño del sitio web.
-- **Higgsfield** — Convierte videos largos en contenido corto para diferentes plataformas.
+- **Higgsfield** — Convertir videos largos en contenido corto para diferentes plataformas.
 - **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
 - **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
 - **MiMo-V2.6** — Modelo de IA de Xiaomi con un billón de parámetros.
@@ -58,17 +57,18 @@ actualizado: '2026-09-30'
 
 ## Técnicas
 
-- Conectar el cerebro usando Claude Code o Codex.
-- Construir la memoria con Obsidian.
-- Añadir la voz con Whisper y Kokoro.
-- Instalar la interfaz con Cockpit y HUD.
-- Simular entrevistas de trabajo con Claude para mejorar respuestas.
-- Escribir funciones en Python para crear herramientas específicas.
-- Usar Jev para filtrar contenido irrelevante y moderar comentarios.
-- Coordinar agentes de IA para manejar tareas complejas en sistemas multi-agente.
+- Conectar el cerebro usando Claude Code o Codex para automatizar tareas.
+- Construir la memoria del sistema con Obsidian.
+- Añadir la voz con Whisper y Kokoro para interacción de audio.
+- Instalar la interfaz con Cockpit y HUD para interacción visual.
+- Usar Claude para simular entrevistas de trabajo y mejorar respuestas.
+- Escribir funciones en Python para crear herramientas personalizadas.
+- Integrar Jev en sistemas RAG para verificación y seguridad.
+- Orquestar sistemas multi-agente para coordinar tareas complejas.
 
-## Fuentes (15)
+## Fuentes (16)
 
+- [[2026-10-01-bhawna.io-DdgmEKfh_QF|Conceptos clave para dominar la IA agentiva en 2027]] — @bhawna.io · 2026-10-01
 - [[2026-09-30-dm-17882592102502890|Orquestación de Sistemas Multi-Agente]] · 2026-09-30
 - [[2026-09-29-pirucisternas-Dd2UvhRAiRn|Filtrar contenido en X con Jev, modelo de decisión IA]] — @pirucisternas · 2026-09-29
 - [[2026-09-29-dm-18418653886154574|Top 20 habilidades con la API de Jev]] · 2026-09-29
