@@ -1,51 +1,45 @@
 ---
 tags:
   - kb/tema
-descripcion: >-
-  Los avances en inteligencia artificial abarcan desde nuevos modelos de IA
-  hasta herramientas y técnicas para mejorar la automatización y la eficiencia
-  en diversas áreas.
-fuentes: 20
+descripcion: Avances recientes en inteligencia artificial y sus aplicaciones.
+fuentes: 21
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances en inteligencia artificial abarcan desde nuevos modelos de IA hasta herramientas y técnicas para mejorar la automatización y la eficiencia en diversas áreas.
+> Avances recientes en inteligencia artificial y sus aplicaciones.
 
 ## Lo esencial
 
-- Claude Opus 5.5 es un modelo avanzado de Anthropic que permite crear juegos y escenas 3D rápidamente.
+- Claude Opus 5.5 es un modelo avanzado de Anthropic utilizado para crear juegos y escenas 3D rápidamente.
 - OpenAI lanzó GPT-6 Sol y Luna, modelos mejorados y más accesibles.
-- Jev es una herramienta que optimiza decisiones específicas y actúa como capa de verificación en sistemas RAG para evitar errores comunes.
+- Jev es una herramienta de IA que optimiza decisiones específicas y actúa como capa de verificación en sistemas RAG.
 - La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para tareas complejas.
-- La ingeniería de bucles y el método Karpathy son técnicas para mejorar y verificar el código de manera iterativa.
-- Los juegos como Tensor Trust permiten aprender conceptos avanzados de IA de manera interactiva.
-- Existen herramientas y repositorios de código abierto en GitHub que ayudan a reducir costos y mejorar la eficiencia en proyectos de IA.
+- La ingeniería de bucles y el uso de playbooks son métodos para mejorar la eficiencia de los agentes de IA.
+- Existen repositorios de GitHub que ayudan a reducir costos y mejorar la gestión de proyectos de IA.
+- Claude es una herramienta versátil utilizada para mejorar interfaces, textos y crear ofertas irresistibles.
 
 ## Herramientas mencionadas
 
-- **Claude Code + Codex** — Motor principal para sistemas automatizados como Jarvis OS 2.0.
-- **Obsidian** — Almacenar y gestionar la memoria del sistema.
-- **JEV** — Optimizar decisiones específicas y actuar como capa de verificación en sistemas RAG.
 - **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
 - **GPT-6 Sol y Luna** — Modelos de IA mejorados y accesibles de OpenAI.
-- **MiniMax** — Crear estilos de motion design.
-- **OpenArt** — Plataforma para crear diseños de movimiento.
+- **Jev** — Optimizar decisiones específicas y verificar en sistemas RAG.
 - **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
-- **GitHub** — Plataforma para repositorios de código abierto que reducen costos en IA.
-- **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
+- **Claude** — Mejorar interfaces, textos y crear ofertas irresistibles.
+- **GitHub** — Plataforma para repositorios que reducen costos en IA.
 
 ## Técnicas
 
-- Orquestación de sistemas multi-agente para coordinar tareas complejas.
-- Ingeniería de bucles para detectar y corregir errores en el código.
-- Uso de prompts para convertir ChatGPT en un agente inteligente para negocios.
-- Aplicación de playbooks para simplificar el uso de agentes de IA.
-- Uso de repositorios de GitHub para reducir costos en proyectos de IA.
+- Uso de Jev para evitar alucinaciones en sistemas RAG.
+- Orquestación de sistemas multi-agente para tareas complejas.
+- Ingeniería de bucles para detectar errores en código.
+- Uso de playbooks para simplificar agentes de IA.
+- Prompts para reducir costos de vuelos con Claude.
 
-## Fuentes (20)
+## Fuentes (21)
 
+- [[2026-10-01-dm-UxNTQ3MTY3NTkxNjI4OAZDZD|Claude para crear ofertas irresistibles]] · 2026-10-01
 - [[2026-10-01-dm-18637728142021643|Repositorios GitHub útiles y gratuitos para desarrolladores]] · 2026-10-01
 - [[2026-10-01-dm-18191847925400751|Creación de un equipo de startup con agentes de IA]] · 2026-10-01
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
