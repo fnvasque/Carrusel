@@ -1,53 +1,47 @@
 ---
 tags:
   - kb/tema
-descripcion: >-
-  Los avances recientes en inteligencia artificial se centran en la optimización
-  de tareas, la creación de modelos más potentes y la mejora de la interacción
-  con sistemas automatizados.
-fuentes: 15
+descripcion: Avances recientes en inteligencia artificial y sus aplicaciones.
+fuentes: 16
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances recientes en inteligencia artificial se centran en la optimización de tareas, la creación de modelos más potentes y la mejora de la interacción con sistemas automatizados.
+> Avances recientes en inteligencia artificial y sus aplicaciones.
 
 ## Lo esencial
 
-- Se han desarrollado modelos de IA avanzados como Claude Opus 5.5 y GPT-6 Sol y Luna, que ofrecen mejoras significativas en procesamiento y accesibilidad.
-- Jev es una herramienta que optimiza decisiones específicas, complementando a los LLM generales y mejorando la eficiencia en tareas repetitivas y de verificación.
-- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
-- El uso de herramientas como Claude y Jev facilita la automatización de procesos y la reducción de costos en diversas aplicaciones, desde la gestión empresarial hasta la moderación de contenido.
-- La ingeniería de bucles y el uso de playbooks simplifican la gestión de agentes de IA, mejorando la detección de errores y la ejecución de tareas.
-- Plataformas como GitHub ofrecen repositorios de código abierto que ayudan a reducir costos y mejorar la implementación de soluciones de IA.
+- Claude Opus 5.5 es un modelo avanzado de IA de Anthropic utilizado para crear juegos y escenas 3D rápidamente.
+- OpenAI lanzó GPT-6 Sol y Luna, modelos más accesibles con mejoras significativas.
+- Jev es una herramienta que optimiza decisiones específicas en IA, evitando el uso de modelos de lenguaje grandes para tareas simples y actuando como capa de verificación en sistemas RAG.
+- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para tareas complejas, mejorando la eficiencia y escalabilidad.
+- La ingeniería de bucles y el uso de playbooks simplifican y mejoran la gestión de agentes de IA.
+- Existen juegos educativos como Tensor Trust que enseñan conceptos avanzados de IA como la inyección de prompts y seguridad.
+- Herramientas como Claude y Jev se utilizan para automatizar y optimizar procesos en diversas aplicaciones, desde la gestión de tareas hasta la reducción de costos en vuelos.
 
 ## Herramientas mencionadas
 
-- **Claude Code + Codex** — Funciona como el motor principal del sistema Jarvis OS 2.0.
-- **Obsidian** — Se utiliza para almacenar y gestionar la memoria del sistema en Jarvis OS 2.0.
-- **Local Voice** — Actúa como entrada y salida de audio en Jarvis OS 2.0.
-- **JEV** — Optimiza decisiones específicas y actúa como capa de verificación en sistemas RAG.
-- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
-- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
+- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
+- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras de accesibilidad.
+- **Jev** — Optimizar decisiones específicas y verificar en sistemas RAG.
 - **MiniMax** — Crear estilos de motion design.
-- **OpenArt** — Plataforma para crear diseños de movimiento.
-- **Orchestrator** — Coordina y gestiona el sistema multi-agente.
-- **Claude** — Construcción de sistemas de IA y automatización, y reducción de costos de vuelos mediante prompts.
-- **GitHub** — Plataforma donde se encuentran repositorios para reducir costos en IA.
+- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
+- **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
+- **Claude** — Automatizar procesos y mejorar diseño y texto.
 
 ## Técnicas
 
-- Optimización de decisiones específicas con Jev para evitar el uso de LLM generales en tareas simples.
-- Orquestación de sistemas multi-agente para coordinar agentes especializados en tareas complejas.
-- Uso de ingeniería de bucles para detectar errores en código mediante iteraciones constantes.
-- Implementación de playbooks para simplificar la gestión de agentes de IA.
-- Uso de prompts con Claude para reducir costos de vuelos y mejorar la eficiencia en tareas automatizadas.
+- Uso de Jev para filtrar contenido irrelevante en plataformas sociales.
+- Implementación de sistemas multi-agente para coordinar tareas complejas.
+- Aplicación de ingeniería de bucles para detectar errores en código.
+- Uso de prompts con Claude para reducir costos de vuelos.
 
-## Fuentes (15)
+## Fuentes (16)
 
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
 - [[2026-10-01-dm-17985691448881680|Construye el cerebro de tu empresa con JEV]] · 2026-10-01
+- [[2026-10-01-dm-17942770941086621|Juegos para aprender conceptos de IA]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
 - [[2026-10-01-dm-17925788511423636|Repositorios de GitHub para reducir gastos en IA]] · 2026-10-01
 - [[2026-10-01-dm-17902005075663616|Simplificación de agentes de IA con playbooks]] · 2026-10-01
