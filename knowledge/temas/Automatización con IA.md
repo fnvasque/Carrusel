@@ -1,61 +1,72 @@
 ---
 tags:
   - kb/tema
-descripcion: Automatizacin de tareas y procesos mediante el uso de inteligencia artificial.
-fuentes: 24
+descripcion: >-
+  Automatizacin de tareas y procesos mediante el uso de herramientas y tcnicas
+  de inteligencia artificial.
+fuentes: 25
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> Automatizacin de tareas y procesos mediante el uso de inteligencia artificial.
+> Automatizacin de tareas y procesos mediante el uso de herramientas y tcnicas de inteligencia artificial.
 
 ## Lo esencial
 
-- La automatización con IA permite gestionar tareas diarias y complejas mediante sistemas operativos personalizados como Jarvis OS 2.0, que integra herramientas como Claude Code, Codex, Obsidian, Whisper, Kokoro, Jev y Cockpit.
-- Herramientas como Claude y Jev son utilizadas para simular entrevistas, optimizar decisiones específicas y verificar procesos en sistemas RAG, mejorando la eficiencia y reduciendo costos.
-- La creación de contenido automatizado se facilita con herramientas como Fastlane, Higgsfield y MiniMax, que transforman contenido largo en formatos cortos y atractivos para plataformas como YouTube y redes sociales.
-- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para alcanzar metas complejas de manera eficiente, utilizando componentes como agentes, herramientas, orquestador, comunicación, memoria y evaluación.
-- El uso de playbooks y repositorios de GitHub simplifica la implementación de agentes de IA y la creación de aplicaciones completas con un solo prompt, reduciendo costos y facilitando la gestión de proyectos de IA.
+- La automatizacin con IA permite optimizar tareas diarias y procesos empresariales mediante sistemas como Jarvis OS 2.0, que integra herramientas como Claude Code, Codex, Obsidian, Whisper, Kokoro, Jev, y Cockpit.
+- Herramientas como Jev optimizan decisiones especficas y actan como capa de verificacin en sistemas RAG, mejorando la seguridad y eficiencia.
+- Claude se utiliza para simular entrevistas, crear dashboards de inteligencia interna, y reducir costos de vuelos mediante prompts.
+- La orquestacin de sistemas multi-agente coordina agentes con diferentes roles para tareas complejas, mejorando la eficiencia y escalabilidad.
+- Repositorios de GitHub ofrecen soluciones de cdigo abierto para reducir costos y crear aplicaciones completas con un solo prompt.
 
 ## Herramientas mencionadas
 
-- **Claude Code** — Ejecutar procesos de automatización y simulación de entrevistas.
-- **Codex** — Funcionar como motor principal en sistemas operativos automatizados.
-- **Obsidian** — Almacenar y gestionar la memoria del sistema.
-- **Whisper** — Procesar audio localmente.
+- **Claude Code** — Realizar el trabajo real del sistema y ejecutar procesos de automatizacin.
+- **Codex** — Realizar el trabajo real del sistema y ejecutar procesos de automatizacin.
+- **Obsidian** — Almacenar la memoria del sistema.
+- **Whisper** — Procesar el audio localmente.
 - **Kokoro** — Responder en voz alta.
-- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones y verificar procesos en sistemas RAG.
+- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones especficas.
 - **Cockpit** — Proveer la interfaz del sistema.
-- **Fastlane** — Crear contenido corto automatizado para solopreneurs.
+- **HUD** — Proveer la interfaz del sistema.
+- **Fastlane** — Herramienta de contenido corto con IA para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
-- **Notion** — Almacenar notas de llamadas.
+- **Notion** — Almacenar notas de las llamadas.
 - **Three.js** — Crear escenas 3D interactivas.
-- **GSAP** — Ofrecer animaciones fluidas y control de desplazamiento.
-- **Design DNA** — Extraer y aplicar diseño de sitios web.
+- **GSAP** — Animaciones fluidas y control de desplazamiento.
+- **Design DNA** — Extraer y aplicar diseo de sitios web.
 - **Motion Design** — Facilitar animaciones Lottie y SVG.
-- **Genjutsu** — Aportar dirección creativa y pulido final.
-- **MiniMax** — Crear estilos de diseño de motion.
-- **Opus 5.5** — Crear sitios web animados rápidamente.
-- **Higgsfield** — Convertir videos largos en contenido corto.
-- **GitHub** — Alojar repositorios para crear aplicaciones y reducir costos en IA.
+- **Genjutsu** — Aportar direccin creativa y pulido final.
+- **MiniMax** — Crear estilos de diseo de motion.
+- **OpenArt** — Plataforma utilizada para el diseo de motion.
+- **Opus 5.5** — Crear sitios web animados en 5 minutos.
+- **Higgsfield** — Convertir videos largos en contenido corto para diferentes plataformas.
+- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
+- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
+- **MiMo-V2.6** — Modelo de IA de Xiaomi con un billn de parmetros.
+- **Muse Charm** — Tecnologa de Meta para videollamadas de cuerpo completo.
+- **Orchestrator** — Coordina y gestiona el sistema multi-agente.
+- **Research Agent** — Encuentra y recopila informacin.
+- **Analysis Agent** — Analiza datos y genera insights.
+- **Planning Agent** — Descompone tareas y crea estrategias.
+- **Execution Agent** — Ejecuta tareas usando herramientas.
+- **Review Agent** — Valida resultados y asegura calidad.
+- **GitHub** — Plataforma donde se encuentran repositorios para automatizacin y creacin de aplicaciones.
 
 ## Técnicas
 
-- Conectar el cerebro del sistema usando Claude Code o Codex.
-- Construir la memoria del sistema con Obsidian.
-- Añadir la voz al sistema con Whisper y Kokoro.
-- Instalar la interfaz del sistema con Cockpit y HUD.
-- Usar Claude para simular entrevistas de trabajo y recibir retroalimentación.
-- Implementar Jev como capa de verificación en sistemas RAG para evitar errores comunes.
-- Coordinar agentes en sistemas multi-agente para tareas complejas.
-- Utilizar playbooks para simplificar la gestión de agentes de IA.
-- Crear aplicaciones completas a partir de un solo prompt usando repositorios de GitHub.
+- Configurar un sistema operativo Jarvis 2.0 para automatizar tareas diarias.
+- Usar Claude para simular entrevistas de trabajo y mejorar respuestas.
+- Implementar Jev como capa de verificacin en sistemas RAG para evitar errores comunes.
+- Coordinar sistemas multi-agente para tareas complejas mediante orquestacin eficiente.
+- Utilizar prompts en Claude para reducir costos de vuelos y optimizar procesos.
 
-## Fuentes (24)
+## Fuentes (25)
 
 - [[2026-10-01-dm-18165912187486007|Repositorios de GitHub para crear apps con un solo prompt]] · 2026-10-01
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
+- [[2026-10-01-dm-18132801160594365|Prompt para convertir ChatGPT en un agente inteligente]] · 2026-10-01
 - [[2026-10-01-dm-18105181870932144|Sistema de memoria agentica en IA: tres niveles]] · 2026-10-01
 - [[2026-10-01-dm-17985691448881680|Construye el cerebro de tu empresa con JEV]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01

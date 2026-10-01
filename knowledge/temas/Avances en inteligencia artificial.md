@@ -2,46 +2,49 @@
 tags:
   - kb/tema
 descripcion: >-
-  Avances recientes en inteligencia artificial que incluyen nuevos modelos,
-  herramientas y técnicas para mejorar la automatización y la eficiencia en
-  diversas aplicaciones.
-fuentes: 17
+  Los avances recientes en inteligencia artificial abarcan nuevos modelos,
+  herramientas y aplicaciones que optimizan tareas y mejoran la eficiencia en
+  diversos campos.
+fuentes: 18
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Avances recientes en inteligencia artificial que incluyen nuevos modelos, herramientas y técnicas para mejorar la automatización y la eficiencia en diversas aplicaciones.
+> Los avances recientes en inteligencia artificial abarcan nuevos modelos, herramientas y aplicaciones que optimizan tareas y mejoran la eficiencia en diversos campos.
 
 ## Lo esencial
 
 - Claude Opus 5.5 y GPT-6 Sol y Luna son modelos avanzados que mejoran la accesibilidad y capacidades de la IA.
-- Jev es una herramienta eficiente para decisiones específicas y verificación en sistemas RAG, evitando el uso de LLM generales para tareas simples.
+- Jev es una herramienta que optimiza decisiones específicas, complementando a los LLM generales y mejorando la seguridad en sistemas RAG.
 - La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
-- La ingeniería de bucles y el uso de playbooks simplifican la gestión de agentes de IA, mejorando la detección de errores y la eficiencia del sistema.
-- Herramientas como MiniMax y OpenArt facilitan la creación de estilos de motion design, mientras que juegos como Tensor Trust enseñan conceptos avanzados de IA.
-- Claude y otras herramientas ayudan a reducir costos en diversas áreas, como vuelos y diseño de interfaces, mediante el uso de prompts y técnicas de optimización.
+- La ingeniería de bucles y el uso de playbooks simplifican y mejoran la gestión de agentes de IA.
+- Herramientas como Claude y Jev se utilizan para automatizar procesos, reducir costos y mejorar la eficiencia en tareas específicas.
+- Los juegos educativos y las herramientas de diseño como MiniMax y Tensor Trust facilitan el aprendizaje y la aplicación de conceptos avanzados de IA.
 
 ## Herramientas mencionadas
 
 - **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
-- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
-- **Jev** — Optimizar decisiones específicas y verificación en sistemas RAG.
+- **GPT-6 Sol y Luna** — Modelos de OpenAI con mejoras de Astra.
+- **Jev** — Optimizar decisiones específicas en aplicaciones de IA.
 - **MiniMax** — Crear estilos de motion design.
 - **OpenArt** — Plataforma para crear diseños de movimiento.
 - **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
-- **Claude** — Reducir costos de vuelos y mejorar diseño y texto mediante prompts.
+- **Claude** — Configurar filtros, reducir costos de vuelos y mejorar diseño y texto.
+- **GitHub** — Plataforma para acceder a repositorios de código abierto que reducen costos en IA.
 
 ## Técnicas
 
 - Orquestación de sistemas multi-agente para coordinar tareas complejas.
-- Ingeniería de bucles para detectar errores en código.
+- Ingeniería de bucles para detectar errores en código de manera iterativa.
 - Uso de playbooks para simplificar la gestión de agentes de IA.
-- Implementación de sistemas de memoria agentica en tres niveles.
+- Implementación de sistemas de memoria agentica en tres niveles para agentes de IA.
+- Uso de prompts para convertir ChatGPT en un agente inteligente para negocios.
 
-## Fuentes (17)
+## Fuentes (18)
 
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
+- [[2026-10-01-dm-18132801160594365|Prompt para convertir ChatGPT en un agente inteligente]] · 2026-10-01
 - [[2026-10-01-dm-18105181870932144|Sistema de memoria agentica en IA: tres niveles]] · 2026-10-01
 - [[2026-10-01-dm-17985691448881680|Construye el cerebro de tu empresa con JEV]] · 2026-10-01
 - [[2026-10-01-dm-17942770941086621|Juegos para aprender conceptos de IA]] · 2026-10-01
