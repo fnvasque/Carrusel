@@ -31,7 +31,7 @@ const ROUNDS = [
   { edge: "top_media", page: 0 },
 ] as const;
 /** Tope de tiempo de toda la búsqueda por hashtags (ms) y de cada página. */
-const TAG_SEARCH_BUDGET_MS = 120_000;
+const TAG_SEARCH_BUDGET_MS = 75_000;
 const TAG_PAGE_TIMEOUT_MS = 30_000;
 /** Tamaños de página a probar: Meta a veces responde "reduce the amount of data" (código 1). */
 const PAGE_SIZES = [50, 25];
@@ -88,6 +88,17 @@ function hashtagLog(): ReturnType<typeof openDb> {
 
 const usedHashtags = (): Set<string> =>
   new Set((hashtagLog().prepare("SELECT tag FROM hashtag_usage").all() as { tag: string }[]).map((r) => r.tag));
+
+/** ¿Está el shortcode entre los 50 posts más recientes de la cuenta? (consulta liviana) */
+async function hasShortcode(username: string, shortcode: string): Promise<boolean> {
+  const { igUserId } = metaConfig();
+  const r = await graphGet<{ business_discovery?: { media?: { data?: { permalink?: string }[] } } }>(
+    igUserId,
+    { fields: `business_discovery.username(${username}){media.limit(50){permalink}}` },
+    { timeoutMs: 20_000, attempts: 1 },
+  );
+  return (r.business_discovery?.media?.data ?? []).some((m) => m.permalink && extractShortcode(m.permalink) === shortcode);
+}
 
 type TagPage = { data?: MetaMedia[]; paging?: { cursors?: { after?: string }; next?: string } };
 
@@ -164,16 +175,31 @@ export async function discoverPost(
   hints: { caption?: string; text?: string; knownAccounts?: string[] } = {},
   log: (msg: string) => void = () => {},
 ): Promise<Discovered | undefined> {
-  // 1) Cuentas candidatas verificadas con Business Discovery (sin cupo semanal).
+  // 1) Cuentas candidatas verificadas con Business Discovery (sin cupo semanal). Primero
+  //    un vistazo liviano en paralelo (solo permalinks, ~0,5 s por cuenta); con la que
+  //    lo tiene, la lectura completa.
   const mentioned = [...mentionsIn(hints.text), ...mentionsIn(hints.caption)];
   const known = (hints.knownAccounts ?? []).slice(0, MAX_KNOWN_ACCOUNTS).filter((u) => !mentioned.includes(u));
-  for (const [username, via] of [...mentioned.map((u) => [u, "mención"] as const), ...known.map((u) => [u, "cuenta guardada"] as const)]) {
+  const candidates = [...mentioned.map((u) => [u, "mención"] as const), ...known.map((u) => [u, "cuenta guardada"] as const)];
+  const hits = await Promise.all(candidates.map(([u]) => hasShortcode(u, shortcode).catch(() => false)));
+  for (const [i, [username, via]] of candidates.entries()) {
+    if (!hits[i]) continue;
     try {
-      const media = await findMediaViaBusinessDiscovery(username, shortcode, via === "mención" ? 3 : 1);
+      const media = await findMediaViaBusinessDiscovery(username, shortcode, 1);
       log(`cuenta encontrada: @${username} (${via})`);
       return { media, username, via };
     } catch {
-      // no está en esa cuenta (o no es Business/Creator): siguiente candidato.
+      // raro (se vio en el vistazo): siguiente candidato.
+    }
+  }
+  // Menciones: el post puede ser más antiguo que la primera página; se revisan más páginas.
+  for (const username of mentioned) {
+    try {
+      const media = await findMediaViaBusinessDiscovery(username, shortcode, 3);
+      log(`cuenta encontrada: @${username} (mención)`);
+      return { media, username, via: "mención" };
+    } catch {
+      // no está: siguiente.
     }
   }
   // 2) Hashtags del caption (Hashtag Search): trae el post aunque no se sepa la cuenta.

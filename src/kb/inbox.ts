@@ -26,6 +26,10 @@ export interface DmAttachment {
 export interface DmEvent {
   mid: string;
   senderId: string;
+  /** Destinatario (en un eco, la persona con quien conversa la cuenta). */
+  recipientId?: string;
+  /** Mensaje enviado POR la cuenta (sus respuestas, o lo que escribas desde su bandeja). */
+  isEcho?: boolean;
   timestamp?: number;
   text?: string;
   attachments: DmAttachment[];
@@ -50,8 +54,8 @@ const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim
 
 /**
  * Eventos de mensaje de un webhook `object: "instagram"`. Función pura (testeable).
- * Ignora ecos (mensajes que envía la propia cuenta, incluidas sus respuestas),
- * lecturas, reacciones y eventos sin `mid`.
+ * Los ecos (mensajes que envía la propia cuenta) vienen marcados con `isEcho`;
+ * se ignoran lecturas, reacciones, borrados y eventos sin `mid`.
  */
 export function parseWebhook(body: unknown): DmEvent[] {
   const b = body as { object?: string; entry?: { messaging?: unknown[] }[] };
@@ -61,11 +65,12 @@ export function parseWebhook(body: unknown): DmEvent[] {
     for (const raw of entry.messaging ?? []) {
       const ev = raw as {
         sender?: { id?: string };
+        recipient?: { id?: string };
         timestamp?: number;
         message?: { mid?: string; text?: string; is_echo?: boolean; is_deleted?: boolean; attachments?: unknown[] };
       };
       const m = ev.message;
-      if (!m?.mid || m.is_echo || m.is_deleted || !ev.sender?.id) continue;
+      if (!m?.mid || m.is_deleted || !ev.sender?.id) continue;
       const attachments = (m.attachments ?? []).map((a) => {
         const at = a as { type?: string; payload?: Record<string, unknown> };
         const p = at.payload ?? {};
@@ -76,7 +81,10 @@ export function parseWebhook(body: unknown): DmEvent[] {
           mediaId: str(p.reel_video_id) ?? str(p.ig_post_media_id) ?? str(p.media_id) ?? str(p.id),
         };
       });
-      out.push({ mid: m.mid, senderId: ev.sender.id, timestamp: ev.timestamp, text: str(m.text), attachments });
+      out.push({
+        mid: m.mid, senderId: ev.sender.id, recipientId: ev.recipient?.id, isEcho: m.is_echo === true || undefined,
+        timestamp: ev.timestamp, text: str(m.text), attachments,
+      });
     }
   }
   return out;

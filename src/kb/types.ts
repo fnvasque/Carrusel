@@ -96,6 +96,12 @@ export interface TopicInfo {
 /** Etapas del pipeline, para reportar progreso (CLI hoy, Telegram después). */
 export type Stage = "descargando" | "transcribiendo" | "analizando" | "guardando" | "temas" | "commit" | "indexando";
 
+/**
+ * Opciones de los clientes de OpenAI del kb: el default del SDK (10 min por
+ * intento, 2 reintentos) puede dejar la cola bloqueada media hora.
+ */
+export const OPENAI_OPTS = { timeout: 120_000, maxRetries: 1 } as const;
+
 /** Texto de cada etapa del guardado (CLI y mensajes de progreso del bot). */
 export const STAGE_LABEL: Record<Stage, string> = {
   descargando: "📥 Descargando el post…",
@@ -114,8 +120,13 @@ export interface AddInput {
   caption?: string;
   /** Cuenta dueña del post (Business Discovery), si el link no la trae. */
   user?: string;
-  /** Medios que llegaron directo (p. ej. en un DM compartido): video de un reel e imágenes. */
+  /**
+   * Medios que llegaron directo (p. ej. en un DM compartido): video de un reel e
+   * imágenes. Con un link, `videoUrl`/`videoFile` (p. ej. una grabación de pantalla
+   * que manda el usuario) reemplazan al video que Meta no entrega.
+   */
   videoUrl?: string;
+  videoFile?: string;
   mediaUrls?: string[];
   /** Id estable del contenido cuando no hay link (p. ej. id del reel compartido por DM). */
   sourceId?: string;
