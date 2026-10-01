@@ -2,48 +2,51 @@
 tags:
   - kb/tema
 descripcion: >-
-  Los avances en inteligencia artificial están transformando múltiples áreas
-  mediante la creación de modelos más potentes, herramientas de automatización y
-  sistemas de agentes inteligentes.
-fuentes: 12
+  Los avances recientes en inteligencia artificial abarcan desde nuevos modelos
+  de lenguaje hasta herramientas para automatizar tareas complejas.
+fuentes: 13
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances en inteligencia artificial están transformando múltiples áreas mediante la creación de modelos más potentes, herramientas de automatización y sistemas de agentes inteligentes.
+> Los avances recientes en inteligencia artificial abarcan desde nuevos modelos de lenguaje hasta herramientas para automatizar tareas complejas.
 
 ## Lo esencial
 
 - Claude Opus 5.5 es un modelo avanzado de IA que permite crear juegos y escenas 3D rápidamente.
-- GPT-6 Sol y Luna son modelos de OpenAI con mejoras significativas, incluyendo la resolución de problemas matemáticos complejos.
-- Jev es una herramienta de IA que optimiza decisiones específicas, es más rápida y económica que los LLM generales, y se utiliza para filtrar contenido y verificar información en sistemas RAG.
-- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr tareas complejas de manera eficiente.
-- El uso de playbooks simplifica la gestión de agentes de IA al proporcionar un proceso claro y estructurado.
-- Claude es una herramienta versátil que mejora interfaces, textos y puede reducir costos de vuelos mediante prompts.
+- GPT-6 Sol y Luna son modelos de OpenAI que ofrecen mejoras significativas en accesibilidad y resolución de problemas matemáticos.
+- Jev es una herramienta que optimiza decisiones específicas, complementando a los modelos de lenguaje en tareas repetitivas y actuando como capa de verificación en sistemas RAG.
+- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
+- El uso de playbooks simplifica la gestión de agentes de IA, proporcionando un proceso estructurado para su ejecución.
+- Existen repositorios de GitHub que ayudan a reducir costos en proyectos de IA, facilitando la implementación de soluciones eficientes.
 
 ## Herramientas mencionadas
 
-- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras de Astra.
-- **Jev** — Optimizar decisiones específicas y filtrar contenido.
-- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
-- **Claude** — Mejorar interfaces, textos y reducir costos de vuelos.
-- **MiniMax** — Crear estilos de motion design.
-- **Obsidian** — Almacenar y gestionar la memoria del sistema.
+- **Claude Code + Codex** — Motor principal para sistemas automatizados como Jarvis OS 2.0.
+- **Obsidian** — Almacenar y gestionar la memoria del sistema en configuraciones automatizadas.
 - **Local Voice** — Entrada y salida de audio en sistemas automatizados.
+- **JEV** — Clasificar tareas, gestionar flujos de trabajo y optimizar decisiones específicas en IA.
+- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
+- **GPT-6 Sol y Luna** — Modelos de lenguaje de OpenAI con mejoras de accesibilidad y resolución de problemas.
+- **MiniMax** — Crear estilos de motion design en OpenArt.
+- **OpenArt** — Plataforma para crear diseños de movimiento.
+- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
+- **GitHub** — Plataforma para acceder a repositorios que reducen costos en IA.
+- **Claude** — Construcción de sistemas de IA, automatización y reducción de costos de vuelos.
 
 ## Técnicas
 
-- Integrar Jev en sistemas RAG para evitar errores comunes como alucinaciones.
-- Usar prompts con Claude para comparar fechas y aerolíneas y reducir costos de vuelos.
-- Coordinar agentes especializados en sistemas multi-agente para tareas complejas.
-- Simplificar el uso de agentes de IA mediante playbooks en lugar de sistemas complejos.
+- Usar Jev como capa de verificación en sistemas RAG para evitar errores comunes.
+- Implementar orquestación de sistemas multi-agente para coordinar tareas complejas.
+- Utilizar playbooks para simplificar la gestión de agentes de IA.
+- Acceder a repositorios de GitHub para reducir costos en proyectos de IA.
 
-## Fuentes (12)
+## Fuentes (13)
 
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
+- [[2026-10-01-dm-17925788511423636|Repositorios de GitHub para reducir gastos en IA]] · 2026-10-01
 - [[2026-10-01-dm-17902005075663616|Simplificación de agentes de IA con playbooks]] · 2026-10-01
 - [[2026-10-01-bhawna.io-DdgmEKfh_QF|Conceptos clave para dominar la IA agentiva en 2027]] — @bhawna.io · 2026-10-01
 - [[2026-09-30-dm-17882592102502890|Orquestación de Sistemas Multi-Agente]] · 2026-09-30
