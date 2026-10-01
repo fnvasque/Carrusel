@@ -150,13 +150,18 @@ async function runDmJob(job: Job): Promise<void> {
   try {
     const r = await addPost({
       url: p.url, user: p.user, note: p.note, caption: p.caption, videoUrl: p.videoUrl, mediaUrls: p.mediaUrls, sourceId: p.sourceId,
+      onProgress: (stage, detail) => console.log(`   [${secs()}] ${STAGE_LABEL[stage]}${detail ? ` ${detail}` : ""}`),
     });
     finish(job.id);
     console.log(`📬 DM guardado en ${secs()}: ${r.ficha.extraction.title}`);
     await sendDm(to, `${formatSavedText(r)}\n\n↩️ Para deshacer o cambiar el tema, usa Telegram o la terminal.`).catch(dmFailed);
   } catch (err) {
     finish(job.id, errText(err));
-    if (err instanceof NeedsUserError && p.url) return void (await askDmUser(to, [p.url], p.note, p.caption));
+    if (err instanceof NeedsUserError && p.url) {
+      const hinted = dmLastLink.get(to);
+      if (hinted?.url === p.url && hinted.user) return; // mandaste el @ mientras buscaba: ya se encoló con él
+      return void (await askDmUser(to, [p.url], p.note, p.caption));
+    }
     console.warn(`⚠️  DM no guardado (${secs()}): ${errText(err)}`);
     await sendDm(to, `❌ No pude guardar el post: ${errText(err)}`).catch(dmFailed);
   }
@@ -480,16 +485,25 @@ async function onDm(ev: DmEvent): Promise<void> {
       enqueue(0, { channel: "instagram", igSender: ev.senderId, url, user, note, caption });
       dmLastLink.set(ev.senderId, { url, user, caption, at: Date.now() });
     }
-    await reply(user ? `📥 Recibido, lo leo de @${user} y lo guardo…` : "📥 Recibido, busco de qué cuenta es y lo guardo…");
+    await reply(
+      user
+        ? `📥 Recibido, lo leo de @${user} y lo guardo…`
+        : "📥 Recibido, busco de qué cuenta es y lo guardo… (si la sabes, mándame el @ y lo acelero)",
+    );
     void work();
   };
 
   // Respuesta a "¿de qué cuenta es?" (texto o botón de respuesta rápida).
   const waiting = dmAwaitingUser.get(ev.senderId);
-  const handle = waiting && ev.text && !ev.attachments.length ? handleReply(ev.text) : undefined;
+  const handle = ev.text && !ev.attachments.length ? handleReply(ev.text) : undefined;
   if (waiting && handle && Date.now() - waiting.at < LINK_WINDOW_MS) {
     dmAwaitingUser.delete(ev.senderId);
     return void (await enqueueLinks(waiting.urls, handle, waiting.note, waiting.caption));
+  }
+  // Un @ enviado mientras se busca la cuenta del último post (antes de que el bot pregunte): se usa ya.
+  const searching = dmLastLink.get(ev.senderId);
+  if (handle && searching && !searching.user && Date.now() - searching.at < LINK_WINDOW_MS) {
+    return void (await enqueueLinks([searching.url], handle, undefined, searching.caption));
   }
 
   const action = dmAction(ev);

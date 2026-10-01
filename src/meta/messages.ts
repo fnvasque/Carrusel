@@ -63,6 +63,15 @@ export async function sendDm(recipientId: string, text: string, quickReplies: st
     const message = qr.length
       ? { text: part, quick_replies: qr.map((t) => ({ content_type: "text", title: t.slice(0, 20), payload: t })) }
       : { text: part };
-    await graphPost("me/messages", { recipient: { id: recipientId }, message }, { accessToken: token });
+    // Un corte de red no debe perder la respuesta (p. ej. la pregunta "¿de qué cuenta es?").
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await graphPost("me/messages", { recipient: { id: recipientId }, message }, { accessToken: token });
+        break;
+      } catch (err) {
+        if (attempt >= 3 || !/No pude conectar/.test(err instanceof Error ? err.message : "")) throw err;
+        await new Promise((r) => setTimeout(r, attempt * 3000));
+      }
+    }
   }
 }
