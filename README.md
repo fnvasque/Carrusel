@@ -289,6 +289,9 @@ npm run kb:bot
 Necesita `TELEGRAM_BOT_TOKEN` (de @BotFather) y `TELEGRAM_ALLOWED_CHAT_IDS` (tu chat; el bot
 ignora a cualquier otro) en `.env`. Usa long polling: no necesita URL pública.
 
+**Con el computador apagado**: el bot puede correr en un servidor gratuito (Oracle Cloud Always Free,
+Docker), con la base en un repo git privado que Obsidian sincroniza. Guía en `deploy/README.md`.
+
 - **Guardar**: en Instagram → Compartir → el bot. Como el link compartido no trae la cuenta, el bot
   pregunta el **@usuario** (con botones de las cuentas que ya guardaste), o mándalo junto al link:
   «@cuenta https://…». El resto del texto que acompañe al link se guarda como nota.
@@ -303,7 +306,7 @@ ignora a cualquier otro) en `.env`. Usa long polling: no necesita URL pública.
 
 Compartir un post o reel **por DM a la cuenta de Instagram** (Compartir → Enviar) también lo
 guarda, y la cuenta te responde por DM con la ficha resumida. Lo recibe el mismo `npm run kb:bot`
-a través de un webhook de Meta, así que necesita el computador encendido y un túnel HTTPS.
+a través de un webhook de Meta y un túnel HTTPS (ngrok), en el Mac o en el servidor (`deploy/README.md`).
 
 - Un **reel** trae su video y caption dentro del DM (cuadros + transcripción), sin pedir el @usuario.
 - Un **post** trae su imagen. Un **link** escrito a mano necesita el @: «@cuenta https://…».

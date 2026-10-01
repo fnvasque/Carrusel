@@ -34,6 +34,20 @@ export function daysLeft(expiresAt: number | undefined, now = Date.now()): numbe
   return Math.floor((expiresAt * 1000 - now) / 86_400_000);
 }
 
+/** Días que le quedan al token de .env (Infinity = no expira; undefined = Meta no lo informa). Lanza si el token no es válido. */
+export async function tokenDaysLeft(): Promise<number | undefined> {
+  const cfg = metaConfig();
+  const dbg = await graphGet<DebugToken>(
+    "debug_token",
+    { input_token: cfg.accessToken },
+    cfg.appId && cfg.appSecret ? { accessToken: `${cfg.appId}|${cfg.appSecret}`, proof: false } : { proof: false },
+  );
+  if (!dbg.data?.is_valid) throw new Error("El token de Meta (META_ACCESS_TOKEN) no es válido.");
+  return daysLeft(dbg.data.expires_at);
+}
+
+export { EXPIRY_WARN_DAYS };
+
 async function main(): Promise<void> {
   let ok = true;
   const cfg = metaConfig();

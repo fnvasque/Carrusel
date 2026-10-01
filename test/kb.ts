@@ -5,6 +5,7 @@ import { metaToPostMeta, resolveUser } from "../src/kb/instagram.ts";
 import { hashtagsIn, mentionsIn, pickHashtags } from "../src/kb/discover.ts";
 import { dmAction, parseWebhook, validSignature } from "../src/kb/inbox.ts";
 import { splitDm } from "../src/meta/messages.ts";
+import { missedMessages, type ConvMessage } from "../src/kb/recover.ts";
 import { createHmac } from "node:crypto";
 import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
@@ -566,6 +567,28 @@ check("pickHashtags: sin genéricos, primero los ya usados (gratis) y respeta el
   const full = new Set(Array.from({ length: 28 }, (_, i) => `t${i}`));
   assert.deepEqual(pickHashtags(tags, full), []);
   assert.deepEqual(pickHashtags(["uidesign", ...tags], new Set([...full, "uidesign"])), ["uidesign"]);
+});
+
+// --- DMs perdidos con el bot caído ---
+check("missedMessages: textos para procesar y posts ilegibles por remitente, solo autorizados y no vistos", () => {
+  const now = Date.parse("2026-10-01T12:00:00Z");
+  const msg = (id: string, from: string, hoursAgo: number, over: Partial<ConvMessage> = {}): ConvMessage => ({
+    id, from: { id: from }, created_time: new Date(now - hoursAgo * 3_600_000).toISOString(), message: "", ...over,
+  });
+  const msgs = [
+    msg("m4", "yo", 1, { message: "@cuenta https://www.instagram.com/p/ABC/" }),
+    msg("m1", "yo", 3, { is_unsupported: true }),
+    msg("m2", "yo", 2, { message: "¿qué guardé de video?" }),
+    msg("m3", "cuenta", 1, { message: "📥 Recibido…" }), // eco de la propia cuenta
+    msg("m5", "extraño", 1, { message: "hola" }),
+    msg("m6", "yo", 30, { message: "viejo" }), // fuera de la ventana de 24 h
+    msg("m7", "yo", 1, { is_unsupported: true }),
+    msg("m8", "yo", 1, { message: "ya visto" }),
+  ];
+  const r = missedMessages(msgs, { allowed: new Set(["yo"]), seen: (mid) => mid === "m8", now });
+  assert.deepEqual(r.events.map((e) => [e.mid, e.text]), [["m2", "¿qué guardé de video?"], ["m4", "@cuenta https://www.instagram.com/p/ABC/"]]);
+  assert.deepEqual(r.unreadable, { yo: 2 });
+  assert.equal(r.events[0].senderId, "yo");
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

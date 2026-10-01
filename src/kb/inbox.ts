@@ -129,9 +129,23 @@ export function dmAction(ev: DmEvent): DmAction {
 
 /** ¿Ya se procesó este mensaje? (Meta reintenta webhooks: idempotencia por mid). Lo marca si no. */
 export function firstTime(mid: string): boolean {
+  return Number(seenDb().prepare("INSERT OR IGNORE INTO inbox_seen (mid) VALUES (?)").run(mid).changes) === 1;
+}
+
+/** ¿Este mensaje ya pasó por el bot? (sin marcarlo). */
+export function seenBefore(mid: string): boolean {
+  return seenDb().prepare("SELECT 1 FROM inbox_seen WHERE mid = ?").get(mid) !== undefined;
+}
+
+/** Mensajes registrados hasta ahora (0 = base recién creada, sin historial de DMs). */
+export function seenCount(): number {
+  return Number((seenDb().prepare("SELECT COUNT(*) AS n FROM inbox_seen").get() as { n: number }).n);
+}
+
+function seenDb(): ReturnType<typeof openDb> {
   const db = openDb();
   db.exec("CREATE TABLE IF NOT EXISTS inbox_seen (mid TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT (datetime('now')))");
-  return Number(db.prepare("INSERT OR IGNORE INTO inbox_seen (mid) VALUES (?)").run(mid).changes) === 1;
+  return db;
 }
 
 const RAW_DIR = join(process.cwd(), ".cache", "kb", "inbox-raw");
@@ -158,6 +172,11 @@ export interface InboxOptions {
 export function startInbox(opts: InboxOptions): Server {
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/health" && req.method === "GET") {
+      // Para el healthcheck del contenedor (no expone datos).
+      res.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
+      return;
+    }
     if (url.pathname !== "/webhook") {
       res.writeHead(404).end();
       return;

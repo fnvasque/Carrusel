@@ -1,0 +1,37 @@
+# Despliegue always-on del bot (ver deploy/README.md). En el servidor:
+#   docker compose up -d --build      # arranca / actualiza
+#   docker compose logs -f kb         # logs
+services:
+  kb:
+    build: .
+    init: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      KB_DIR: /data/knowledge
+      KB_REPO: ${KB_REPO:-git@github.com:fnvasque/ia-es-kb.git}
+      KB_GIT_PUSH: "1"
+      GIT_SSH_COMMAND: ssh -i /keys/kb_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/data/known_hosts
+    volumes:
+      - ./data:/data
+      - ./keys:/keys:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:' + (process.env.KB_INBOX_PORT || 8787) + '/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 1m
+      timeout: 10s
+      start_period: 30s
+    logging:
+      options: { max-size: "10m", max-file: "3" }
+
+  # Túnel HTTPS para el webhook de Meta (DMs). Usa tu dominio de ngrok: la URL del webhook no cambia.
+  # Sin inbound ports abiertos en el servidor. Solo puede haber UN agente ngrok gratis conectado:
+  # apaga el ngrok del Mac antes.
+  ngrok:
+    image: ngrok/ngrok:3
+    restart: unless-stopped
+    command: ["http", "kb:${KB_INBOX_PORT:-8787}", "--log=stdout"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Falta NGROK_AUTHTOKEN en .env}
+    depends_on: [kb]
+    logging:
+      options: { max-size: "5m", max-file: "2" }

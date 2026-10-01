@@ -130,9 +130,32 @@ export async function commitPaths(paths: string[], message: string): Promise<str
   if ((await git(["add", "--", ...rel], root)).code !== 0) return undefined;
   const commit = await git(["commit", "-m", message, "--", ...rel], root);
   if (commit.code !== 0) return undefined;
+  // Después del push: si hubo rebase, el hash del commit cambió.
+  if (process.env.KB_GIT_PUSH === "1") await pushWithRebase(root);
   const head = await git(["rev-parse", "--short", "HEAD"], root);
-  if (process.env.KB_GIT_PUSH === "1") await git(["push"], root);
   return head.code === 0 ? head.out.trim() : undefined;
+}
+
+/** Aviso cuando el push de respaldo falla (el bot lo reenvía por Telegram). */
+let onSyncError: (message: string) => void = (m) => console.warn(`⚠️  ${m}`);
+export function setSyncErrorHandler(fn: (message: string) => void): void {
+  onSyncError = fn;
+}
+
+/**
+ * Push de respaldo. Si el remoto avanzó (p. ej. notas editadas en Obsidian desde
+ * el Mac), trae esos cambios con rebase y reintenta. Si el rebase choca, lo
+ * aborta: el commit queda local (se sube con el próximo guardado) y se avisa.
+ */
+async function pushWithRebase(root: string): Promise<void> {
+  if ((await git(["push"], root)).code === 0) return;
+  const pull = await git(["pull", "--rebase", "--autostash"], root);
+  if (pull.code !== 0) {
+    await git(["rebase", "--abort"], root);
+    return onSyncError(`No pude sincronizar la base con GitHub (conflicto al traer cambios): ${pull.out.trim().split("\n").pop()}`);
+  }
+  const retry = await git(["push"], root);
+  if (retry.code !== 0) onSyncError(`No pude subir la base a GitHub: ${retry.out.trim().split("\n").pop()}`);
 }
 
 // --- deshacer ---
