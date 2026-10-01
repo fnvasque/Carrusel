@@ -2,52 +2,52 @@
 tags:
   - kb/tema
 descripcion: >-
-  Los avances en inteligencia artificial abarcan nuevas herramientas, modelos y
-  técnicas que mejoran la automatización y la eficiencia en diversas áreas.
-fuentes: 19
+  Los avances en inteligencia artificial abarcan desde nuevos modelos de IA
+  hasta herramientas y técnicas para mejorar la automatización y la eficiencia
+  en diversas áreas.
+fuentes: 20
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances en inteligencia artificial abarcan nuevas herramientas, modelos y técnicas que mejoran la automatización y la eficiencia en diversas áreas.
+> Los avances en inteligencia artificial abarcan desde nuevos modelos de IA hasta herramientas y técnicas para mejorar la automatización y la eficiencia en diversas áreas.
 
 ## Lo esencial
 
 - Claude Opus 5.5 es un modelo avanzado de Anthropic que permite crear juegos y escenas 3D rápidamente.
-- GPT-6 Sol y Luna son modelos de OpenAI que ofrecen mejoras significativas en accesibilidad y resolución de problemas matemáticos.
-- Jev es una herramienta que optimiza decisiones específicas en IA, complementando a los LLM generales y mejorando la verificación en sistemas RAG.
-- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
-- La ingeniería de bucles y el uso de playbooks simplifican la gestión de agentes de IA, mejorando la detección de errores y la ejecución de tareas.
-- Existen repositorios de GitHub que ofrecen herramientas open-source para reducir costos y mejorar la automatización en proyectos de IA.
-- Claude y otras herramientas pueden mejorar interfaces, textos y presentaciones, ofreciendo soluciones de diseño y automatización.
+- OpenAI lanzó GPT-6 Sol y Luna, modelos mejorados y más accesibles.
+- Jev es una herramienta que optimiza decisiones específicas y actúa como capa de verificación en sistemas RAG para evitar errores comunes.
+- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para tareas complejas.
+- La ingeniería de bucles y el método Karpathy son técnicas para mejorar y verificar el código de manera iterativa.
+- Los juegos como Tensor Trust permiten aprender conceptos avanzados de IA de manera interactiva.
+- Existen herramientas y repositorios de código abierto en GitHub que ayudan a reducir costos y mejorar la eficiencia en proyectos de IA.
 
 ## Herramientas mencionadas
 
 - **Claude Code + Codex** — Motor principal para sistemas automatizados como Jarvis OS 2.0.
 - **Obsidian** — Almacenar y gestionar la memoria del sistema.
 - **JEV** — Optimizar decisiones específicas y actuar como capa de verificación en sistemas RAG.
-- **Claude Opus 5.5** — Modelo avanzado para crear juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de IA con mejoras de accesibilidad y resolución de problemas.
+- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
+- **GPT-6 Sol y Luna** — Modelos de IA mejorados y accesibles de OpenAI.
 - **MiniMax** — Crear estilos de motion design.
 - **OpenArt** — Plataforma para crear diseños de movimiento.
-- **Muse Charm** — Tecnología de Meta para videollamadas de cuerpo completo.
+- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
+- **GitHub** — Plataforma para repositorios de código abierto que reducen costos en IA.
 - **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
-- **ChatGPT Dots** — Convertir ChatGPT en un agente inteligente para negocios.
-- **UI/UX Pro Max** — Mejorar interfaces con estilos y colores profesionales.
-- **GitHub** — Plataforma para acceder a repositorios de código abierto que reducen costos en IA.
 
 ## Técnicas
 
 - Orquestación de sistemas multi-agente para coordinar tareas complejas.
-- Ingeniería de bucles para detectar errores en código mediante iteraciones constantes.
-- Uso de playbooks para simplificar la gestión de agentes de IA.
-- Implementación de sistemas de memoria agentica en tres niveles para agentes de IA.
-- Uso de prompts para convertir ChatGPT en un agente inteligente que comprende negocios.
+- Ingeniería de bucles para detectar y corregir errores en el código.
+- Uso de prompts para convertir ChatGPT en un agente inteligente para negocios.
+- Aplicación de playbooks para simplificar el uso de agentes de IA.
+- Uso de repositorios de GitHub para reducir costos en proyectos de IA.
 
-## Fuentes (19)
+## Fuentes (20)
 
 - [[2026-10-01-dm-18637728142021643|Repositorios GitHub útiles y gratuitos para desarrolladores]] · 2026-10-01
+- [[2026-10-01-dm-18191847925400751|Creación de un equipo de startup con agentes de IA]] · 2026-10-01
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
 - [[2026-10-01-dm-18132801160594365|Prompt para convertir ChatGPT en un agente inteligente]] · 2026-10-01
 - [[2026-10-01-dm-18105181870932144|Sistema de memoria agentica en IA: tres niveles]] · 2026-10-01

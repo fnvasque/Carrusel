@@ -2,38 +2,41 @@
 tags:
   - kb/tema
 descripcion: >-
-  La automatizacin con IA implica el uso de herramientas y tnicas de
-  inteligencia artificial para optimizar y automatizar tareas repetitivas y
-  complejas.
-fuentes: 26
+  Automatizacin de tareas mediante el uso de herramientas y agentes de
+  inteligencia artificial.
+fuentes: 27
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Automatización con IA
 
-> La automatizacin con IA implica el uso de herramientas y tnicas de inteligencia artificial para optimizar y automatizar tareas repetitivas y complejas.
+> Automatizacin de tareas mediante el uso de herramientas y agentes de inteligencia artificial.
 
 ## Lo esencial
 
-- La automatizacin con IA permite optimizar tareas diarias mediante sistemas como Jarvis OS 2.0, que integra herramientas como Claude Code, Codex y Obsidian para gestionar memoria y tareas.
-- Herramientas como Jev optimizan decisiones especficas, complementando modelos de lenguaje para tareas repetitivas y verificacin en sistemas RAG.
-- Claude se utiliza para simular entrevistas, crear dashboards de inteligencia y mejorar diseo y texto en interfaces.
-- La orquestacin de sistemas multi-agente permite coordinar agentes con diferentes roles para lograr metas complejas de manera eficiente.
-- Repositorios de GitHub ofrecen herramientas de cdigo abierto para reducir costos y automatizar procesos de IA.
+- La automatizacin con IA permite gestionar tareas diarias y procesos empresariales de manera eficiente.
+- Se utilizan herramientas como Claude, Codex, Obsidian, Whisper, Kokoro, y Jev para diferentes funciones dentro de sistemas automatizados.
+- Los sistemas operativos como Jarvis 2.0 integran varias herramientas de IA para optimizar el flujo de trabajo.
+- La orquestacin de sistemas multi-agente coordina diferentes roles para tareas complejas.
+- Herramientas como Jev optimizan decisiones especcas y complementan LLM generales.
+- La memoria agentica se estructura en corto, medio y largo plazo para mejorar la eficiencia de los agentes.
+- Playbooks y prompts simplifican la gestin de agentes de IA, facilitando su implementacin en negocios.
+- Repositorios de GitHub ofrecen herramientas open-source para reducir costos y mejorar la automatizacin.
 
 ## Herramientas mencionadas
 
-- **Claude Code** — Realizar el trabajo real del sistema y ejecutar procesos de ingeniera de bucles.
+- **Claude Code** — Realizar el trabajo real del sistema y simular entrevistas de trabajo.
 - **Codex** — Realizar el trabajo real del sistema.
 - **Obsidian** — Almacenar la memoria del sistema.
 - **Whisper** — Procesar el audio localmente.
 - **Kokoro** — Responder en voz alta.
-- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones especficas y verificar en sistemas RAG.
+- **Jev** — Clasificar y enrutar solicitudes, optimizar decisiones especcas.
 - **Cockpit** — Proveer la interfaz del sistema.
 - **HUD** — Proveer la interfaz del sistema.
 - **Fastlane** — Herramienta de contenido corto con IA para solopreneurs.
 - **Calendly** — Agendar llamadas con clientes.
 - **Notion** — Almacenar notas de las llamadas.
+- **Python** — Escribir funciones para herramientas del agente de IA.
 - **Three.js** — Crear escenas 3D interactivas.
 - **GSAP** — Animaciones fluidas y control de desplazamiento.
 - **Design DNA** — Extraer y aplicar diseo de sitios web.
@@ -48,26 +51,50 @@ actualizado: '2026-10-01'
 - **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
 - **MiMo-V2.6** — Modelo de IA de Xiaomi con un billn de parmetros.
 - **Muse Charm** — Tecnologa de Meta para videollamadas de cuerpo completo.
+- **Jev API** — Desarrollo de diversas aplicaciones innovadoras.
 - **Orchestrator** — Coordina y gestiona el sistema multi-agente.
 - **Research Agent** — Encuentra y recopila informacin.
 - **Analysis Agent** — Analiza datos y genera insights.
 - **Planning Agent** — Descompone tareas y crea estrategias.
 - **Execution Agent** — Ejecuta tareas usando herramientas.
 - **Review Agent** — Valida resultados y asegura calidad.
-- **GitHub** — Plataforma donde se encuentran los repositorios para crear aplicaciones y automatizar procesos.
+- **GitHub** — Plataforma donde se encuentran los repositorios mencionados.
+- **Sonnet 5.5** — Mejorar los resultados al usar los prompts.
+- **Company Brain** — Almacenar la memoria de la empresa.
+- **Composio** — Proveer herramientas para el sistema.
+- **Jarvis** — Servir como la interfaz del sistema.
+- **ChatGPT Dots** — Convertirlo en un agente inteligente para negocios.
+- **UI/UX Pro Max** — Mejorar interfaces con estilos y colores profesionales.
+- **Impeccable** — Analizar y mejorar el diseo de interfaces.
+- **Taste Skill** — Aadir principios de diseo a interfaces.
+- **Humanizer** — Reescribir textos para un estilo ms natural.
+- **Understand Anything** — Convertir proyectos de cdigo en mapas visuales.
+- **Frontend Slides** — Crear presentaciones web interactivas.
+- **Diagram Design** — Generar diagramas profesionales.
+- **Stop Slop** — Eliminar palabras de relleno en textos.
+- **Awesome Design MD** — Mantener consistencia en diseos basados en Markdown.
+- **Design.md** — Definir un sistema visual para IA.
+- **Multica** — Solucionar problemas especcos de desarrollo.
+- **LangWatch** — Solucionar problemas especcos de desarrollo.
+- **Orca** — Solucionar problemas especcos de desarrollo.
+- **Fleetbase** — Solucionar problemas especcos de desarrollo.
 - **Pullfrog** — Automatizar revisiones de cdigo y flujos de trabajo en GitHub Actions.
+- **Dagu** — Solucionar problemas especcos de desarrollo.
 
 ## Técnicas
 
-- Instalar y configurar sistemas operativos como Jarvis OS 2.0 para automatizar tareas diarias.
-- Usar Claude para simular entrevistas de trabajo y mejorar respuestas mediante retroalimentacin.
-- Implementar Jev en sistemas RAG para verificacin y seguridad, evitando errores comunes.
-- Coordinar sistemas multi-agente para gestionar tareas complejas mediante orquestacin eficiente.
-- Utilizar repositorios de GitHub para reducir costos y automatizar procesos de IA.
+- Instalar y configurar sistemas operativos automatizados como Jarvis 2.0.
+- Utilizar prompts para optimizar procesos y reducir costos.
+- Implementar sistemas multi-agente para coordinar tareas complejas.
+- Desarrollar aplicaciones con un solo prompt usando repositorios de GitHub.
+- Crear contenido corto a partir de videos largos para aumentar el trfico.
+- Usar modelos de IA como Jev para optimizar decisiones especcas.
+- Aplicar habilidades de diseo en herramientas como Claude Code para mejorar proyectos.
 
-## Fuentes (26)
+## Fuentes (27)
 
 - [[2026-10-01-dm-18637728142021643|Repositorios GitHub útiles y gratuitos para desarrolladores]] · 2026-10-01
+- [[2026-10-01-dm-18191847925400751|Creación de un equipo de startup con agentes de IA]] · 2026-10-01
 - [[2026-10-01-dm-18165912187486007|Repositorios de GitHub para crear apps con un solo prompt]] · 2026-10-01
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
 - [[2026-10-01-dm-18132801160594365|Prompt para convertir ChatGPT en un agente inteligente]] · 2026-10-01
