@@ -2,47 +2,52 @@
 tags:
   - kb/tema
 descripcion: >-
-  Los avances recientes en inteligencia artificial abarcan nuevos modelos,
-  herramientas y aplicaciones que optimizan tareas y mejoran la eficiencia en
-  diversos campos.
-fuentes: 18
+  Los avances en inteligencia artificial abarcan nuevas herramientas, modelos y
+  técnicas que mejoran la automatización y la eficiencia en diversas áreas.
+fuentes: 19
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances recientes en inteligencia artificial abarcan nuevos modelos, herramientas y aplicaciones que optimizan tareas y mejoran la eficiencia en diversos campos.
+> Los avances en inteligencia artificial abarcan nuevas herramientas, modelos y técnicas que mejoran la automatización y la eficiencia en diversas áreas.
 
 ## Lo esencial
 
-- Claude Opus 5.5 y GPT-6 Sol y Luna son modelos avanzados que mejoran la accesibilidad y capacidades de la IA.
-- Jev es una herramienta que optimiza decisiones específicas, complementando a los LLM generales y mejorando la seguridad en sistemas RAG.
+- Claude Opus 5.5 es un modelo avanzado de Anthropic que permite crear juegos y escenas 3D rápidamente.
+- GPT-6 Sol y Luna son modelos de OpenAI que ofrecen mejoras significativas en accesibilidad y resolución de problemas matemáticos.
+- Jev es una herramienta que optimiza decisiones específicas en IA, complementando a los LLM generales y mejorando la verificación en sistemas RAG.
 - La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
-- La ingeniería de bucles y el uso de playbooks simplifican y mejoran la gestión de agentes de IA.
-- Herramientas como Claude y Jev se utilizan para automatizar procesos, reducir costos y mejorar la eficiencia en tareas específicas.
-- Los juegos educativos y las herramientas de diseño como MiniMax y Tensor Trust facilitan el aprendizaje y la aplicación de conceptos avanzados de IA.
+- La ingeniería de bucles y el uso de playbooks simplifican la gestión de agentes de IA, mejorando la detección de errores y la ejecución de tareas.
+- Existen repositorios de GitHub que ofrecen herramientas open-source para reducir costos y mejorar la automatización en proyectos de IA.
+- Claude y otras herramientas pueden mejorar interfaces, textos y presentaciones, ofreciendo soluciones de diseño y automatización.
 
 ## Herramientas mencionadas
 
-- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
-- **GPT-6 Sol y Luna** — Modelos de OpenAI con mejoras de Astra.
-- **Jev** — Optimizar decisiones específicas en aplicaciones de IA.
+- **Claude Code + Codex** — Motor principal para sistemas automatizados como Jarvis OS 2.0.
+- **Obsidian** — Almacenar y gestionar la memoria del sistema.
+- **JEV** — Optimizar decisiones específicas y actuar como capa de verificación en sistemas RAG.
+- **Claude Opus 5.5** — Modelo avanzado para crear juegos y escenas 3D.
+- **GPT-6 Sol y Luna** — Modelos de IA con mejoras de accesibilidad y resolución de problemas.
 - **MiniMax** — Crear estilos de motion design.
 - **OpenArt** — Plataforma para crear diseños de movimiento.
+- **Muse Charm** — Tecnología de Meta para videollamadas de cuerpo completo.
 - **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
-- **Claude** — Configurar filtros, reducir costos de vuelos y mejorar diseño y texto.
+- **ChatGPT Dots** — Convertir ChatGPT en un agente inteligente para negocios.
+- **UI/UX Pro Max** — Mejorar interfaces con estilos y colores profesionales.
 - **GitHub** — Plataforma para acceder a repositorios de código abierto que reducen costos en IA.
 
 ## Técnicas
 
 - Orquestación de sistemas multi-agente para coordinar tareas complejas.
-- Ingeniería de bucles para detectar errores en código de manera iterativa.
+- Ingeniería de bucles para detectar errores en código mediante iteraciones constantes.
 - Uso de playbooks para simplificar la gestión de agentes de IA.
 - Implementación de sistemas de memoria agentica en tres niveles para agentes de IA.
-- Uso de prompts para convertir ChatGPT en un agente inteligente para negocios.
+- Uso de prompts para convertir ChatGPT en un agente inteligente que comprende negocios.
 
-## Fuentes (18)
+## Fuentes (19)
 
+- [[2026-10-01-dm-18637728142021643|Repositorios GitHub útiles y gratuitos para desarrolladores]] · 2026-10-01
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
 - [[2026-10-01-dm-18132801160594365|Prompt para convertir ChatGPT en un agente inteligente]] · 2026-10-01
 - [[2026-10-01-dm-18105181870932144|Sistema de memoria agentica en IA: tres niveles]] · 2026-10-01
