@@ -2,45 +2,47 @@
 tags:
   - kb/tema
 descripcion: >-
-  Los avances en inteligencia artificial abarcan nuevos modelos, herramientas y
-  técnicas para mejorar la automatización y la eficiencia en diversas áreas.
-fuentes: 11
+  Los avances en inteligencia artificial están transformando múltiples áreas
+  mediante la creación de modelos más potentes, herramientas de automatización y
+  sistemas de agentes inteligentes.
+fuentes: 12
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances en inteligencia artificial abarcan nuevos modelos, herramientas y técnicas para mejorar la automatización y la eficiencia en diversas áreas.
+> Los avances en inteligencia artificial están transformando múltiples áreas mediante la creación de modelos más potentes, herramientas de automatización y sistemas de agentes inteligentes.
 
 ## Lo esencial
 
-- Claude Opus 5.5 es un modelo avanzado de IA lanzado por Anthropic, utilizado para crear juegos y escenas 3D rápidamente.
+- Claude Opus 5.5 es un modelo avanzado de IA que permite crear juegos y escenas 3D rápidamente.
 - GPT-6 Sol y Luna son modelos de OpenAI con mejoras significativas, incluyendo la resolución de problemas matemáticos complejos.
-- Jev es una herramienta de IA que optimiza decisiones específicas, complementando a los LLM generales y actuando como capa de verificación en sistemas RAG.
-- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para lograr metas complejas de manera eficiente.
-- Playbooks simplifican el uso de agentes de IA proporcionando un proceso claro y estructurado.
-- Claude es una herramienta versátil utilizada para automatización, reducción de costos de vuelos y configuración de filtros de contenido.
+- Jev es una herramienta de IA que optimiza decisiones específicas, es más rápida y económica que los LLM generales, y se utiliza para filtrar contenido y verificar información en sistemas RAG.
+- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr tareas complejas de manera eficiente.
+- El uso de playbooks simplifica la gestión de agentes de IA al proporcionar un proceso claro y estructurado.
+- Claude es una herramienta versátil que mejora interfaces, textos y puede reducir costos de vuelos mediante prompts.
 
 ## Herramientas mencionadas
 
-- **Claude Opus 5.5** — Modelo de IA avanzado para creación rápida de juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras para resolver problemas complejos.
-- **Jev** — Optimización de decisiones específicas y verificación en sistemas RAG.
-- **Orchestrator** — Coordina y gestiona sistemas multi-agente.
-- **Claude** — Automatización y reducción de costos de vuelos mediante prompts.
-- **MiniMax** — Creación de estilos de motion design.
-- **OpenArt** — Plataforma para crear diseños de movimiento.
+- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
+- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras de Astra.
+- **Jev** — Optimizar decisiones específicas y filtrar contenido.
+- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
+- **Claude** — Mejorar interfaces, textos y reducir costos de vuelos.
+- **MiniMax** — Crear estilos de motion design.
+- **Obsidian** — Almacenar y gestionar la memoria del sistema.
+- **Local Voice** — Entrada y salida de audio en sistemas automatizados.
 
 ## Técnicas
 
-- Utilizar modelos avanzados como Claude Opus 5.5 para tareas creativas y de desarrollo rápido.
-- Implementar Jev en sistemas RAG para mejorar la seguridad y precisión de las decisiones.
-- Coordinar agentes de IA mediante orquestación para tareas complejas.
-- Simplificar la gestión de agentes de IA con playbooks estructurados.
-- Usar prompts específicos con Claude para optimizar costos de vuelos.
+- Integrar Jev en sistemas RAG para evitar errores comunes como alucinaciones.
+- Usar prompts con Claude para comparar fechas y aerolíneas y reducir costos de vuelos.
+- Coordinar agentes especializados en sistemas multi-agente para tareas complejas.
+- Simplificar el uso de agentes de IA mediante playbooks en lugar de sistemas complejos.
 
-## Fuentes (11)
+## Fuentes (12)
 
+- [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
 - [[2026-10-01-dm-17902005075663616|Simplificación de agentes de IA con playbooks]] · 2026-10-01
 - [[2026-10-01-bhawna.io-DdgmEKfh_QF|Conceptos clave para dominar la IA agentiva en 2027]] — @bhawna.io · 2026-10-01
