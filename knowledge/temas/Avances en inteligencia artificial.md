@@ -2,49 +2,45 @@
 tags:
   - kb/tema
 descripcion: >-
-  Los avances recientes en inteligencia artificial abarcan desde nuevos modelos
-  de lenguaje hasta herramientas para automatizar tareas complejas.
-fuentes: 13
+  Los avances en inteligencia artificial abarcan nuevos modelos, herramientas y
+  aplicaciones que mejoran la automatización y la eficiencia en diversas áreas.
+fuentes: 14
 actualizado: '2026-10-01'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Los avances recientes en inteligencia artificial abarcan desde nuevos modelos de lenguaje hasta herramientas para automatizar tareas complejas.
+> Los avances en inteligencia artificial abarcan nuevos modelos, herramientas y aplicaciones que mejoran la automatización y la eficiencia en diversas áreas.
 
 ## Lo esencial
 
-- Claude Opus 5.5 es un modelo avanzado de IA que permite crear juegos y escenas 3D rápidamente.
-- GPT-6 Sol y Luna son modelos de OpenAI que ofrecen mejoras significativas en accesibilidad y resolución de problemas matemáticos.
-- Jev es una herramienta que optimiza decisiones específicas, complementando a los modelos de lenguaje en tareas repetitivas y actuando como capa de verificación en sistemas RAG.
+- Claude Opus 5.5 y GPT-6 son modelos avanzados que ofrecen mejoras significativas en la generación de contenido y resolución de problemas complejos.
+- Jev es una herramienta eficiente para decisiones específicas y verificación en sistemas RAG, evitando errores comunes como alucinaciones.
 - La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
-- El uso de playbooks simplifica la gestión de agentes de IA, proporcionando un proceso estructurado para su ejecución.
-- Existen repositorios de GitHub que ayudan a reducir costos en proyectos de IA, facilitando la implementación de soluciones eficientes.
+- El uso de playbooks simplifica la gestión de agentes de IA, proporcionando un proceso estructurado y claro.
+- Existen repositorios de código abierto en GitHub que ayudan a reducir costos en proyectos de IA, facilitando la implementación de soluciones eficientes.
 
 ## Herramientas mencionadas
 
-- **Claude Code + Codex** — Motor principal para sistemas automatizados como Jarvis OS 2.0.
-- **Obsidian** — Almacenar y gestionar la memoria del sistema en configuraciones automatizadas.
-- **Local Voice** — Entrada y salida de audio en sistemas automatizados.
-- **JEV** — Clasificar tareas, gestionar flujos de trabajo y optimizar decisiones específicas en IA.
 - **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de lenguaje de OpenAI con mejoras de accesibilidad y resolución de problemas.
-- **MiniMax** — Crear estilos de motion design en OpenArt.
-- **OpenArt** — Plataforma para crear diseños de movimiento.
-- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
-- **GitHub** — Plataforma para acceder a repositorios que reducen costos en IA.
-- **Claude** — Construcción de sistemas de IA, automatización y reducción de costos de vuelos.
+- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras de Astra.
+- **Jev** — Optimizar decisiones específicas y verificar en sistemas RAG.
+- **MiniMax** — Crear estilos de motion design.
+- **Obsidian** — Almacenar y gestionar la memoria del sistema en Jarvis OS 2.0.
+- **GitHub** — Plataforma para acceder a repositorios de código abierto que reducen costos en IA.
+- **Claude** — Configurar filtros y reducir costos de vuelos mediante prompts.
 
 ## Técnicas
 
-- Usar Jev como capa de verificación en sistemas RAG para evitar errores comunes.
+- Integrar Jev en sistemas RAG para evitar alucinaciones y mejorar la seguridad.
+- Usar playbooks para simplificar la gestión de agentes de IA.
+- Utilizar prompts con Claude para reducir costos de vuelos.
 - Implementar orquestación de sistemas multi-agente para coordinar tareas complejas.
-- Utilizar playbooks para simplificar la gestión de agentes de IA.
-- Acceder a repositorios de GitHub para reducir costos en proyectos de IA.
 
-## Fuentes (13)
+## Fuentes (14)
 
 - [[2026-10-01-dm-18157367206509814|10 habilidades de Claude para mejorar diseño y texto]] · 2026-10-01
+- [[2026-10-01-dm-17985691448881680|Construye el cerebro de tu empresa con JEV]] · 2026-10-01
 - [[2026-10-01-dm-17936661579122177|Prompts para reducir tarifas aéreas con Claude]] · 2026-10-01
 - [[2026-10-01-dm-17925788511423636|Repositorios de GitHub para reducir gastos en IA]] · 2026-10-01
 - [[2026-10-01-dm-17902005075663616|Simplificación de agentes de IA con playbooks]] · 2026-10-01
