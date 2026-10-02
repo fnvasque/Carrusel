@@ -1,44 +1,51 @@
 ---
 tags:
   - kb/tema
-descripcion: Avances recientes en inteligencia artificial y sus aplicaciones.
-fuentes: 21
-actualizado: '2026-10-01'
+descripcion: >-
+  Los avances en inteligencia artificial abarcan nuevas herramientas, modelos y
+  aplicaciones que mejoran la automatización, la eficiencia y la creatividad en
+  diversas áreas.
+fuentes: 22
+actualizado: '2026-10-02'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
 
-> Avances recientes en inteligencia artificial y sus aplicaciones.
+> Los avances en inteligencia artificial abarcan nuevas herramientas, modelos y aplicaciones que mejoran la automatización, la eficiencia y la creatividad en diversas áreas.
 
 ## Lo esencial
 
-- Claude Opus 5.5 es un modelo avanzado de Anthropic utilizado para crear juegos y escenas 3D rápidamente.
-- OpenAI lanzó GPT-6 Sol y Luna, modelos mejorados y más accesibles.
-- Jev es una herramienta de IA que optimiza decisiones específicas y actúa como capa de verificación en sistemas RAG.
-- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para tareas complejas.
-- La ingeniería de bucles y el uso de playbooks son métodos para mejorar la eficiencia de los agentes de IA.
-- Existen repositorios de GitHub que ayudan a reducir costos y mejorar la gestión de proyectos de IA.
-- Claude es una herramienta versátil utilizada para mejorar interfaces, textos y crear ofertas irresistibles.
+- Claude Opus 5.5 y GPT-6 Sol y Luna son modelos avanzados que mejoran la accesibilidad y capacidad de la IA.
+- Jev es una herramienta que optimiza decisiones específicas, complementando a los LLM generales y mejorando la verificación en sistemas RAG.
+- La orquestación de sistemas multi-agente permite coordinar agentes especializados para lograr metas complejas de manera eficiente.
+- La ingeniería de bucles y el uso de playbooks simplifican y mejoran la gestión de agentes de IA.
+- Herramientas como Claude y Jev se utilizan para automatizar procesos, mejorar interfaces y filtrar contenido.
+- GitHub ofrece repositorios de código abierto que ayudan a reducir costos y mejorar la eficiencia en proyectos de IA.
+- Reddit ha lanzado una IA para descubrir oportunidades de contenido y productos digitales, facilitando la creación de soluciones innovadoras.
 
 ## Herramientas mencionadas
 
-- **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de IA mejorados y accesibles de OpenAI.
-- **Jev** — Optimizar decisiones específicas y verificar en sistemas RAG.
-- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
-- **Claude** — Mejorar interfaces, textos y crear ofertas irresistibles.
-- **GitHub** — Plataforma para repositorios que reducen costos en IA.
+- **Claude Opus 5.5** — Modelo de IA avanzado lanzado por Anthropic.
+- **GPT-6 Sol y Luna** — Nuevos modelos de OpenAI con mejoras de Astra.
+- **Jev** — Optimizar decisiones específicas en aplicaciones de IA.
+- **MiniMax** — Crear estilos de motion design.
+- **OpenArt** — Plataforma para crear diseños de movimiento.
+- **Claude** — Reducir costos de vuelos mediante prompts y desarrollar guiones de contenido.
+- **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
+- **GitHub** — Plataforma donde se encuentran repositorios para reducir costos en IA.
+- **Reddit AI** — Identificar oportunidades de contenido y productos digitales a partir de publicaciones.
 
 ## Técnicas
 
-- Uso de Jev para evitar alucinaciones en sistemas RAG.
-- Orquestación de sistemas multi-agente para tareas complejas.
-- Ingeniería de bucles para detectar errores en código.
-- Uso de playbooks para simplificar agentes de IA.
-- Prompts para reducir costos de vuelos con Claude.
+- Orquestación de sistemas multi-agente para coordinar tareas complejas.
+- Ingeniería de bucles para detectar errores en código de manera iterativa.
+- Uso de playbooks para simplificar la gestión de agentes de IA.
+- Filtrado de contenido irrelevante usando modelos de decisión como Jev.
+- Automatización de procesos y mejora de interfaces con herramientas como Claude.
 
-## Fuentes (21)
+## Fuentes (22)
 
+- [[2026-10-02-thejimmyreilly-Dd899Qbz2aP|Reddit lanza IA para descubrir ideas de productos digitales]] — @thejimmyreilly · 2026-10-02
 - [[2026-10-01-dm-UxNTQ3MTY3NTkxNjI4OAZDZD|Claude para crear ofertas irresistibles]] · 2026-10-01
 - [[2026-10-01-dm-18637728142021643|Repositorios GitHub útiles y gratuitos para desarrolladores]] · 2026-10-01
 - [[2026-10-01-dm-18191847925400751|Creación de un equipo de startup con agentes de IA]] · 2026-10-01
