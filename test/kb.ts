@@ -1123,6 +1123,7 @@ check("usageOf: chat, transcripción y vacío", () => {
   assert.equal(usageOf(undefined), undefined);
   assert.equal(usd(0.0421), "US$0,042");
   assert.equal(usd(1.2), "US$1,20");
+  assert.equal(usd(0.00042), "US$0,0004");
 });
 
 checkAsync("registro de costos: suma por guardado y resumen", async () => {

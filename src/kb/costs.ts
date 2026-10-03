@@ -235,9 +235,9 @@ export function costSummary(): CostSummary {
   };
 }
 
-/** "US$0,042" / "US$1,20": más decimales cuando el monto es chico. Función pura. */
+/** "US$0,0004" / "US$0,042" / "US$1,20": más decimales cuando el monto es chico. Función pura. */
 export function usd(n: number): string {
-  const digits = n > 0 && n < 0.1 ? 3 : 2;
+  const digits = n > 0 && n < 0.001 ? 4 : n > 0 && n < 0.1 ? 3 : 2;
   return `US$${n.toFixed(digits).replace(".", ",")}`;
 }
 
