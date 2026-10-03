@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { cleanCall } from "./ai.ts";
 import { cosine, embedTexts } from "./embed.ts";
 import { resolveTopicName } from "./markdown.ts";
 import { OPENAI_OPTS } from "./types.ts";
@@ -52,7 +53,8 @@ const JudgeSchema = z.object({
 /** Pregunta a un modelo barato si el tema propuesto es uno de los candidatos. */
 async function judgeSameTopic(proposed: string, candidates: string[]): Promise<string | undefined> {
   if (!process.env.OPENAI_API_KEY) return undefined;
-  const res = await new OpenAI(OPENAI_OPTS).beta.chat.completions.parse({
+  // Con tildes corruptas el nombre no calzaría con ningún candidato y se crearía un tema duplicado.
+  const res = await cleanCall(() => new OpenAI(OPENAI_OPTS).beta.chat.completions.parse({
     model: process.env.KB_JUDGE_MODEL ?? "gpt-4o-mini",
     temperature: 0,
     messages: [
@@ -66,8 +68,8 @@ async function judgeSameTopic(proposed: string, candidates: string[]): Promise<s
       { role: "user", content: `Tema propuesto: ${proposed}\nTemas existentes:\n${candidates.map((c) => `- ${c}`).join("\n")}` },
     ],
     response_format: zodResponseFormat(JudgeSchema, "juicio"),
-  });
-  const same = res.choices[0]?.message.parsed?.same ?? undefined;
+  }).then((r) => r.choices[0]?.message.parsed ?? null));
+  const same = res?.same ?? undefined;
   return same && candidates.includes(same) ? same : undefined;
 }
 
