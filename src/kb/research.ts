@@ -138,24 +138,34 @@ function notifiedDb(): ReturnType<typeof openDb> {
 }
 
 /**
- * Resúmenes nuevos para reenviar por Telegram; quedan marcados. Con la tabla vacía
- * (índice nuevo o recién borrado) se marcan todos sin devolverlos: no se reenvía el historial.
+ * Resúmenes por reenviar por Telegram. No los marca: el bot marca cada uno con
+ * markSummaryNotified recién cuando el envío funcionó (si falla, se reintenta en la
+ * próxima sincronización). Con la tabla vacía (índice nuevo o recién borrado) se
+ * marcan todos sin devolverlos: no se reenvía el historial. Los vacíos se marcan y se omiten.
  */
-export async function takeNewSummaries(): Promise<{ name: string; text: string }[]> {
+export async function newSummaries(): Promise<{ name: string; text: string }[]> {
   const db = notifiedDb();
   const files = await mdFiles(resumenesDir());
   const notified = new Set((db.prepare("SELECT name FROM research_notified").all() as { name: string }[]).map((r) => r.name));
   const firstTime = notified.size === 0;
-  const mark = db.prepare("INSERT OR IGNORE INTO research_notified (name) VALUES (?)");
   const out: { name: string; text: string }[] = [];
   for (const name of pendingSummaries(files, notified)) {
-    mark.run(name);
-    if (firstTime) continue;
+    if (firstTime) {
+      markSummaryNotified(name);
+      continue;
+    }
     const text = summaryText(await readFile(join(resumenesDir(), name), "utf8"));
     if (text) out.push({ name, text });
-    else console.warn(`⚠️  Resumen de investigación vacío: ${name}`);
+    else {
+      console.warn(`⚠️  Resumen de investigación vacío: ${name}`);
+      markSummaryNotified(name);
+    }
   }
   // Base sin resúmenes todavía: se deja una marca para que el primero real sí se reenvíe.
-  if (firstTime && !files.length) mark.run("(inicio)");
+  if (firstTime && !files.length) markSummaryNotified("(inicio)");
   return out;
+}
+
+export function markSummaryNotified(name: string): void {
+  notifiedDb().prepare("INSERT OR IGNORE INTO research_notified (name) VALUES (?)").run(name);
 }
