@@ -139,6 +139,9 @@ export function zoneErrors(changes) {
   for (const { status, path } of changes) {
     if (outsideAgentZones([path]).length) errs.push(`${path}: el agente no puede modificar este archivo`);
     else if (PROTECTED.has(path)) errs.push(`${path}: el agente no puede modificar el validador ni el manual`);
+    else if (path.startsWith("_investigacion/resumenes/") && status !== "A") {
+      errs.push(`${path}: no sobrescribas un resumen ya publicado (el bot ya lo envió); usa <HOY>-2.md, <HOY>-3.md…`);
+    }
     else if (path.startsWith("temas/") && status === "D") errs.push(`${path}: el agente no puede borrar temas`);
     else if (path.startsWith("temas/") && status === "A") errs.push(`${path}: el agente no puede crear temas nuevos`);
   }
@@ -152,6 +155,11 @@ export function autoZoneOf(text) {
   return s !== -1 && e > s ? text.slice(s + AUTO_START.length, e).trim() : undefined;
 }
 
+/** Orden cronológico de resúmenes: AAAA-MM-DD.md antes que AAAA-MM-DD-2.md. */
+const summaryKey = (f) => {
+  const m = f.match(/^(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$/);
+  return m ? `${m[1]}-${(m[2] ?? "1").padStart(4, "0")}` : f;
+};
 const mdIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".md")).sort() : []);
 // core.quotepath=false: sin esto git escapa las rutas con tildes ("temas/Automatizaci\303\263n…").
 const git = (root, ...args) =>
@@ -193,7 +201,7 @@ function main(root, desde) {
   for (const f of mdIn(join(root, "temas"))) {
     if (touched(`temas/${f}`)) add(`temas/${f}`, validateTopicBlock(readFileSync(join(root, "temas", f), "utf8")));
   }
-  const resumenes = mdIn(join(root, "_investigacion", "resumenes"));
+  const resumenes = mdIn(join(root, "_investigacion", "resumenes")).sort((a, b) => summaryKey(a).localeCompare(summaryKey(b)));
   const last = resumenes[resumenes.length - 1];
   if (last) add(`_investigacion/resumenes/${last}`, validateResumen(readFileSync(join(root, "_investigacion", "resumenes", last), "utf8")));
   if (changes) {

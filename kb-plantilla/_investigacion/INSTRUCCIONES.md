@@ -145,9 +145,10 @@ Estado del tema en 2-4 frases: qué cambió, qué conviene saber hoy.
 
 - Agrega al final de `_investigacion/registro.md` (créalo con `# Registro de investigación` si no existe) una línea por tema:
   `- <HOY> · <Tema> · <n> referencias (<m> nuevas)`
-- Escribe `_investigacion/resumenes/<HOY>.md` (máximo 1000 caracteres, sin frontmatter):
-  qué temas revisaste, qué cambió y las 3 novedades más útiles. Es lo que el
-  usuario recibe por Telegram.
+- Escribe `_investigacion/resumenes/<HOY>.md` (máximo 1000 caracteres, sin frontmatter).
+  Si ya existe (hoy hubo otra corrida), no lo toques: usa `<HOY>-2.md`, `<HOY>-3.md`…
+  Contenido: qué temas revisaste, qué cambió y las 3 novedades más útiles. Es lo
+  que el usuario recibe por Telegram.
 
 ## Paso 5 — Validar y subir
 
