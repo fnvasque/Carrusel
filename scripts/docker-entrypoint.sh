@@ -11,6 +11,12 @@ KB_DIR="${KB_DIR:-/data/knowledge}"
 
 if [ -n "${KB_REPO:-}" ]; then
   mkdir -p "$KB_DIR"
+  # El volumen pertenece al usuario del host y el contenedor corre como root: git lo rechaza sin esto.
+  git config --global --add safe.directory "$KB_DIR"
+  # Un init a medias (arranque interrumpido) se rehace.
+  if [ -d "$KB_DIR/.git" ] && ! git -C "$KB_DIR" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+    rm -rf "$KB_DIR/.git"
+  fi
   if [ ! -d "$KB_DIR/.git" ]; then
     # init + fetch (no clone): así funciona aunque ya exista .index/ (índice copiado desde el Mac).
     echo "→ Preparando la base desde $KB_REPO…"
