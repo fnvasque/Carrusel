@@ -11,10 +11,18 @@ al tipo de cosa, nunca asumas que todo es software.
    dentro del bloque `<!-- kb:research:start -->` … `<!-- kb:research:end -->` de
    `temas/*.md`. Nunca tocas `fuentes/`, `_adjuntos/` ni la zona
    `<!-- kb:auto:start -->` … `<!-- kb:auto:end -->` (es del bot). Nunca creas temas.
-2. **Fuentes.** Cada afirmación verificable lleva `[n]` (n = posición en `fuentes`
-   del frontmatter, desde 1). Prefiere fuentes oficiales o primarias. Lo que no
+   Tampoco modificas `_investigacion/validar.mjs` ni este manual: si el validador
+   falla por algo que no es tuyo, descarta la corrida y explícalo en el resumen.
+2. **Fuentes.** En las notas de `referencias/`, cada afirmación verificable lleva
+   `[n]` (n = posición en `fuentes` del frontmatter, desde 1). En el bloque del tema
+   no hay lista de fuentes: ahí se cita con links `([fuente](https://…))`. Lo que no
    puedas respaldar con una fuente, no lo escribes. No inventes precios, límites
    ni capacidades.
+   - La fuente **oficial** (sitio, docs, blog o repo del producto/autor) manda
+     sobre agregadores, reseñas y fichas. Usa una fuente secundaria seria solo si
+     la oficial no tiene el dato.
+   - Si dos fuentes se contradicen y no lo puedes resolver con una oficial,
+     omite el dato.
 3. **Fechas absolutas** (AAAA-MM-DD). Nunca "hace poco" ni "este año".
 4. **Español**, directo y concreto.
 5. **Validar antes de subir.** `node _investigacion/validar.mjs --desde <sha inicial>`
@@ -34,8 +42,11 @@ Para cada `temas/<Tema>.md`:
 
 - Última revisión = la fecha más reciente de ese tema en `_investigacion/registro.md`
   (líneas `- AAAA-MM-DD · <Tema> · …`). Sin línea = nunca revisado.
-- Fichas nuevas = fichas de `fuentes/` cuyo frontmatter `tema:` es `[[<Tema>]]` y
-  cuyo `guardado:` es posterior a la última revisión (todas si nunca se revisó).
+- Fichas del tema = fichas de `fuentes/` cuyo frontmatter `tema:` es `[[<Tema>]]`
+  o cuya lista `temas_secundarios:` lo incluye (el valor puede venir entre comillas
+  simples o dobles: compara el texto de adentro).
+- Fichas nuevas = fichas del tema cuyo `guardado:` es posterior a la última
+  revisión (todas si nunca se revisó).
 
 Elegibles: con ≥ 1 ficha nueva, o con última revisión hace > 30 días. Orden: más
 fichas nuevas primero; luego los más antiguos. Toma los primeros 5.
@@ -50,7 +61,10 @@ la investigación dejó de correr): agrega a `_investigacion/registro.md` la lí
 1. Lee la página del tema y sus fichas (empieza por las nuevas).
 2. Elige hasta **8 referencias**: cosas concretas que se repiten entre fichas o
    son centrales para el tema (una herramienta, un producto, un libro, un
-   método, una persona, un lugar, un concepto). Ignora lo anecdótico.
+   método, una persona, un lugar, un concepto). Ignora lo anecdótico y las fichas
+   sin contenido concreto (p. ej. "comenta X y te envío el link").
+   Para el `tipo`: `metodo` es algo que se aplica con pasos (una técnica, una
+   receta, un proceso); `concepto` es una idea o arquitectura que se explica.
 3. Para cada referencia, busca si ya existe en `referencias/` (compara `nombre`
    sin tildes ni mayúsculas). Si existe, **actualízala** (no dupliques): agrega el
    tema a `temas`, refresca datos y suma novedades. Si no, créala como
@@ -95,12 +109,19 @@ Plataforma de automatización de flujos, open source y self-hosteable [1].
 ## Mis notas
 ```
 
+   **Novedades** = hechos con fecha de evento verificable (lanzamiento, versión,
+   cambio de precio), con esa fecha. Si la fuente no fecha el cambio, no va en
+   Novedades: va en `## Datos clave`. Sin novedades: `- Sin novedades verificadas.`
+
    Si la nota ya existía, conserva intacto todo lo que esté bajo `## Mis notas`.
    Si una referencia ya no existe o fue descontinuada, agrégale `estado: descontinuado`
    al frontmatter y dilo en `## Datos clave`.
 
 6. Escribe o reemplaza el bloque de investigación del tema, **justo después** de
-   `<!-- kb:auto:end -->` (si ya existe, reemplaza solo lo de adentro):
+   `<!-- kb:auto:end -->` (si ya existe, reemplaza solo lo de adentro; si el tema
+   no tiene zona `kb:auto`, ponlo antes de `## Mis notas`). Los enlaces a
+   referencias usan el slug del archivo y el nombre visible:
+   `[[<slug>|<Nombre>]]` (p. ej. `[[claude-code|Claude Code]]`).
 
 ```markdown
 <!-- kb:research:start -->
@@ -116,7 +137,7 @@ Estado del tema en 2-4 frases: qué cambió, qué conviene saber hoy.
 - Cómo se implementa en la práctica una técnica del tema ([fuente](https://…))
 
 ### Referencias
-- [[n8n]] — automatización de flujos; tiene API y self-hosting
+- [[n8n|n8n]] — automatización de flujos; tiene API y self-hosting
 <!-- kb:research:end -->
 ```
 

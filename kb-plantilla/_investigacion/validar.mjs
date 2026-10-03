@@ -130,11 +130,15 @@ export function parseNameStatus(out) {
     .map((m) => ({ status: m[1], path: m[2] }));
 }
 
+/** Archivos de _investigacion/ que instala el usuario (scripts/kb-research-install.sh), no el agente. */
+const PROTECTED = new Set(["_investigacion/validar.mjs", "_investigacion/INSTRUCCIONES.md"]);
+
 /** Errores de zona: nada fuera de las zonas del agente; en temas/ solo se modifican los existentes. */
 export function zoneErrors(changes) {
   const errs = [];
   for (const { status, path } of changes) {
     if (outsideAgentZones([path]).length) errs.push(`${path}: el agente no puede modificar este archivo`);
+    else if (PROTECTED.has(path)) errs.push(`${path}: el agente no puede modificar el validador ni el manual`);
     else if (path.startsWith("temas/") && status === "D") errs.push(`${path}: el agente no puede borrar temas`);
     else if (path.startsWith("temas/") && status === "A") errs.push(`${path}: el agente no puede crear temas nuevos`);
   }
@@ -149,7 +153,9 @@ export function autoZoneOf(text) {
 }
 
 const mdIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".md")).sort() : []);
-const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+// core.quotepath=false: sin esto git escapa las rutas con tildes ("temas/Automatizaci\303\263n…").
+const git = (root, ...args) =>
+  execFileSync("git", ["-c", "core.quotepath=false", ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 /**
  * Desde dónde contar los cambios del agente. Tras un `pull --rebase`, los commits

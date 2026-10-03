@@ -14,9 +14,9 @@ import {
 import { cleanCall, hasControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
-import { chunkFicha, fichaDoc, referenciaDoc, researchDoc, splitText } from "../src/kb/indexer.ts";
+import { chunkFicha, fichaDoc, indexedHead, referenciaDoc, researchDoc, setIndexedHead, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rangeFilter, rrfFuse, type Hit } from "../src/kb/search.ts";
-import { citedNumbers, groupSources, isResearch, sourceHead } from "../src/kb/ask.ts";
+import { citedNumbers, groupSources, isResearch, researchNote, sourceHead } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatSaved, formatSavedText, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
@@ -27,12 +27,12 @@ import {
   autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateReferencia, validateResumen, validateTopicBlock,
   zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
-import { abortStaleRebase, pullKb } from "../src/kb/store.ts";
+import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
-  RESEARCH_END, RESEARCH_START, silenceAlert, summaryText, takeNewSummaries,
+  markSummaryNotified, newSummaries, RESEARCH_END, RESEARCH_START, silenceAlert, summaryText,
 } from "../src/kb/research.ts";
 import { costOf, costSummary, formatCostSummary, recordUsage, setCostRef, usageOf, usd, withCostScope } from "../src/kb/costs.ts";
 import { renderTopicSources } from "../src/kb/markdown.ts";
@@ -766,7 +766,7 @@ check("formatAnswer / formatAnswerText: fuentes investigadas con 🔎", () => {
   assert.ok(text.includes("[2] Post — https://www.instagram.com/p/X/"));
 });
 
-checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una base temporal", async () => {
+checkAsync("listReferencias / listResearchBlocks / newSummaries sobre una base temporal", async () => {
   const dir = mkdtempSync(joinPath(tmpdir(), "kb-research-"));
   const prev = process.env.KB_DIR;
   process.env.KB_DIR = dir;
@@ -783,10 +783,17 @@ checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una ba
 
     // Índice nuevo con un resumen viejo: se marca sin reenviarlo.
     writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-05.md"), "viejo");
-    assert.deepEqual(await takeNewSummaries(), []);
+    assert.deepEqual(await newSummaries(), []);
     writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-12.md"), "nuevo");
-    assert.deepEqual(await takeNewSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
-    assert.deepEqual(await takeNewSummaries(), []);
+    assert.deepEqual(await newSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
+    // Sigue pendiente hasta que se marque como enviado (si Telegram falla, se reintenta en la próxima sincronización).
+    assert.deepEqual(await newSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
+    markSummaryNotified("2026-10-12.md");
+    assert.deepEqual(await newSummaries(), []);
+    // Un resumen vacío no se envía ni queda pendiente para siempre.
+    writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-19.md"), "  ");
+    assert.deepEqual(await newSummaries(), []);
+    assert.deepEqual(await newSummaries(), []);
   } finally {
     closeDb();
     if (prev === undefined) delete process.env.KB_DIR;
@@ -1188,6 +1195,75 @@ checkAsync("staleTopics: resume solo si cambiaron las fichas y pasó la espera",
     assert.deepEqual(await staleTopics(0), ["T"]);
     page({ sintesis: "otra", sintetizado: new Date(Date.now() - 25 * 3_600_000).toISOString() });
     assert.deepEqual(await staleTopics(24), ["T"]);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+check("validar (CLI): temas con tildes (git escapa las rutas no ASCII)", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-validar-tildes-"));
+  const g = (...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: root, stdio: "pipe" }).toString().trim();
+  try {
+    g("init", "-q", "-b", "main");
+    mkdirSync(joinPath(root, "temas"));
+    mkdirSync(joinPath(root, "_investigacion"));
+    writeFileSync(joinPath(root, "_investigacion", "validar.mjs"), readFileSync("kb-plantilla/_investigacion/validar.mjs"));
+    const tema = joinPath(root, "temas", "Automatización con IA.md");
+    writeFileSync(tema, "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n");
+    g("add", ".");
+    g("commit", "-q", "-m", "base");
+    const inicio = g("rev-parse", "HEAD");
+    writeFileSync(tema, "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-03_\n<!-- kb:research:end -->\n");
+    mkdirSync(joinPath(root, "referencias"));
+    writeFileSync(joinPath(root, "referencias", "orquestación.md"), REF_OK);
+    const out = execFileSync("node", ["_investigacion/validar.mjs", "--desde", inicio], { cwd: root, stdio: "pipe" }).toString();
+    assert.match(out, /Investigación válida/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("validar: el agente no puede modificar el validador ni el manual", () => {
+  const errs = zoneErrors([
+    { status: "M", path: "_investigacion/validar.mjs" },
+    { status: "M", path: "_investigacion/INSTRUCCIONES.md" },
+    { status: "M", path: "_investigacion/registro.md" },
+  ]);
+  assert.equal(errs.length, 2);
+  assert.match(errs.join(), /validar\.mjs: el agente no puede modificar el validador ni el manual/);
+});
+
+check("researchNote: avisa si la respuesta usa investigación sin decirlo; si ya lo dice o no la usa, nada", () => {
+  const ref = { n: 1, title: "Composio", savedAt: "2026-10-03", baseName: "composio", kind: "referencia" };
+  const blk = { n: 2, title: "Investigación: X", savedAt: "2026-10-10", baseName: "X", kind: "investigacion" };
+  const post = { n: 3, title: "Post", savedAt: "2026-09-01", baseName: "p" };
+  const a = (answer: string, sources: typeof post[]) => ({ answer, sources, found: true });
+  assert.equal(researchNote(a("Tiene plan gratis [1, 2].", [ref, blk])), "🔎 Incluye datos de la investigación del 2026-10-10.");
+  assert.equal(researchNote(a("Según la investigación del 2026-10-03, sí [1].", [ref])), undefined);
+  assert.equal(researchNote(a("Lo guardaste [3].", [post])), undefined);
+  assert.ok(formatAnswerText(a("Sí [1].", [ref])).includes("🔎 Incluye datos de la investigación del 2026-10-03."));
+  assert.ok(formatAnswer(a("Sí [1].", [ref])).includes("🔎 Incluye datos de la investigación del 2026-10-03."));
+});
+
+checkAsync("kbHead / indexedHead: el bot sabe si el índice corresponde a la base actual", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-head-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    assert.equal(await kbHead(), undefined); // sin repo git
+    execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+    writeFileSync(joinPath(dir, "a.md"), "x");
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "add", "."], { cwd: dir });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "1"], { cwd: dir });
+    const head = await kbHead();
+    assert.match(head ?? "", /^[0-9a-f]{40}$/);
+    assert.equal(indexedHead(), undefined);
+    setIndexedHead(head!);
+    assert.equal(indexedHead(), head);
   } finally {
     closeDb();
     if (prev === undefined) delete process.env.KB_DIR;

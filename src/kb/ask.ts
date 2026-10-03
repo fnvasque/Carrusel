@@ -74,6 +74,17 @@ export function citedNumbers(text: string): number[] {
 /** ¿La fuente es una nota de investigación (no un post guardado)? */
 export const isResearch = (s: { kind?: string }): boolean => s.kind === "referencia" || s.kind === "investigacion";
 
+/**
+ * Aviso para el final de la respuesta cuando cita investigación sin decirlo (el
+ * modelo no siempre sigue la instrucción): fecha de revisión más reciente. Función pura.
+ */
+export function researchNote(a: Pick<Answer, "answer" | "sources">): string | undefined {
+  const dates = a.sources.filter(isResearch).map((s) => s.savedAt ?? "").sort();
+  if (!dates.length || /investigaci[oó]n/i.test(a.answer)) return undefined;
+  const last = dates[dates.length - 1];
+  return `🔎 Incluye datos de la investigación${last ? ` del ${last}` : ""}.`;
+}
+
 /** Encabezado de una fuente en el contexto del modelo. Función pura. */
 export function sourceHead(s: Source): string {
   if (isResearch(s)) {
@@ -87,7 +98,7 @@ Respondes preguntas del usuario sobre SU base de conocimiento personal: posts de
 Reglas:
 - Usa SOLO la información de las fuentes numeradas. No agregues conocimiento propio.
 - Cada trozo indica su sección entre paréntesis: "Texto de las imágenes" es lo que decían las slides o cuadros, "Transcripción" es el audio, "Mis notas" son notas del propio usuario.
-- Las fuentes marcadas INVESTIGACIÓN no son posts guardados: son notas investigadas en la web, con su fecha de revisión. Si usas una, dilo ("según la investigación del 12-oct…").
+- Las fuentes marcadas INVESTIGACIÓN no son posts guardados: son notas investigadas en la web, con su fecha de revisión. Cada vez que uses una, la frase debe empezar con «Según la investigación del <fecha>, …» (la fecha de revisión de esa fuente).
 - Cita cada afirmación con el número de su fuente entre corchetes, ej. [1] o [2, 3].
 - Si las fuentes no responden la pregunta, dilo claramente ("No encontré eso en tu base") y, si hay algo cercano, menciónalo con su cita.
 - Responde en español, directo y concreto: primero la respuesta, después el detalle útil (herramientas, pasos, datos). Sin relleno.

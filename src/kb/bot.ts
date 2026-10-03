@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Bot, GrammyError, InlineKeyboard, type Api } from "grammy";
 import { ask } from "./ask.ts";
-import { reindex } from "./indexer.ts";
+import { indexedHead, reindex, setIndexedHead } from "./indexer.ts";
 import { topicKey } from "./markdown.ts";
 import { addPost, changeTopic, synthesizeStaleTopics } from "./pipeline.ts";
 import { costSummary, formatCostSummary } from "./costs.ts";
@@ -10,10 +10,10 @@ import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job }
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import {
-  abortStaleRebase, findFichaById, findLastSave, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
+  abortStaleRebase, findFichaById, findLastSave, kbHead, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
   temasDir,
 } from "./store.ts";
-import { registroPath, silenceAlert, takeNewSummaries } from "./research.ts";
+import { markSummaryNotified, newSummaries, registroPath, silenceAlert } from "./research.ts";
 import { sendDm } from "../meta/messages.ts";
 import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
 import { dmAction, startInbox, type DmEvent } from "./inbox.ts";
@@ -98,6 +98,21 @@ const errText = (err: unknown): string => (err instanceof Error ? err.message : 
 async function notifyAdmin(text: string): Promise<void> {
   console.warn(text);
   for (const chatId of allowed) await bot.api.sendMessage(chatId, text).catch(() => {});
+}
+
+/** Como notifyAdmin, pero dice si el mensaje llegó al menos a un chat. */
+async function sendToAdmins(text: string): Promise<boolean> {
+  console.log(text);
+  let ok = false;
+  for (const chatId of allowed) {
+    try {
+      await bot.api.sendMessage(chatId, text);
+      ok = true;
+    } catch (err) {
+      console.warn(`⚠️  Telegram (${chatId}): ${errText(err)}`);
+    }
+  }
+  return ok;
 }
 
 const savedKeyboard = (id: string) => new InlineKeyboard().text("↩️ Deshacer", `undo:${id}`).text("🏷 Cambiar tema", `topic:${id}`);
@@ -636,8 +651,8 @@ async function checkMetaToken(): Promise<void> {
 
 /** Cada cuánto se traen cambios de la base desde GitHub. */
 const SYNC_INTERVAL_MS = 3_600_000;
-/** Primer pull tras arrancar (el entrypoint ya hizo uno). */
-const SYNC_FIRST_DELAY_MS = 5 * 60_000;
+/** Primera sincronización tras arrancar: indexa lo que trajo el pull del entrypoint. */
+const SYNC_FIRST_DELAY_MS = 60_000;
 
 let lastSyncError: string | undefined;
 
@@ -652,12 +667,19 @@ async function syncFromRemote(): Promise<void> {
         return;
       }
       lastSyncError = undefined;
-      if (r.changed) {
+      // También si el índice quedó atrás de la base (p. ej. lo trajo el pull del arranque).
+      const head = await kbHead();
+      if (r.changed || (head && head !== indexedHead())) {
         const s = await reindex();
+        if (head) setIndexedHead(head);
         console.log(`↓ Base actualizada desde GitHub: ${s.indexed} documento(s) reindexado(s), ${s.removed} quitado(s).`);
       }
     });
-    for (const s of await takeNewSummaries()) await notifyAdmin(`🔎 Investigación semanal\n\n${s.text}`);
+    for (const s of await newSummaries()) {
+      // Se marca solo si llegó: si Telegram falla, se reintenta en la próxima sincronización.
+      if (await sendToAdmins(`🔎 Investigación semanal\n\n${s.text}`)) markSummaryNotified(s.name);
+      else console.warn(`⚠️  No pude enviar el resumen ${s.name} por Telegram; reintento en la próxima sincronización.`);
+    }
   } catch (err) {
     console.warn(`⚠️  Sincronización con GitHub: ${errText(err)}`);
   }
@@ -712,7 +734,6 @@ void checkMetaToken();
 setInterval(() => void checkMetaToken(), 24 * 3_600_000);
 if (process.env.KB_GIT_PUSH === "1") {
   // Solo en el servidor: ahí la base es un clon de ia-es-kb que también escribe el agente de investigación.
-  void takeNewSummaries().catch(() => {}); // índice nuevo: marca los resúmenes existentes sin reenviarlos
   setTimeout(() => void syncFromRemote(), SYNC_FIRST_DELAY_MS);
   setInterval(() => void syncFromRemote(), SYNC_INTERVAL_MS);
 }
