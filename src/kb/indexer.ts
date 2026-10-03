@@ -3,11 +3,12 @@ import matter from "gray-matter";
 import { openDb, toBlob } from "./db.ts";
 import { embedTexts } from "./embed.ts";
 import { AUTO_END, AUTO_START } from "./markdown.ts";
+import { listReferencias, listResearchBlocks, type ReferenceNote, type ResearchBlock } from "./research.ts";
 import { listFichas, type StoredFicha } from "./store.ts";
 
 /**
- * Indexación: cada ficha se parte en trozos por sección (Qué es, Ideas clave,
- * texto de imágenes, transcripción, Mis notas…), que van a FTS5 (búsqueda por
+ * Indexación: cada documento (ficha, nota de referencia o bloque de investigación
+ * de un tema) se parte en trozos por sección, que van a FTS5 (búsqueda por
  * palabras) y a embeddings (búsqueda por significado).
  */
 
@@ -96,34 +97,69 @@ const hashOf = (raw: string): string => createHash("sha256").update(raw).digest(
 /** Texto que se indexa/embebe de un trozo: con título y sección para dar contexto. */
 const contextual = (title: string, c: Chunk): string => `${title} · ${c.section}\n${c.text}`;
 
-/** Indexa (o reindexa) una ficha. Si no cambió desde la última vez, no hace nada. */
-export async function indexFicha(f: StoredFicha, force = false): Promise<boolean> {
-  if (!f.id) return false;
+/** Documento indexable: una ficha, una nota de referencia o el bloque de investigación de un tema. */
+export interface IndexDoc {
+  id: string;
+  path: string;
+  baseName: string;
+  title: string;
+  author?: string;
+  url?: string;
+  topic?: string;
+  savedAt?: string;
+  publishedAt?: string;
+  /** Tipo de ficha (reel, post…), o "referencia" / "investigacion". */
+  kind?: string;
+  raw: string;
+  body: string;
+}
+
+export function fichaDoc(f: StoredFicha): IndexDoc | undefined {
+  if (!f.id) return undefined;
+  const { data } = matter(f.raw);
+  return {
+    id: f.id, path: f.path, baseName: f.baseName, title: f.title, author: f.author,
+    url: typeof data.url === "string" ? data.url : undefined, topic: f.topic, savedAt: f.savedAt,
+    publishedAt: typeof data.publicado === "string" ? data.publicado : undefined,
+    kind: typeof data.tipo === "string" ? data.tipo : undefined, raw: f.raw, body: f.body,
+  };
+}
+
+export const referenciaDoc = (r: ReferenceNote): IndexDoc => ({
+  id: `ref:${r.baseName}`, path: r.path, baseName: r.baseName, title: r.title, topic: r.topics[0],
+  savedAt: r.reviewed, kind: "referencia", raw: r.raw, body: r.body,
+});
+
+export const researchDoc = (b: ResearchBlock): IndexDoc => ({
+  id: `tema:${b.topic}`, path: b.path, baseName: b.topic, title: `Investigación: ${b.topic}`, topic: b.topic,
+  savedAt: b.reviewed, kind: "investigacion", raw: b.block, body: b.block,
+});
+
+/** Indexa (o reindexa) un documento. Si no cambió desde la última vez, no hace nada. */
+export async function indexDoc(d: IndexDoc, force = false): Promise<boolean> {
   const db = openDb();
-  const hash = hashOf(f.raw);
-  const prev = db.prepare("SELECT hash FROM posts WHERE id = ?").get(f.id) as { hash: string } | undefined;
+  const hash = hashOf(d.raw);
+  const prev = db.prepare("SELECT hash FROM posts WHERE id = ?").get(d.id) as { hash: string } | undefined;
   if (!force && prev?.hash === hash) return false;
 
-  const chunks = chunkFicha(f.body);
-  const vectors = await embedTexts(chunks.map((c) => contextual(f.title, c)));
-  const { data } = matter(f.raw);
+  const chunks = chunkFicha(d.body);
+  const vectors = await embedTexts(chunks.map((c) => contextual(d.title, c)));
 
   db.exec("BEGIN");
   try {
-    removePost(f.id);
+    removePost(d.id);
     db.prepare(
       `INSERT INTO posts (id, path, base_name, title, author, url, topic, saved_at, published_at, kind, hash)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      f.id, f.path, f.baseName, f.title, f.author ?? null, typeof data.url === "string" ? data.url : null,
-      f.topic ?? null, f.savedAt ?? null, typeof data.publicado === "string" ? data.publicado : null,
-      typeof data.tipo === "string" ? data.tipo : null, hash,
+      d.id, d.path, d.baseName, d.title, d.author ?? null, d.url ?? null, d.topic ?? null, d.savedAt ?? null,
+      d.publishedAt ?? null, d.kind ?? null, hash,
     );
     const insChunk = db.prepare("INSERT INTO chunks (post_id, section, text, embedding) VALUES (?, ?, ?, ?)");
     const insFts = db.prepare("INSERT INTO chunks_fts (rowid, text) VALUES (?, ?)");
     chunks.forEach((c, i) => {
-      const { lastInsertRowid } = insChunk.run(f.id!, c.section, c.text, toBlob(vectors[i]));
-      insFts.run(lastInsertRowid, contextual(f.title, c));
+      const { lastInsertRowid } = insChunk.run(d.id, c.section, c.text, toBlob(vectors[i]));
+      insFts.run(lastInsertRowid, contextual(d.title, c));
     });
     db.exec("COMMIT");
   } catch (err) {
@@ -131,6 +167,12 @@ export async function indexFicha(f: StoredFicha, force = false): Promise<boolean
     throw err;
   }
   return true;
+}
+
+/** Indexa una ficha (atajo de indexDoc). */
+export async function indexFicha(f: StoredFicha, force = false): Promise<boolean> {
+  const d = fichaDoc(f);
+  return d ? indexDoc(d, force) : false;
 }
 
 /** Quita un post del índice (fila, trozos y texto FTS). */
@@ -144,16 +186,21 @@ export function removePost(id: string): void {
 }
 
 /**
- * Sincroniza el índice con el Markdown: indexa fichas nuevas o cambiadas y quita
- * las que ya no existen. Con `full`, reindexa todo (los embeddings salen de caché).
+ * Sincroniza el índice con el Markdown: indexa fichas, referencias y bloques de
+ * investigación nuevos o cambiados y quita lo que ya no existe. Con `full`,
+ * reindexa todo (los embeddings salen de caché).
  */
 export async function reindex(full = false): Promise<{ indexed: number; removed: number; total: number }> {
   const db = openDb();
-  const fichas = (await listFichas()).filter((f) => f.id);
+  const docs = [
+    ...(await listFichas()).map(fichaDoc).filter((d): d is IndexDoc => !!d),
+    ...(await listReferencias()).map(referenciaDoc),
+    ...(await listResearchBlocks()).map(researchDoc),
+  ];
   let indexed = 0;
-  for (const f of fichas) if (await indexFicha(f, full)) indexed++;
-  const alive = new Set(fichas.map((f) => f.id!));
+  for (const d of docs) if (await indexDoc(d, full)) indexed++;
+  const alive = new Set(docs.map((d) => d.id));
   const stale = (db.prepare("SELECT id FROM posts").all() as { id: string }[]).filter((r) => !alive.has(r.id));
   for (const r of stale) removePost(r.id);
-  return { indexed, removed: stale.length, total: fichas.length };
+  return { indexed, removed: stale.length, total: docs.length };
 }

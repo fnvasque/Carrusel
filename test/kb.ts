@@ -14,16 +14,26 @@ import {
 import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
-import { chunkFicha, splitText } from "../src/kb/indexer.ts";
-import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
-import { citedNumbers, groupSources } from "../src/kb/ask.ts";
+import { chunkFicha, fichaDoc, referenciaDoc, researchDoc, splitText } from "../src/kb/indexer.ts";
+import { ftsQuery, parseDateRange, rangeFilter, rrfFuse, type Hit } from "../src/kb/search.ts";
+import { citedNumbers, groupSources, isResearch, sourceHead } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatSaved, formatSavedText, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
 } from "../src/kb/telegram.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+  autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateReferencia, validateResumen, validateTopicBlock,
+  zoneErrors,
+} from "../kb-plantilla/_investigacion/validar.mjs";
+import { pullKb } from "../src/kb/store.ts";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
+  RESEARCH_END, RESEARCH_START, silenceAlert, summaryText, takeNewSummaries,
+} from "../src/kb/research.ts";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
 import type { Ficha } from "../src/kb/types.ts";
@@ -44,6 +54,23 @@ function check(name: string, fn: () => void): void {
     failed++;
     console.error("✗", name, "—", e instanceof Error ? e.message : e);
   }
+}
+
+/** Pruebas async: en serie y después de las sincrónicas (algunas cambian KB_DIR). */
+let asyncChain: Promise<void> = Promise.resolve();
+function checkAsync(name: string, fn: () => Promise<void>): void {
+  asyncChain = asyncChain.then(() =>
+    fn().then(
+      () => {
+        passed++;
+        console.log("✓", name);
+      },
+      (e) => {
+        failed++;
+        console.error("✗", name, "—", e instanceof Error ? e.message : e);
+      },
+    ),
+  );
 }
 
 const ficha = (over: Partial<Ficha> = {}): Ficha => ({
@@ -591,5 +618,367 @@ check("missedMessages: textos para procesar y posts ilegibles por remitente, sol
   assert.equal(r.events[0].senderId, "yo");
 });
 
+// --- investigación semanal ---
+const BLOCK = `${RESEARCH_START}\n## Investigación\n_Revisado 2026-10-12_\n\nEstado.\n\n### Referencias\n- [[n8n]] — flujos\n${RESEARCH_END}`;
+
+check("researchBlock: contenido entre marcadores; sin marcadores o vacío → undefined", () => {
+  assert.equal(researchBlock(`antes\n${BLOCK}\ndespués`), BLOCK.slice(RESEARCH_START.length, -RESEARCH_END.length).trim());
+  assert.equal(researchBlock("sin bloque"), undefined);
+  assert.equal(researchBlock(`${RESEARCH_START}\n \n${RESEARCH_END}`), undefined);
+  assert.equal(researchBlock(`${RESEARCH_END} al revés ${RESEARCH_START}`), undefined);
+  assert.equal(reviewedDate(BLOCK), "2026-10-12");
+  assert.equal(reviewedDate("sin fecha"), undefined);
+});
+
+check("renderTopic conserva el bloque kb:research al regenerar el tema", () => {
+  const s = { description: "d", essentials: ["e"], tools: [], techniques: [] };
+  const first = renderTopic("Tema", s, [], "2026-10-01");
+  const withBlock = first.replace("## Mis notas", `${BLOCK}\n\n## Mis notas`);
+  const again = renderTopic("Tema", { ...s, essentials: ["otra"] }, [], "2026-10-02", withBlock);
+  assert.ok(again.includes(BLOCK));
+  assert.ok(again.includes("- otra"));
+});
+
+check("parseRegistro: última fecha por tema; ignora líneas ajenas", () => {
+  const r = parseRegistro(
+    "# Registro\n\n- 2026-10-05 · Cocina · 2 referencias (2 nuevas)\n- 2026-10-12 · Cocina · 3 referencias (1 nuevas)\n" +
+      "- 2026-10-12 · Automatización con IA · 4 referencias (0 nuevas)\nbasura\n",
+  );
+  assert.equal(r.get("Cocina"), "2026-10-12");
+  assert.equal(r.get("Automatización con IA"), "2026-10-12");
+  assert.equal(r.size, 2);
+});
+
+check("silenceAlert: sin registro o reciente → nada; > 8 días → aviso con la fecha", () => {
+  const reg = "- 2026-10-01 · Cocina · 1 referencias (1 nuevas)\n";
+  assert.equal(silenceAlert(undefined, "2026-10-20"), undefined);
+  assert.equal(silenceAlert("# Registro\n", "2026-10-20"), undefined);
+  assert.equal(silenceAlert(reg, "2026-10-09"), undefined);
+  const a = silenceAlert(reg, "2026-10-10");
+  assert.equal(a?.since, "2026-10-01");
+  assert.ok(a?.text.includes("2026-10-01") && a.text.includes("9 días"));
+});
+
+check("pendingSummaries: solo AAAA-MM-DD.md no notificados, en orden", () => {
+  assert.deepEqual(
+    pendingSummaries(["2026-10-12.md", "notas.md", "2026-10-05.md", "2026-10-19.md"], new Set(["2026-10-05.md"])),
+    ["2026-10-12.md", "2026-10-19.md"],
+  );
+});
+
+check("summaryText: quita frontmatter; vacío → undefined", () => {
+  assert.equal(summaryText("---\nfecha: 2026-10-12\n---\n\n🔎 Tres novedades\n"), "🔎 Tres novedades");
+  assert.equal(summaryText("---\na: 1\n---\n  \n"), undefined);
+});
+
+check("parseReferencia: frontmatter en bloque (Obsidian) y fecha sin comillas", () => {
+  const raw = "---\ntipo: software\nnombre: n8n\ntemas:\n  - '[[Automatización con IA]]'\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io\n---\n## Qué es\nX [1]\n";
+  const r = parseReferencia("/kb/referencias/n8n.md", raw);
+  assert.equal(r.baseName, "n8n");
+  assert.equal(r.title, "n8n");
+  assert.equal(r.tipo, "software");
+  assert.equal(r.reviewed, "2026-10-12");
+  assert.deepEqual(r.topics, ["Automatización con IA"]);
+  assert.ok(r.body.startsWith("## Qué es"));
+});
+
+check("documentos del índice: referencia y bloque de investigación", () => {
+  const ref = parseReferencia(
+    "/kb/referencias/n8n.md",
+    "---\ntipo: software\nnombre: n8n\ntemas: ['[[Automatización con IA]]']\nrevisado: 2026-10-12\nfuentes: [https://n8n.io]\n---\n## Qué es\nFlujos [1]\n\n## Mis notas\nlo uso\n",
+  );
+  const d = referenciaDoc(ref);
+  assert.equal(d.id, "ref:n8n");
+  assert.equal(d.kind, "referencia");
+  assert.equal(d.savedAt, "2026-10-12");
+  assert.equal(d.topic, "Automatización con IA");
+  assert.deepEqual(chunkFicha(d.body).map((c) => c.section), ["Qué es", "Mis notas"]);
+
+  const r = researchDoc({ topic: "Cocina", path: "/kb/temas/Cocina.md", reviewed: "2026-10-12", block: researchBlock(BLOCK)! });
+  assert.equal(r.id, "tema:Cocina");
+  assert.equal(r.kind, "investigacion");
+  assert.equal(r.title, "Investigación: Cocina");
+  assert.deepEqual(chunkFicha(r.body).map((c) => c.section), ["Investigación"]);
+});
+
+check("fichaDoc: sin id no se indexa; con id conserva tipo y publicado", () => {
+  const base = { path: "/kb/fuentes/a.md", baseName: "a", title: "A", secondary: [], notes: [], body: "x" };
+  assert.equal(fichaDoc({ ...base, raw: "---\n---\nx" }), undefined);
+  const d = fichaDoc({ ...base, id: "ig:1", raw: "---\nid: ig:1\ntipo: reel\npublicado: '2026-09-01'\n---\nx" });
+  assert.equal(d?.kind, "reel");
+  assert.equal(d?.publishedAt, "2026-09-01");
+});
+
+check("ask: fuentes de investigación rotuladas en el contexto", () => {
+  const hit = (over: Partial<Hit>): Hit => ({
+    chunkId: 1, postId: "p", section: "s", text: "t", score: 1, title: "T", path: "x", baseName: "b", ...over,
+  });
+  const groups = groupSources([
+    hit({ baseName: "n8n", title: "n8n", kind: "referencia", savedAt: "2026-10-12", topic: "Automatización con IA" }),
+    hit({ chunkId: 2, baseName: "f1", title: "Post", author: "@a", savedAt: "2026-09-01", kind: "reel" }),
+  ]);
+  assert.equal(groups[0].source.kind, "referencia");
+  assert.ok(isResearch(groups[0].source));
+  assert.ok(!isResearch(groups[1].source));
+  assert.equal(sourceHead(groups[0].source), "[1] INVESTIGACIÓN — n8n · revisada 2026-10-12 · tema: Automatización con IA");
+  assert.equal(sourceHead(groups[1].source), "[2] Post — @a · guardado 2026-09-01");
+});
+
+check("formatAnswer / formatAnswerText: fuentes investigadas con 🔎", () => {
+  const a = {
+    answer: "Tiene plan gratis [1] y lo guardaste [2].",
+    sources: [
+      { n: 1, title: "n8n", savedAt: "2026-10-12", baseName: "n8n", kind: "referencia" },
+      { n: 2, title: "Post", author: "@a", savedAt: "2026-09-01", url: "https://www.instagram.com/p/X/", baseName: "f1" },
+    ],
+    found: true,
+  };
+  const html = formatAnswer(a);
+  assert.ok(html.includes("[1] 🔎 n8n — investigado 2026-10-12"));
+  assert.ok(html.includes('[2] <a href="https://www.instagram.com/p/X/">Post</a> — @a · 2026-09-01'));
+  const text = formatAnswerText(a);
+  assert.ok(text.includes("[1] 🔎 n8n — investigado 2026-10-12"));
+  assert.ok(text.includes("[2] Post — https://www.instagram.com/p/X/"));
+});
+
+checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una base temporal", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-research-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    mkdirSync(joinPath(dir, "referencias"), { recursive: true });
+    mkdirSync(joinPath(dir, "temas"), { recursive: true });
+    mkdirSync(joinPath(dir, "_investigacion", "resumenes"), { recursive: true });
+    writeFileSync(joinPath(dir, "referencias", "n8n.md"), "---\ntipo: software\nnombre: n8n\nrevisado: 2026-10-12\nfuentes: [https://n8n.io]\n---\n## Qué es\nX [1]\n");
+    writeFileSync(joinPath(dir, "temas", "Cocina.md"), `---\ntags: [kb/tema]\n---\n<!-- kb:auto:start -->\n# Cocina\n<!-- kb:auto:end -->\n\n${BLOCK}\n`);
+    writeFileSync(joinPath(dir, "temas", "Viajes.md"), "---\ntags: [kb/tema]\n---\nsin bloque\n");
+    assert.deepEqual((await listReferencias()).map((r) => r.baseName), ["n8n"]);
+    const blocks = await listResearchBlocks();
+    assert.deepEqual(blocks.map((b) => [b.topic, b.reviewed]), [["Cocina", "2026-10-12"]]);
+
+    // Índice nuevo con un resumen viejo: se marca sin reenviarlo.
+    writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-05.md"), "viejo");
+    assert.deepEqual(await takeNewSummaries(), []);
+    writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-12.md"), "nuevo");
+    assert.deepEqual(await takeNewSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
+    assert.deepEqual(await takeNewSummaries(), []);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+checkAsync("pullKb: trae cambios del remoto; sin cambios → changed false; conflicto → error y base intacta", async () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-pull-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString();
+  const prev = process.env.KB_DIR;
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "bot");
+    g(root, "clone", "-q", "remote.git", "agente");
+    const bot = joinPath(root, "bot");
+    const agente = joinPath(root, "agente");
+    writeFileSync(joinPath(agente, "a.md"), "uno\n");
+    g(agente, "add", ".");
+    g(agente, "commit", "-q", "-m", "1");
+    g(agente, "push", "-q", "origin", "main");
+    g(bot, "pull", "-q", "origin", "main");
+    g(bot, "branch", "-q", "--set-upstream-to=origin/main", "main");
+    process.env.KB_DIR = bot;
+
+    assert.deepEqual(await pullKb(), { changed: false });
+
+    writeFileSync(joinPath(agente, "b.md"), "dos\n");
+    g(agente, "add", ".");
+    g(agente, "commit", "-q", "-m", "2");
+    g(agente, "push", "-q", "origin", "main");
+    assert.deepEqual(await pullKb(), { changed: true });
+
+    // Conflicto: ambos editan a.md.
+    writeFileSync(joinPath(agente, "a.md"), "agente\n");
+    g(agente, "commit", "-q", "-am", "3");
+    g(agente, "push", "-q", "origin", "main");
+    writeFileSync(joinPath(bot, "a.md"), "bot\n");
+    g(bot, "commit", "-q", "-am", "local");
+    const head = g(bot, "rev-parse", "HEAD");
+    const r = await pullKb();
+    assert.equal(r.changed, false);
+    assert.ok(r.error);
+    assert.equal(g(bot, "rev-parse", "HEAD"), head);
+    assert.equal(g(bot, "status", "--porcelain"), "");
+  } finally {
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// --- validador del agente de investigación ---
+const REF_OK =
+  "---\ntipo: software\nnombre: n8n\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io\ntags: [kb/referencia]\n---\n\n## Qué es\nAutomatiza flujos [1].\n\n## Datos clave\n- Tiene API REST [2].\n\n## Mis notas\n";
+
+check("validar: referencia válida (listas en bloque e inline)", () => {
+  assert.deepEqual(validateReferencia(REF_OK), []);
+  const fm = parseFrontmatter(REF_OK);
+  assert.ok(!("error" in fm));
+  if (!("error" in fm)) {
+    assert.deepEqual(fm.data.fuentes, ["https://n8n.io/pricing", "https://docs.n8n.io"]);
+    assert.deepEqual(fm.data.temas, ["[[Automatización con IA]]"]);
+  }
+});
+
+check("validar: referencias inválidas", () => {
+  const errs = (t: string) => validateReferencia(t).join(" | ");
+  assert.match(errs("sin frontmatter"), /frontmatter/);
+  assert.match(errs(REF_OK.replace("tipo: software", "tipo: app")), /tipo inválido/);
+  assert.match(errs(REF_OK.replace("revisado: 2026-10-12", "revisado: 2026-13-40")), /revisado inválido/);
+  assert.match(errs(REF_OK.replace(/fuentes:\n {2}- \S+\n {2}- \S+\n/, "fuentes: []\n")), /fuentes/);
+  assert.match(errs(REF_OK.replace("https://docs.n8n.io", "docs.n8n.io")), /no es una URL/);
+  assert.match(errs(REF_OK.replace("[2]", "[3]")), /\[3\] no tiene fuente/);
+  assert.match(errs(REF_OK.replace("## Datos clave", "## Datos")), /Datos clave/);
+  assert.match(errs(REF_OK.replace(/\s\[\d\]/g, "")), /ninguna afirmación/);
+  // [[wikilinks]] y links markdown no cuentan como citas.
+  assert.deepEqual(validateReferencia(REF_OK.replace("flujos [1].", "flujos [1]. Ver [[Make]] y [doc](https://x.y).")), []);
+});
+
+check("validar: bloque kb:research del tema", () => {
+  const ok = `<!-- kb:auto:start -->\n# T\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-12_\n\nx\n<!-- kb:research:end -->\n`;
+  assert.deepEqual(validateTopicBlock(ok), []);
+  assert.deepEqual(validateTopicBlock("tema sin bloque"), []);
+  assert.match(validateTopicBlock(ok.replace("<!-- kb:research:end -->", "")).join(), /cerrado/);
+  assert.match(validateTopicBlock(ok.replace("## Investigación", "## Otra")).join(), /## Investigación/);
+  assert.match(validateTopicBlock(ok.replace("_Revisado 2026-10-12_", "")).join(), /_Revisado/);
+});
+
+check("validar: resumen", () => {
+  assert.deepEqual(validateResumen("🔎 Tres novedades"), []);
+  assert.match(validateResumen("  ").join(), /vacío/);
+  assert.match(validateResumen("x".repeat(1001)).join(), /1000/);
+});
+
+check("validar: zonas del agente", () => {
+  assert.deepEqual(
+    outsideAgentZones(["referencias/n8n.md", "_investigacion/registro.md", "CLAUDE.md", "temas/T.md", "fuentes/x.md", "_adjuntos/a.png"]),
+    ["fuentes/x.md", "_adjuntos/a.png"],
+  );
+  assert.equal(autoZoneOf("a<!-- kb:auto:start -->\nZ\n<!-- kb:auto:end -->b"), "Z");
+  assert.equal(autoZoneOf("sin zona"), undefined);
+});
+
+check("validar (CLI): corre aunque la ruta pase por un enlace simbólico y falla con notas inválidas", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-validar-"));
+  try {
+    const real = joinPath(root, "real");
+    mkdirSync(joinPath(real, "_investigacion"), { recursive: true });
+    mkdirSync(joinPath(real, "referencias"), { recursive: true });
+    writeFileSync(joinPath(real, "_investigacion", "validar.mjs"), readFileSync("kb-plantilla/_investigacion/validar.mjs"));
+    writeFileSync(joinPath(real, "referencias", "x.md"), "---\ntipo: app\n---\n");
+    symlinkSync(real, joinPath(root, "enlace"));
+    let code = 0;
+    let err = "";
+    try {
+      execFileSync("node", [joinPath(root, "enlace", "_investigacion", "validar.mjs")], { stdio: "pipe" });
+    } catch (e) {
+      code = (e as { status: number }).status;
+      err = String((e as { stderr: Buffer }).stderr);
+    }
+    assert.equal(code, 1);
+    assert.match(err, /referencias\/x\.md: tipo inválido/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("validar: frontmatter editado en Obsidian (clave con tilde, lista en columna 0, comentario, texto plegado)", () => {
+  const edited = REF_OK
+    .replace("tipo: software", "tipo: software\ncategoría: automatización\nnota: >\n  texto largo\n  en dos líneas")
+    .replace("fuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io", "fuentes:\n- https://n8n.io/pricing\n- https://docs.n8n.io")
+    .replace("revisado: 2026-10-12", "revisado: 2026-10-12 # lo revisé yo");
+  assert.deepEqual(validateReferencia(edited), []);
+  const fm = parseFrontmatter(edited);
+  assert.ok(!("error" in fm));
+  if (!("error" in fm)) {
+    assert.equal(fm.data["categoría"], "automatización");
+    assert.equal(fm.data.revisado, "2026-10-12");
+    assert.deepEqual(fm.data.fuentes, ["https://n8n.io/pricing", "https://docs.n8n.io"]);
+  }
+});
+
+check("validar: zonas con renombres y borrados (git diff --name-status --no-renames)", () => {
+  const ch = parseNameStatus("M\treferencias/n8n.md\nD\tfuentes/a.md\nA\t_investigacion/a.md\nD\ttemas/T.md\nA\ttemas/Nuevo.md\nM\ttemas/U.md\n");
+  assert.deepEqual(ch[1], { status: "D", path: "fuentes/a.md" });
+  const errs = zoneErrors(ch).join(" | ");
+  assert.match(errs, /fuentes\/a\.md: el agente no puede modificar/);
+  assert.match(errs, /temas\/T\.md: el agente no puede borrar temas/);
+  assert.match(errs, /temas\/Nuevo\.md: el agente no puede crear temas nuevos/);
+  assert.equal(zoneErrors(ch).length, 3);
+});
+
+check("validar (CLI): tras un pull --rebase con commits del bot, --desde INICIO valida solo lo del agente", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-validar-rebase-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString().trim();
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "bot");
+    const bot = joinPath(root, "bot");
+    mkdirSync(joinPath(bot, "temas"));
+    mkdirSync(joinPath(bot, "referencias"));
+    mkdirSync(joinPath(bot, "_investigacion"));
+    writeFileSync(joinPath(bot, "_investigacion", "validar.mjs"), readFileSync("kb-plantilla/_investigacion/validar.mjs"));
+    writeFileSync(joinPath(bot, "temas", "T.md"), "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n");
+    // Nota editada por el usuario que el validador estricto rechazaría: no la toca el agente.
+    writeFileSync(joinPath(bot, "referencias", "vieja.md"), "---\ntipo: app\n---\n");
+    g(bot, "add", ".");
+    g(bot, "commit", "-q", "-m", "base");
+    g(bot, "push", "-q", "-u", "origin", "main");
+    g(root, "clone", "-q", "remote.git", "agente");
+    const agente = joinPath(root, "agente");
+    const inicio = g(agente, "rev-parse", "HEAD");
+
+    // El agente investiga…
+    writeFileSync(joinPath(agente, "referencias", "n8n.md"), REF_OK);
+    writeFileSync(joinPath(agente, "temas", "T.md"), "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-12_\n<!-- kb:research:end -->\n");
+    g(agente, "add", ".");
+    g(agente, "commit", "-q", "-m", "investigación: T");
+    // …mientras el bot guarda una ficha y regenera la zona automática del tema.
+    mkdirSync(joinPath(bot, "fuentes"));
+    writeFileSync(joinPath(bot, "fuentes", "f.md"), "ficha\n");
+    writeFileSync(joinPath(bot, "temas", "T.md"), "<!-- kb:auto:start -->\nB\n<!-- kb:auto:end -->\n");
+    g(bot, "add", ".");
+    g(bot, "commit", "-q", "-m", "kb: agrega f");
+    g(bot, "push", "-q");
+    // El push del agente choca; trae con rebase (el tema se resuelve conservando la zona del bot).
+    try {
+      g(agente, "pull", "-q", "--rebase");
+    } catch {
+      writeFileSync(joinPath(agente, "temas", "T.md"), "<!-- kb:auto:start -->\nB\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-12_\n<!-- kb:research:end -->\n");
+      g(agente, "add", "temas/T.md");
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.editor=true", "rebase", "--continue"], { cwd: agente, stdio: "pipe" });
+    }
+    const out = execFileSync("node", ["_investigacion/validar.mjs", "--desde", inicio], { cwd: agente, stdio: "pipe" }).toString();
+    assert.match(out, /Investigación válida/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("rangeFilter: con fechas, solo posts guardados (sin investigación); sin fechas, nada", () => {
+  assert.deepEqual(rangeFilter(undefined), { sql: "", args: [] });
+  const f = rangeFilter({ from: "2026-10-05", to: "2026-10-11", label: "esta semana" });
+  assert.equal(f.sql, "AND p.saved_at BETWEEN ? AND ? AND (p.kind IS NULL OR p.kind NOT IN ('referencia', 'investigacion'))");
+  assert.deepEqual(f.args, ["2026-10-05", "2026-10-11"]);
+  assert.deepEqual(rangeFilter({ label: "x" }).args, ["0000-00-00", "9999-99-99"]);
+});
+
+check("silenceAlert: una semana sin temas elegibles deja un latido que evita la falsa alarma", () => {
+  const reg = "- 2026-10-01 · Cocina · 1 referencias (1 nuevas)\n- 2026-10-08 · (sin temas elegibles) · 0 referencias (0 nuevas)\n";
+  assert.equal(silenceAlert(reg, "2026-10-15"), undefined);
+});
+
+await asyncChain;
 console.log(`\n${passed} ok, ${failed} fallos`);
 process.exit(failed ? 1 : 0);
