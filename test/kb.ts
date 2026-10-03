@@ -14,7 +14,7 @@ import {
 import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
-import { chunkFicha, splitText } from "../src/kb/indexer.ts";
+import { chunkFicha, fichaDoc, referenciaDoc, researchDoc, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
 import { citedNumbers, groupSources } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
@@ -674,6 +674,33 @@ check("parseReferencia: frontmatter en bloque (Obsidian) y fecha sin comillas", 
   assert.equal(r.reviewed, "2026-10-12");
   assert.deepEqual(r.topics, ["Automatización con IA"]);
   assert.ok(r.body.startsWith("## Qué es"));
+});
+
+check("documentos del índice: referencia y bloque de investigación", () => {
+  const ref = parseReferencia(
+    "/kb/referencias/n8n.md",
+    "---\ntipo: software\nnombre: n8n\ntemas: ['[[Automatización con IA]]']\nrevisado: 2026-10-12\nfuentes: [https://n8n.io]\n---\n## Qué es\nFlujos [1]\n\n## Mis notas\nlo uso\n",
+  );
+  const d = referenciaDoc(ref);
+  assert.equal(d.id, "ref:n8n");
+  assert.equal(d.kind, "referencia");
+  assert.equal(d.savedAt, "2026-10-12");
+  assert.equal(d.topic, "Automatización con IA");
+  assert.deepEqual(chunkFicha(d.body).map((c) => c.section), ["Qué es", "Mis notas"]);
+
+  const r = researchDoc({ topic: "Cocina", path: "/kb/temas/Cocina.md", reviewed: "2026-10-12", block: researchBlock(BLOCK)! });
+  assert.equal(r.id, "tema:Cocina");
+  assert.equal(r.kind, "investigacion");
+  assert.equal(r.title, "Investigación: Cocina");
+  assert.deepEqual(chunkFicha(r.body).map((c) => c.section), ["Investigación"]);
+});
+
+check("fichaDoc: sin id no se indexa; con id conserva tipo y publicado", () => {
+  const base = { path: "/kb/fuentes/a.md", baseName: "a", title: "A", secondary: [], notes: [], body: "x" };
+  assert.equal(fichaDoc({ ...base, raw: "---\n---\nx" }), undefined);
+  const d = fichaDoc({ ...base, id: "ig:1", raw: "---\nid: ig:1\ntipo: reel\npublicado: '2026-09-01'\n---\nx" });
+  assert.equal(d?.kind, "reel");
+  assert.equal(d?.publishedAt, "2026-09-01");
 });
 
 checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una base temporal", async () => {
