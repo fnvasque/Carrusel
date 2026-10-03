@@ -7,3 +7,7 @@ output/
 knowledge/.obsidian/
 knowledge/.trash/
 promo/*/frames/
+
+# La base vive en su propio repo privado (ver deploy/README.md)
+knowledge/
+knowledge.antes-de-migrar/
