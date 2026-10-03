@@ -158,6 +158,25 @@ async function pushWithRebase(root: string): Promise<void> {
   if (retry.code !== 0) onSyncError(`No pude subir la base a GitHub: ${retry.out.trim().split("\n").pop()}`);
 }
 
+/**
+ * Trae lo que otros subieron a la base (la investigación semanal, ediciones en
+ * Obsidian). Si el rebase choca, lo aborta y la base local queda como estaba.
+ */
+export async function pullKb(): Promise<{ changed: boolean; error?: string }> {
+  if (process.env.KB_GIT === "0") return { changed: false };
+  const top = await git(["rev-parse", "--show-toplevel"], kbDir());
+  if (top.code !== 0) return { changed: false };
+  const root = top.out.trim();
+  const before = (await git(["rev-parse", "HEAD"], root)).out.trim();
+  const pull = await git(["-c", "user.name=kb", "-c", "user.email=kb@local", "pull", "--rebase", "--autostash"], root);
+  if (pull.code !== 0) {
+    await git(["rebase", "--abort"], root);
+    return { changed: false, error: pull.out.trim().split("\n").pop() || "git pull falló" };
+  }
+  const after = (await git(["rev-parse", "HEAD"], root)).out.trim();
+  return { changed: before !== after };
+}
+
 // --- deshacer ---
 
 export interface KbCommit {

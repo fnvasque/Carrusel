@@ -5,7 +5,7 @@ import { fromBlob, openDb } from "./db.ts";
  * Búsqueda híbrida sobre el índice: FTS5 (palabras exactas, sin tildes) +
  * embeddings (significado), fusionadas por ranking recíproco (RRF). Filtros de
  * fecha simples ("esta semana", "ayer", "últimos 10 días") sobre la fecha en que
- * se guardó el post.
+ * se guardó el post (o se revisó la investigación).
  */
 
 export interface Hit {
@@ -21,6 +21,8 @@ export interface Hit {
   baseName: string;
   topic?: string;
   savedAt?: string;
+  /** Tipo de documento: el de la ficha (reel, post…) o "referencia" / "investigacion". */
+  kind?: string;
 }
 
 export interface DateRange {
@@ -93,6 +95,19 @@ export function rrfFuse(rankings: number[][], k = RRF_K): Map<number, number> {
   return scores;
 }
 
+/**
+ * Filtro SQL de un rango de fechas. Una pregunta con fechas ("¿qué guardé esta
+ * semana?") es sobre posts guardados: la investigación (cuya fecha es la de
+ * revisión) queda fuera. Función pura.
+ */
+export function rangeFilter(range: DateRange | undefined): { sql: string; args: string[] } {
+  if (!range) return { sql: "", args: [] };
+  return {
+    sql: "AND p.saved_at BETWEEN ? AND ? AND (p.kind IS NULL OR p.kind NOT IN ('referencia', 'investigacion'))",
+    args: [range.from ?? "0000-00-00", range.to ?? "9999-99-99"],
+  };
+}
+
 interface Row {
   id: number;
   post_id: string;
@@ -105,8 +120,7 @@ interface Row {
 export async function search(question: string, opts: { limit?: number; range?: DateRange } = {}): Promise<Hit[]> {
   const db = openDb();
   const limit = opts.limit ?? 12;
-  const where = opts.range ? "AND p.saved_at BETWEEN ? AND ?" : "";
-  const rangeArgs = opts.range ? [opts.range.from ?? "0000-00-00", opts.range.to ?? "9999-99-99"] : [];
+  const { sql: where, args: rangeArgs } = rangeFilter(opts.range);
 
   // 1) Palabras (bm25: menor = mejor).
   let byText: number[] = [];
@@ -137,17 +151,18 @@ export async function search(question: string, opts: { limit?: number; range?: D
 
   const fused = [...rrfFuse([byText, byMeaning]).entries()].sort((a, b) => b[1] - a[1]).slice(0, limit);
   const byId = new Map(rows.map((r) => [r.id, r]));
-  const post = db.prepare("SELECT title, author, url, path, base_name, topic, saved_at FROM posts WHERE id = ?");
+  const post = db.prepare("SELECT title, author, url, path, base_name, topic, saved_at, kind FROM posts WHERE id = ?");
   return fused.flatMap(([id, score]) => {
     const r = byId.get(id);
     if (!r) return [];
     const p = post.get(r.post_id) as {
-      title: string; author: string | null; url: string | null; path: string; base_name: string; topic: string | null; saved_at: string | null;
+      title: string; author: string | null; url: string | null; path: string; base_name: string; topic: string | null;
+      saved_at: string | null; kind: string | null;
     };
     return [{
       chunkId: id, postId: r.post_id, section: r.section, text: r.text, score,
       title: p.title, author: p.author ?? undefined, url: p.url ?? undefined, path: p.path, baseName: p.base_name,
-      topic: p.topic ?? undefined, savedAt: p.saved_at ?? undefined,
+      topic: p.topic ?? undefined, savedAt: p.saved_at ?? undefined, kind: p.kind ?? undefined,
     }];
   });
 }
