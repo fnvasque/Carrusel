@@ -149,8 +149,8 @@ Sale con código ≠ 0 y una lista de errores por archivo.
 ## Cambios en el bot (este repo)
 
 1. **Pull periódico** (`store.ts` + `bot.ts`): cada 1 h, `git pull --rebase` en
-   la base, pero solo cuando el worker no está procesando un guardado (mismo
-   candado que la cola). Si `HEAD` cambió: reindexar y revisar resúmenes nuevos.
+   la base, dentro de la cadena serial de escritura del bot (nunca a mitad de
+   un guardado). Si `HEAD` cambió: reindexar y revisar resúmenes nuevos.
    Si falla, se avisa con el manejador de errores de sincronización existente;
    la base local queda como estaba.
 2. **Índice** (`indexer.ts`): además de las fichas, indexa
@@ -185,7 +185,7 @@ Sale con código ≠ 0 y una lista de errores por archivo.
 | Nota inválida | `validar.mjs` la rechaza; no se sube |
 | Conflicto de push del agente | `pull --rebase` y reintento (zonas disjuntas) |
 | Pull del bot con conflicto | `rebase --abort`, aviso; la base local queda intacta |
-| Pull durante un guardado | Se salta ese ciclo (candado) y se intenta en la próxima hora |
+| Pull durante un guardado | Espera en la cadena serial del bot y corre al terminar el guardado |
 | Resumen ilegible o vacío | Se marca como notificado y se registra un warning |
 
 ## Pruebas
