@@ -32,7 +32,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
-  RESEARCH_END, RESEARCH_START, silenceAlert, summaryText, takeNewSummaries,
+  markSummaryNotified, newSummaries, RESEARCH_END, RESEARCH_START, silenceAlert, summaryText,
 } from "../src/kb/research.ts";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
@@ -763,7 +763,7 @@ check("formatAnswer / formatAnswerText: fuentes investigadas con 🔎", () => {
   assert.ok(text.includes("[2] Post — https://www.instagram.com/p/X/"));
 });
 
-checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una base temporal", async () => {
+checkAsync("listReferencias / listResearchBlocks / newSummaries sobre una base temporal", async () => {
   const dir = mkdtempSync(joinPath(tmpdir(), "kb-research-"));
   const prev = process.env.KB_DIR;
   process.env.KB_DIR = dir;
@@ -780,10 +780,17 @@ checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una ba
 
     // Índice nuevo con un resumen viejo: se marca sin reenviarlo.
     writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-05.md"), "viejo");
-    assert.deepEqual(await takeNewSummaries(), []);
+    assert.deepEqual(await newSummaries(), []);
     writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-12.md"), "nuevo");
-    assert.deepEqual(await takeNewSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
-    assert.deepEqual(await takeNewSummaries(), []);
+    assert.deepEqual(await newSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
+    // Sigue pendiente hasta que se marque como enviado (si Telegram falla, se reintenta en la próxima sincronización).
+    assert.deepEqual(await newSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
+    markSummaryNotified("2026-10-12.md");
+    assert.deepEqual(await newSummaries(), []);
+    // Un resumen vacío no se envía ni queda pendiente para siempre.
+    writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-19.md"), "  ");
+    assert.deepEqual(await newSummaries(), []);
+    assert.deepEqual(await newSummaries(), []);
   } finally {
     closeDb();
     if (prev === undefined) delete process.env.KB_DIR;
