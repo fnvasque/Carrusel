@@ -62,9 +62,20 @@ export function silenceAlert(registroText: string | undefined, today: string): {
   };
 }
 
-/** Resúmenes (AAAA-MM-DD.md) que todavía no se reenviaron, en orden. Función pura. */
+/** Nombre de un resumen: AAAA-MM-DD.md, o AAAA-MM-DD-N.md si ese día hubo otra corrida. */
+const SUMMARY_NAME = /^(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.md$/;
+
+/** Orden cronológico de resúmenes (por fecha y luego por número de corrida). */
+const summaryKey = (f: string): string => {
+  const m = f.match(SUMMARY_NAME)!;
+  return `${m[1]}-${(m[2] ?? "1").padStart(4, "0")}`;
+};
+
+/** Resúmenes que todavía no se reenviaron, en orden cronológico. Función pura. */
 export function pendingSummaries(files: string[], notified: Set<string>): string[] {
-  return files.filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f) && !notified.has(f)).sort();
+  return files
+    .filter((f) => SUMMARY_NAME.test(f) && !notified.has(f))
+    .sort((a, b) => summaryKey(a).localeCompare(summaryKey(b)));
 }
 
 /** Texto de un resumen sin frontmatter; vacío → undefined. Función pura. */

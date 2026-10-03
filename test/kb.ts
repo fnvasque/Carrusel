@@ -1272,6 +1272,22 @@ checkAsync("kbHead / indexedHead: el bot sabe si el índice corresponde a la bas
   }
 });
 
+check("pendingSummaries: corridas del mismo día (AAAA-MM-DD-2.md) en orden cronológico", () => {
+  assert.deepEqual(
+    pendingSummaries(["2026-10-03-2.md", "2026-10-10.md", "2026-10-03.md", "2026-10-03-10.md", "2026-10-03-x.md"], new Set()),
+    ["2026-10-03.md", "2026-10-03-2.md", "2026-10-03-10.md", "2026-10-10.md"],
+  );
+});
+
+check("validar: el agente no sobrescribe un resumen ya publicado", () => {
+  const errs = zoneErrors([
+    { status: "M", path: "_investigacion/resumenes/2026-10-03.md" },
+    { status: "A", path: "_investigacion/resumenes/2026-10-03-2.md" },
+  ]);
+  assert.equal(errs.length, 1);
+  assert.match(errs[0], /2026-10-03\.md: no sobrescribas un resumen ya publicado/);
+});
+
 await asyncChain;
 console.log(`\n${passed} ok, ${failed} fallos`);
 process.exit(failed ? 1 : 0);
