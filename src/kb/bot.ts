@@ -9,7 +9,7 @@ import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job }
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import {
-  findFichaById, findLastSave, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
+  abortStaleRebase, findFichaById, findLastSave, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
   temasDir,
 } from "./store.ts";
 import { registroPath, silenceAlert, takeNewSummaries } from "./research.ts";
@@ -673,6 +673,10 @@ async function checkResearch(): Promise<void> {
 setSyncErrorHandler((m) => void notifyAdmin(`⚠️ ${m}`));
 process.on("unhandledRejection", (err) => void notifyAdmin(`⚠️ Error inesperado en el bot: ${errText(err)}`));
 
+// Antes de que el worker toque la base: un reinicio a mitad de un guardado puede dejar un rebase con conflictos.
+if (await abortStaleRebase().catch(() => false)) {
+  await notifyAdmin("⚠️ La base tenía un rebase a medias (reinicio durante un guardado): lo aborté. Lo que faltaba subir se sube con el próximo guardado.");
+}
 const resumed = requeueInterrupted();
 await bot.api.setMyCommands([
   { command: "temas", description: "Tus temas" },

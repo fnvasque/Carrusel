@@ -27,6 +27,11 @@ if [ -n "${KB_REPO:-}" ]; then
   fi
   git -C "$KB_DIR" config user.name "${KB_GIT_NAME:-ia.es bot}"
   git -C "$KB_DIR" config user.email "${KB_GIT_EMAIL:-bot@ia.es.local}"
+  # Un reinicio a mitad de un guardado puede dejar un rebase con conflictos: sin abortarlo, el pull falla.
+  if [ -d "$KB_DIR/.git/rebase-merge" ] || [ -d "$KB_DIR/.git/rebase-apply" ]; then
+    echo "⚠️  Había un rebase a medias en la base: lo aborto."
+    git -C "$KB_DIR" rebase --abort || true
+  fi
   # Trae lo que hayas editado en Obsidian mientras el contenedor estaba abajo.
   git -C "$KB_DIR" pull -q --rebase --autostash || echo "⚠️  No pude traer cambios de la base; sigo con la copia local."
 fi

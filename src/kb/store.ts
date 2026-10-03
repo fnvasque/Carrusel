@@ -159,6 +159,22 @@ async function pushWithRebase(root: string): Promise<void> {
 }
 
 /**
+ * Aborta un rebase que quedó a medias (el proceso murió entre un pull con
+ * conflicto y su `rebase --abort`, p. ej. un reinicio durante un guardado): sin
+ * esto, la base queda con marcas de conflicto y ningún guardado funciona. Se llama
+ * al arrancar, antes de que el worker toque la base. Devuelve si había uno.
+ */
+export async function abortStaleRebase(): Promise<boolean> {
+  const top = await git(["rev-parse", "--show-toplevel"], kbDir());
+  if (top.code !== 0) return false;
+  const root = top.out.trim();
+  const gitDir = (await git(["rev-parse", "--absolute-git-dir"], root)).out.trim();
+  if (!existsSync(join(gitDir, "rebase-merge")) && !existsSync(join(gitDir, "rebase-apply"))) return false;
+  await git(["rebase", "--abort"], root);
+  return true;
+}
+
+/**
  * Trae lo que otros subieron a la base (la investigación semanal, ediciones en
  * Obsidian). Si el rebase choca, lo aborta y la base local queda como estaba.
  */

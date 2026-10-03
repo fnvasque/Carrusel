@@ -27,9 +27,9 @@ import {
   autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateReferencia, validateResumen, validateTopicBlock,
   zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
-import { pullKb } from "../src/kb/store.ts";
+import { abortStaleRebase, pullKb } from "../src/kb/store.ts";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
   RESEARCH_END, RESEARCH_START, silenceAlert, summaryText, takeNewSummaries,
@@ -977,6 +977,94 @@ check("rangeFilter: con fechas, solo posts guardados (sin investigación); sin f
 check("silenceAlert: una semana sin temas elegibles deja un latido que evita la falsa alarma", () => {
   const reg = "- 2026-10-01 · Cocina · 1 referencias (1 nuevas)\n- 2026-10-08 · (sin temas elegibles) · 0 referencias (0 nuevas)\n";
   assert.equal(silenceAlert(reg, "2026-10-15"), undefined);
+});
+
+checkAsync("pullKb: un rebase que quedó a medias (reinicio durante un guardado) se aborta y la base queda sin marcas", async () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-pull-colgado-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString();
+  const prev = process.env.KB_DIR;
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "bot");
+    g(root, "clone", "-q", "remote.git", "mac");
+    const bot = joinPath(root, "bot");
+    const mac = joinPath(root, "mac");
+    writeFileSync(joinPath(mac, "tema.md"), "uno\n");
+    g(mac, "add", ".");
+    g(mac, "commit", "-q", "-m", "1");
+    g(mac, "push", "-q", "origin", "main");
+    g(bot, "pull", "-q", "origin", "main");
+    g(bot, "branch", "-q", "--set-upstream-to=origin/main", "main");
+    // Obsidian sube una edición del tema; el bot guarda otra versión del mismo tema.
+    writeFileSync(joinPath(mac, "tema.md"), "mac\n");
+    g(mac, "commit", "-q", "-am", "vault backup");
+    g(mac, "push", "-q", "origin", "main");
+    writeFileSync(joinPath(bot, "tema.md"), "bot\n");
+    g(bot, "commit", "-q", "-am", "kb: agrega");
+    // El proceso muere en medio del pull --rebase (antes del rebase --abort).
+    try {
+      g(bot, "pull", "-q", "--rebase");
+    } catch {
+      /* conflicto: queda el rebase a medias */
+    }
+    assert.ok(existsSync(joinPath(bot, ".git", "rebase-merge")) || existsSync(joinPath(bot, ".git", "rebase-apply")));
+    process.env.KB_DIR = bot;
+
+    const r = await pullKb();
+    assert.ok(r.error);
+    assert.ok(!existsSync(joinPath(bot, ".git", "rebase-merge")) && !existsSync(joinPath(bot, ".git", "rebase-apply")));
+    assert.equal(readFileSync(joinPath(bot, "tema.md"), "utf8"), "bot\n");
+    assert.equal(g(bot, "status", "--porcelain"), "");
+    assert.equal(g(bot, "rev-parse", "--abbrev-ref", "HEAD").trim(), "main");
+  } finally {
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+checkAsync("abortStaleRebase: al arrancar, aborta un rebase a medias (y sin rebase no hace nada)", async () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-rebase-arranque-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString();
+  const prev = process.env.KB_DIR;
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "bot");
+    g(root, "clone", "-q", "remote.git", "mac");
+    const bot = joinPath(root, "bot");
+    const mac = joinPath(root, "mac");
+    writeFileSync(joinPath(mac, "tema.md"), "uno\n");
+    g(mac, "add", ".");
+    g(mac, "commit", "-q", "-m", "1");
+    g(mac, "push", "-q", "origin", "main");
+    g(bot, "pull", "-q", "origin", "main");
+    g(bot, "branch", "-q", "--set-upstream-to=origin/main", "main");
+    process.env.KB_DIR = bot;
+    assert.equal(await abortStaleRebase(), false);
+
+    writeFileSync(joinPath(mac, "tema.md"), "mac\n");
+    g(mac, "commit", "-q", "-am", "vault backup");
+    g(mac, "push", "-q", "origin", "main");
+    writeFileSync(joinPath(bot, "tema.md"), "bot\n");
+    g(bot, "commit", "-q", "-am", "kb: agrega");
+    try {
+      g(bot, "pull", "-q", "--rebase");
+    } catch {
+      /* conflicto: queda el rebase a medias */
+    }
+    assert.match(readFileSync(joinPath(bot, "tema.md"), "utf8"), /^<<<<<<< /m);
+
+    assert.equal(await abortStaleRebase(), true);
+    assert.equal(readFileSync(joinPath(bot, "tema.md"), "utf8"), "bot\n");
+    assert.equal(g(bot, "status", "--porcelain"), "");
+    assert.equal(g(bot, "rev-parse", "--abbrev-ref", "HEAD").trim(), "main");
+  } finally {
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 await asyncChain;
