@@ -144,7 +144,9 @@ export function recordUsage(op: CostOp, model: string, raw: unknown, audioSecond
   try {
     const parsed = usageOf(raw);
     const u = parsed ?? { input: 0, output: 0 };
-    let usd = parsed ? costOf(model, u) : undefined;
+    // OpenRouter informa el costo real (usage.cost); si no, se calcula con los precios de lista.
+    const reported = (raw as { cost?: unknown } | undefined)?.cost;
+    let usd = typeof reported === "number" ? reported : parsed ? costOf(model, u) : undefined;
     if (usd === undefined && audioSeconds && TRANSCRIBE_PER_MIN[model]) usd = (audioSeconds / 60) * TRANSCRIBE_PER_MIN[model];
     const s = scope.getStore();
     if (s && usd) s.usd += usd;

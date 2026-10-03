@@ -93,6 +93,20 @@ function stripUndefined(o: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 }
 
+/**
+ * Tag válido de Obsidian en kebab-case ("Menú de restaurante" → "menú-de-restaurante"):
+ * algunos modelos devuelven tags con espacios o mayúsculas. Función pura.
+ */
+export function tagSlug(tag: string): string {
+  return tag
+    .replace(/^#/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}/_-]+/gu, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 const bullets = (items: string[]): string => items.map((i) => `- ${i}`).join("\n");
 const numbered = (items: string[]): string => items.map((i, n) => `${n + 1}. ${i}`).join("\n");
 const callout = (kind: string, title: string, text: string, folded = false): string =>
@@ -166,7 +180,7 @@ export function renderFicha(f: Ficha, topic: string, secondary: string[], existi
     tema: wikilink(topic),
     temas_secundarios: secondary.map((s) => wikilink(s)),
     herramientas: e.tools.map((t) => t.name),
-    tags: ["kb/fuente", ...e.tags.map((t) => t.replace(/^#/, ""))],
+    tags: ["kb/fuente", ...[...new Set(e.tags.map(tagSlug).filter(Boolean))]],
     idioma: e.language,
     confianza: e.confidence,
     parcial: f.partial,

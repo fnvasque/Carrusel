@@ -35,7 +35,8 @@ import {
   markSummaryNotified, newSummaries, RESEARCH_END, RESEARCH_START, silenceAlert, summaryText,
 } from "../src/kb/research.ts";
 import { costOf, costSummary, formatCostSummary, recordUsage, setCostRef, usageOf, usd, withCostScope } from "../src/kb/costs.ts";
-import { renderTopicSources } from "../src/kb/markdown.ts";
+import { renderTopicSources, tagSlug } from "../src/kb/markdown.ts";
+import { viaOpenRouter, withFallback } from "../src/kb/llm.ts";
 import { staleTopics, synthesisHash } from "../src/kb/pipeline.ts";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
@@ -1145,6 +1146,47 @@ checkAsync("registro de costos: suma por guardado y resumen", async () => {
     assert.equal(s.unpriced, 1);
     assert.equal(s.byOp[0].op, "ficha");
     assert.match(formatCostSummary(s), /Analizar el post: US\$0,035/);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+check("tagSlug: kebab-case válido para Obsidian", () => {
+  assert.equal(tagSlug("Menú de restaurante"), "menú-de-restaurante");
+  assert.equal(tagSlug("#ChatGPT"), "chatgpt");
+  assert.equal(tagSlug("IA / Video, 3D!"), "ia-/-video-3d");
+  assert.equal(tagSlug("ya-en-kebab"), "ya-en-kebab");
+});
+
+checkAsync("withFallback: usa el respaldo solo si el principal falla", async () => {
+  const quiet = { warn: () => {} };
+  assert.equal(viaOpenRouter("deepseek/deepseek-v4.1-flash"), true);
+  assert.equal(viaOpenRouter("gpt-4o-2024-11-20"), false);
+  const calls: string[] = [];
+  const ok = await withFallback("a/b", async (m) => (calls.push(m), m), { fallback: "gpt-4o", log: quiet });
+  assert.equal(ok, "a/b");
+  const fb = await withFallback("a/b", async (m) => {
+    calls.push(m);
+    if (m === "a/b") throw new Error("caído");
+    return m;
+  }, { fallback: "gpt-4o", log: quiet });
+  assert.equal(fb, "gpt-4o");
+  assert.deepEqual(calls, ["a/b", "a/b", "gpt-4o"]);
+  await assert.rejects(withFallback("a/b", async () => { throw new Error("x"); }, { fallback: undefined, log: quiet }), /x/);
+});
+
+checkAsync("recordUsage usa el costo real que informa OpenRouter", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-orcost-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    recordUsage("ficha", "deepseek/deepseek-v4.1-flash", { prompt_tokens: 10_000, completion_tokens: 1_000, cost: 0.0036 });
+    const s = costSummary();
+    assert.ok(Math.abs(s.total - 0.0036) < 1e-12);
+    assert.equal(s.unpriced, 0);
   } finally {
     closeDb();
     if (prev === undefined) delete process.env.KB_DIR;
