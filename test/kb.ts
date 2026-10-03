@@ -11,7 +11,7 @@ import {
   AUTO_END, AUTO_START, fichaBaseName, fichaDigest, renderFicha, renderTopic, replaceAutoZone,
   resolveTopicName, safeFileName, safeUrl, topicKey, unwikilink,
 } from "../src/kb/markdown.ts";
-import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
+import { cleanCall, hasControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
 import { chunkFicha, splitText } from "../src/kb/indexer.ts";
@@ -246,14 +246,36 @@ check("renderFicha: galería plegada con todas las imágenes, fuera del digest",
   assert.ok(!matter(renderFicha(ficha(), "T", [])).content.includes("[!example]"));
 });
 
-check("stripControlChars: limpia tildes corruptas en toda la respuesta, conserva saltos de línea", () => {
-  const dirty = { description: "La monetizaci\u0010n", essentials: ["a\nb", "atenci\u0010n"], n: 3 };
-  assert.ok(hasControlChars(dirty));
-  const clean = stripControlChars(dirty);
-  assert.deepEqual(clean, { description: "La monetizacin", essentials: ["a\nb", "atencin"], n: 3 });
-  assert.ok(!hasControlChars(clean));
-  assert.ok(!hasControlChars({ t: "línea 1\nlínea 2\ttab" }));
+check("hasControlChars: detecta tildes corruptas en toda la respuesta, ignora saltos de línea y tabs", () => {
+  assert.ok(hasControlChars({ description: "ok", essentials: ["a\nb", "atenci\u0003n"], n: 3 }));
+  assert.ok(hasControlChars({ tools: [{ name: "x", purpose: "espec\u000edficas" }] }));
+  assert.ok(!hasControlChars({ t: "línea 1\nlínea 2\ttab", n: 3 }));
 });
+
+// cleanCall: gpt-4o a veces emite "\u0003" en vez de "\u00f3" (ó). Nunca se debe borrar la letra:
+// se reintenta hasta tener una respuesta limpia y, si nunca llega, se lanza error.
+{
+  const seq = (...outs: string[]) => {
+    let i = 0;
+    const call = async () => ({ description: outs[Math.min(i++, outs.length - 1)] });
+    return { call, calls: () => i };
+  };
+  const quiet = { warn: () => {} };
+
+  const a = seq("Automatizaci\u0003n", "Automatizaci\u0003n", "Automatización");
+  assert.deepEqual(await cleanCall(a.call, { attempts: 4, log: quiet }), { description: "Automatización" });
+  assert.equal(a.calls(), 3);
+
+  const b = seq("Automatización");
+  assert.deepEqual(await cleanCall(b.call, { attempts: 4, log: quiet }), { description: "Automatización" });
+  assert.equal(b.calls(), 1);
+
+  const c = seq("Automatizaci\u0003n");
+  await assert.rejects(cleanCall(c.call, { attempts: 3, log: quiet }), /tildes corruptas/);
+  assert.equal(c.calls(), 3);
+  passed++;
+  console.log("✓ cleanCall: reintenta hasta respuesta limpia; si no llega, falla (nunca borra la tilde)");
+}
 
 check("safeUrl: solo links http(s) absolutos", () => {
   assert.equal(safeUrl("https://higgsfield.ai/seedance"), "https://higgsfield.ai/seedance");

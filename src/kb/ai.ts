@@ -12,14 +12,21 @@ const MAX_TEXT_CHARS = 12_000;
 
 let client: OpenAI | null = null;
 
-/** Modelo de extracción y síntesis (multimodal). Configurable por KB_MODEL. */
+/**
+ * Modelo de extracción y síntesis (multimodal). Configurable por KB_MODEL.
+ * Snapshot fijo: el alias "gpt-4o" apunta a gpt-4o-2024-08-06, que en salidas estructuradas
+ * largas rompe casi siempre el escape de las tildes ("\u0003" en vez de "ó"); medido en
+ * síntesis de temas grandes: 4/4 corruptas con 2024-08-06 (y con gpt-4.1), 0/12 con 2024-11-20.
+ */
 function model(): string {
-  return process.env.KB_MODEL ?? "gpt-4o";
+  return process.env.KB_MODEL ?? "gpt-4o-2024-11-20";
 }
 
-/** Caracteres de control (menos \t y \n). El modelo a veces los emite en lugar de una tilde ("monetizaci\x10n"). */
-const CONTROL_CHARS = /[\u0000-\u0008\u000B-\u001F\u007F]/g;
-
+/**
+ * Caracteres de control (menos \t y \n). gpt-4o a veces rompe el escape JSON de una
+ * tilde: emite "\u0003" en vez de "\u00f3" (ó) o "\u000ed" en vez de "\u00ed" (í).
+ * La letra original no se puede reconstruir con seguridad, así que hay que repetir la llamada.
+ */
 export function hasControlChars(value: unknown): boolean {
   if (typeof value === "string") return /[\u0000-\u0008\u000B-\u001F\u007F]/.test(value);
   if (Array.isArray(value)) return value.some(hasControlChars);
@@ -27,25 +34,24 @@ export function hasControlChars(value: unknown): boolean {
   return false;
 }
 
-/** Quita caracteres de control de todos los strings de una respuesta. Función pura (testeable). */
-export function stripControlChars<T>(value: T): T {
-  if (typeof value === "string") return value.replace(CONTROL_CHARS, "") as T;
-  if (Array.isArray(value)) return value.map(stripControlChars) as T;
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, stripControlChars(v)])) as T;
-  }
-  return value;
-}
+/** Intentos por llamada estructurada (red de seguridad si el modelo vuelve a corromper tildes). */
+const CLEAN_ATTEMPTS = 4;
 
 /**
- * Ejecuta una llamada al modelo y, si la respuesta trae caracteres de control
- * (tildes corruptas), la repite una vez; si persisten, los elimina.
+ * Ejecuta una llamada estructurada al modelo y la repite mientras la respuesta traiga
+ * caracteres de control (tildes corruptas). Si ningún intento sale limpio, lanza error:
+ * nunca se borran los caracteres, porque eso deja palabras sin tilde ("Automatizacin").
  */
-async function cleanCall<T>(call: () => Promise<T>): Promise<T> {
-  const first = await call();
-  if (!hasControlChars(first)) return first;
-  const second = await call();
-  return hasControlChars(second) ? stripControlChars(second) : second;
+export async function cleanCall<T>(
+  call: () => Promise<T>,
+  { attempts = CLEAN_ATTEMPTS, log = console }: { attempts?: number; log?: Pick<Console, "warn"> } = {},
+): Promise<T> {
+  for (let i = 1; ; i++) {
+    const res = await call();
+    if (!hasControlChars(res)) return res;
+    if (i >= attempts) throw new Error(`El modelo devolvió tildes corruptas en ${attempts} intentos seguidos.`);
+    log.warn(`⚠️  Respuesta con tildes corruptas (intento ${i}/${attempts}); la repito.`);
+  }
 }
 
 /** Temperatura baja: fichas consistentes entre corridas (misma entrada → misma ficha). */
@@ -144,7 +150,8 @@ Reglas: en español; agrupa y deduplica lo que se repite entre fuentes; prioriza
 /** Sintetiza la página de un tema a partir del texto de sus fichas. */
 export async function synthesizeTopic(topic: string, fichasText: string[]): Promise<TopicSynthesis> {
   // Tope de salida: si el modelo entra en bucle, falla rápido en vez de gastar tokens.
-  // Un reintento pidiendo más brevedad; si vuelve a fallar, el error sube (refreshTopics lo maneja).
+  // Un reintento pidiendo más brevedad; si vuelve a fallar (o las tildes siguen corruptas),
+  // el error sube y refreshTopics conserva la página anterior.
   const attempt = (brief: boolean) =>
     cleanCall(async () => {
       const res = await getClient().beta.chat.completions.parse({
