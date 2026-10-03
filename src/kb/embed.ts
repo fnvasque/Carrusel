@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
+import { recordUsage } from "./costs.ts";
 import { OPENAI_OPTS } from "./types.ts";
 import { fromBlob, openDb, toBlob } from "./db.ts";
 
@@ -36,6 +37,7 @@ export async function embedTexts(texts: string[]): Promise<Float32Array[]> {
   for (let s = 0; s < missing.length; s += BATCH) {
     const batch = missing.slice(s, s + BATCH);
     const res = await getClient().embeddings.create({ model: embedModel(), input: batch.map((m) => m.t) });
+    recordUsage("embeddings", embedModel(), res.usage);
     res.data.forEach((d, j) => {
       const v = normalize(Float32Array.from(d.embedding));
       out[batch[j].i] = v;

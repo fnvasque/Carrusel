@@ -1,3 +1,4 @@
+import { usd } from "./costs.ts";
 import { isResearch, researchNote, type Answer } from "./ask.ts";
 import type { StoredFicha } from "./store.ts";
 import type { AddResult } from "./types.ts";
@@ -59,6 +60,7 @@ export function formatSaved(r: AddResult, related: Pick<StoredFicha, "title" | "
   if (e.tools.length) lines.push("", `🧰 <b>Herramientas:</b> ${e.tools.map((t) => escapeHtml(t.name)).join(" · ")}`);
   if (related.length) lines.push("", `🔗 <b>Relacionados</b>\n${related.slice(0, 3).map((f) => `• ${escapeHtml(f.title)}`).join("\n")}`);
   if (r.ficha.partial) lines.push("", "⚠️ No pude descargar todo el post. Mándame capturas y las sumo a esta ficha.");
+  if (r.costUsd) lines.push("", `<i>💸 ${usd(r.costUsd)}</i>`);
   return lines.join("\n");
 }
 
@@ -149,4 +151,5 @@ export const HELP = [
   "/temas — tus temas",
   "/tema &lt;nombre&gt; — qué hay en un tema",
   "/ultimos — lo último que guardaste",
+  "/costos — cuánto se ha gastado en la API",
 ].join("\n");

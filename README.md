@@ -259,6 +259,8 @@ npm run kb:ask "¿qué herramientas guardé para editar video?"   # pregunta a t
 npm run kb:undo                        # deshace el último guardado
 npm run kb:undo "<url o shortcode>"    # deshace el último guardado de ese post
 npm run kb:reindex                     # reconstruye el índice desde el Markdown
+npm run kb:temas [-- --ya]             # resume los temas atrasados (--ya: sin esperar las 24 h)
+npm run kb:costos                      # cuánto se ha gastado en la API (hoy, 7 y 30 días, por post)
 ```
 
 - **Fichas** (`knowledge/fuentes/`): resumen, ideas clave, herramientas, pasos, recursos, lo
@@ -269,6 +271,13 @@ npm run kb:reindex                     # reconstruye el índice desde el Markdow
 - **Temas** (`knowledge/temas/`): los crea el bot solo y reutiliza los existentes. Si propone uno
   nuevo, se compara por significado con los existentes: parecido ≥ 0,80 se une; en la zona
   dudosa (0,55–0,80) decide un modelo barato. Cada página sintetiza todas sus fuentes.
+  Al guardar solo se actualiza la lista de fuentes del tema; el **resumen se rehace a lo más una
+  vez cada 24 h por tema** (el bot lo revisa cada hora; en la terminal, `kb:temas`), porque
+  resumir un tema grande cuesta más que analizar varios posts. `KB_TOPIC_SYNTH_HOURS=0` vuelve a
+  resumir en cada guardado.
+- **Costos**: cada llamada a la API queda registrada (tokens y USD) en el índice; `kb:costos` o
+  `/costos` en Telegram muestran el gasto, y el mensaje de cada guardado dice cuánto costó. Los
+  cuadros de los reels se analizan en baja resolución (`KB_FRAME_DETAIL=high` para volver).
 - **Consultas** (`kb:ask`): búsqueda híbrida (palabras sin tildes + significado) sobre un índice
   SQLite en `knowledge/.index/` (derivado, fuera de git; `kb:reindex` lo reconstruye). Entiende
   fechas ("esta semana", "últimos 10 días") y responde **solo con tu base, citando fichas**.
@@ -299,7 +308,7 @@ Docker), con la base en un repo git privado que Obsidian sincroniza. Guía en `d
   **↩️ Deshacer** (git revert) y **🏷 Cambiar tema** (temas más usados u "✏️ Otro").
 - **Capturas**: fotos sueltas o en álbum se suman al último link (30 min); sin link, son una ficha nueva.
 - **Preguntar**: cualquier texto que no sea link se responde con `kb:ask` (citas con link al post).
-- **Comandos**: `/temas`, `/tema <nombre>`, `/ultimos`, `/ayuda`.
+- **Comandos**: `/temas`, `/tema <nombre>`, `/ultimos`, `/costos`, `/ayuda`.
 - Cola persistente en el índice: un guardado a la vez y, si el bot se reinicia, retoma lo pendiente.
 
 ### DMs a @ia.punto.es

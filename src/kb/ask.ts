@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { recordUsage } from "./costs.ts";
 import { OPENAI_OPTS } from "./types.ts";
 import { parseDateRange, search, type DateRange, type Hit } from "./search.ts";
 
@@ -136,6 +137,7 @@ export async function ask(question: string, opts: { today?: string } = {}): Prom
       },
     ],
   });
+  recordUsage("consulta", res.model ?? askModel(), res.usage);
   const answer = res.choices[0]?.message.content?.trim() || "No pude generar una respuesta.";
   const cited = new Set(citedNumbers(answer));
   const sources = groups.map((g) => g.source).filter((s) => cited.has(s.n));

@@ -18,6 +18,8 @@
     "kb:ask": "tsx src/kb/cli.ts ask",
     "kb:undo": "tsx src/kb/cli.ts undo",
     "kb:reindex": "tsx src/kb/cli.ts reindex",
+    "kb:temas": "tsx src/kb/cli.ts temas",
+    "kb:costos": "tsx src/kb/cli.ts costos",
     "kb:bot": "tsx src/kb/bot.ts"
   },
   "dependencies": {

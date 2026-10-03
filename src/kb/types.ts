@@ -143,4 +143,6 @@ export interface AddResult {
   /** Si el modelo propuso un tema nuevo pero se unió a uno existente parecido, el nombre propuesto. */
   topicMergedFrom?: string;
   commit?: string;
+  /** Lo que costó el guardado en la API (USD), según el registro de costos. */
+  costUsd?: number;
 }

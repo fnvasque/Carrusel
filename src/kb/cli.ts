@@ -1,7 +1,8 @@
 import { relative } from "node:path";
 import { ask, isResearch } from "./ask.ts";
 import { reindex } from "./indexer.ts";
-import { addPost } from "./pipeline.ts";
+import { costSummary, formatCostSummary, usd } from "./costs.ts";
+import { addPost, staleTopics, synthesizeStaleTopics } from "./pipeline.ts";
 import { findInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import { findFichaById, findLastSave, removeOrphanGalleries, revertSave } from "./store.ts";
 import { STAGE_LABEL, type AddInput } from "./types.ts";
@@ -14,6 +15,8 @@ import { STAGE_LABEL, type AddInput } from "./types.ts";
  *   npm run kb:undo                    (deshace el último guardado)
  *   npm run kb:undo "<url o shortcode>" (deshace el último guardado de ese post)
  *   npm run kb:reindex [-- --full]     (reconstruye el índice desde el Markdown)
+ *   npm run kb:temas [-- --ya]         (resume los temas atrasados; --ya ignora la espera entre resúmenes)
+ *   npm run kb:costos                  (lo que se ha gastado en la API)
  */
 
 // Carga .env si existe (Node ≥ 21.7). Sin .env se usan las variables del entorno.
@@ -58,6 +61,16 @@ async function cmdAdd(argv: string[]): Promise<void> {
   if (e.tools.length) console.log(`   Herramientas: ${e.tools.map((t) => t.name).join(" · ")}`);
   if (r.ficha.partial) console.log("   ⚠️  Contenido parcial: complementa con capturas (--image=).");
   console.log(`   Archivo: ${relative(process.cwd(), r.path)}${r.commit ? ` · commit ${r.commit}` : ""}`);
+  if (r.costUsd) console.log(`   Costo: ${usd(r.costUsd)}`);
+}
+
+async function cmdTemas(argv: string[]): Promise<void> {
+  const hours = argv.includes("--ya") ? 0 : undefined;
+  const pending = await staleTopics(hours);
+  if (!pending.length) return void console.log("🗂 Todos los temas están resumidos al día.");
+  console.log(`🗂 Resumiendo ${pending.length} tema(s): ${pending.join(", ")}…`);
+  const r = await synthesizeStaleTopics(hours);
+  console.log(`✅ Listo${r.commit ? ` · commit ${r.commit}` : ""} · costo ${usd(r.usd)}`);
 }
 
 async function cmdAsk(argv: string[]): Promise<void> {
@@ -106,6 +119,8 @@ async function main(): Promise<void> {
   if (cmd === "ask") return cmdAsk(rest);
   if (cmd === "reindex") return cmdReindex(rest);
   if (cmd === "undo") return cmdUndo(rest);
+  if (cmd === "temas") return cmdTemas(rest);
+  if (cmd === "costos") return void console.log(formatCostSummary(costSummary()));
   return cmdAdd(cmd === "add" ? rest : process.argv.slice(2));
 }
 

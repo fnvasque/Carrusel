@@ -4,7 +4,8 @@ import { Bot, GrammyError, InlineKeyboard, type Api } from "grammy";
 import { ask } from "./ask.ts";
 import { indexedHead, reindex, setIndexedHead } from "./indexer.ts";
 import { topicKey } from "./markdown.ts";
-import { addPost, changeTopic } from "./pipeline.ts";
+import { addPost, changeTopic, synthesizeStaleTopics } from "./pipeline.ts";
+import { costSummary, formatCostSummary } from "./costs.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job } from "./queue.ts";
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
@@ -255,6 +256,10 @@ bot.command("tema", async (ctx) => {
     ctx.chat.id,
     `🗂 <b>${escapeHtml(t.name)}</b>${t.description ? `\n<i>${escapeHtml(t.description)}</i>` : ""}\n\n${formatFichaList(fichas)}`,
   );
+});
+
+bot.command("costos", async (ctx) => {
+  await sendLong(ctx.api, ctx.chat.id, escapeHtml(formatCostSummary(costSummary())));
 });
 
 bot.command("ultimos", async (ctx) => {
@@ -680,6 +685,21 @@ async function syncFromRemote(): Promise<void> {
   }
 }
 
+// --- resúmenes de tema (al guardar solo se actualiza la lista de fuentes; ver topicSynthHours) ---
+
+/** Cada cuánto se revisa si hay temas por resumir (cada tema se resume a lo más una vez por KB_TOPIC_SYNTH_HOURS). */
+const TOPIC_CHECK_MS = 3_600_000;
+
+/** Resume los temas atrasados, en la cadena serial (nunca a mitad de un guardado). */
+async function refreshStaleTopics(): Promise<void> {
+  try {
+    const r = await serial(() => synthesizeStaleTopics());
+    if (r.topics.length) console.log(`🗂 Temas resumidos: ${r.topics.join(", ")} (US$${r.usd.toFixed(3)})`);
+  } catch (err) {
+    console.warn(`⚠️  Resumen de temas: ${errText(err)}`);
+  }
+}
+
 let silenceWarnedFor: string | undefined;
 
 /** Avisa una vez si la investigación semanal dejó de correr. */
@@ -704,6 +724,7 @@ await bot.api.setMyCommands([
   { command: "temas", description: "Tus temas" },
   { command: "tema", description: "Qué hay en un tema" },
   { command: "ultimos", description: "Lo último que guardaste" },
+  { command: "costos", description: "Cuánto se ha gastado en la API" },
   { command: "ayuda", description: "Cómo usarme" },
 ]);
 console.log(`🤖 Bot en marcha (chats autorizados: ${[...allowed].join(", ")}). Base: ${temasDir().replace(/\/temas$/, "")}`);
@@ -718,5 +739,6 @@ if (process.env.KB_GIT_PUSH === "1") {
 }
 void checkResearch();
 setInterval(() => void checkResearch(), 24 * 3_600_000);
+setInterval(() => void refreshStaleTopics(), TOPIC_CHECK_MS);
 void work();
 await bot.start({ drop_pending_updates: false });

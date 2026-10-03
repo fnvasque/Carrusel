@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import OpenAI from "openai";
 import { OPENAI_OPTS } from "./types.ts";
+import { recordUsage } from "./costs.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type TopicInfo, type TopicSynthesis } from "./types.ts";
 
@@ -21,6 +22,9 @@ let client: OpenAI | null = null;
 function model(): string {
   return process.env.KB_MODEL ?? "gpt-4o-2024-11-20";
 }
+
+/** Modelo de las páginas de tema (KB_SYNTH_MODEL); por defecto el mismo de las fichas. */
+const synthModel = (): string => process.env.KB_SYNTH_MODEL ?? model();
 
 /**
  * Caracteres de control (menos \t y \n). gpt-4o a veces rompe el escape JSON de una
@@ -74,13 +78,15 @@ const MAX_HINT_CHARS = 800;
  * `hint` (el caption del post) orienta el vocabulario: sin él, nombres propios
  * como "Claude" se transcriben como palabras comunes ("Cloud").
  */
-export async function transcribe(path: string, hint?: string): Promise<string> {
+export async function transcribe(path: string, hint?: string, seconds?: number): Promise<string> {
   const prompt = hint?.trim().slice(0, MAX_HINT_CHARS);
+  const model = process.env.KB_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe";
   const res = await getClient().audio.transcriptions.create({
     file: createReadStream(path),
-    model: process.env.KB_TRANSCRIBE_MODEL ?? "gpt-4o-mini-transcribe",
+    model,
     ...(prompt ? { prompt } : {}),
   });
+  recordUsage("transcripcion", model, (res as { usage?: unknown }).usage, seconds);
   return res.text.trim();
 }
 
@@ -102,6 +108,8 @@ export interface ExtractInput {
   notes: string[];
   images: string[];
   topics: TopicInfo[];
+  /** Detalle con que el modelo mira las imágenes (default "high"). */
+  imageDetail?: "low" | "high" | "auto";
 }
 
 /** Analiza un post (imágenes + caption + transcripción) y devuelve la ficha estructurada. */
@@ -121,7 +129,7 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
     `\nTemas existentes en la base:\n${topicList}`;
 
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [{ type: "text", text }];
-  for (const url of images) content.push({ type: "image_url", image_url: { url, detail: "high" } });
+  for (const url of images) content.push({ type: "image_url", image_url: { url, detail: input.imageDetail ?? "high" } });
 
   return cleanCall(async () => {
     const res = await getClient().beta.chat.completions.parse({
@@ -133,6 +141,7 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
       ],
       response_format: zodResponseFormat(ExtractionSchema, "ficha"),
     });
+    recordUsage("ficha", res.model ?? model(), res.usage);
     const parsed = res.choices[0]?.message.parsed;
     if (!parsed) throw new Error("El modelo no devolvió una ficha válida.");
     return parsed;
@@ -155,7 +164,7 @@ export async function synthesizeTopic(topic: string, fichasText: string[]): Prom
   const attempt = (brief: boolean) =>
     cleanCall(async () => {
       const res = await getClient().beta.chat.completions.parse({
-        model: model(),
+        model: synthModel(),
         temperature: TEMPERATURE,
         max_tokens: MAX_SYNTH_TOKENS,
         messages: [
@@ -167,6 +176,7 @@ export async function synthesizeTopic(topic: string, fichasText: string[]): Prom
         ],
         response_format: zodResponseFormat(TopicSynthesisSchema, "tema"),
       });
+      recordUsage("tema", res.model ?? synthModel(), res.usage);
       const parsed = res.choices[0]?.message.parsed;
       if (!parsed) throw new Error("El modelo no devolvió una síntesis válida.");
       return parsed;

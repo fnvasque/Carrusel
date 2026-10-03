@@ -34,6 +34,9 @@ import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
   markSummaryNotified, newSummaries, RESEARCH_END, RESEARCH_START, silenceAlert, summaryText,
 } from "../src/kb/research.ts";
+import { costOf, costSummary, formatCostSummary, recordUsage, setCostRef, usageOf, usd, withCostScope } from "../src/kb/costs.ts";
+import { renderTopicSources } from "../src/kb/markdown.ts";
+import { staleTopics, synthesisHash } from "../src/kb/pipeline.ts";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
 import type { Ficha } from "../src/kb/types.ts";
@@ -1093,6 +1096,110 @@ checkAsync("abortStaleRebase: al arrancar, aborta un rebase a medias (y sin reba
     if (prev === undefined) delete process.env.KB_DIR;
     else process.env.KB_DIR = prev;
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// --- costos ---
+check("costOf: precio de lista, caché, snapshot con fecha y prefijo de OpenRouter", () => {
+  assert.equal(costOf("gpt-4o-2024-11-20", { input: 1_000_000, output: 100_000 }), 3.5);
+  assert.equal(costOf("gpt-4o", { input: 1_000_000, cachedInput: 1_000_000, output: 0 }), 1.25);
+  assert.equal(costOf("gpt-4o-mini-2024-07-18", { input: 1_000_000, output: 0 }), 0.15);
+  assert.equal(costOf("openai/gpt-4o-mini", { input: 1_000_000, output: 0 }), 0.15);
+  assert.equal(costOf("qwen/qwen-vl-max", { input: 10, output: 10 }), undefined);
+  process.env.KB_PRICES = '{"qwen/qwen-vl-max":{"in":0.8,"out":3.2}}';
+  try {
+    assert.equal(costOf("qwen/qwen-vl-max", { input: 1_000_000, output: 1_000_000 }), 4);
+  } finally {
+    delete process.env.KB_PRICES;
+  }
+});
+
+check("usageOf: chat, transcripción y vacío", () => {
+  assert.deepEqual(usageOf({ prompt_tokens: 10, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 4 } }), {
+    input: 10, cachedInput: 4, output: 5,
+  });
+  assert.deepEqual(usageOf({ input_tokens: 7, output_tokens: 3 }), { input: 7, cachedInput: 0, output: 3 });
+  assert.equal(usageOf(undefined), undefined);
+  assert.equal(usd(0.0421), "US$0,042");
+  assert.equal(usd(1.2), "US$1,20");
+});
+
+checkAsync("registro de costos: suma por guardado y resumen", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-costs-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    assert.match(formatCostSummary(costSummary()), /Todavía no hay costos/);
+    const { usd: spent } = await withCostScope("https://www.instagram.com/p/A/", async () => {
+      recordUsage("transcripcion", "gpt-4o-mini-transcribe", undefined, 60);
+      setCostRef("A");
+      recordUsage("ficha", "gpt-4o-2024-11-20", { prompt_tokens: 10_000, completion_tokens: 1_000 });
+      recordUsage("tema", "modelo-raro", { prompt_tokens: 10, completion_tokens: 10 });
+    });
+    assert.ok(Math.abs(spent - 0.038) < 1e-9);
+    recordUsage("consulta", "gpt-4o", { prompt_tokens: 1000, completion_tokens: 0 });
+    const s = costSummary();
+    assert.ok(Math.abs(s.total - 0.0405) < 1e-9);
+    assert.equal(s.saves, 1);
+    assert.ok(Math.abs(s.perSave - 0.038) < 1e-9); // incluye la transcripción, registrada antes de conocer el id
+    assert.equal(s.unpriced, 1);
+    assert.equal(s.byOp[0].op, "ficha");
+    assert.match(formatCostSummary(s), /Analizar el post: US\$0,035/);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- temas sin volver a resumir ---
+check("renderTopicSources conserva la síntesis y actualiza solo las fuentes", () => {
+  const s = { description: "Flujos con IA", essentials: ["Empieza simple"], tools: [], techniques: [] };
+  const a = { baseName: "a", title: "A", savedAt: "2026-09-26" };
+  const b = { baseName: "b", title: "B", savedAt: "2026-09-27" };
+  const v1 = renderTopic("T", s, [a], "2026-09-26", undefined, { sintesis: "abc" }).replace("## Mis notas\n\n", "## Mis notas\n\nmías\n");
+  const v2 = renderTopicSources("T", [b, a], "2026-09-27", v1);
+  const { data, content } = matter(v2);
+  assert.equal(data.sintesis, "abc");
+  assert.equal(data.fuentes, 2);
+  assert.equal(data.descripcion, "Flujos con IA");
+  assert.ok(content.includes("- Empieza simple"));
+  assert.ok(content.includes("## Fuentes (2)") && content.includes("[[b|B]]"));
+  assert.ok(content.includes("mías"));
+  // Tema nuevo: solo descripción y fuentes.
+  const fresh = renderTopicSources("Nuevo", [a], "2026-09-27", undefined, "Recién creado");
+  assert.equal(matter(fresh).data.descripcion, "Recién creado");
+  assert.ok(fresh.includes("## Fuentes (1)") && !fresh.includes("Lo esencial"));
+});
+
+checkAsync("staleTopics: resume solo si cambiaron las fichas y pasó la espera", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-stale-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    mkdirSync(joinPath(dir, "fuentes"));
+    mkdirSync(joinPath(dir, "temas"));
+    const raw = renderFicha(ficha(), "T", []);
+    writeFileSync(joinPath(dir, "fuentes", "f.md"), raw);
+    const ref = [{ baseName: "f", title: "F" }];
+    const page = (meta: Record<string, unknown>) =>
+      writeFileSync(joinPath(dir, "temas", "T.md"), renderTopic("T", { description: "", essentials: [], tools: [], techniques: [] }, ref, "2026-10-01", undefined, meta));
+    page({});
+    assert.deepEqual(await staleTopics(24), ["T"]); // nunca resumido
+    const hash = synthesisHash([fichaDigest(matter(raw).content)]);
+    page({ sintesis: hash, sintetizado: new Date().toISOString() });
+    assert.deepEqual(await staleTopics(24), []); // al día
+    page({ sintesis: "otra", sintetizado: new Date().toISOString() });
+    assert.deepEqual(await staleTopics(24), []); // cambió, pero se resumió hace poco
+    assert.deepEqual(await staleTopics(0), ["T"]);
+    page({ sintesis: "otra", sintetizado: new Date(Date.now() - 25 * 3_600_000).toISOString() });
+    assert.deepEqual(await staleTopics(24), ["T"]);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
