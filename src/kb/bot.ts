@@ -8,9 +8,13 @@ import { addPost, changeTopic } from "./pipeline.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job } from "./queue.ts";
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
-import { findFichaById, findLastSave, listFichas, listTopics, removeOrphanGalleries, revertSave, temasDir } from "./store.ts";
+import {
+  findFichaById, findLastSave, listFichas, listTopics, removeOrphanGalleries, revertSave, setSyncErrorHandler, temasDir,
+} from "./store.ts";
 import { sendDm } from "../meta/messages.ts";
+import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
 import { dmAction, startInbox, type DmEvent } from "./inbox.ts";
+import { recoverMissedDms } from "./recover.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatFichaList, formatSaved, formatSavedText, handleInText, handleReply, HELP,
   noteFromMessage, splitMessage,
@@ -18,7 +22,7 @@ import {
 import { STAGE_LABEL } from "./types.ts";
 
 /**
- * Bot de Telegram (long polling: no necesita URL pública, corre en el PC de casa).
+ * Bot de Telegram (long polling: no necesita URL pública; corre en el PC o en un servidor, ver deploy/).
  * Es solo otra puerta de entrada: guarda con addPost(), responde con ask() y
  * deshace con git revert, igual que la CLI.
  *
@@ -86,6 +90,12 @@ async function edit(api: Api, chatId: number, msgId: number | undefined, text: s
 }
 
 const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+/** Aviso a tus chats de Telegram (problemas del servidor que de otro modo solo quedarían en los logs). */
+async function notifyAdmin(text: string): Promise<void> {
+  console.warn(text);
+  for (const chatId of allowed) await bot.api.sendMessage(chatId, text).catch(() => {});
+}
 
 const savedKeyboard = (id: string) => new InlineKeyboard().text("↩️ Deshacer", `undo:${id}`).text("🏷 Cambiar tema", `topic:${id}`);
 
@@ -576,9 +586,49 @@ function startInstagramInbox(): void {
     debugPayload: process.argv.includes("--debug-payload"),
     onEvent: (ev) => void onDm(ev),
   });
+  // Lo que llegó con el bot caído. Se espera un poco: los reintentos de Meta llegan primero por el webhook.
+  setTimeout(() => void recoverDms(), RECOVER_DELAY_MS);
+}
+
+const RECOVER_DELAY_MS = 90_000;
+
+async function recoverDms(): Promise<void> {
+  try {
+    const r = await recoverMissedDms({
+      allowed: igAllowed,
+      onEvent: (ev) => void onDm(ev),
+      onUnreadable: (sender, n) =>
+        sendDm(
+          sender,
+          `⚠️ Estuve desconectado y no alcancé a leer ${n === 1 ? "1 post que me compartiste" : `${n} posts que me compartiste`}. ` +
+            "Instagram no me deja recuperarlos: compártemelos de nuevo, por favor.",
+        ).catch(dmFailed),
+    });
+    if (r.texts || r.unreadable) console.log(`↻ DMs perdidos mientras estaba caído: ${r.texts} texto(s), ${r.unreadable} post(s) por reenviar.`);
+  } catch (err) {
+    console.warn(`⚠️  No pude revisar los DMs perdidos: ${errText(err)}`);
+  }
+}
+
+/** Avisa por Telegram si el token de Meta está por vencer (se revisa al arrancar y una vez al día). */
+async function checkMetaToken(): Promise<void> {
+  if (!process.env.META_ACCESS_TOKEN) return;
+  try {
+    const left = await tokenDaysLeft();
+    if (left !== undefined && left < EXPIRY_WARN_DAYS) {
+      await notifyAdmin(
+        `⚠️ El token de Meta vence en ${left} día(s). Renuévalo (README, "Configuración de Meta") o usa un token de System User, que no vence.`,
+      );
+    }
+  } catch (err) {
+    await notifyAdmin(`⚠️ Problema con el token de Meta: ${errText(err)}`);
+  }
 }
 
 // --- arranque ---
+
+setSyncErrorHandler((m) => void notifyAdmin(`⚠️ ${m}`));
+process.on("unhandledRejection", (err) => void notifyAdmin(`⚠️ Error inesperado en el bot: ${errText(err)}`));
 
 const resumed = requeueInterrupted();
 await bot.api.setMyCommands([
@@ -590,5 +640,7 @@ await bot.api.setMyCommands([
 console.log(`🤖 Bot en marcha (chats autorizados: ${[...allowed].join(", ")}). Base: ${temasDir().replace(/\/temas$/, "")}`);
 if (resumed) console.log(`↻ Retomo ${resumed} guardado(s) que quedaron a medias.`);
 startInstagramInbox();
+void checkMetaToken();
+setInterval(() => void checkMetaToken(), 24 * 3_600_000);
 void work();
 await bot.start({ drop_pending_updates: false });

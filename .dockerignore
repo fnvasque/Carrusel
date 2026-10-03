@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+node_modules
+knowledge
+output
+.cache
+data
+keys
+.claude
+promo
+spdd
+*.log
+.DS_Store

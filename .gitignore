@@ -7,3 +7,9 @@ output/
 knowledge/.obsidian/
 knowledge/.trash/
 promo/*/frames/
+# Despliegue (compose.yaml): datos del volumen y clave de deploy del servidor
+data/
+keys/
+# La base vive en su propio repo privado (ver deploy/README.md)
+knowledge/
+knowledge.antes-de-migrar/
