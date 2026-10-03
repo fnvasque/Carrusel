@@ -34,7 +34,7 @@ import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
   markSummaryNotified, newSummaries, RESEARCH_END, RESEARCH_START, silenceAlert, summaryText,
 } from "../src/kb/research.ts";
-import { costOf, costSummary, formatCostSummary, recordUsage, setCostRef, usageOf, usd, withCostScope } from "../src/kb/costs.ts";
+import { costLine, costOf, costSummary, formatCostSummary, recordUsage, setCostRef, usageOf, usd, withCostScope } from "../src/kb/costs.ts";
 import { renderTopicSources, tagSlug } from "../src/kb/markdown.ts";
 import { viaOpenRouter, withFallback } from "../src/kb/llm.ts";
 import { staleTopics, synthesisHash } from "../src/kb/pipeline.ts";
@@ -1146,6 +1146,37 @@ checkAsync("registro de costos: suma por guardado y resumen", async () => {
     assert.equal(s.unpriced, 1);
     assert.equal(s.byOp[0].op, "ficha");
     assert.match(formatCostSummary(s), /Analizar el post: US\$0,035/);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+check("costLine: costo y modelo, con aviso de respaldo", () => {
+  assert.equal(costLine(0.0042, "deepseek/deepseek-v4.1-flash"), "💸 US$0,004 · DeepSeek");
+  assert.equal(costLine(0.012, "gpt-4o-2024-11-20", true), "💸 US$0,012 · gpt-4o (respaldo)");
+  assert.equal(costLine(undefined, undefined), "");
+});
+
+checkAsync("withCostScope: modelo por operación y respaldo", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-scope-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    const r = await withCostScope("x", () =>
+      withFallback("a/b", async (m) => {
+        if (m === "a/b") throw new Error("caído");
+        recordUsage("ficha", m, { prompt_tokens: 1, completion_tokens: 1 });
+        return m;
+      }, { fallback: "gpt-4o", log: { warn: () => {} } }),
+    );
+    assert.equal(r.models.ficha, "gpt-4o");
+    assert.equal(r.fallback, true);
+    const ok = await withCostScope("y", async () => recordUsage("consulta", "deepseek/deepseek-v4.1-flash", undefined));
+    assert.equal(ok.fallback, false);
+    assert.equal(ok.models.consulta, "deepseek/deepseek-v4.1-flash");
   } finally {
     closeDb();
     if (prev === undefined) delete process.env.KB_DIR;

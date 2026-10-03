@@ -91,6 +91,10 @@ export function usageOf(raw: unknown): Usage | undefined {
 interface Scope {
   ref: string;
   usd: number;
+  /** Último modelo usado por operación (p. ej. el que hizo la ficha). */
+  models: Partial<Record<CostOp, string>>;
+  /** Si alguna llamada tuvo que pasar al modelo de respaldo. */
+  fallback: boolean;
   /** Filas ya registradas en este alcance (para corregir su ref). */
   rows: number[];
 }
@@ -101,10 +105,34 @@ const scope = new AsyncLocalStorage<Scope>();
  * Corre `fn` agrupando sus llamadas bajo `ref` (p. ej. un guardado) y devuelve
  * también lo que costaron en total.
  */
-export async function withCostScope<T>(ref: string, fn: () => Promise<T>): Promise<{ result: T; usd: number }> {
-  const s: Scope = { ref, usd: 0, rows: [] };
+export async function withCostScope<T>(
+  ref: string,
+  fn: () => Promise<T>,
+): Promise<{ result: T; usd: number; models: Partial<Record<CostOp, string>>; fallback: boolean }> {
+  const s: Scope = { ref, usd: 0, rows: [], models: {}, fallback: false };
   const result = await scope.run(s, fn);
-  return { result, usd: s.usd };
+  return { result, usd: s.usd, models: s.models, fallback: s.fallback };
+}
+
+/** Marca que el alcance en curso usó el modelo de respaldo. */
+export function markFallback(): void {
+  const s = scope.getStore();
+  if (s) s.fallback = true;
+}
+
+/** Nombre corto de un modelo para mostrar ("deepseek/deepseek-v4.1-flash" → "DeepSeek"). Función pura. */
+export function modelLabel(model: string): string {
+  const id = model.replace(/^[^/]+\//, "");
+  if (/^deepseek/i.test(id)) return "DeepSeek";
+  if (/^gpt-4o-mini/.test(id)) return "gpt-4o-mini";
+  if (/^gpt-4o/.test(id)) return "gpt-4o";
+  return id;
+}
+
+/** "💸 US$0,004 · DeepSeek" (con "(respaldo)" si el principal falló). Función pura. */
+export function costLine(usdValue: number | undefined, model: string | undefined, fallback = false): string {
+  const parts = [usdValue ? usd(usdValue) : "", model ? `${modelLabel(model)}${fallback ? " (respaldo)" : ""}` : ""].filter(Boolean);
+  return parts.length ? `💸 ${parts.join(" · ")}` : "";
 }
 
 /** Cambia la referencia del guardado en curso, también de lo ya registrado (el id del post se conoce a mitad de camino). */
@@ -150,6 +178,7 @@ export function recordUsage(op: CostOp, model: string, raw: unknown, audioSecond
     if (usd === undefined && audioSeconds && TRANSCRIBE_PER_MIN[model]) usd = (audioSeconds / 60) * TRANSCRIBE_PER_MIN[model];
     const s = scope.getStore();
     if (s && usd) s.usd += usd;
+    if (s) s.models[op] = model;
     const row = table()
       .prepare("INSERT INTO costs (op, model, ref, input, cached, output, usd) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(op, model, s?.ref ?? null, u.input, u.cachedInput ?? 0, u.output, usd ?? null);
