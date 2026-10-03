@@ -14,9 +14,9 @@ import {
 import { cleanCall, hasControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
-import { chunkFicha, fichaDoc, referenciaDoc, researchDoc, splitText } from "../src/kb/indexer.ts";
+import { chunkFicha, fichaDoc, indexedHead, referenciaDoc, researchDoc, setIndexedHead, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rangeFilter, rrfFuse, type Hit } from "../src/kb/search.ts";
-import { citedNumbers, groupSources, isResearch, sourceHead } from "../src/kb/ask.ts";
+import { citedNumbers, groupSources, isResearch, researchNote, sourceHead } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatSaved, formatSavedText, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
@@ -27,7 +27,7 @@ import {
   autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateReferencia, validateResumen, validateTopicBlock,
   zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
-import { abortStaleRebase, pullKb } from "../src/kb/store.ts";
+import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import {
@@ -1121,6 +1121,41 @@ check("validar: el agente no puede modificar el validador ni el manual", () => {
   ]);
   assert.equal(errs.length, 2);
   assert.match(errs.join(), /validar\.mjs: el agente no puede modificar el validador ni el manual/);
+});
+
+check("researchNote: avisa si la respuesta usa investigación sin decirlo; si ya lo dice o no la usa, nada", () => {
+  const ref = { n: 1, title: "Composio", savedAt: "2026-10-03", baseName: "composio", kind: "referencia" };
+  const blk = { n: 2, title: "Investigación: X", savedAt: "2026-10-10", baseName: "X", kind: "investigacion" };
+  const post = { n: 3, title: "Post", savedAt: "2026-09-01", baseName: "p" };
+  const a = (answer: string, sources: typeof post[]) => ({ answer, sources, found: true });
+  assert.equal(researchNote(a("Tiene plan gratis [1, 2].", [ref, blk])), "🔎 Incluye datos de la investigación del 2026-10-10.");
+  assert.equal(researchNote(a("Según la investigación del 2026-10-03, sí [1].", [ref])), undefined);
+  assert.equal(researchNote(a("Lo guardaste [3].", [post])), undefined);
+  assert.ok(formatAnswerText(a("Sí [1].", [ref])).includes("🔎 Incluye datos de la investigación del 2026-10-03."));
+  assert.ok(formatAnswer(a("Sí [1].", [ref])).includes("🔎 Incluye datos de la investigación del 2026-10-03."));
+});
+
+checkAsync("kbHead / indexedHead: el bot sabe si el índice corresponde a la base actual", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-head-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    assert.equal(await kbHead(), undefined); // sin repo git
+    execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+    writeFileSync(joinPath(dir, "a.md"), "x");
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "add", "."], { cwd: dir });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "1"], { cwd: dir });
+    const head = await kbHead();
+    assert.match(head ?? "", /^[0-9a-f]{40}$/);
+    assert.equal(indexedHead(), undefined);
+    setIndexedHead(head!);
+    assert.equal(indexedHead(), head);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 await asyncChain;

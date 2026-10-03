@@ -204,3 +204,18 @@ export async function reindex(full = false): Promise<{ indexed: number; removed:
   for (const r of stale) removePost(r.id);
   return { indexed, removed: stale.length, total: docs.length };
 }
+
+function metaDb(): ReturnType<typeof openDb> {
+  const db = openDb();
+  db.exec("CREATE TABLE IF NOT EXISTS kb_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+  return db;
+}
+
+/** Commit de la base con que se sincronizó el índice por última vez (lo trae el pull horario). */
+export function indexedHead(): string | undefined {
+  return (metaDb().prepare("SELECT value FROM kb_meta WHERE key = 'indexed_head'").get() as { value: string } | undefined)?.value;
+}
+
+export function setIndexedHead(sha: string): void {
+  metaDb().prepare("INSERT OR REPLACE INTO kb_meta (key, value) VALUES ('indexed_head', ?)").run(sha);
+}

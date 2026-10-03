@@ -158,6 +158,12 @@ async function pushWithRebase(root: string): Promise<void> {
   if (retry.code !== 0) onSyncError(`No pude subir la base a GitHub: ${retry.out.trim().split("\n").pop()}`);
 }
 
+/** Commit actual de la base (undefined si no es un repo git). */
+export async function kbHead(): Promise<string | undefined> {
+  const r = await git(["rev-parse", "HEAD"], kbDir());
+  return r.code === 0 ? r.out.trim() : undefined;
+}
+
 /**
  * Aborta un rebase que quedó a medias (el proceso murió entre un pull con
  * conflicto y su `rebase --abort`, p. ej. un reinicio durante un guardado): sin
