@@ -95,6 +95,19 @@ export function rrfFuse(rankings: number[][], k = RRF_K): Map<number, number> {
   return scores;
 }
 
+/**
+ * Filtro SQL de un rango de fechas. Una pregunta con fechas ("¿qué guardé esta
+ * semana?") es sobre posts guardados: la investigación (cuya fecha es la de
+ * revisión) queda fuera. Función pura.
+ */
+export function rangeFilter(range: DateRange | undefined): { sql: string; args: string[] } {
+  if (!range) return { sql: "", args: [] };
+  return {
+    sql: "AND p.saved_at BETWEEN ? AND ? AND (p.kind IS NULL OR p.kind NOT IN ('referencia', 'investigacion'))",
+    args: [range.from ?? "0000-00-00", range.to ?? "9999-99-99"],
+  };
+}
+
 interface Row {
   id: number;
   post_id: string;
@@ -107,8 +120,7 @@ interface Row {
 export async function search(question: string, opts: { limit?: number; range?: DateRange } = {}): Promise<Hit[]> {
   const db = openDb();
   const limit = opts.limit ?? 12;
-  const where = opts.range ? "AND p.saved_at BETWEEN ? AND ?" : "";
-  const rangeArgs = opts.range ? [opts.range.from ?? "0000-00-00", opts.range.to ?? "9999-99-99"] : [];
+  const { sql: where, args: rangeArgs } = rangeFilter(opts.range);
 
   // 1) Palabras (bm25: menor = mejor).
   let byText: number[] = [];

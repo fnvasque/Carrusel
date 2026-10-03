@@ -7,3 +7,5 @@ export declare function validateTopicBlock(text: string): string[];
 export declare function validateResumen(text: string): string[];
 export declare function outsideAgentZones(paths: string[]): string[];
 export declare function autoZoneOf(text: string): string | undefined;
+export declare function parseNameStatus(out: string): { status: string; path: string }[];
+export declare function zoneErrors(changes: { status: string; path: string }[]): string[];

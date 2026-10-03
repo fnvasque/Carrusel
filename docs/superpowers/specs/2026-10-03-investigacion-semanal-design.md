@@ -114,7 +114,9 @@ Domingo 04:00 hora de Chile. El prompt de la tarea solo dice: «Sigue
    en `registro.md` (nunca revisado = elegible) y ver con `git log` si
    `fuentes/` recibió fichas de ese tema después. Prioridad: con fichas nuevas
    (más fichas primero), luego > 30 días sin revisar. Tope 5. Si no hay
-   elegibles, termina sin commit.
+   elegibles, agrega al registro la línea de latido
+   `- AAAA-MM-DD · (sin temas elegibles) · 0 referencias (0 nuevas)`, la sube y
+   termina (sin resumen): así la alerta de silencio no salta en semanas tranquilas.
 3. **Por tema**: leer sus fichas → elegir referencias que valga la pena
    investigar (repetidas en varias fichas o centrales en el tema; tope 8 por
    tema) → reutilizar la nota si ya existe (actualizar, no duplicar; buscar por

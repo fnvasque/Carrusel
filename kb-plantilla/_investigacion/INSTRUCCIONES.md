@@ -38,8 +38,12 @@ Para cada `temas/<Tema>.md`:
   cuyo `guardado:` es posterior a la última revisión (todas si nunca se revisó).
 
 Elegibles: con ≥ 1 ficha nueva, o con última revisión hace > 30 días. Orden: más
-fichas nuevas primero; luego los más antiguos. Toma los primeros 5. Si no hay
-elegibles: termina sin commit.
+fichas nuevas primero; luego los más antiguos. Toma los primeros 5.
+
+Si no hay elegibles, igual deja constancia de que corriste (si no, el bot avisa que
+la investigación dejó de correr): agrega a `_investigacion/registro.md` la línea
+`- <HOY> · (sin temas elegibles) · 0 referencias (0 nuevas)`, valida, commitea
+(`investigación: sin temas elegibles`), sube y termina. No escribas resumen.
 
 ## Paso 3 — Por cada tema
 

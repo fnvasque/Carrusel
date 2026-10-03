@@ -15,7 +15,7 @@ import { hasControlChars, stripControlChars } from "../src/kb/ai.ts";
 import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
 import { chunkFicha, fichaDoc, referenciaDoc, researchDoc, splitText } from "../src/kb/indexer.ts";
-import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
+import { ftsQuery, parseDateRange, rangeFilter, rrfFuse, type Hit } from "../src/kb/search.ts";
 import { citedNumbers, groupSources, isResearch, sourceHead } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import {
@@ -24,7 +24,8 @@ import {
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import {
-  autoZoneOf, outsideAgentZones, parseFrontmatter, validateReferencia, validateResumen, validateTopicBlock,
+  autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateReferencia, validateResumen, validateTopicBlock,
+  zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
 import { pullKb } from "../src/kb/store.ts";
 import { execFileSync } from "node:child_process";
@@ -889,6 +890,93 @@ check("validar (CLI): corre aunque la ruta pase por un enlace simbólico y falla
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+check("validar: frontmatter editado en Obsidian (clave con tilde, lista en columna 0, comentario, texto plegado)", () => {
+  const edited = REF_OK
+    .replace("tipo: software", "tipo: software\ncategoría: automatización\nnota: >\n  texto largo\n  en dos líneas")
+    .replace("fuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io", "fuentes:\n- https://n8n.io/pricing\n- https://docs.n8n.io")
+    .replace("revisado: 2026-10-12", "revisado: 2026-10-12 # lo revisé yo");
+  assert.deepEqual(validateReferencia(edited), []);
+  const fm = parseFrontmatter(edited);
+  assert.ok(!("error" in fm));
+  if (!("error" in fm)) {
+    assert.equal(fm.data["categoría"], "automatización");
+    assert.equal(fm.data.revisado, "2026-10-12");
+    assert.deepEqual(fm.data.fuentes, ["https://n8n.io/pricing", "https://docs.n8n.io"]);
+  }
+});
+
+check("validar: zonas con renombres y borrados (git diff --name-status --no-renames)", () => {
+  const ch = parseNameStatus("M\treferencias/n8n.md\nD\tfuentes/a.md\nA\t_investigacion/a.md\nD\ttemas/T.md\nA\ttemas/Nuevo.md\nM\ttemas/U.md\n");
+  assert.deepEqual(ch[1], { status: "D", path: "fuentes/a.md" });
+  const errs = zoneErrors(ch).join(" | ");
+  assert.match(errs, /fuentes\/a\.md: el agente no puede modificar/);
+  assert.match(errs, /temas\/T\.md: el agente no puede borrar temas/);
+  assert.match(errs, /temas\/Nuevo\.md: el agente no puede crear temas nuevos/);
+  assert.equal(zoneErrors(ch).length, 3);
+});
+
+check("validar (CLI): tras un pull --rebase con commits del bot, --desde INICIO valida solo lo del agente", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-validar-rebase-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString().trim();
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "bot");
+    const bot = joinPath(root, "bot");
+    mkdirSync(joinPath(bot, "temas"));
+    mkdirSync(joinPath(bot, "referencias"));
+    mkdirSync(joinPath(bot, "_investigacion"));
+    writeFileSync(joinPath(bot, "_investigacion", "validar.mjs"), readFileSync("kb-plantilla/_investigacion/validar.mjs"));
+    writeFileSync(joinPath(bot, "temas", "T.md"), "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n");
+    // Nota editada por el usuario que el validador estricto rechazaría: no la toca el agente.
+    writeFileSync(joinPath(bot, "referencias", "vieja.md"), "---\ntipo: app\n---\n");
+    g(bot, "add", ".");
+    g(bot, "commit", "-q", "-m", "base");
+    g(bot, "push", "-q", "-u", "origin", "main");
+    g(root, "clone", "-q", "remote.git", "agente");
+    const agente = joinPath(root, "agente");
+    const inicio = g(agente, "rev-parse", "HEAD");
+
+    // El agente investiga…
+    writeFileSync(joinPath(agente, "referencias", "n8n.md"), REF_OK);
+    writeFileSync(joinPath(agente, "temas", "T.md"), "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-12_\n<!-- kb:research:end -->\n");
+    g(agente, "add", ".");
+    g(agente, "commit", "-q", "-m", "investigación: T");
+    // …mientras el bot guarda una ficha y regenera la zona automática del tema.
+    mkdirSync(joinPath(bot, "fuentes"));
+    writeFileSync(joinPath(bot, "fuentes", "f.md"), "ficha\n");
+    writeFileSync(joinPath(bot, "temas", "T.md"), "<!-- kb:auto:start -->\nB\n<!-- kb:auto:end -->\n");
+    g(bot, "add", ".");
+    g(bot, "commit", "-q", "-m", "kb: agrega f");
+    g(bot, "push", "-q");
+    // El push del agente choca; trae con rebase (el tema se resuelve conservando la zona del bot).
+    try {
+      g(agente, "pull", "-q", "--rebase");
+    } catch {
+      writeFileSync(joinPath(agente, "temas", "T.md"), "<!-- kb:auto:start -->\nB\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-12_\n<!-- kb:research:end -->\n");
+      g(agente, "add", "temas/T.md");
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.editor=true", "rebase", "--continue"], { cwd: agente, stdio: "pipe" });
+    }
+    const out = execFileSync("node", ["_investigacion/validar.mjs", "--desde", inicio], { cwd: agente, stdio: "pipe" }).toString();
+    assert.match(out, /Investigación válida/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("rangeFilter: con fechas, solo posts guardados (sin investigación); sin fechas, nada", () => {
+  assert.deepEqual(rangeFilter(undefined), { sql: "", args: [] });
+  const f = rangeFilter({ from: "2026-10-05", to: "2026-10-11", label: "esta semana" });
+  assert.equal(f.sql, "AND p.saved_at BETWEEN ? AND ? AND (p.kind IS NULL OR p.kind NOT IN ('referencia', 'investigacion'))");
+  assert.deepEqual(f.args, ["2026-10-05", "2026-10-11"]);
+  assert.deepEqual(rangeFilter({ label: "x" }).args, ["0000-00-00", "9999-99-99"]);
+});
+
+check("silenceAlert: una semana sin temas elegibles deja un latido que evita la falsa alarma", () => {
+  const reg = "- 2026-10-01 · Cocina · 1 referencias (1 nuevas)\n- 2026-10-08 · (sin temas elegibles) · 0 referencias (0 nuevas)\n";
+  assert.equal(silenceAlert(reg, "2026-10-15"), undefined);
 });
 
 await asyncChain;

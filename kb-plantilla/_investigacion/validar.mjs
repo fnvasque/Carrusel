@@ -25,28 +25,48 @@ function validDate(s) {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
-/** Frontmatter YAML simple: `clave: valor`, `clave: [a, b]` y listas en bloque `  - x`. */
+/**
+ * Frontmatter YAML simple y tolerante (lo que escriben el agente y Obsidian):
+ * `clave: valor`, `clave: [a, b]`, listas `- x` (con o sin sangría), comentarios ` # …`.
+ * Lo que no entiende (texto plegado `>`/`|`, mapas anidados) se ignora sin error.
+ */
 export function parseFrontmatter(text) {
   const m = text.replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return { error: "falta el frontmatter (--- … ---) al inicio" };
   const data = {};
   let key;
   for (const line of m[1].split("\n")) {
-    if (!line.trim()) continue;
-    const item = line.match(/^\s+-\s+(.*)$/);
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const item = line.match(/^\s*-\s+(.*)$/);
     if (item && key) {
       if (!Array.isArray(data[key])) data[key] = [];
-      data[key].push(unquote(item[1]));
+      data[key].push(unquote(stripComment(item[1])));
       continue;
     }
-    const kv = line.match(/^([\w-]+):\s*(.*)$/);
-    if (!kv) return { error: `línea de frontmatter ilegible: "${line}"` };
+    const kv = line.match(/^([\p{L}\w-]+):\s*(.*)$/u);
+    if (!kv) {
+      key = /^\s/.test(line) ? key : undefined; // continuación de un valor que no se interpreta
+      continue;
+    }
     key = kv[1];
-    const v = kv[2].trim();
-    data[key] =
-      v === "" ? [] : v.startsWith("[") && v.endsWith("]") ? v.slice(1, -1).split(",").map(unquote).filter(Boolean) : unquote(v);
+    const v = stripComment(kv[2]).trim();
+    if (/^[>|]/.test(v)) {
+      data[key] = "";
+      key = undefined; // texto plegado: sus líneas siguientes no son una lista
+    } else {
+      data[key] =
+        v === "" ? [] : v.startsWith("[") && v.endsWith("]") ? v.slice(1, -1).split(",").map(unquote).filter(Boolean) : unquote(v);
+    }
   }
   return { data, body: m[2] };
+}
+
+/** Quita un comentario YAML final (` # …`) que no esté dentro de comillas. */
+function stripComment(v) {
+  const q = v.trim()[0];
+  if (q === '"' || q === "'") return v;
+  const i = v.search(/\s#/);
+  return i === -1 ? v : v.slice(0, i);
 }
 
 /** Errores de una nota de referencia ([] = válida). */
@@ -101,6 +121,26 @@ export function outsideAgentZones(paths) {
   );
 }
 
+/** Salida de `git diff --name-status --no-renames` → [{ status, path }]. */
+export function parseNameStatus(out) {
+  return out
+    .split("\n")
+    .map((l) => l.match(/^([A-Z])\d*\t(.+)$/))
+    .filter(Boolean)
+    .map((m) => ({ status: m[1], path: m[2] }));
+}
+
+/** Errores de zona: nada fuera de las zonas del agente; en temas/ solo se modifican los existentes. */
+export function zoneErrors(changes) {
+  const errs = [];
+  for (const { status, path } of changes) {
+    if (outsideAgentZones([path]).length) errs.push(`${path}: el agente no puede modificar este archivo`);
+    else if (path.startsWith("temas/") && status === "D") errs.push(`${path}: el agente no puede borrar temas`);
+    else if (path.startsWith("temas/") && status === "A") errs.push(`${path}: el agente no puede crear temas nuevos`);
+  }
+  return errs;
+}
+
 /** Zona automática (del bot) de un tema. */
 export function autoZoneOf(text) {
   const s = text.indexOf(AUTO_START);
@@ -109,31 +149,52 @@ export function autoZoneOf(text) {
 }
 
 const mdIn = (dir) => (existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith(".md")).sort() : []);
-const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" });
+const git = (root, ...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+
+/**
+ * Desde dónde contar los cambios del agente. Tras un `pull --rebase`, los commits
+ * del bot quedan entre `desde` y los del agente: se parte del punto en común con
+ * el remoto (merge-base con @{u}) si es posterior a `desde`.
+ */
+function agentBase(root, desde) {
+  try {
+    const mb = git(root, "merge-base", "HEAD", "@{u}").trim();
+    git(root, "merge-base", "--is-ancestor", desde, mb);
+    return mb;
+  } catch {
+    return desde;
+  }
+}
 
 function main(root, desde) {
   const errors = [];
   const add = (file, errs) => errs.forEach((e) => errors.push(`${file}: ${e}`));
-  for (const f of mdIn(join(root, "referencias"))) add(`referencias/${f}`, validateReferencia(readFileSync(join(root, "referencias", f), "utf8")));
-  for (const f of mdIn(join(root, "temas"))) add(`temas/${f}`, validateTopicBlock(readFileSync(join(root, "temas", f), "utf8")));
+  let changes;
+  let base;
+  if (desde) {
+    base = agentBase(root, desde);
+    changes = [
+      ...parseNameStatus(git(root, "diff", "--name-status", "--no-renames", base)),
+      ...git(root, "ls-files", "--others", "--exclude-standard").split("\n").filter(Boolean).map((path) => ({ status: "A", path })),
+    ];
+    errors.push(...zoneErrors(changes));
+  }
+  // Con --desde, el contenido se revisa solo en lo que tocó el agente (no en notas editadas por el usuario).
+  const touched = (p) => !changes || changes.some((c) => c.path === p && c.status !== "D");
+  for (const f of mdIn(join(root, "referencias"))) {
+    if (touched(`referencias/${f}`)) add(`referencias/${f}`, validateReferencia(readFileSync(join(root, "referencias", f), "utf8")));
+  }
+  for (const f of mdIn(join(root, "temas"))) {
+    if (touched(`temas/${f}`)) add(`temas/${f}`, validateTopicBlock(readFileSync(join(root, "temas", f), "utf8")));
+  }
   const resumenes = mdIn(join(root, "_investigacion", "resumenes"));
   const last = resumenes[resumenes.length - 1];
   if (last) add(`_investigacion/resumenes/${last}`, validateResumen(readFileSync(join(root, "_investigacion", "resumenes", last), "utf8")));
-  if (desde) {
-    const changed = [
-      ...git(root, "diff", "--name-only", desde).split("\n"),
-      ...git(root, "ls-files", "--others", "--exclude-standard").split("\n"),
-    ].filter(Boolean);
-    for (const p of outsideAgentZones(changed)) errors.push(`${p}: el agente no puede modificar este archivo`);
-    for (const p of changed.filter((x) => x.startsWith("temas/") && existsSync(join(root, x)))) {
-      let before;
-      try {
-        before = git(root, "show", `${desde}:${p}`);
-      } catch {
-        errors.push(`${p}: el agente no puede crear temas nuevos`);
-        continue;
+  if (changes) {
+    for (const { path: p } of changes.filter((c) => c.path.startsWith("temas/") && c.status === "M")) {
+      if (autoZoneOf(git(root, "show", `${base}:${p}`)) !== autoZoneOf(readFileSync(join(root, p), "utf8"))) {
+        errors.push(`${p}: cambió la zona kb:auto (es del bot)`);
       }
-      if (autoZoneOf(before) !== autoZoneOf(readFileSync(join(root, p), "utf8"))) errors.push(`${p}: cambió la zona kb:auto (es del bot)`);
     }
   }
   if (errors.length) {
