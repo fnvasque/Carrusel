@@ -1,5 +1,5 @@
 import { relative } from "node:path";
-import { ask } from "./ask.ts";
+import { ask, isResearch } from "./ask.ts";
 import { reindex } from "./indexer.ts";
 import { addPost } from "./pipeline.ts";
 import { findInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
@@ -71,7 +71,7 @@ async function cmdAsk(argv: string[]): Promise<void> {
   if (r.sources.length) {
     console.log("\nFuentes:");
     for (const s of r.sources) {
-      const meta = [s.author, s.savedAt ? `guardado ${s.savedAt}` : undefined].filter(Boolean).join(" · ");
+      const meta = [s.author, s.savedAt ? `${isResearch(s) ? "investigado" : "guardado"} ${s.savedAt}` : undefined].filter(Boolean).join(" · ");
       console.log(`  [${s.n}] ${s.title}${meta ? ` — ${meta}` : ""}`);
       console.log(`      Obsidian: [[${s.baseName}]]${s.url ? ` · ${s.url}` : ""}`);
     }

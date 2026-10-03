@@ -2,14 +2,14 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Bot, GrammyError, InlineKeyboard, type Api } from "grammy";
 import { ask } from "./ask.ts";
-import { reindex } from "./indexer.ts";
+import { indexedHead, reindex, setIndexedHead } from "./indexer.ts";
 import { topicKey } from "./markdown.ts";
 import { addPost, changeTopic } from "./pipeline.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job } from "./queue.ts";
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import {
-  abortStaleRebase, findFichaById, findLastSave, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
+  abortStaleRebase, findFichaById, findLastSave, kbHead, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
   temasDir,
 } from "./store.ts";
 import { registroPath, silenceAlert, takeNewSummaries } from "./research.ts";
@@ -631,8 +631,8 @@ async function checkMetaToken(): Promise<void> {
 
 /** Cada cuánto se traen cambios de la base desde GitHub. */
 const SYNC_INTERVAL_MS = 3_600_000;
-/** Primer pull tras arrancar (el entrypoint ya hizo uno). */
-const SYNC_FIRST_DELAY_MS = 5 * 60_000;
+/** Primera sincronización tras arrancar: indexa lo que trajo el pull del entrypoint. */
+const SYNC_FIRST_DELAY_MS = 60_000;
 
 let lastSyncError: string | undefined;
 
@@ -647,8 +647,11 @@ async function syncFromRemote(): Promise<void> {
         return;
       }
       lastSyncError = undefined;
-      if (r.changed) {
+      // También si el índice quedó atrás de la base (p. ej. lo trajo el pull del arranque).
+      const head = await kbHead();
+      if (r.changed || (head && head !== indexedHead())) {
         const s = await reindex();
+        if (head) setIndexedHead(head);
         console.log(`↓ Base actualizada desde GitHub: ${s.indexed} documento(s) reindexado(s), ${s.removed} quitado(s).`);
       }
     });

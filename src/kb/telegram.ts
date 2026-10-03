@@ -1,4 +1,4 @@
-import { isResearch, type Answer } from "./ask.ts";
+import { isResearch, researchNote, type Answer } from "./ask.ts";
 import type { StoredFicha } from "./store.ts";
 import type { AddResult } from "./types.ts";
 
@@ -64,7 +64,8 @@ export function formatSaved(r: AddResult, related: Pick<StoredFicha, "title" | "
 
 /** Respuesta a una pregunta, con las fuentes citadas como links. */
 export function formatAnswer(a: Answer): string {
-  const parts = [mdToTelegramHtml(a.answer)];
+  const note = researchNote(a);
+  const parts = [mdToTelegramHtml(a.answer), ...(note ? [escapeHtml(note)] : [])];
   if (a.sources.length) {
     const src = a.sources.map((s) => {
       if (isResearch(s)) return `[${s.n}] 🔎 ${escapeHtml(s.title)}${s.savedAt ? ` — investigado ${escapeHtml(s.savedAt)}` : ""}`;
@@ -100,7 +101,9 @@ export function formatAnswerText(a: Answer): string {
       ? `[${s.n}] 🔎 ${s.title}${s.savedAt ? ` — investigado ${s.savedAt}` : ""}`
       : `[${s.n}] ${s.title}${s.url ? ` — ${s.url}` : ""}`,
   );
-  return [a.answer.replace(/\*\*(.+?)\*\*/g, "$1"), src.length ? `📚 Fuentes\n${src.join("\n")}` : ""].filter(Boolean).join("\n\n");
+  return [a.answer.replace(/\*\*(.+?)\*\*/g, "$1"), researchNote(a) ?? "", src.length ? `📚 Fuentes\n${src.join("\n")}` : ""]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /** Lista de fichas (para /ultimos y /tema). */
