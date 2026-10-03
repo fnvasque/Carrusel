@@ -1,4 +1,4 @@
-import type { Answer } from "./ask.ts";
+import { isResearch, type Answer } from "./ask.ts";
 import type { StoredFicha } from "./store.ts";
 import type { AddResult } from "./types.ts";
 
@@ -67,6 +67,7 @@ export function formatAnswer(a: Answer): string {
   const parts = [mdToTelegramHtml(a.answer)];
   if (a.sources.length) {
     const src = a.sources.map((s) => {
+      if (isResearch(s)) return `[${s.n}] 🔎 ${escapeHtml(s.title)}${s.savedAt ? ` — investigado ${escapeHtml(s.savedAt)}` : ""}`;
       const title = escapeHtml(s.title);
       const linked = s.url ? `<a href="${escapeHtml(s.url)}">${title}</a>` : title;
       const meta = [s.author, s.savedAt].filter(Boolean).map((x) => escapeHtml(x!)).join(" · ");
@@ -94,7 +95,11 @@ export function formatSavedText(r: AddResult): string {
 
 /** Respuesta a una pregunta en texto plano, con las fuentes y sus links. */
 export function formatAnswerText(a: Answer): string {
-  const src = a.sources.map((s) => `[${s.n}] ${s.title}${s.url ? ` — ${s.url}` : ""}`);
+  const src = a.sources.map((s) =>
+    isResearch(s)
+      ? `[${s.n}] 🔎 ${s.title}${s.savedAt ? ` — investigado ${s.savedAt}` : ""}`
+      : `[${s.n}] ${s.title}${s.url ? ` — ${s.url}` : ""}`,
+  );
   return [a.answer.replace(/\*\*(.+?)\*\*/g, "$1"), src.length ? `📚 Fuentes\n${src.join("\n")}` : ""].filter(Boolean).join("\n\n");
 }
 

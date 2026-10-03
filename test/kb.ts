@@ -16,7 +16,7 @@ import { frameCount } from "../src/kb/media.ts";
 import { applyNameFixes, groundToolUrls, validFixes } from "../src/kb/names.ts";
 import { chunkFicha, fichaDoc, referenciaDoc, researchDoc, splitText } from "../src/kb/indexer.ts";
 import { ftsQuery, parseDateRange, rrfFuse, type Hit } from "../src/kb/search.ts";
-import { citedNumbers, groupSources } from "../src/kb/ask.ts";
+import { citedNumbers, groupSources, isResearch, sourceHead } from "../src/kb/ask.ts";
 import { closestTopic, reviewCandidates } from "../src/kb/topics.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatSaved, formatSavedText, handleInText, handleReply, mdToTelegramHtml, noteFromMessage, splitMessage,
@@ -701,6 +701,38 @@ check("fichaDoc: sin id no se indexa; con id conserva tipo y publicado", () => {
   const d = fichaDoc({ ...base, id: "ig:1", raw: "---\nid: ig:1\ntipo: reel\npublicado: '2026-09-01'\n---\nx" });
   assert.equal(d?.kind, "reel");
   assert.equal(d?.publishedAt, "2026-09-01");
+});
+
+check("ask: fuentes de investigación rotuladas en el contexto", () => {
+  const hit = (over: Partial<Hit>): Hit => ({
+    chunkId: 1, postId: "p", section: "s", text: "t", score: 1, title: "T", path: "x", baseName: "b", ...over,
+  });
+  const groups = groupSources([
+    hit({ baseName: "n8n", title: "n8n", kind: "referencia", savedAt: "2026-10-12", topic: "Automatización con IA" }),
+    hit({ chunkId: 2, baseName: "f1", title: "Post", author: "@a", savedAt: "2026-09-01", kind: "reel" }),
+  ]);
+  assert.equal(groups[0].source.kind, "referencia");
+  assert.ok(isResearch(groups[0].source));
+  assert.ok(!isResearch(groups[1].source));
+  assert.equal(sourceHead(groups[0].source), "[1] INVESTIGACIÓN — n8n · revisada 2026-10-12 · tema: Automatización con IA");
+  assert.equal(sourceHead(groups[1].source), "[2] Post — @a · guardado 2026-09-01");
+});
+
+check("formatAnswer / formatAnswerText: fuentes investigadas con 🔎", () => {
+  const a = {
+    answer: "Tiene plan gratis [1] y lo guardaste [2].",
+    sources: [
+      { n: 1, title: "n8n", savedAt: "2026-10-12", baseName: "n8n", kind: "referencia" },
+      { n: 2, title: "Post", author: "@a", savedAt: "2026-09-01", url: "https://www.instagram.com/p/X/", baseName: "f1" },
+    ],
+    found: true,
+  };
+  const html = formatAnswer(a);
+  assert.ok(html.includes("[1] 🔎 n8n — investigado 2026-10-12"));
+  assert.ok(html.includes('[2] <a href="https://www.instagram.com/p/X/">Post</a> — @a · 2026-09-01'));
+  const text = formatAnswerText(a);
+  assert.ok(text.includes("[1] 🔎 n8n — investigado 2026-10-12"));
+  assert.ok(text.includes("[2] Post — https://www.instagram.com/p/X/"));
 });
 
 checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una base temporal", async () => {
