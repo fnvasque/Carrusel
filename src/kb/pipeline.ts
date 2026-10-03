@@ -6,7 +6,10 @@ import { join, relative } from "node:path";
 import { fetchImageAsDataUri, localImageToDataUri, probeDuration } from "../remix/ingest.ts";
 import { extractFicha, MAX_IMAGES, synthesizeTopic, transcribe } from "./ai.ts";
 import { downloadVideo, fetchPostViaMeta, NeedsUserError } from "./instagram.ts";
-import { fichaBaseName, fichaDigest, renderFicha, renderTopic, resolveTopicName, unwikilink, wikilink, type SourceRef } from "./markdown.ts";
+import {
+  fichaBaseName, fichaDigest, renderFicha, renderTopic, renderTopicSources, resolveTopicName, unwikilink, wikilink, type SourceRef,
+} from "./markdown.ts";
+import { setCostRef, withCostScope } from "./costs.ts";
 import { frameCount, toSpeechMp3, videoFrames, writeGallery, writeThumbnail } from "./media.ts";
 import { applyNameFixes, groundToolUrls } from "./names.ts";
 import { reindex } from "./indexer.ts";
@@ -21,6 +24,23 @@ import type { AddInput, AddResult, Ficha, PostKind, PostMeta } from "./types.ts"
 /** Tope de fuentes que se envían al sintetizar un tema (las más recientes). */
 const MAX_TOPIC_SOURCES = 40;
 
+/**
+ * Horas mínimas entre dos resúmenes del mismo tema (KB_TOPIC_SYNTH_HOURS). Resumir
+ * un tema cuesta lo mismo que analizar varios posts y crece con el tema, así que al
+ * guardar solo se actualiza su lista de fuentes y el resumen se rehace después
+ * (synthesizeStaleTopics). Con 0 se resume en cada guardado, como antes.
+ */
+export const topicSynthHours = (): number => {
+  const n = Number(process.env.KB_TOPIC_SYNTH_HOURS);
+  return Number.isFinite(n) && n >= 0 && process.env.KB_TOPIC_SYNTH_HOURS?.trim() ? n : 24;
+};
+
+/** Detalle de los cuadros de video para el modelo (KB_FRAME_DETAIL): "low" cuesta ~1/13 de "high". */
+const frameDetail = (): "low" | "high" | "auto" => {
+  const d = process.env.KB_FRAME_DETAIL;
+  return d === "high" || d === "auto" ? d : "low";
+};
+
 const today = (): string => new Date().toISOString().slice(0, 10);
 
 /**
@@ -30,6 +50,11 @@ const today = (): string => new Date().toISOString().slice(0, 10);
  * pero hay capturas, guarda la ficha desde ellas.
  */
 export async function addPost(input: AddInput): Promise<AddResult> {
+  const { result, usd } = await withCostScope(input.url ?? input.sourceId ?? "manual", () => savePost(input));
+  return { ...result, costUsd: usd };
+}
+
+async function savePost(input: AddInput): Promise<AddResult> {
   const progress = input.onProgress ?? (() => {});
 
   if (input.url && !isInstagramUrl(input.url)) {
@@ -59,6 +84,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   let images: string[] = [];
   let video: Awaited<ReturnType<typeof downloadVideo>> = null;
   let directVideo = false;
+  let audioSeconds: number | undefined;
   // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
   // El video del post; si Meta no lo entrega, el que mandó el usuario (URL o archivo local).
@@ -68,6 +94,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     if (!video && input.videoFile) video = { path: input.videoFile, cleanup: async () => {} };
     if (video) {
       const duration = await probeDuration(video.path);
+      audioSeconds = duration;
       images = await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration);
     }
   }
@@ -82,6 +109,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
         directVideo = !!video;
         if (video) {
           const duration = await probeDuration(video.path);
+          audioSeconds = duration;
           images.push(...(await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration)));
         }
       }
@@ -105,7 +133,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     progress("transcribiendo");
     try {
       const mp3 = await toSpeechMp3(video.path);
-      if (mp3) transcript = (await transcribe(mp3, caption)) || undefined;
+      if (mp3) transcript = (await transcribe(mp3, caption, audioSeconds)) || undefined;
     } catch (err) {
       console.warn(`⚠️  No se pudo transcribir: ${err instanceof Error ? err.message : err}`);
     }
@@ -117,6 +145,7 @@ export async function addPost(input: AddInput): Promise<AddResult> {
     (url && shortcodeFromUrl(url)) ||
     (input.sourceId && `dm-${input.sourceId.replace(/[^\w-]/g, "").slice(-24)}`) ||
     `manual-${createHash("sha256").update(images.join("|") + caption).digest("hex").slice(0, 10)}`;
+  setCostRef(id);
   const previous = await findFichaById(id);
   const notes = [...(previous?.notes ?? [])];
   if (input.note?.trim() && !notes.includes(input.note.trim())) notes.push(input.note.trim());
@@ -125,7 +154,9 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   progress("analizando");
   const topics = await listTopics();
   const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl || input.videoFile || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
-  const raw = await extractFicha({ kind, caption, transcript, notes, images, topics });
+  // Cuadros de video en baja resolución (el audio ya va transcrito); fotos y capturas en alta (texto fino).
+  const frames = !!video && !input.images?.length;
+  const raw = await extractFicha({ kind, caption, transcript, notes, images, topics, imageDetail: frames ? frameDetail() : "high" });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");
   const fixed = applyNameFixes(raw, transcript, evidence);
@@ -176,7 +207,9 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   const touched = [fichaPath];
   if (thumbPath) touched.push(thumbPath);
   touched.push(
-    ...(await refreshTopics(affected, main.isNew && extraction.newTopicDescription ? { [main.name]: extraction.newTopicDescription } : {})),
+    ...(await refreshTopics(affected, main.isNew && extraction.newTopicDescription ? { [main.name]: extraction.newTopicDescription } : {}, {
+      synthesize: topicSynthHours() === 0,
+    })),
   );
 
   // 7) Commit (1 guardado = 1 commit; deshacer = revert).
@@ -205,12 +238,23 @@ export async function addPost(input: AddInput): Promise<AddResult> {
   };
 }
 
+/** Huella de lo que se resume de un tema: si no cambia, el resumen sigue vigente. Función pura. */
+export function synthesisHash(digests: string[]): string {
+  return createHash("sha256").update(digests.join("\n\u0000\n")).digest("hex").slice(0, 16);
+}
+
 /**
- * Regenera las páginas de los temas indicados desde sus fichas (no desde su
- * versión previa). Si un tema se quedó sin fichas, borra su página. Devuelve las
- * rutas tocadas (escritas o borradas) para el commit.
+ * Actualiza las páginas de los temas indicados desde sus fichas (no desde su
+ * versión previa). Sin `synthesize`, solo la lista de fuentes (sin llamar al
+ * modelo); con `synthesize`, también el resumen, salvo que sus fichas no hayan
+ * cambiado desde el último. Si un tema se quedó sin fichas, borra su página.
+ * Devuelve las rutas tocadas (escritas o borradas) para el commit.
  */
-export async function refreshTopics(topics: Iterable<string>, newDescriptions: Record<string, string> = {}): Promise<string[]> {
+export async function refreshTopics(
+  topics: Iterable<string>,
+  newDescriptions: Record<string, string> = {},
+  { synthesize = false }: { synthesize?: boolean } = {},
+): Promise<string[]> {
   const touched: string[] = [];
   const all = await listFichas();
   for (const topic of topics) {
@@ -223,26 +267,61 @@ export async function refreshTopics(topics: Iterable<string>, newDescriptions: R
       }
       continue;
     }
-    const recent = members.slice(-MAX_TOPIC_SOURCES);
-    let synthesis: Awaited<ReturnType<typeof synthesizeTopic>>;
-    try {
-      synthesis = await synthesizeTopic(topic, recent.map((f) => fichaDigest(f.body)));
-    } catch (err) {
-      // Un tema que no se pudo resumir no bloquea el guardado: se conserva su página
-      // anterior (la ficha ya quedó bien); si no existía, se crea con la lista de fuentes.
-      console.warn(`⚠️  No pude resumir el tema "${topic}" (${err instanceof Error ? err.message : err}). Lo reintento en el próximo guardado.`);
-      if (existsSync(path)) continue;
-      synthesis = { description: newDescriptions[topic] ?? "", essentials: [], tools: [], techniques: [] };
-    }
-    if (newDescriptions[topic]) synthesis.description ||= newDescriptions[topic];
     const refs: SourceRef[] = members
       .slice()
       .reverse()
       .map((f) => ({ baseName: f.baseName, title: f.title, author: f.author, savedAt: f.savedAt }));
-    await writeNote(path, renderTopic(topic, synthesis, refs, today(), await readIfExists(path)));
+    const existing = await readIfExists(path);
+    const digests = members.slice(-MAX_TOPIC_SOURCES).map((f) => fichaDigest(f.body));
+    const hash = synthesisHash(digests);
+    let next: string;
+    if (synthesize && (!existing || matter(existing).data.sintesis !== hash)) {
+      try {
+        const synthesis = await synthesizeTopic(topic, digests);
+        if (newDescriptions[topic]) synthesis.description ||= newDescriptions[topic];
+        next = renderTopic(topic, synthesis, refs, today(), existing, { sintesis: hash, sintetizado: new Date().toISOString() });
+      } catch (err) {
+        // Un tema que no se pudo resumir no bloquea nada: se conserva su resumen anterior
+        // con las fuentes al día, y se reintenta en la próxima vuelta.
+        console.warn(`⚠️  No pude resumir el tema "${topic}" (${err instanceof Error ? err.message : err}). Lo reintento más tarde.`);
+        next = renderTopicSources(topic, refs, today(), existing, newDescriptions[topic]);
+      }
+    } else {
+      next = renderTopicSources(topic, refs, today(), existing, newDescriptions[topic]);
+    }
+    if (next === existing) continue;
+    await writeNote(path, next);
     touched.push(path);
   }
   return touched;
+}
+
+/**
+ * Temas cuyo resumen quedó atrás (sus fichas cambiaron) y que no se resumieron en
+ * las últimas `hours` horas. Un tema sin resumen previo (nuevo) cuenta como atrasado.
+ */
+export async function staleTopics(hours = topicSynthHours(), now = Date.now()): Promise<string[]> {
+  const all = await listFichas();
+  const out: string[] = [];
+  for (const { name } of await listTopics()) {
+    const members = all.filter((f) => f.topic === name || f.secondary.includes(name));
+    if (!members.length) continue;
+    const { data } = matter((await readIfExists(topicPath(name))) ?? "");
+    if (data.sintesis === synthesisHash(members.slice(-MAX_TOPIC_SOURCES).map((f) => fichaDigest(f.body)))) continue;
+    const last = data.sintetizado ? new Date(data.sintetizado).getTime() : NaN;
+    if (Number.isFinite(last) && now - last < hours * 3_600_000) continue;
+    out.push(name);
+  }
+  return out;
+}
+
+/** Resume los temas atrasados y commitea. Devuelve los temas resumidos y lo que costó. */
+export async function synthesizeStaleTopics(hours = topicSynthHours()): Promise<{ topics: string[]; commit?: string; usd: number }> {
+  const topics = await staleTopics(hours);
+  if (!topics.length) return { topics, usd: 0 };
+  const { result: touched, usd } = await withCostScope("temas", () => refreshTopics(topics, {}, { synthesize: true }));
+  const commit = touched.length ? await commitPaths(touched, `kb: resume ${topics.length} tema(s) (${topics.join(", ")})`) : undefined;
+  return { topics, commit, usd };
 }
 
 /**

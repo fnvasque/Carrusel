@@ -183,28 +183,60 @@ export interface SourceRef {
   savedAt?: string;
 }
 
-/** Archivo completo de una página de tema, fusionado con su versión anterior si existe. */
+const sourcesSection = (sources: SourceRef[]): string =>
+  section(
+    `Fuentes (${sources.length})`,
+    sources
+      .map((r) => `- ${wikilink(r.baseName, r.title)}${r.author ? ` — ${r.author}` : ""}${r.savedAt ? ` · ${r.savedAt}` : ""}`)
+      .join("\n"),
+  );
+
+/**
+ * Archivo completo de una página de tema, fusionado con su versión anterior si existe.
+ * `meta` agrega claves al frontmatter (p. ej. la huella de la síntesis).
+ */
 export function renderTopic(
   name: string,
   s: TopicSynthesis,
   sources: SourceRef[],
   today: string,
   existing?: string,
+  meta: Record<string, unknown> = {},
 ): string {
   const tools = s.tools.map((t) => `- **${t.name}**${t.purpose ? ` — ${t.purpose}` : ""}`).join("\n");
-  const refs = sources
-    .map((r) => `- ${wikilink(r.baseName, r.title)}${r.author ? ` — ${r.author}` : ""}${r.savedAt ? ` · ${r.savedAt}` : ""}`)
-    .join("\n");
   const auto = [
     `# ${name}`,
     s.description ? `> ${s.description}` : "",
     section("Lo esencial", bullets(s.essentials)),
     section("Herramientas mencionadas", tools),
     section("Técnicas", bullets(s.techniques)),
-    section(`Fuentes (${sources.length})`, refs),
+    sourcesSection(sources),
   ].filter(Boolean).join("\n\n");
-  const data = { tags: ["kb/tema"], descripcion: s.description, fuentes: sources.length, actualizado: today };
+  const data = { tags: ["kb/tema"], descripcion: s.description, fuentes: sources.length, actualizado: today, ...meta };
   return compose(existing, data, auto);
+}
+
+/**
+ * Página de tema con la lista de fuentes al día SIN volver a resumir (no llama al
+ * modelo): conserva la síntesis anterior. Si el tema es nuevo, queda con la
+ * descripción y las fuentes hasta que se resuma.
+ */
+export function renderTopicSources(
+  name: string,
+  sources: SourceRef[],
+  today: string,
+  existing?: string,
+  description?: string,
+): string {
+  const prev = existing ? matter(existing) : undefined;
+  const auto = prev ? autoZone(prev.content) : "";
+  const cut = auto.search(/^## Fuentes \(/m);
+  if (!prev || cut === -1) {
+    const desc = description || (typeof prev?.data.descripcion === "string" ? prev.data.descripcion : "");
+    return renderTopic(name, { description: desc, essentials: [], tools: [], techniques: [] }, sources, today, existing);
+  }
+  const body = [auto.slice(0, cut).trim(), sourcesSection(sources)].filter(Boolean).join("\n\n");
+  return compose(existing, { fuentes: sources.length, actualizado: today }, body);
 }
 
 /**
