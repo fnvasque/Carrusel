@@ -1,6 +1,5 @@
-import OpenAI from "openai";
 import { recordUsage } from "./costs.ts";
-import { OPENAI_OPTS } from "./types.ts";
+import { clientFor, extraFor } from "./llm.ts";
 import { parseDateRange, search, type DateRange, type Hit } from "./search.ts";
 
 /**
@@ -16,14 +15,9 @@ const MAX_CHUNKS_PER_SOURCE = 5;
 /** Tope de caracteres del contexto total. */
 const MAX_CONTEXT_CHARS = 10_000;
 
-const askModel = (): string => process.env.KB_ASK_MODEL ?? process.env.KB_MODEL ?? "gpt-4o";
+/** Modelo de las respuestas (KB_ASK_MODEL; con "/" va por OpenRouter). Independiente de KB_MODEL. */
+const askModel = (): string => process.env.KB_ASK_MODEL ?? "gpt-4o";
 
-let client: OpenAI | null = null;
-function getClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) throw new Error("Falta OPENAI_API_KEY. Agrégala a .env.");
-  client ??= new OpenAI(OPENAI_OPTS);
-  return client;
-}
 
 export interface Source {
   n: number;
@@ -126,8 +120,9 @@ export async function ask(question: string, opts: { today?: string } = {}): Prom
     .filter(Boolean)
     .join("\n\n");
 
-  const res = await getClient().chat.completions.create({
-    model: askModel(),
+  const model = askModel();
+  const res = await clientFor(model).chat.completions.create({
+    model,
     temperature: 0.2,
     messages: [
       { role: "system", content: ASK_SYSTEM },
@@ -136,8 +131,9 @@ export async function ask(question: string, opts: { today?: string } = {}): Prom
         content: `${range ? `(La pregunta se refiere a posts guardados ${range.label}: ${range.from} a ${range.to}.)\n` : ""}Pregunta: ${question}\n\nFuentes:\n\n${context}`,
       },
     ],
+    ...(extraFor(model) as object),
   });
-  recordUsage("consulta", res.model ?? askModel(), res.usage);
+  recordUsage("consulta", res.model ?? model, res.usage);
   const answer = res.choices[0]?.message.content?.trim() || "No pude generar una respuesta.";
   const cited = new Set(citedNumbers(answer));
   const sources = groups.map((g) => g.source).filter((s) => cited.has(s.n));

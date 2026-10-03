@@ -275,6 +275,10 @@ npm run kb:costos                      # cuánto se ha gastado en la API (hoy, 7
   vez cada 24 h por tema** (el bot lo revisa cada hora; en la terminal, `kb:temas`), porque
   resumir un tema grande cuesta más que analizar varios posts. `KB_TOPIC_SYNTH_HOURS=0` vuelve a
   resumir en cada guardado.
+- **Modelos**: la ficha y los resúmenes de tema usan `KB_MODEL` (default `gpt-4o-2024-11-20`). Un
+  nombre con `/` (p. ej. `deepseek/deepseek-v4.1-flash`) va por OpenRouter (`OPENROUTER_API_KEY`) y,
+  si falla o tarda más de 90 s, se repite con `KB_FALLBACK_MODEL`. Para comparar modelos con posts
+  reales (costo, tiempo, fallos): `npx tsx scripts/kb-comparar-modelos.ts "<url>@<cuenta>" ...`.
 - **Costos**: cada llamada a la API queda registrada (tokens y USD) en el índice; `kb:costos` o
   `/costos` en Telegram muestran el gasto, y el mensaje de cada guardado dice cuánto costó. Los
   cuadros de los reels se analizan en baja resolución (`KB_FRAME_DETAIL=high` para volver).

@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import OpenAI from "openai";
 import { OPENAI_OPTS } from "./types.ts";
 import { recordUsage } from "./costs.ts";
+import { clientFor, extraFor, withFallback } from "./llm.ts";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type TopicInfo, type TopicSynthesis } from "./types.ts";
 
@@ -14,7 +15,8 @@ const MAX_TEXT_CHARS = 12_000;
 let client: OpenAI | null = null;
 
 /**
- * Modelo de extracción y síntesis (multimodal). Configurable por KB_MODEL.
+ * Modelo de extracción y síntesis (multimodal). Configurable por KB_MODEL; un nombre con
+ * "/" va por OpenRouter (ver llm.ts) y, si falla, se repite con KB_FALLBACK_MODEL.
  * Snapshot fijo: el alias "gpt-4o" apunta a gpt-4o-2024-08-06, que en salidas estructuradas
  * largas rompe casi siempre el escape de las tildes ("\u0003" en vez de "ó"); medido en
  * síntesis de temas grandes: 4/4 corruptas con 2024-08-06 (y con gpt-4.1), 0/12 con 2024-11-20.
@@ -112,8 +114,19 @@ export interface ExtractInput {
   imageDetail?: "low" | "high" | "auto";
 }
 
+/** Para probar otro proveedor o modelo (p. ej. OpenRouter) sin tocar la configuración. */
+export interface ModelOverride {
+  client?: OpenAI;
+  model?: string;
+  /** Campos extra del request (p. ej. `usage: { include: true }` de OpenRouter). */
+  extraBody?: Record<string, unknown>;
+  log?: Pick<Console, "warn">;
+  /** Recibe la respuesta cruda (uso, costo, modelo) de cada intento. */
+  onResponse?: (res: unknown) => void;
+}
+
 /** Analiza un post (imágenes + caption + transcripción) y devuelve la ficha estructurada. */
-export async function extractFicha(input: ExtractInput): Promise<Extraction> {
+export async function extractFicha(input: ExtractInput, o: ModelOverride = {}): Promise<Extraction> {
   const topicList = input.topics.length
     ? input.topics.map((t) => `- ${t.name}${t.description ? `: ${t.description}` : ""}`).join("\n")
     : "(todavía no hay temas: crea el primero)";
@@ -131,21 +144,27 @@ export async function extractFicha(input: ExtractInput): Promise<Extraction> {
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [{ type: "text", text }];
   for (const url of images) content.push({ type: "image_url", image_url: { url, detail: input.imageDetail ?? "high" } });
 
-  return cleanCall(async () => {
-    const res = await getClient().beta.chat.completions.parse({
-      model: model(),
-      temperature: TEMPERATURE,
-      messages: [
-        { role: "system", content: EXTRACT_SYSTEM },
-        { role: "user", content },
-      ],
-      response_format: zodResponseFormat(ExtractionSchema, "ficha"),
-    });
-    recordUsage("ficha", res.model ?? model(), res.usage);
-    const parsed = res.choices[0]?.message.parsed;
-    if (!parsed) throw new Error("El modelo no devolvió una ficha válida.");
-    return parsed;
-  });
+  const run = (m: string, client: OpenAI, extraBody: Record<string, unknown>) =>
+    cleanCall(async () => {
+      const res = await client.beta.chat.completions.parse({
+        model: m,
+        temperature: TEMPERATURE,
+        messages: [
+          { role: "system", content: EXTRACT_SYSTEM },
+          { role: "user", content },
+        ],
+        response_format: zodResponseFormat(ExtractionSchema, "ficha"),
+        ...extraBody,
+      });
+      o.onResponse?.(res);
+      if (!o.client) recordUsage("ficha", res.model ?? m, res.usage);
+      const parsed = res.choices[0]?.message.parsed;
+      if (!parsed) throw new Error("El modelo no devolvió una ficha válida.");
+      return parsed;
+    }, o.log ? { log: o.log } : {});
+  // Con un cliente explícito (comparación de modelos) no hay respaldo: se mide el modelo tal cual.
+  if (o.client) return run(o.model ?? model(), o.client, o.extraBody ?? {});
+  return withFallback(o.model ?? model(), (m) => run(m, clientFor(m), extraFor(m)), { what: "la ficha" });
 }
 
 /** Tope de tokens de salida de la síntesis de un tema. */
@@ -161,10 +180,10 @@ export async function synthesizeTopic(topic: string, fichasText: string[]): Prom
   // Tope de salida: si el modelo entra en bucle, falla rápido en vez de gastar tokens.
   // Un reintento pidiendo más brevedad; si vuelve a fallar (o las tildes siguen corruptas),
   // el error sube y refreshTopics conserva la página anterior.
-  const attempt = (brief: boolean) =>
+  const attempt = (m: string, brief: boolean) =>
     cleanCall(async () => {
-      const res = await getClient().beta.chat.completions.parse({
-        model: synthModel(),
+      const res = await clientFor(m).beta.chat.completions.parse({
+        model: m,
         temperature: TEMPERATURE,
         max_tokens: MAX_SYNTH_TOKENS,
         messages: [
@@ -175,15 +194,19 @@ export async function synthesizeTopic(topic: string, fichasText: string[]): Prom
           },
         ],
         response_format: zodResponseFormat(TopicSynthesisSchema, "tema"),
+        ...extraFor(m),
       });
-      recordUsage("tema", res.model ?? synthModel(), res.usage);
+      recordUsage("tema", res.model ?? m, res.usage);
       const parsed = res.choices[0]?.message.parsed;
       if (!parsed) throw new Error("El modelo no devolvió una síntesis válida.");
       return parsed;
     });
-  try {
-    return await attempt(false);
-  } catch {
-    return attempt(true);
-  }
+  const both = async (m: string) => {
+    try {
+      return await attempt(m, false);
+    } catch {
+      return attempt(m, true);
+    }
+  };
+  return withFallback(synthModel(), both, { what: `el tema "${topic}"` });
 }
