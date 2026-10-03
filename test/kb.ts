@@ -23,9 +23,12 @@ import {
 } from "../src/kb/telegram.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
+import {
+  autoZoneOf, outsideAgentZones, parseFrontmatter, validateReferencia, validateResumen, validateTopicBlock,
+} from "../kb-plantilla/_investigacion/validar.mjs";
 import { pullKb } from "../src/kb/store.ts";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
   RESEARCH_END, RESEARCH_START, silenceAlert, summaryText, takeNewSummaries,
@@ -808,6 +811,82 @@ checkAsync("pullKb: trae cambios del remoto; sin cambios → changed false; conf
   } finally {
     if (prev === undefined) delete process.env.KB_DIR;
     else process.env.KB_DIR = prev;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// --- validador del agente de investigación ---
+const REF_OK =
+  "---\ntipo: software\nnombre: n8n\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io\ntags: [kb/referencia]\n---\n\n## Qué es\nAutomatiza flujos [1].\n\n## Datos clave\n- Tiene API REST [2].\n\n## Mis notas\n";
+
+check("validar: referencia válida (listas en bloque e inline)", () => {
+  assert.deepEqual(validateReferencia(REF_OK), []);
+  const fm = parseFrontmatter(REF_OK);
+  assert.ok(!("error" in fm));
+  if (!("error" in fm)) {
+    assert.deepEqual(fm.data.fuentes, ["https://n8n.io/pricing", "https://docs.n8n.io"]);
+    assert.deepEqual(fm.data.temas, ["[[Automatización con IA]]"]);
+  }
+});
+
+check("validar: referencias inválidas", () => {
+  const errs = (t: string) => validateReferencia(t).join(" | ");
+  assert.match(errs("sin frontmatter"), /frontmatter/);
+  assert.match(errs(REF_OK.replace("tipo: software", "tipo: app")), /tipo inválido/);
+  assert.match(errs(REF_OK.replace("revisado: 2026-10-12", "revisado: 2026-13-40")), /revisado inválido/);
+  assert.match(errs(REF_OK.replace(/fuentes:\n {2}- \S+\n {2}- \S+\n/, "fuentes: []\n")), /fuentes/);
+  assert.match(errs(REF_OK.replace("https://docs.n8n.io", "docs.n8n.io")), /no es una URL/);
+  assert.match(errs(REF_OK.replace("[2]", "[3]")), /\[3\] no tiene fuente/);
+  assert.match(errs(REF_OK.replace("## Datos clave", "## Datos")), /Datos clave/);
+  assert.match(errs(REF_OK.replace(/\s\[\d\]/g, "")), /ninguna afirmación/);
+  // [[wikilinks]] y links markdown no cuentan como citas.
+  assert.deepEqual(validateReferencia(REF_OK.replace("flujos [1].", "flujos [1]. Ver [[Make]] y [doc](https://x.y).")), []);
+});
+
+check("validar: bloque kb:research del tema", () => {
+  const ok = `<!-- kb:auto:start -->\n# T\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-12_\n\nx\n<!-- kb:research:end -->\n`;
+  assert.deepEqual(validateTopicBlock(ok), []);
+  assert.deepEqual(validateTopicBlock("tema sin bloque"), []);
+  assert.match(validateTopicBlock(ok.replace("<!-- kb:research:end -->", "")).join(), /cerrado/);
+  assert.match(validateTopicBlock(ok.replace("## Investigación", "## Otra")).join(), /## Investigación/);
+  assert.match(validateTopicBlock(ok.replace("_Revisado 2026-10-12_", "")).join(), /_Revisado/);
+});
+
+check("validar: resumen", () => {
+  assert.deepEqual(validateResumen("🔎 Tres novedades"), []);
+  assert.match(validateResumen("  ").join(), /vacío/);
+  assert.match(validateResumen("x".repeat(1001)).join(), /1000/);
+});
+
+check("validar: zonas del agente", () => {
+  assert.deepEqual(
+    outsideAgentZones(["referencias/n8n.md", "_investigacion/registro.md", "CLAUDE.md", "temas/T.md", "fuentes/x.md", "_adjuntos/a.png"]),
+    ["fuentes/x.md", "_adjuntos/a.png"],
+  );
+  assert.equal(autoZoneOf("a<!-- kb:auto:start -->\nZ\n<!-- kb:auto:end -->b"), "Z");
+  assert.equal(autoZoneOf("sin zona"), undefined);
+});
+
+check("validar (CLI): corre aunque la ruta pase por un enlace simbólico y falla con notas inválidas", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-validar-"));
+  try {
+    const real = joinPath(root, "real");
+    mkdirSync(joinPath(real, "_investigacion"), { recursive: true });
+    mkdirSync(joinPath(real, "referencias"), { recursive: true });
+    writeFileSync(joinPath(real, "_investigacion", "validar.mjs"), readFileSync("kb-plantilla/_investigacion/validar.mjs"));
+    writeFileSync(joinPath(real, "referencias", "x.md"), "---\ntipo: app\n---\n");
+    symlinkSync(real, joinPath(root, "enlace"));
+    let code = 0;
+    let err = "";
+    try {
+      execFileSync("node", [joinPath(root, "enlace", "_investigacion", "validar.mjs")], { stdio: "pipe" });
+    } catch (e) {
+      code = (e as { status: number }).status;
+      err = String((e as { stderr: Buffer }).stderr);
+    }
+    assert.equal(code, 1);
+    assert.match(err, /referencias\/x\.md: tipo inválido/);
+  } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
