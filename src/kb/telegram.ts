@@ -1,4 +1,4 @@
-import { usd } from "./costs.ts";
+import { costLine } from "./costs.ts";
 import { isResearch, researchNote, type Answer } from "./ask.ts";
 import type { StoredFicha } from "./store.ts";
 import type { AddResult } from "./types.ts";
@@ -60,7 +60,8 @@ export function formatSaved(r: AddResult, related: Pick<StoredFicha, "title" | "
   if (e.tools.length) lines.push("", `🧰 <b>Herramientas:</b> ${e.tools.map((t) => escapeHtml(t.name)).join(" · ")}`);
   if (related.length) lines.push("", `🔗 <b>Relacionados</b>\n${related.slice(0, 3).map((f) => `• ${escapeHtml(f.title)}`).join("\n")}`);
   if (r.ficha.partial) lines.push("", "⚠️ No pude descargar todo el post. Mándame capturas y las sumo a esta ficha.");
-  if (r.costUsd) lines.push("", `<i>💸 ${usd(r.costUsd)}</i>`);
+  const cost = costLine(r.costUsd, r.model, r.fallback);
+  if (cost) lines.push("", `<i>${escapeHtml(cost)}</i>`);
   return lines.join("\n");
 }
 
@@ -78,6 +79,8 @@ export function formatAnswer(a: Answer): string {
     });
     parts.push(`📚 <b>Fuentes</b>\n${src.join("\n")}`);
   }
+  const cost = costLine(a.costUsd, a.model, a.fallback);
+  if (cost) parts.push(`<i>${escapeHtml(cost)}</i>`);
   return parts.join("\n\n");
 }
 
@@ -93,6 +96,8 @@ export function formatSavedText(r: AddResult): string {
   if (e.keyIdeas.length) lines.push("", "💡 Ideas clave", ...e.keyIdeas.slice(0, 4).map((i) => `• ${i}`));
   if (e.tools.length) lines.push("", `🧰 Herramientas: ${e.tools.map((t) => t.name).join(" · ")}`);
   if (r.ficha.partial) lines.push("", "⚠️ No pude leer todo el contenido; la ficha quedó parcial.");
+  const cost = costLine(r.costUsd, r.model, r.fallback);
+  if (cost) lines.push("", cost);
   return lines.join("\n");
 }
 
@@ -103,7 +108,12 @@ export function formatAnswerText(a: Answer): string {
       ? `[${s.n}] 🔎 ${s.title}${s.savedAt ? ` — investigado ${s.savedAt}` : ""}`
       : `[${s.n}] ${s.title}${s.url ? ` — ${s.url}` : ""}`,
   );
-  return [a.answer.replace(/\*\*(.+?)\*\*/g, "$1"), researchNote(a) ?? "", src.length ? `📚 Fuentes\n${src.join("\n")}` : ""]
+  return [
+    a.answer.replace(/\*\*(.+?)\*\*/g, "$1"),
+    researchNote(a) ?? "",
+    src.length ? `📚 Fuentes\n${src.join("\n")}` : "",
+    costLine(a.costUsd, a.model, a.fallback),
+  ]
     .filter(Boolean)
     .join("\n\n");
 }

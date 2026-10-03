@@ -1,7 +1,7 @@
 import { relative } from "node:path";
 import { ask, isResearch } from "./ask.ts";
 import { reindex } from "./indexer.ts";
-import { costSummary, formatCostSummary, usd } from "./costs.ts";
+import { costLine, costSummary, formatCostSummary, usd } from "./costs.ts";
 import { addPost, staleTopics, synthesizeStaleTopics } from "./pipeline.ts";
 import { findInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
 import { findFichaById, findLastSave, removeOrphanGalleries, revertSave } from "./store.ts";
@@ -61,7 +61,8 @@ async function cmdAdd(argv: string[]): Promise<void> {
   if (e.tools.length) console.log(`   Herramientas: ${e.tools.map((t) => t.name).join(" · ")}`);
   if (r.ficha.partial) console.log("   ⚠️  Contenido parcial: complementa con capturas (--image=).");
   console.log(`   Archivo: ${relative(process.cwd(), r.path)}${r.commit ? ` · commit ${r.commit}` : ""}`);
-  if (r.costUsd) console.log(`   Costo: ${usd(r.costUsd)}`);
+  const cost = costLine(r.costUsd, r.model, r.fallback);
+  if (cost) console.log(`   ${cost}`);
 }
 
 async function cmdTemas(argv: string[]): Promise<void> {
@@ -89,6 +90,8 @@ async function cmdAsk(argv: string[]): Promise<void> {
       console.log(`      Obsidian: [[${s.baseName}]]${s.url ? ` · ${s.url}` : ""}`);
     }
   }
+  const cost = costLine(r.costUsd, r.model, r.fallback);
+  if (cost) console.log(`\n${cost}`);
 }
 
 async function cmdReindex(argv: string[]): Promise<void> {

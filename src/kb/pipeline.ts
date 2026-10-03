@@ -50,8 +50,8 @@ const today = (): string => new Date().toISOString().slice(0, 10);
  * pero hay capturas, guarda la ficha desde ellas.
  */
 export async function addPost(input: AddInput): Promise<AddResult> {
-  const { result, usd } = await withCostScope(input.url ?? input.sourceId ?? "manual", () => savePost(input));
-  return { ...result, costUsd: usd };
+  const { result, usd, models, fallback } = await withCostScope(input.url ?? input.sourceId ?? "manual", () => savePost(input));
+  return { ...result, costUsd: usd, model: models.ficha, fallback };
 }
 
 async function savePost(input: AddInput): Promise<AddResult> {

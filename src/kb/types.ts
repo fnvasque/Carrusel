@@ -145,4 +145,7 @@ export interface AddResult {
   commit?: string;
   /** Lo que costó el guardado en la API (USD), según el registro de costos. */
   costUsd?: number;
+  /** Modelo que hizo la ficha, y si fue el de respaldo. */
+  model?: string;
+  fallback?: boolean;
 }

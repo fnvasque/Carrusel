@@ -1,5 +1,5 @@
-import { recordUsage } from "./costs.ts";
-import { clientFor, extraFor } from "./llm.ts";
+import { recordUsage, withCostScope } from "./costs.ts";
+import { clientFor, extraFor, withFallback } from "./llm.ts";
 import { parseDateRange, search, type DateRange, type Hit } from "./search.ts";
 
 /**
@@ -15,7 +15,10 @@ const MAX_CHUNKS_PER_SOURCE = 5;
 /** Tope de caracteres del contexto total. */
 const MAX_CONTEXT_CHARS = 10_000;
 
-/** Modelo de las respuestas (KB_ASK_MODEL; con "/" va por OpenRouter). Independiente de KB_MODEL. */
+/**
+ * Modelo de las respuestas (KB_ASK_MODEL; con "/" va por OpenRouter y, si falla, se
+ * repite con KB_FALLBACK_MODEL). Independiente de KB_MODEL.
+ */
 const askModel = (): string => process.env.KB_ASK_MODEL ?? "gpt-4o";
 
 
@@ -37,6 +40,10 @@ export interface Answer {
   sources: Source[];
   range?: DateRange;
   found: boolean;
+  /** Modelo que redactó la respuesta (si se llamó al modelo), si fue el de respaldo, y el costo (USD). */
+  model?: string;
+  fallback?: boolean;
+  costUsd?: number;
 }
 
 /** Agrupa los trozos por ficha, en orden de relevancia. Función pura (testeable). */
@@ -99,6 +106,11 @@ Reglas:
 `.trim();
 
 export async function ask(question: string, opts: { today?: string } = {}): Promise<Answer> {
+  const { result, usd, models, fallback } = await withCostScope("pregunta", () => answerQuestion(question, opts));
+  return { ...result, model: models.consulta, fallback, costUsd: usd };
+}
+
+async function answerQuestion(question: string, opts: { today?: string }): Promise<Answer> {
   const today = opts.today ?? new Date().toISOString().slice(0, 10);
   const range = parseDateRange(question, today);
   const hits = await search(question, { limit: 24, range });
@@ -120,20 +132,22 @@ export async function ask(question: string, opts: { today?: string } = {}): Prom
     .filter(Boolean)
     .join("\n\n");
 
-  const model = askModel();
-  const res = await clientFor(model).chat.completions.create({
-    model,
-    temperature: 0.2,
-    messages: [
-      { role: "system", content: ASK_SYSTEM },
-      {
-        role: "user",
-        content: `${range ? `(La pregunta se refiere a posts guardados ${range.label}: ${range.from} a ${range.to}.)\n` : ""}Pregunta: ${question}\n\nFuentes:\n\n${context}`,
-      },
-    ],
-    ...(extraFor(model) as object),
-  });
-  recordUsage("consulta", res.model ?? model, res.usage);
+  const res = await withFallback(askModel(), async (model) => {
+    const r = await clientFor(model).chat.completions.create({
+      model,
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: ASK_SYSTEM },
+        {
+          role: "user",
+          content: `${range ? `(La pregunta se refiere a posts guardados ${range.label}: ${range.from} a ${range.to}.)\n` : ""}Pregunta: ${question}\n\nFuentes:\n\n${context}`,
+        },
+      ],
+      ...(extraFor(model) as object),
+    });
+    recordUsage("consulta", r.model ?? model, r.usage);
+    return r;
+  }, { what: "la respuesta" });
   const answer = res.choices[0]?.message.content?.trim() || "No pude generar una respuesta.";
   const cited = new Set(citedNumbers(answer));
   const sources = groups.map((g) => g.source).filter((s) => cited.has(s.n));

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { markFallback } from "./costs.ts";
 import { OPENAI_OPTS } from "./types.ts";
 
 /**
@@ -53,6 +54,7 @@ export async function withFallback<T>(
   } catch (err) {
     if (!fallback || fallback === primary) throw err;
     log.warn(`⚠️  ${primary} falló en ${what} (${err instanceof Error ? err.message.slice(0, 160) : err}); uso ${fallback}.`);
+    markFallback();
     return run(fallback);
   }
 }
