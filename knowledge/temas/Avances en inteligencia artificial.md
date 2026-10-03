@@ -2,8 +2,8 @@
 tags:
   - kb/tema
 descripcion: Avances recientes en inteligencia artificial y sus aplicaciones.
-fuentes: 23
-actualizado: '2026-10-02'
+fuentes: 24
+actualizado: '2026-10-03'
 ---
 <!-- kb:auto:start -->
 # Avances en inteligencia artificial
@@ -12,37 +12,34 @@ actualizado: '2026-10-02'
 
 ## Lo esencial
 
-- Claude Opus 5.5 es un modelo avanzado de Anthropic utilizado para crear juegos y escenas 3D.
-- OpenAI ha lanzado GPT-6 Sol y Luna, modelos mejorados y más accesibles.
-- Jev es una herramienta para optimizar decisiones específicas, más rápida y económica que los LLM generales.
-- La orquestación de sistemas multi-agente permite coordinar agentes con diferentes roles para tareas complejas.
-- La ingeniería de bucles y la memoria agentica son esenciales para el desarrollo eficiente de agentes de IA.
-- Existen herramientas y repositorios de código abierto en GitHub que ayudan a reducir costos en proyectos de IA.
-- Juegos interactivos permiten aprender conceptos de IA de manera práctica y divertida.
-- Reddit ha lanzado una IA para descubrir oportunidades de contenido y productos digitales.
+- Claude Opus 5.5 es un modelo avanzado de Anthropic utilizado para crear juegos y escenas 3D rápidamente.
+- OpenAI ha lanzado GPT-6 Sol y Luna, modelos mejorados con Astra, capaces de resolver problemas matemáticos complejos.
+- Jev es una herramienta eficiente para decisiones específicas en IA, complementando a los LLM generales y actuando como capa de verificación en sistemas RAG.
+- La orquestación de sistemas multi-agente permite coordinar agentes especializados para tareas complejas, mejorando la eficiencia.
+- La ingeniería de bucles y la memoria agentica son técnicas clave para mejorar la precisión y eficiencia de los agentes de IA.
+- Herramientas como Claude y Jev se utilizan para automatizar y optimizar procesos en diversos campos, desde la gestión de tareas hasta la creación de contenido digital.
 
 ## Herramientas mencionadas
 
 - **Claude Opus 5.5** — Modelo de IA avanzado para crear juegos y escenas 3D.
-- **GPT-6 Sol y Luna** — Modelos de IA mejorados y accesibles de OpenAI.
-- **Jev** — Optimizar decisiones específicas en aplicaciones de IA.
-- **Orchestrator** — Coordinar y gestionar sistemas multi-agente.
-- **Claude** — Usado en diversas aplicaciones, desde reducción de costos de vuelos hasta desarrollo de guiones de contenido.
-- **GitHub** — Plataforma para acceder a repositorios de código abierto que reducen costos en IA.
+- **GPT-6 Sol y Luna** — Modelos de IA de OpenAI con mejoras de Astra.
+- **Jev** — Optimizar decisiones específicas y verificar sistemas RAG.
+- **MiniMax** — Crear estilos de motion design.
+- **OpenArt** — Plataforma para crear diseños de movimiento.
+- **Claude** — Automatizar procesos y mejorar diseño y texto.
 - **Tensor Trust** — Juego para aprender sobre inyección de prompts y seguridad en IA.
 - **Reddit AI** — Identificar oportunidades de contenido y productos digitales.
 
 ## Técnicas
 
-- Utilizar modelos de IA como Claude Opus 5.5 y GPT-6 para desarrollar aplicaciones avanzadas.
-- Implementar Jev para decisiones rápidas y económicas en sistemas de IA.
-- Coordinar agentes de IA mediante orquestación para tareas complejas.
-- Aplicar ingeniería de bucles para mejorar la eficiencia de agentes de IA.
-- Utilizar juegos interactivos para aprender conceptos de IA.
-- Aprovechar herramientas de código abierto para reducir costos en proyectos de IA.
+- Orquestación de sistemas multi-agente para coordinar tareas complejas.
+- Ingeniería de bucles para detectar errores en código.
+- Uso de memoria agentica en tres niveles para mejorar la eficiencia de agentes de IA.
+- Aplicación de prompts para optimizar procesos y reducir costos.
 
-## Fuentes (23)
+## Fuentes (24)
 
+- [[2026-10-03-dm-18099061472253890|Repositorios GitHub destacados para desarrolladores]] · 2026-10-03
 - [[2026-10-02-thejimmyreilly-Dd899Qbz2aP|Reddit lanza IA para descubrir ideas de productos digitales]] — @thejimmyreilly · 2026-10-02
 - [[2026-10-02-dm-18128202823850958|Aprender IA jugando: 7 juegos gratuitos]] · 2026-10-02
 - [[2026-10-01-dm-UxNTQ3MTY3NTkxNjI4OAZDZD|Claude para crear ofertas irresistibles]] · 2026-10-01
