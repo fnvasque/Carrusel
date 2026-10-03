@@ -1089,6 +1089,40 @@ checkAsync("abortStaleRebase: al arrancar, aborta un rebase a medias (y sin reba
   }
 });
 
+check("validar (CLI): temas con tildes (git escapa las rutas no ASCII)", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-validar-tildes-"));
+  const g = (...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: root, stdio: "pipe" }).toString().trim();
+  try {
+    g("init", "-q", "-b", "main");
+    mkdirSync(joinPath(root, "temas"));
+    mkdirSync(joinPath(root, "_investigacion"));
+    writeFileSync(joinPath(root, "_investigacion", "validar.mjs"), readFileSync("kb-plantilla/_investigacion/validar.mjs"));
+    const tema = joinPath(root, "temas", "Automatización con IA.md");
+    writeFileSync(tema, "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n");
+    g("add", ".");
+    g("commit", "-q", "-m", "base");
+    const inicio = g("rev-parse", "HEAD");
+    writeFileSync(tema, "<!-- kb:auto:start -->\nA\n<!-- kb:auto:end -->\n\n<!-- kb:research:start -->\n## Investigación\n_Revisado 2026-10-03_\n<!-- kb:research:end -->\n");
+    mkdirSync(joinPath(root, "referencias"));
+    writeFileSync(joinPath(root, "referencias", "orquestación.md"), REF_OK);
+    const out = execFileSync("node", ["_investigacion/validar.mjs", "--desde", inicio], { cwd: root, stdio: "pipe" }).toString();
+    assert.match(out, /Investigación válida/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("validar: el agente no puede modificar el validador ni el manual", () => {
+  const errs = zoneErrors([
+    { status: "M", path: "_investigacion/validar.mjs" },
+    { status: "M", path: "_investigacion/INSTRUCCIONES.md" },
+    { status: "M", path: "_investigacion/registro.md" },
+  ]);
+  assert.equal(errs.length, 2);
+  assert.match(errs.join(), /validar\.mjs: el agente no puede modificar el validador ni el manual/);
+});
+
 await asyncChain;
 console.log(`\n${passed} ok, ${failed} fallos`);
 process.exit(failed ? 1 : 0);
