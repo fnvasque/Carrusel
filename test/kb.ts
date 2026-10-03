@@ -23,6 +23,8 @@ import {
 } from "../src/kb/telegram.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
+import { pullKb } from "../src/kb/store.ts";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import {
   listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
@@ -761,6 +763,52 @@ checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una ba
     if (prev === undefined) delete process.env.KB_DIR;
     else process.env.KB_DIR = prev;
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+checkAsync("pullKb: trae cambios del remoto; sin cambios → changed false; conflicto → error y base intacta", async () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-pull-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString();
+  const prev = process.env.KB_DIR;
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "bot");
+    g(root, "clone", "-q", "remote.git", "agente");
+    const bot = joinPath(root, "bot");
+    const agente = joinPath(root, "agente");
+    writeFileSync(joinPath(agente, "a.md"), "uno\n");
+    g(agente, "add", ".");
+    g(agente, "commit", "-q", "-m", "1");
+    g(agente, "push", "-q", "origin", "main");
+    g(bot, "pull", "-q", "origin", "main");
+    g(bot, "branch", "-q", "--set-upstream-to=origin/main", "main");
+    process.env.KB_DIR = bot;
+
+    assert.deepEqual(await pullKb(), { changed: false });
+
+    writeFileSync(joinPath(agente, "b.md"), "dos\n");
+    g(agente, "add", ".");
+    g(agente, "commit", "-q", "-m", "2");
+    g(agente, "push", "-q", "origin", "main");
+    assert.deepEqual(await pullKb(), { changed: true });
+
+    // Conflicto: ambos editan a.md.
+    writeFileSync(joinPath(agente, "a.md"), "agente\n");
+    g(agente, "commit", "-q", "-am", "3");
+    g(agente, "push", "-q", "origin", "main");
+    writeFileSync(joinPath(bot, "a.md"), "bot\n");
+    g(bot, "commit", "-q", "-am", "local");
+    const head = g(bot, "rev-parse", "HEAD");
+    const r = await pullKb();
+    assert.equal(r.changed, false);
+    assert.ok(r.error);
+    assert.equal(g(bot, "rev-parse", "HEAD"), head);
+    assert.equal(g(bot, "status", "--porcelain"), "");
+  } finally {
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

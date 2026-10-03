@@ -9,8 +9,10 @@ import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job }
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import {
-  findFichaById, findLastSave, listFichas, listTopics, removeOrphanGalleries, revertSave, setSyncErrorHandler, temasDir,
+  findFichaById, findLastSave, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
+  temasDir,
 } from "./store.ts";
+import { registroPath, silenceAlert, takeNewSummaries } from "./research.ts";
 import { sendDm } from "../meta/messages.ts";
 import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
 import { dmAction, startInbox, type DmEvent } from "./inbox.ts";
@@ -625,6 +627,47 @@ async function checkMetaToken(): Promise<void> {
   }
 }
 
+// --- investigación semanal (la escribe un agente en la nube; el bot la trae y la usa) ---
+
+/** Cada cuánto se traen cambios de la base desde GitHub. */
+const SYNC_INTERVAL_MS = 3_600_000;
+/** Primer pull tras arrancar (el entrypoint ya hizo uno). */
+const SYNC_FIRST_DELAY_MS = 5 * 60_000;
+
+let lastSyncError: string | undefined;
+
+/** git pull + reindex (en la cadena serial: nunca a mitad de un guardado) + reenvío de resúmenes. */
+async function syncFromRemote(): Promise<void> {
+  try {
+    await serial(async () => {
+      const r = await pullKb();
+      if (r.error) {
+        if (r.error !== lastSyncError) await notifyAdmin(`⚠️ No pude traer cambios de la base desde GitHub: ${r.error}`);
+        lastSyncError = r.error;
+        return;
+      }
+      lastSyncError = undefined;
+      if (r.changed) {
+        const s = await reindex();
+        console.log(`↓ Base actualizada desde GitHub: ${s.indexed} documento(s) reindexado(s), ${s.removed} quitado(s).`);
+      }
+    });
+    for (const s of await takeNewSummaries()) await notifyAdmin(`🔎 Investigación semanal\n\n${s.text}`);
+  } catch (err) {
+    console.warn(`⚠️  Sincronización con GitHub: ${errText(err)}`);
+  }
+}
+
+let silenceWarnedFor: string | undefined;
+
+/** Avisa una vez si la investigación semanal dejó de correr. */
+async function checkResearch(): Promise<void> {
+  const alert = silenceAlert(await readIfExists(registroPath()), new Date().toISOString().slice(0, 10));
+  if (!alert || alert.since === silenceWarnedFor) return;
+  silenceWarnedFor = alert.since;
+  await notifyAdmin(alert.text);
+}
+
 // --- arranque ---
 
 setSyncErrorHandler((m) => void notifyAdmin(`⚠️ ${m}`));
@@ -642,5 +685,13 @@ if (resumed) console.log(`↻ Retomo ${resumed} guardado(s) que quedaron a media
 startInstagramInbox();
 void checkMetaToken();
 setInterval(() => void checkMetaToken(), 24 * 3_600_000);
+if (process.env.KB_GIT_PUSH === "1") {
+  // Solo en el servidor: ahí la base es un clon de ia-es-kb que también escribe el agente de investigación.
+  void takeNewSummaries().catch(() => {}); // índice nuevo: marca los resúmenes existentes sin reenviarlos
+  setTimeout(() => void syncFromRemote(), SYNC_FIRST_DELAY_MS);
+  setInterval(() => void syncFromRemote(), SYNC_INTERVAL_MS);
+}
+void checkResearch();
+setInterval(() => void checkResearch(), 24 * 3_600_000);
 void work();
 await bot.start({ drop_pending_updates: false });
