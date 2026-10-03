@@ -23,7 +23,11 @@ import {
 } from "../src/kb/telegram.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  listReferencias, listResearchBlocks, parseReferencia, parseRegistro, pendingSummaries, researchBlock, reviewedDate,
+  RESEARCH_END, RESEARCH_START, silenceAlert, summaryText, takeNewSummaries,
+} from "../src/kb/research.ts";
 import { tmpdir } from "node:os";
 import { join as joinPath } from "node:path";
 import type { Ficha } from "../src/kb/types.ts";
@@ -44,6 +48,23 @@ function check(name: string, fn: () => void): void {
     failed++;
     console.error("✗", name, "—", e instanceof Error ? e.message : e);
   }
+}
+
+/** Pruebas async: en serie y después de las sincrónicas (algunas cambian KB_DIR). */
+let asyncChain: Promise<void> = Promise.resolve();
+function checkAsync(name: string, fn: () => Promise<void>): void {
+  asyncChain = asyncChain.then(() =>
+    fn().then(
+      () => {
+        passed++;
+        console.log("✓", name);
+      },
+      (e) => {
+        failed++;
+        console.error("✗", name, "—", e instanceof Error ? e.message : e);
+      },
+    ),
+  );
 }
 
 const ficha = (over: Partial<Ficha> = {}): Ficha => ({
@@ -591,5 +612,99 @@ check("missedMessages: textos para procesar y posts ilegibles por remitente, sol
   assert.equal(r.events[0].senderId, "yo");
 });
 
+// --- investigación semanal ---
+const BLOCK = `${RESEARCH_START}\n## Investigación\n_Revisado 2026-10-12_\n\nEstado.\n\n### Referencias\n- [[n8n]] — flujos\n${RESEARCH_END}`;
+
+check("researchBlock: contenido entre marcadores; sin marcadores o vacío → undefined", () => {
+  assert.equal(researchBlock(`antes\n${BLOCK}\ndespués`), BLOCK.slice(RESEARCH_START.length, -RESEARCH_END.length).trim());
+  assert.equal(researchBlock("sin bloque"), undefined);
+  assert.equal(researchBlock(`${RESEARCH_START}\n \n${RESEARCH_END}`), undefined);
+  assert.equal(researchBlock(`${RESEARCH_END} al revés ${RESEARCH_START}`), undefined);
+  assert.equal(reviewedDate(BLOCK), "2026-10-12");
+  assert.equal(reviewedDate("sin fecha"), undefined);
+});
+
+check("renderTopic conserva el bloque kb:research al regenerar el tema", () => {
+  const s = { description: "d", essentials: ["e"], tools: [], techniques: [] };
+  const first = renderTopic("Tema", s, [], "2026-10-01");
+  const withBlock = first.replace("## Mis notas", `${BLOCK}\n\n## Mis notas`);
+  const again = renderTopic("Tema", { ...s, essentials: ["otra"] }, [], "2026-10-02", withBlock);
+  assert.ok(again.includes(BLOCK));
+  assert.ok(again.includes("- otra"));
+});
+
+check("parseRegistro: última fecha por tema; ignora líneas ajenas", () => {
+  const r = parseRegistro(
+    "# Registro\n\n- 2026-10-05 · Cocina · 2 referencias (2 nuevas)\n- 2026-10-12 · Cocina · 3 referencias (1 nuevas)\n" +
+      "- 2026-10-12 · Automatización con IA · 4 referencias (0 nuevas)\nbasura\n",
+  );
+  assert.equal(r.get("Cocina"), "2026-10-12");
+  assert.equal(r.get("Automatización con IA"), "2026-10-12");
+  assert.equal(r.size, 2);
+});
+
+check("silenceAlert: sin registro o reciente → nada; > 8 días → aviso con la fecha", () => {
+  const reg = "- 2026-10-01 · Cocina · 1 referencias (1 nuevas)\n";
+  assert.equal(silenceAlert(undefined, "2026-10-20"), undefined);
+  assert.equal(silenceAlert("# Registro\n", "2026-10-20"), undefined);
+  assert.equal(silenceAlert(reg, "2026-10-09"), undefined);
+  const a = silenceAlert(reg, "2026-10-10");
+  assert.equal(a?.since, "2026-10-01");
+  assert.ok(a?.text.includes("2026-10-01") && a.text.includes("9 días"));
+});
+
+check("pendingSummaries: solo AAAA-MM-DD.md no notificados, en orden", () => {
+  assert.deepEqual(
+    pendingSummaries(["2026-10-12.md", "notas.md", "2026-10-05.md", "2026-10-19.md"], new Set(["2026-10-05.md"])),
+    ["2026-10-12.md", "2026-10-19.md"],
+  );
+});
+
+check("summaryText: quita frontmatter; vacío → undefined", () => {
+  assert.equal(summaryText("---\nfecha: 2026-10-12\n---\n\n🔎 Tres novedades\n"), "🔎 Tres novedades");
+  assert.equal(summaryText("---\na: 1\n---\n  \n"), undefined);
+});
+
+check("parseReferencia: frontmatter en bloque (Obsidian) y fecha sin comillas", () => {
+  const raw = "---\ntipo: software\nnombre: n8n\ntemas:\n  - '[[Automatización con IA]]'\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io\n---\n## Qué es\nX [1]\n";
+  const r = parseReferencia("/kb/referencias/n8n.md", raw);
+  assert.equal(r.baseName, "n8n");
+  assert.equal(r.title, "n8n");
+  assert.equal(r.tipo, "software");
+  assert.equal(r.reviewed, "2026-10-12");
+  assert.deepEqual(r.topics, ["Automatización con IA"]);
+  assert.ok(r.body.startsWith("## Qué es"));
+});
+
+checkAsync("listReferencias / listResearchBlocks / takeNewSummaries sobre una base temporal", async () => {
+  const dir = mkdtempSync(joinPath(tmpdir(), "kb-research-"));
+  const prev = process.env.KB_DIR;
+  process.env.KB_DIR = dir;
+  try {
+    mkdirSync(joinPath(dir, "referencias"), { recursive: true });
+    mkdirSync(joinPath(dir, "temas"), { recursive: true });
+    mkdirSync(joinPath(dir, "_investigacion", "resumenes"), { recursive: true });
+    writeFileSync(joinPath(dir, "referencias", "n8n.md"), "---\ntipo: software\nnombre: n8n\nrevisado: 2026-10-12\nfuentes: [https://n8n.io]\n---\n## Qué es\nX [1]\n");
+    writeFileSync(joinPath(dir, "temas", "Cocina.md"), `---\ntags: [kb/tema]\n---\n<!-- kb:auto:start -->\n# Cocina\n<!-- kb:auto:end -->\n\n${BLOCK}\n`);
+    writeFileSync(joinPath(dir, "temas", "Viajes.md"), "---\ntags: [kb/tema]\n---\nsin bloque\n");
+    assert.deepEqual((await listReferencias()).map((r) => r.baseName), ["n8n"]);
+    const blocks = await listResearchBlocks();
+    assert.deepEqual(blocks.map((b) => [b.topic, b.reviewed]), [["Cocina", "2026-10-12"]]);
+
+    // Índice nuevo con un resumen viejo: se marca sin reenviarlo.
+    writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-05.md"), "viejo");
+    assert.deepEqual(await takeNewSummaries(), []);
+    writeFileSync(joinPath(dir, "_investigacion", "resumenes", "2026-10-12.md"), "nuevo");
+    assert.deepEqual(await takeNewSummaries(), [{ name: "2026-10-12.md", text: "nuevo" }]);
+    assert.deepEqual(await takeNewSummaries(), []);
+  } finally {
+    closeDb();
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await asyncChain;
 console.log(`\n${passed} ok, ${failed} fallos`);
 process.exit(failed ? 1 : 0);
