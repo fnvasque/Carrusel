@@ -1,101 +1,102 @@
-import { Hook, Lead, Step, Prompt, MythReality, Cta } from "../src/templates/index.ts";
+import { Hook, Lead, Step, Prompt, Stat, MythReality, Cta } from "../src/templates/index.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
- * 2 IAs gratis para voz y subtítulos, en local. Pilar Herramienta. Fuentes:
- * knowledge/referencias/whisper.md y kokoro.md (revisado 2026-10-03): Whisper
- * MIT, `turbo` ~8× más rápido que large, requiere ffmpeg; `whisper-1` de la API
- * se apaga el 2027-02-26. Kokoro-82M Apache-2.0, 1 voz femenina y 2 masculinas
- * en español (lang_code 'e').
+ * Subtitula y narra gratis, en local. Pilar Herramienta. Fuentes:
+ * knowledge/referencias/whisper.md y kokoro.md (revisado 2026-10-03): Whisper MIT,
+ * `turbo` ~8× más rápido que large, ~6 GB de VRAM, requiere ffmpeg; `whisper-1`
+ * de la API se apaga el 2027-02-26 (OpenAI sugiere gpt-transcribe). Kokoro-82M
+ * Apache-2.0, 1 voz femenina y 2 masculinas en español (lang_code 'e').
+ * Reescrito según docs/auditoria/2026-10-05-auditoria-carruseles.md.
  */
-const BG = { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" };
-
 const carousel: CarouselSpec = {
   name: "voz-subtitulos-gratis",
+  pace: "ensenar",
   defaults: { pillar: "herramienta" },
   slides: [
     {
       template: Hook,
       props: {
         eyebrow: "Herramientas open source",
-        title: "2 IAs gratis para voz y subtítulos",
+        title: "Subtitula y narra gratis, sin salir de tu PC",
         highlight: "gratis",
-        subtitle: "Corren en tu computador. Y por qué conviene moverte antes de 2027.",
-        background: {
-          ai: "a glowing cyan sound waveform turning into lines of subtitle text, floating over a dark navy void, minimalist, generous negative space",
-          overlay: 0.62,
-        },
+        mark: "tu PC",
+        subtitle: "Whisper y Kokoro, en local. Te dejo los comandos.",
       },
     },
     {
       template: Lead,
       props: {
         kicker: "En una frase",
-        text: "Transcribes con Whisper y narras con Kokoro, todo en local.",
-        highlight: "en local",
-        background: BG,
+        text: "Whisper convierte tu audio en texto. Kokoro convierte texto en voz.",
+        highlight: "texto",
       },
     },
     {
       template: Step,
       props: {
         index: 3,
-        total: 7,
+        total: 8,
         step: "01",
-        heading: "Whisper: subtítulos",
+        heading: "Whisper: audio a subtítulos",
         highlight: "subtítulos",
-        body: "De OpenAI, open source (MIT). Usa el modelo turbo: es ~8× más rápido que large, con una pérdida mínima de precisión.",
+        bullets: [
+          "De OpenAI, licencia MIT: uso libre",
+          "Modelo turbo: ~8× más rápido que large",
+          "Pide ~6 GB de VRAM y ffmpeg instalado",
+        ],
         source: "Fuente: github.com/openai/whisper",
-        background: BG,
       },
     },
     {
       template: Prompt,
       props: {
         index: 4,
-        total: 7,
-        heading: "Pruébalo así",
+        total: 8,
+        heading: "Subtitula así",
         prompt: "pip install -U openai-whisper\nwhisper audio.mp3 --model turbo",
-        note: "Copia y pega en tu terminal. Necesitas ffmpeg instalado.",
-        background: BG,
+        note: "Cambia audio.mp3 por tu archivo.",
       },
     },
     {
-      template: Step,
+      template: Stat,
       props: {
         index: 5,
-        total: 7,
-        step: "02",
-        heading: "Kokoro: la voz",
-        highlight: "voz",
-        body: "82M de parámetros, licencia Apache-2.0. Trae 1 voz femenina y 2 masculinas en español: usa lang_code='e'.",
+        total: 8,
+        value: "3",
+        label: "voces en español en Kokoro: 1 femenina y 2 masculinas",
+        context: "Modelo de voz pequeño (82M de parámetros), licencia Apache-2.0. Corre en local.",
         source: "Fuente: github.com/hexgrad/kokoro",
-        background: BG,
+      },
+    },
+    {
+      template: Prompt,
+      props: {
+        index: 6,
+        total: 8,
+        heading: "Narra así",
+        prompt: "pip install kokoro>=0.9.4 soundfile\n\n# en Python:\nfrom kokoro import KPipeline\npipeline = KPipeline(lang_code='e')",
+        note: "lang_code='e' es español. Elige la voz en VOICES.md.",
       },
     },
     {
       template: MythReality,
       props: {
-        index: 6,
-        total: 7,
-        mythLabel: "Ojo Nº1",
-        myth: "La API de Whisper es para siempre.",
-        reality: "whisper-1 se apaga en febrero de 2027.",
-        source: "Apagado: 26-02-2027. El modelo local no se ve afectado. Fuente: OpenAI",
-        background: BG,
+        index: 7,
+        total: 8,
+        myth: "Whisper desaparece en 2027.",
+        reality: "Solo whisper-1 de la API. El local sigue.",
+        source: "Retiro: 26-02-2027. OpenAI sugiere gpt-transcribe. Fuente: OpenAI",
       },
     },
     {
       template: Cta,
       props: {
-        title: "Guárdalo para tu próximo reel",
+        title: "Guárdalo y pruébalo hoy",
         highlight: "Guárdalo",
-        reason: "Lo que importa en IA, cada semana en tu correo.",
+        reason: "Los comandos para subtitular y narrar, listos para copiar.",
+        cta: "Guardar",
         handle: "ia.punto.es",
-        background: {
-          ai: "an abstract half-open mail envelope with cyan light pouring out, navy background",
-          overlay: 0.5,
-        },
       },
     },
   ],

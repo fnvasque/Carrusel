@@ -1,51 +1,48 @@
-import { Hook, Lead, Step, Cta } from "../src/templates/index.ts";
+import { Hook, Stat, Step, MythReality, Cta } from "../src/templates/index.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
- * Tu video se decide en 3 segundos. Pilar Curiosidad. Datos de
- * knowledge/referencias/hook-de-video.md (revisado 2026-10-04): Meta/Nielsen
- * (47 % en 3 s, 74 % en 10 s; 65 % → 10 s, 45 % → 30 s) y guía creativa de TikTok
- * (propuesta en 3 s, hook hasta el 6, 9:16, ≥720p, sonido, zona segura).
+ * Tus primeros 3 segundos. Pilar Curiosidad. Datos de
+ * knowledge/referencias/hook-de-video.md (revisado 2026-10-04). Reescrito según
+ * docs/auditoria/2026-10-05-auditoria-carruseles.md: dato como gancho, cifras en
+ * pantalla (Stat), alcance explícito (estudios de anuncios encargados por Meta),
+ * antes/después y un solo CTA.
  */
-const BG = { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" };
-
 const carousel: CarouselSpec = {
   name: "video-3-segundos",
+  pace: "ensenar",
   defaults: { pillar: "curiosidad" },
   slides: [
     {
       template: Hook,
       props: {
-        eyebrow: "Lo que miden Meta y TikTok",
-        title: "Tu video se decide en 3 segundos",
-        highlight: "3 segundos",
-        subtitle: "No es exageración. Te muestro por qué, con datos.",
-        background: {
-          ai: "a glowing cyan stopwatch frozen at three seconds floating over a dark navy void, motion blur streaks of light, minimalist, generous negative space",
-          overlay: 0.5,
-        },
+        eyebrow: "Meta + Nielsen · anuncios en video",
+        title: "Hasta 47% del valor se juega en 3 segundos",
+        highlight: "47%",
+        mark: "3 segundos",
+        subtitle: "¿Qué pasa en los tuyos? Así abres mejor.",
       },
     },
     {
-      template: Lead,
+      template: Stat,
       props: {
-        kicker: "En una frase",
-        text: "Si los primeros 3 segundos no enganchan, el resto del video no se ve.",
-        highlight: "3 segundos",
-        background: BG,
+        index: 2,
+        total: 7,
+        value: "47%",
+        label: "del valor de un anuncio en video llega en los primeros 3 segundos",
+        context: "Y hasta el 74% en los primeros 10. Son estudios encargados por la plataforma.",
+        source: "Fuente: Meta / Nielsen",
       },
     },
     {
-      template: Step,
+      template: Stat,
       props: {
         index: 3,
         total: 7,
-        step: "01",
-        heading: "Meta lo midió",
-        highlight: "midió",
-        body: "Con Nielsen: hasta el 47% del valor de una campaña de video llega en los primeros 3 segundos. Hasta el 74%, en los primeros 10.",
+        value: "65%",
+        label: "de quienes ven 3 segundos sigue al menos 10",
+        context: "Y el 45% llega a los 30. Úsalo para ubicar tu promesa, no como ley.",
         source: "Fuente: Meta / Nielsen",
-        background: BG,
       },
     },
     {
@@ -53,30 +50,28 @@ const carousel: CarouselSpec = {
       props: {
         index: 4,
         total: 7,
-        step: "02",
-        heading: "Quien pasa los 3, se queda",
-        highlight: "se queda",
-        body: "De quienes ven 3 segundos, el 65% sigue al menos 10 y el 45% llega a 30. Usa esa ventana para tu promesa.",
-        source: "Fuente: Meta / Nielsen",
-        background: BG,
+        step: "01",
+        heading: "TikTok pide 3 y 6 segundos",
+        highlight: "3 y 6",
+        bullets: [
+          "0-3 s: muestra la propuesta",
+          "Hasta el 6: sostén con suspenso o sorpresa",
+          "Vertical 9:16, mínimo 720p y con sonido",
+          "Respeta la zona segura de la app",
+        ],
+        source: "Fuente: TikTok, guía creativa de anuncios",
       },
     },
     {
-      template: Step,
+      template: MythReality,
       props: {
         index: 5,
         total: 7,
-        step: "03",
-        heading: "La regla de TikTok",
-        highlight: "TikTok",
-        bullets: [
-          "Haz la promesa en los primeros 3 segundos",
-          "Sostén el gancho hasta el segundo 6",
-          "Usa vertical 9:16, mínimo 720p y sonido",
-          "Respeta la zona segura de la app",
-        ],
-        source: "Fuente: TikTok, buenas prácticas creativas",
-        background: BG,
+        mythLabel: "Antes",
+        myth: "Saludo y logo en el primer cuadro.",
+        realityLabel: "Después",
+        reality: "El resultado y el titular desde el cuadro 1.",
+        source: "Ejemplo ilustrativo",
       },
     },
     {
@@ -84,28 +79,25 @@ const carousel: CarouselSpec = {
       props: {
         index: 6,
         total: 7,
-        step: "04",
-        heading: "Cómo lo aplico",
-        highlight: "aplico",
+        step: "02",
+        heading: "Revisa dónde abandonan",
+        highlight: "abandonan",
         bullets: [
-          "Haz que lo primero que se vea sea el resultado",
-          "Escribe el titular en pantalla desde el cuadro 1",
-          "Revisa en tus métricas dónde abandonan",
+          "Abre la retención de tu video en tus métricas",
+          "Una caída puntual: esa parte se la saltan",
+          "Una línea plana: lo miran de corrido",
         ],
-        background: BG,
+        source: "Fuente: YouTube, informe de retención",
       },
     },
     {
       template: Cta,
       props: {
-        title: "Guárdalo para tu próximo video",
+        title: "Guárdalo antes de editar",
         highlight: "Guárdalo",
-        reason: "Lo que importa en IA y contenido, cada semana en tu correo.",
+        reason: "Tu checklist para los primeros 3 segundos: promesa, gancho, titular.",
+        cta: "Guardar",
         handle: "ia.punto.es",
-        background: {
-          ai: "an abstract half-open mail envelope with cyan light pouring out, navy background",
-          overlay: 0.5,
-        },
       },
     },
   ],

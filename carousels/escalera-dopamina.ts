@@ -1,40 +1,38 @@
-import { Hook, Lead, Step, MythReality, Prompt, Cta } from "../src/templates/index.ts";
+import { Hook, Stat, Step, MythReality, Prompt, Cta } from "../src/templates/index.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
- * La escalera de la dopamina: 6 niveles para retener la atención. Pilar
- * Curiosidad. Fuente: knowledge/referencias/escalera-de-la-dopamina.md
- * (revisado 2026-10-04): marco de Kallaway; 4 niveles del mensaje + 2 del
- * mensajero; sin estudios que validen el marco (solo la premisa de curiosidad,
- * Neuron 2014). El consejo "clava los 4 primeros" viene de la misma nota.
+ * La escalera de la dopamina. Pilar Curiosidad. Fuentes:
+ * knowledge/referencias/escalera-de-la-dopamina.md (revisado 2026-10-04) y la
+ * ficha de @expert.pitch (fuentes/2026-10-04-dm-17952300600275624.md): pregunta
+ * en la primera línea, nuevo visual cada 2-3 s, "si predicen los próximos 5 s, se
+ * van". Reescrito según docs/auditoria/2026-10-05-auditoria-carruseles.md.
  */
-const BG = { gradient: "linear-gradient(160deg,#0B1020 0%,#151D33 100%)" };
 const SRC = "Fuente: Kallaway, Dopamine Ladder";
 
 const carousel: CarouselSpec = {
   name: "escalera-dopamina",
+  pace: "ensenar",
   defaults: { pillar: "curiosidad" },
   slides: [
     {
       template: Hook,
       props: {
         eyebrow: "Retención",
-        title: "6 niveles para que no te hagan scroll",
-        highlight: "scroll",
-        subtitle: "El #5 ya no depende del video, sino de ti.",
-        background: {
-          ai: "a glowing cyan staircase of six floating steps ascending into darkness, deep navy background, minimalist, generous negative space",
-          overlay: 0.62,
-        },
+        title: "¿En qué peldaño se va tu espectador?",
+        highlight: "peldaño",
+        subtitle: "6 niveles. El #5 ya no depende del video, sino de ti.",
       },
     },
     {
-      template: Lead,
+      template: Stat,
       props: {
-        kicker: "La escalera de la dopamina",
-        text: "Cada nivel es un control: si fallas uno, se corta la atención.",
-        highlight: "se corta",
-        background: BG,
+        index: 2,
+        total: 8,
+        value: "6",
+        label: "niveles: 4 del mensaje y 2 del mensajero",
+        context: "Cada nivel es un control. Si falla uno, se corta la atención.",
+        source: SRC,
       },
     },
     {
@@ -46,11 +44,11 @@ const carousel: CarouselSpec = {
         heading: "Estimula y cautiva",
         highlight: "cautiva",
         bullets: [
-          "Estimulación: usa movimiento, color y contraste en los primeros 1-2 segundos",
-          "Cautivación: abre una pregunta que quieran ver resuelta",
+          "Estimula (1-2 s): movimiento, color y contraste",
+          "Cautiva: abre con una pregunta en la primera línea",
+          "Nuevo visual o línea cada 2-3 segundos",
         ],
         source: SRC,
-        background: BG,
       },
     },
     {
@@ -62,11 +60,11 @@ const carousel: CarouselSpec = {
         heading: "Anticipa y valida",
         highlight: "valida",
         bullets: [
-          "Anticipación: deja que intuyan la respuesta; el pico llega justo antes",
-          "Validación: cierra con una respuesta no obvia o un consejo usable",
+          "Anticipa: deja que intuyan; el pico llega justo antes",
+          "Valida: una respuesta no obvia o un consejo usable",
+          "Si predicen los próximos 5 segundos, se van",
         ],
         source: SRC,
-        background: BG,
       },
     },
     {
@@ -75,14 +73,14 @@ const carousel: CarouselSpec = {
         index: 5,
         total: 8,
         step: "03",
-        heading: "Afecto y revelación",
-        highlight: "revelación",
+        heading: "El mensajero eres tú",
+        highlight: "tú",
         bullets: [
-          "Afecto: la confianza pasa del video a ti",
-          "Revelación: te ven como fuente constante de valor",
+          "Niveles 1-4: el mensaje. Niveles 5-6: tú",
+          "Afecto: empiezan a apreciarte y confiar",
+          "Revelación: te reconocen como fuente constante",
         ],
         source: SRC,
-        background: BG,
       },
     },
     {
@@ -90,11 +88,9 @@ const carousel: CarouselSpec = {
       props: {
         index: 6,
         total: 8,
-        mythLabel: "Ojo Nº1",
-        myth: "Es ciencia comprobada.",
-        reality: "Es un marco de creadores.",
+        myth: "Hay un estudio que valida los 6 niveles.",
+        reality: "Es un marco de creadores, sin estudios.",
         source: "La ciencia respalda la curiosidad, no los 6 niveles (Neuron, 2014)",
-        background: BG,
       },
     },
     {
@@ -104,9 +100,8 @@ const carousel: CarouselSpec = {
         total: 8,
         heading: "Úsalo de checklist",
         prompt:
-          "Revisa este guion con la escalera de la dopamina:\n1. ¿Qué estimula en los primeros 2 segundos?\n2. ¿Qué pregunta abre?\n3. ¿Dónde está el pico de anticipación?\n4. ¿Qué respuesta no obvia entrega?\n[pega tu guion]",
-        note: "Copia y pega. Empieza clavando los 4 primeros niveles.",
-        background: BG,
+          "Revisa este guion con la escalera de la dopamina. Para cada nivel dime si se cumple y en qué segundo:\n1. Estimulación (1-2 s)\n2. Cautivación (pregunta abierta)\n3. Anticipación\n4. Validación (respuesta no obvia)\n¿Qué peldaño es el más débil?\n[pega tu guion]",
+        note: "Copia y pega. Empieza clavando los 4 primeros.",
       },
     },
     {
@@ -114,12 +109,9 @@ const carousel: CarouselSpec = {
       props: {
         title: "Mándaselo a quien edita tus videos",
         highlight: "Mándaselo",
-        reason: "Y recibe lo que importa en IA, cada semana en tu correo.",
+        reason: "O guárdalo para tu próximo guion.",
+        cta: "Compartir ↗",
         handle: "ia.punto.es",
-        background: {
-          ai: "an abstract half-open mail envelope with cyan light pouring out, navy background",
-          overlay: 0.5,
-        },
       },
     },
   ],
