@@ -371,7 +371,9 @@ sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el ga
 
 Convierte cualquier carrusel en un Reel vertical (1080×1920, 30 fps) **animado** con GSAP:
 los títulos entran palabra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
-y las escenas se cruzan con un empuje vertical. Reutiliza las mismas plantillas del carrusel.
+y las escenas se cruzan con un empuje vertical. Una barra de progreso cian crece en el borde
+superior durante todo el reel y el primer cuadro (miniatura) ya muestra el hook entrando.
+Reutiliza las mismas plantillas del carrusel.
 
 ```bash
 npm run reel carousels/mi-carrusel.ts
@@ -387,7 +389,7 @@ Requisitos: **ffmpeg** en el PATH (`brew install ffmpeg`). No es necesario para 
 | `--seconds=N` | Duración uniforme de todas las escenas (s); por defecto según la longitud del texto |
 | `--fade=N` | Duración de la transición entre escenas (s); por defecto 0.35 s |
 | `--frames-only` | Solo exporta un PNG por escena en `output/<name>/reel/`, sin componer el video |
-| `--audio=ruta` | Muxea un archivo de audio (mp3, aac, etc.) en el video final |
+| `--audio=ruta` | Muxea un archivo de audio (mp3, aac, etc.): se recorta a la duración del video con fade-out de 0.6 s; un audio más corto no acorta el video |
 
 ```bash
 npm run reel carousels/x.ts -- --seconds=2.5     # reel más ágil, duración fija
@@ -413,19 +415,20 @@ Para quienes escriben plantillas nuevas, aquí están los atributos que controla
 | `data-anim` | Efecto | Uso |
 |---|---|---|
 | `bg` | Zoom lento del fondo durante la escena | `Frame` (fondo) |
-| `words` | El título entra palabra por palabra, subiendo | Títulos de Hook, Lead, Step, Cta |
+| `words` | El título entra palabra por palabra, subiendo (si dividirlo cambiara el corte de líneas, entra entero como `rise`) | Títulos de Hook, Lead, Step, Cta |
 | `pop` | La palabra clave crece levemente y pasa al color de acento al terminar el título | Palabra `highlight` |
 | `rise` | Sube y aparece | Subtítulos, body, etiquetas |
 | `stagger` | Los hijos aparecen de a uno, de abajo hacia arriba | Lista de bullets |
 | `type` | Efecto máquina de escribir, con tope de duración | Texto de Prompt |
-| `strike` | Una línea tacha el texto de izquierda a derecha | Mito en MythReality |
+| `strike` | Tacha el texto de izquierda a derecha, una barra por línea | Mito en MythReality |
 
 Reglas:
 - Las marcas son inertes sin el runtime: si renderizas estático (p.ej. `npm run generate`),
   el markup de `data-anim` se ignora.
 - Orden dentro de una escena: los elementos animados entran en orden de documento; cada uno
   empieza cuando el anterior está en mitad de su animación.
-- El logo, chip de pilar, barra de progreso y fuente al pie no se animan.
+- El logo, chip de pilar, indicador `NN/MM` y fuente al pie no se animan (la barra de progreso
+  del reel es un elemento aparte, solo del video).
 
 ## Roadmap
 
