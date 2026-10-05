@@ -22,7 +22,7 @@ export type Confidence = "low" | "medium" | "high";
 export type SpanishVariant = "neutro" | "cl";
 
 /** Plantillas de marca soportadas por el remix (subconjunto de templates/index). */
-export type TemplateName = "Hook" | "Lead" | "Step" | "Prompt" | "MythReality" | "Cta";
+export type TemplateName = "Hook" | "Lead" | "Step" | "Prompt" | "MythReality" | "Stat" | "Cta";
 
 /** Contenido normalizado de un post de IG, listo para analizar. */
 export interface InstagramSource {

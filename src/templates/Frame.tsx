@@ -4,17 +4,24 @@ import { FORMATS } from "./types.ts";
 import { theme, pillarColor } from "../theme.ts";
 
 /** Margen inferior reservado en Reels: la UI de IG tapa los últimos ~420px. */
-const REEL_SAFE_BOTTOM = 440;
+export const REEL_SAFE_BOTTOM = 440;
+/** Margen superior en Reels (la cabecera de IG tapa el borde de arriba). */
+const REEL_SAFE_TOP = 150;
+/** Alto de la cabecera de marca (etiqueta + wordmark) y aire bajo ella. */
+export const HEADER_HEIGHT = 44;
 
 /**
- * Capa base de cada slide: ocupa el lienzo completo (1080x1350), pinta el
- * fondo (color, degradado o imagen) y un overlay opcional para legibilidad,
- * y coloca el contenido encima. Además pinta los elementos de marca comunes a
- * todas las piezas (design-brand.md §4): logo arriba-izquierda, chip de pilar,
- * indicador de progreso y fuente al pie. Todos son opcionales: sin esas props,
- * el render es idéntico al anterior.
+ * Capa base de cada slide: ocupa el lienzo completo (1080x1350 o 1080x1920) y
+ * pinta, de abajo arriba: fondo casi negro, fondo opcional (color, degradado o
+ * imagen, con overlay), grilla lima, viñeta y el contenido. Encima, los
+ * elementos de marca comunes (no se animan en el reel):
+ *  - arriba-izquierda, etiqueta mono `NN / PILAR` (número en color del pilar),
+ *  - arriba-derecha, el wordmark `ia.es`,
+ *  - abajo, la fuente al pie en mono pequeña.
  *
- * Las plantillas envuelven su contenido en <Frame> para no repetir esta lógica.
+ * En Reel, el fondo opcional va en una capa `data-anim="bg"` y la grilla en una
+ * capa propia `data-grid` (más grande que el lienzo, para poder derivar); en
+ * post, todo es estático. Las plantillas envuelven su contenido en <Frame>.
  */
 export function Frame({
   background,
@@ -22,7 +29,7 @@ export function Frame({
   color,
   pillar,
   index,
-  total,
+  total: _total,
   source,
   showLogo = true,
   format = "post",
@@ -41,8 +48,10 @@ export function Frame({
   style?: CSSProperties;
   children: ReactNode;
 }) {
-  const hasProgress = typeof index === "number" && typeof total === "number";
+  const reel = format === "reel";
   const dim = FORMATS[format];
+  const hasImage = !!background && "image" in background;
+  const label = headerLabel(pillar, index);
   return (
     <div
       style={{
@@ -54,83 +63,87 @@ export function Frame({
         flexDirection: "column",
         boxSizing: "border-box",
         padding: theme.padding,
+        paddingTop: reel ? REEL_SAFE_TOP : theme.padding - 24,
         // En Reel, reserva la zona segura inferior (UI de IG) sin tapar el contenido.
-        paddingBottom: format === "reel" ? REEL_SAFE_BOTTOM : theme.padding,
+        paddingBottom: reel ? REEL_SAFE_BOTTOM : theme.padding - 24,
         fontFamily: fontFamily ?? theme.fontFamily,
         color: color ?? theme.colors.text,
         backgroundColor: theme.colors.bg,
         // En Reel el fondo va en una capa animable (data-anim="bg"); en post, en la raíz.
-        ...(format === "reel" ? {} : backgroundStyle(background)),
+        ...(reel ? {} : backgroundStyle(background)),
         ...style,
       }}
     >
-      {format === "reel" && background && (
-        <div data-anim="bg" style={{ position: "absolute", inset: 0, ...backgroundStyle(background) }} />
-      )}
+      {reel && background && <div data-anim="bg" style={{ position: "absolute", inset: 0, ...backgroundStyle(background) }} />}
       {overlayLayer(background)}
+      {/* Grilla lima: sobre una imagen va más tenue para no ensuciarla. */}
+      <div
+        {...(reel ? { "data-grid": "" } : {})}
+        style={{
+          position: "absolute",
+          // En Reel sobra una celda por lado para que la deriva no deje bordes vacíos.
+          inset: reel ? -theme.grid.cell : 0,
+          backgroundImage: gridImage(),
+          backgroundSize: `${theme.grid.cell}px ${theme.grid.cell}px`,
+          backgroundPosition: reel ? "0 0" : "-2px -2px",
+          opacity: hasImage ? 0.55 : 1,
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "absolute", inset: 0, backgroundImage: theme.vignette, pointerEvents: "none" }} />
       <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
-        {/* Marca: logo arriba-izquierda */}
-        {showLogo && (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: 140,
-              height: 56,
-              backgroundImage: "var(--brand-logo)",
-              backgroundSize: "contain",
-              backgroundPosition: "left center",
-              backgroundRepeat: "no-repeat",
-            }}
-          />
-        )}
-        {/* Marca: chip de pilar + progreso, arriba-derecha */}
-        {(pillar || hasProgress) && (
-          <div style={{ position: "absolute", top: 0, right: 0, display: "flex", alignItems: "center", gap: 16 }}>
-            {pillar && (
-              <span
-                style={{
-                  fontFamily: theme.fonts.body,
-                  fontSize: theme.fontSize.label,
-                  fontWeight: 700,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: theme.colors.bg,
-                  backgroundColor: pillarColor(pillar),
-                  padding: "10px 20px",
-                  borderRadius: 999,
-                }}
-              >
-                {pillar}
-              </span>
-            )}
-            {hasProgress && (
-              <span
-                style={{
-                  fontFamily: theme.fonts.display,
-                  fontSize: theme.fontSize.label,
-                  letterSpacing: "0.08em",
-                  color: theme.colors.textMuted,
-                }}
-              >
-                {pad(index!)}/{pad(total!)}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Cabecera de marca: etiqueta NN / PILAR + wordmark */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: HEADER_HEIGHT, flexShrink: 0 }}>
+          {label ? (
+            <span
+              data-brand="label"
+              style={{
+                fontFamily: theme.fonts.mono,
+                fontSize: theme.fontSize.label,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: theme.colors.text,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {label.num && <span style={{ color: pillarColor(pillar) }}>{label.num}</span>}
+              {label.num && label.text && <span style={{ color: theme.colors.textMuted }}>{" / "}</span>}
+              {label.text}
+            </span>
+          ) : (
+            <span />
+          )}
+          {showLogo && (
+            <div
+              data-brand="logo"
+              style={{
+                width: 110,
+                height: 44,
+                backgroundImage: "var(--brand-logo)",
+                backgroundSize: "contain",
+                backgroundPosition: "right center",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          )}
+        </div>
         {/* Contenido del slide */}
-        <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>{children}</div>
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: 40, paddingBottom: source ? 56 : 0 }}>
+          {children}
+        </div>
         {/* Marca: fuente al pie */}
         {source && (
           <span
+            data-brand="source"
             style={{
               position: "absolute",
               bottom: 0,
               left: 0,
-              fontFamily: theme.fonts.body,
-              fontSize: theme.fontSize.label,
-              letterSpacing: "0.06em",
+              right: 0,
+              fontFamily: theme.fonts.mono,
+              fontSize: 24,
+              lineHeight: 1.35,
+              letterSpacing: "0.02em",
               color: theme.colors.textMuted,
             }}
           >
@@ -142,8 +155,18 @@ export function Frame({
   );
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
+/** Etiqueta de cabecera: número de slide (2 dígitos) y pilar, ambos opcionales. */
+function headerLabel(pillar?: Pillar, index?: number): { num?: string; text?: string } | null {
+  const num = typeof index === "number" ? String(index).padStart(2, "0") : undefined;
+  const text = pillar ? pillar.toUpperCase() : undefined;
+  if (!num && !text) return null;
+  return { num, text };
+}
+
+/** Grilla de dos degradados lineales (líneas horizontales y verticales). */
+function gridImage(): string {
+  const { color, line } = theme.grid;
+  return `linear-gradient(${color} ${line}px, transparent ${line}px), linear-gradient(90deg, ${color} ${line}px, transparent ${line}px)`;
 }
 
 function backgroundStyle(bg?: Background): CSSProperties {
@@ -172,7 +195,7 @@ function overlayLayer(bg?: Background) {
       style={{
         position: "absolute",
         inset: 0,
-        backgroundColor: `rgba(0,0,0,${overlay})`,
+        backgroundColor: `rgba(6,6,10,${overlay})`,
       }}
     />
   );

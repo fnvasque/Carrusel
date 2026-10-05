@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { Hook, Lead, Step, Prompt, MythReality, Cta } from "../templates/index.ts";
+import { Hook, Lead, Step, Prompt, MythReality, Stat, Cta } from "../templates/index.ts";
 import { scoreCarousel, type ViralityResult } from "../score/virality.ts";
 import { validateDraft } from "./emit.ts";
 import type { CarouselSpec } from "../templates/types.ts";
@@ -16,6 +16,7 @@ export const TEMPLATE_COMPONENTS: Record<TemplateName, ComponentType<any>> = {
   Step,
   Prompt,
   MythReality,
+  Stat,
   Cta,
 };
 

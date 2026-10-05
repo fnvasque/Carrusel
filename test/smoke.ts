@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Hook, Lead, Step, MythReality, Cta } from "../src/templates/index.ts";
+import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt } from "../src/templates/index.ts";
+import { parseStatValue } from "../src/templates/Stat.tsx";
+import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
+import { theme } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
@@ -382,11 +385,70 @@ check("plantillas: sin highlight (o no encontrado) no hay pop", () => {
   assert.match(b, /data-anim="words"/);
 });
 
+check("plantillas: Stat marca count con valor numérico y no numérico", () => {
+  const num = renderToStaticMarkup(createElement(Stat, { value: "47%", label: "del valor", context: "Contexto", format: "reel" }));
+  assert.match(num, /data-anim="count"[^>]*>47%</);
+  assert.match(num, /<h2[^>]*data-anim="words"/);
+  assert.match(num, /data-meter=""/, "barra del porcentaje");
+  assert.match(num, /width:47%/);
+  const txt = renderToStaticMarkup(createElement(Stat, { value: "Gratis", label: "para siempre" }));
+  assert.match(txt, /data-anim="count"[^>]*>Gratis</);
+  assert.doesNotMatch(txt, /data-meter/, "sin barra si no es porcentaje");
+});
+
+check("parseStatValue: prefijos, sufijos, miles y no numéricos", () => {
+  assert.deepEqual(parseStatValue("47%"), { prefix: "", number: 47, suffix: "%" });
+  assert.deepEqual(parseStatValue("$1.200/mes"), { prefix: "$", number: 1200, suffix: "/mes" });
+  assert.deepEqual(parseStatValue("8×"), { prefix: "", number: 8, suffix: "×" });
+  assert.deepEqual(parseStatValue("3,5 s"), { prefix: "", number: 3.5, suffix: " s" });
+  assert.equal(parseStatValue("Gratis"), null);
+});
+
+check("plantillas: checklist con un check por viñeta y cursor del Prompt", () => {
+  const step = renderToStaticMarkup(createElement(Step, { heading: "Paso", bullets: ["a", "b", "c"], format: "reel" }));
+  const lis = step.match(/<li[^>]*>.*?<\/li>/g) ?? [];
+  assert.equal(lis.length, 3);
+  for (const li of lis) assert.equal((li.match(/data-anim="check"/g) ?? []).length, 1, "un check dentro de cada li");
+  const body = renderToStaticMarkup(createElement(Step, { heading: "Paso", body: "Cuerpo" }));
+  assert.doesNotMatch(body, /data-anim="check"/);
+  const prompt = renderToStaticMarkup(createElement(Prompt, { heading: "H", prompt: "hola", format: "reel" }));
+  assert.match(prompt, /data-anim="type"[^>]*>hola<span data-anim="caret"/);
+});
+
+check("Frame: grilla data-grid solo en reel, etiqueta NN / PILAR y tokens lima", () => {
+  const reel = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7, format: "reel" }));
+  const post = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7 }));
+  assert.match(reel, /data-grid=""/);
+  assert.doesNotMatch(post, /data-grid/);
+  assert.match(post, /rgba\(198,255,61,0\.07\)/, "grilla lima al 7 %");
+  assert.match(post, /background-color:#06060A/);
+  assert.match(post, new RegExp(`color:${theme.colors.violet}">03</span>`), "número en color del pilar");
+  assert.match(post, />NOTICIA</);
+  // Logo, etiqueta y fuente no llevan data-anim.
+  const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", pillar: "noticia", index: 3, format: "reel" }));
+  for (const b of withSrc.match(/<[^>]*data-brand="[^"]*"[^>]*>/g) ?? []) assert.doesNotMatch(b, /data-anim/);
+});
+
+check("Hook: mark pinta la palabra con caja rosa sin pop", () => {
+  const h = renderToStaticMarkup(createElement(Hook, { title: "No encuentras ninguno.", highlight: "encuentras", mark: "ninguno.", format: "reel" }));
+  assert.match(h, /data-anim="pop"[^>]*>encuentras</);
+  assert.match(h, /data-mark=""[^>]*background-color:#FF3D7F[^>]*>ninguno\.</);
+  assert.equal((h.match(/data-anim="pop"/g) ?? []).length, 1);
+});
+
+check("fitDisplaySize: cortos al máximo, largos más chicos y dentro de maxLines", () => {
+  assert.equal(fitDisplaySize("Hola", 150), 150);
+  const long = "Seis niveles para que nadie te haga scroll nunca más";
+  const s = fitDisplaySize(long, 150, { maxLines: 4 });
+  assert.ok(s < 150 && estimateLines(long, s) <= 4, `tamaño ${s}`);
+});
+
 check("plantillas: formato post sin capa bg ni strike", () => {
   const hook = renderToStaticMarkup(createElement(Hook, { title: "T", background: { color: "#000" } }));
   const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R" }));
   assert.doesNotMatch(hook, /data-anim="bg"/);
   assert.doesNotMatch(myth, /data-anim="strike"/);
+  assert.match(myth, /text-decoration-line:line-through/, "en post, tachado rosa estático");
 });
 
 // --- reel: página única ---

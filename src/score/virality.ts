@@ -37,6 +37,7 @@ const CLICKBAIT = ["no vas a creer", "esto lo cambia todo", "el truco que nadie"
 const CONTENT_KEYS = [
   "title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker",
   "quote", "author", "myth", "reality", "reason", "note", "cta",
+  "value", "label", "context",
 ];
 
 function templateName(slide: SlideSpec): string {
@@ -104,7 +105,8 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   // --- Accionable + específico (20) ---
   const actNotes: string[] = [];
   let act = 0;
-  const devSlides = slides.filter((s) => /step|prompt/i.test(templateName(s)));
+  // Stat cuenta como slide de desarrollo (con número).
+  const devSlides = slides.filter((s) => /step|prompt|stat/i.test(templateName(s)));
   const actionable = devSlides.filter((s) => has(contentText(s), ACTION)).length;
   const actScore = Math.min(8, actionable * 3);
   act += actScore;
@@ -128,7 +130,11 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   if (hasProgress) ret += 8; else { retNotes.push("sin indicador de progreso"); suggestions.push("Añade index/total a los slides de desarrollo (barra de progreso)."); }
   const numbered = slides.some((s) => {
     const p = s.props as Record<string, unknown>;
-    return (typeof p.step === "string" && p.step) || (typeof p.mythLabel === "string" && /\d/.test(String(p.mythLabel)));
+    return (
+      (typeof p.step === "string" && p.step) ||
+      (typeof p.mythLabel === "string" && /\d/.test(String(p.mythLabel))) ||
+      (/stat/i.test(templateName(s)) && typeof p.value === "string" && /\d/.test(p.value))
+    );
   });
   if (numbered) ret += 7; else { retNotes.push("pasos sin numerar"); suggestions.push("Numera los pasos/mitos (01, 02… o Nº1, Nº2…)."); }
 

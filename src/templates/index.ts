@@ -7,5 +7,6 @@ export { Prompt, type PromptProps } from "./Prompt.tsx";
 export { Cta, type CtaProps } from "./Cta.tsx";
 export { Lead, type LeadProps } from "./Lead.tsx";
 export { MythReality, type MythRealityProps } from "./MythReality.tsx";
+export { Stat, type StatProps } from "./Stat.tsx";
 export { Frame } from "./Frame.tsx";
 export * from "./types.ts";
