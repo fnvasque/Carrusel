@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { rm, writeFile, mkdir } from "node:fs/promises";
+import { rm, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright";
 import { findChromium } from "../render/renderSlide.ts";
@@ -30,7 +30,7 @@ async function openReel(html: string, timing: ReelTiming) {
     await page.setContent(html, { waitUntil: "load" });
     await page.waitForFunction(() => (window as any).__reelReady === true, null, { timeout: 30_000 });
     const state = await page.evaluate(() => ({
-      errors: (window as any).__reelErrors as string[],
+      errors: ((window as any).__reelErrors ?? []) as string[],
       duration: (window as any).__reel?.duration as number | undefined,
     }));
     const problems = [...state.errors, ...consoleErrors];
@@ -65,20 +65,36 @@ export async function captureReel(html: string, timing: ReelTiming, outPath: str
   const ff = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
   let stderr = "";
   ff.stderr.on("data", (d) => (stderr += d));
-  const done = new Promise<number>((res) => ff.on("close", (code) => res(code ?? 1)));
+  // Un solo desenlace: ffmpeg terminó (código) o no pudo arrancar/escribirse (error).
+  let exited = false;
+  let failure: Error | undefined;
+  const exit = new Promise<number>((res) => {
+    ff.on("close", (code) => { exited = true; res(code ?? 1); });
+    ff.on("error", (e) => { failure ??= e; exited = true; res(1); });
+  });
+  // EPIPE al escribir cuando ffmpeg ya murió: se ignora aquí y se informa con su stderr.
+  ff.stdin.on("error", () => {});
+  const tail = () => stderr.split("\n").filter(Boolean).slice(-8).join("\n");
   try {
-    for (let k = 0; k < timing.frames; k++) {
+    for (let k = 0; k < timing.frames && !exited; k++) {
       const png = await shot(page, k / timing.fps);
-      if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once("drain", r));
+      if (exited) break;
+      if (!ff.stdin.write(png)) {
+        await Promise.race([new Promise((r) => ff.stdin.once("drain", r)), exit]);
+      }
       if (k % timing.fps === 0) process.stdout.write(`\r  cuadro ${k}/${timing.frames}`);
     }
-    ff.stdin.end();
-    const code = await done;
+    if (!exited) ff.stdin.end();
+    const code = await exit;
     process.stdout.write("\n");
-    if (code !== 0) throw new Error(`ffmpeg falló (código ${code}):\n${stderr.split("\n").slice(-8).join("\n")}`);
+    if (code !== 0 || failure) {
+      throw new Error(`ffmpeg falló (código ${code})${failure ? `: ${failure.message}` : ""}:\n${tail()}`);
+    }
   } catch (e) {
+    process.stdout.write("\n");
     ff.stdin.destroy();
     ff.kill("SIGKILL");
+    await exit;
     await rm(outPath, { force: true });
     throw e;
   } finally {
@@ -89,6 +105,8 @@ export async function captureReel(html: string, timing: ReelTiming, outPath: str
 /** Un PNG por escena en su estado final (para revisar rápido sin video). */
 export async function captureStills(html: string, timing: ReelTiming, outDir: string): Promise<string[]> {
   await mkdir(outDir, { recursive: true });
+  // Sin restos de una corrida anterior con más escenas.
+  for (const f of await readdir(outDir)) if (/^escena-\d+\.png$/.test(f)) await rm(join(outDir, f));
   const { browser, page } = await openReel(html, timing);
   const paths: string[] = [];
   try {
