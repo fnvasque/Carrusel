@@ -34,6 +34,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 28 }}>
         {eyebrow && (
           <span
+            data-anim="rise"
             style={{
               fontFamily: theme.fonts.body,
               fontSize: theme.fontSize.label,
@@ -47,6 +48,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
           </span>
         )}
         <h1
+          data-anim="words"
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
@@ -59,7 +61,7 @@ export function Hook({ eyebrow, title, highlight, subtitle, titleSize, swipe = t
           {highlightText(title, highlight, cyan)}
         </h1>
         {subtitle && (
-          <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, lineHeight: 1.3, color: theme.colors.textMuted }}>
+          <p data-anim="rise" style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, lineHeight: 1.3, color: theme.colors.textMuted }}>
             {subtitle}
           </p>
         )}

@@ -27,6 +27,7 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", height: "100%", gap: 36 }}>
         <h2
+          data-anim="words"
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
@@ -38,11 +39,12 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
           {highlightText(title, highlight, cyan)}
         </h2>
         {reason && (
-          <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, lineHeight: 1.3, color: theme.colors.textMuted }}>
+          <p data-anim="rise" style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, lineHeight: 1.3, color: theme.colors.textMuted }}>
             {reason}
           </p>
         )}
         <span
+          data-anim="rise"
           style={{
             fontFamily: theme.fonts.body,
             fontSize: theme.fontSize.body,
@@ -57,6 +59,7 @@ export function Cta({ title, highlight, reason, handle, cta, accent, ...base }: 
         </span>
         {handle && (
           <span
+            data-anim="rise"
             style={{
               fontFamily: theme.fonts.body,
               fontSize: theme.fontSize.label,

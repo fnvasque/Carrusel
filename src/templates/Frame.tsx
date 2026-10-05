@@ -59,10 +59,14 @@ export function Frame({
         fontFamily: fontFamily ?? theme.fontFamily,
         color: color ?? theme.colors.text,
         backgroundColor: theme.colors.bg,
-        ...backgroundStyle(background),
+        // En Reel el fondo va en una capa animable (data-anim="bg"); en post, en la raíz.
+        ...(format === "reel" ? {} : backgroundStyle(background)),
         ...style,
       }}
     >
+      {format === "reel" && background && (
+        <div data-anim="bg" style={{ position: "absolute", inset: 0, ...backgroundStyle(background) }} />
+      )}
       {overlayLayer(background)}
       <div style={{ position: "relative", display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
         {/* Marca: logo arriba-izquierda */}

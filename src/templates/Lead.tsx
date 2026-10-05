@@ -21,9 +21,10 @@ export function Lead({ kicker, text, highlight, accent, ...base }: LeadProps) {
   return (
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
-        <div style={{ width: 96, height: 4, backgroundColor: cyan }} />
+        <div data-anim="rise" style={{ width: 96, height: 4, backgroundColor: cyan }} />
         {kicker && (
           <span
+            data-anim="rise"
             style={{
               fontFamily: theme.fonts.body,
               fontSize: theme.fontSize.label,
@@ -36,7 +37,7 @@ export function Lead({ kicker, text, highlight, accent, ...base }: LeadProps) {
             {kicker}
           </span>
         )}
-        <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, fontWeight: 600, lineHeight: 1.3 }}>
+        <p data-anim="words" style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.lead, fontWeight: 600, lineHeight: 1.3 }}>
           {highlightText(text, highlight, cyan)}
         </p>
       </div>

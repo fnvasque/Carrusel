@@ -21,6 +21,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
         <h2
+          data-anim="words"
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
@@ -32,6 +33,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
           {heading}
         </h2>
         <span
+          data-anim="rise"
           style={{
             fontFamily: theme.fonts.body,
             fontSize: theme.fontSize.label,
@@ -44,6 +46,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
           Copia este prompt
         </span>
         <div
+          data-anim="type"
           style={{
             backgroundColor: theme.colors.panel,
             borderLeft: `6px solid ${cyan}`,
@@ -59,7 +62,7 @@ export function Prompt({ heading, prompt, note, accent, ...base }: PromptProps) 
           {prompt}
         </div>
         {note && (
-          <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.4, color: theme.colors.textMuted }}>
+          <p data-anim="rise" style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.4, color: theme.colors.textMuted }}>
             {note}
           </p>
         )}

@@ -27,9 +27,10 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>
         {step && (
-          <span style={{ fontFamily: theme.fonts.display, fontSize: theme.fontSize.kicker, color: cyan }}>{step}</span>
+          <span data-anim="rise" style={{ fontFamily: theme.fonts.display, fontSize: theme.fontSize.kicker, color: cyan }}>{step}</span>
         )}
         <h2
+          data-anim="words"
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
@@ -41,12 +42,12 @@ export function Step({ step, heading, highlight, body, bullets, accent, ...base 
           {highlightText(heading, highlight, cyan)}
         </h2>
         {body && (
-          <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.45, color: theme.colors.textMuted }}>
+          <p data-anim="rise" style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.45, color: theme.colors.textMuted }}>
             {body}
           </p>
         )}
         {bullets && bullets.length > 0 && (
-          <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 20 }}>
+          <ul data-anim="stagger" style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 20 }}>
             {bullets.map((item, i) => (
               <li key={i} style={{ display: "flex", gap: 20, fontFamily: theme.fonts.body, fontSize: theme.fontSize.body, lineHeight: 1.4 }}>
                 <span style={{ color: cyan, fontWeight: 700 }}>—</span>

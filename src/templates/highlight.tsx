@@ -15,7 +15,7 @@ export function highlightText(text: string, highlight: string | undefined, color
   return (
     <>
       {before}
-      <span style={{ color }}>{match}</span>
+      <span data-anim="pop" style={{ color }}>{match}</span>
       {after}
     </>
   );

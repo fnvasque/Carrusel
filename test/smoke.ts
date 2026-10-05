@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Hook, Lead, Step, MythReality, Cta } from "../src/templates/index.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
@@ -334,6 +337,33 @@ check("entranceBudget/entranceScale: comprime solo si hace falta", () => {
   assert.equal(entranceBudget(10), 1.6);
   assert.equal(entranceScale(1.0, 1.2), 1);
   assert.equal(entranceScale(2.4, 1.2), 2);
+});
+
+check("plantillas: marcas data-anim en formato reel", () => {
+  const hook = renderToStaticMarkup(createElement(Hook, { title: "La IA cambió todo", highlight: "cambió", eyebrow: "Ojo", subtitle: "Sub", format: "reel", background: { color: "#000" } }));
+  assert.match(hook, /<h1[^>]*data-anim="words"/);
+  assert.match(hook, /data-anim="pop"[^>]*>cambió</);
+  assert.match(hook, /data-anim="bg"/);
+  assert.equal((hook.match(/data-anim="rise"/g) ?? []).length, 2);
+  const step = renderToStaticMarkup(createElement(Step, { heading: "Paso", bullets: ["a", "b"], format: "reel" }));
+  assert.match(step, /<ul[^>]*data-anim="stagger"/);
+  const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R", format: "reel" }));
+  assert.match(myth, /data-anim="strike"/);
+});
+
+check("plantillas: sin highlight (o no encontrado) no hay pop", () => {
+  const a = renderToStaticMarkup(createElement(Cta, { title: "Suscríbete", format: "reel" }));
+  const b = renderToStaticMarkup(createElement(Lead, { text: "Una frase", highlight: "nada", format: "reel" }));
+  assert.doesNotMatch(a, /data-anim="pop"/);
+  assert.doesNotMatch(b, /data-anim="pop"/);
+  assert.match(b, /data-anim="words"/);
+});
+
+check("plantillas: formato post sin capa bg ni strike", () => {
+  const hook = renderToStaticMarkup(createElement(Hook, { title: "T", background: { color: "#000" } }));
+  const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R" }));
+  assert.doesNotMatch(hook, /data-anim="bg"/);
+  assert.doesNotMatch(myth, /data-anim="strike"/);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);
