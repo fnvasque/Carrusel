@@ -9,6 +9,7 @@ import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
+import { sceneSeconds, specDurations, entranceBudget, entranceScale, reelTiming, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
 
 /**
  * Smoke tests offline del pipeline de remix: solo funciones puras (parsing de
@@ -289,6 +290,50 @@ check("daysLeft: días al vencimiento; 0 = no expira", () => {
   assert.equal(daysLeft(now / 1000 + 5 * 86_400, now), 5);
   assert.equal(daysLeft(0, now), Infinity);
   assert.equal(daysLeft(undefined, now), undefined);
+});
+
+// --- reel: timing (tiempos puros del reel animado) ---
+check("sceneSeconds: más texto → más tiempo, con tope y piso", () => {
+  assert.equal(sceneSeconds({ title: "Hola" }, false), 2.4);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false), 4.8);
+  assert.equal(sceneSeconds({ title: "Hola" }, true), 3.1);
+  assert.equal(sceneSeconds({ bullets: ["a".repeat(26), "b".repeat(26)] }, false), 3.84);
+});
+
+check("specDurations: hold en primera y última; --seconds fija todas", () => {
+  const T = () => null;
+  const spec = { name: "x", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { title: "B" } }, { template: T, props: { title: "C" } }] };
+  assert.deepEqual(specDurations(spec as any), [3.1, 2.4, 3.1]);
+  assert.deepEqual(specDurations(spec as any, 2), [2, 2, 2]);
+});
+
+check("reelTiming: escenas solapadas por la transición", () => {
+  const t = reelTiming([3, 2.5, 4], 0.35);
+  assert.deepEqual(t.scenes.map((s) => s.start), [0, 2.65, 4.8]);
+  assert.equal(t.total, 8.8);
+  assert.equal(t.frames, 264);
+  assert.equal(t.fps, FPS);
+  assert.equal(t.transition, 0.35);
+});
+
+check("reelTiming: 1 sola escena, sin transición", () => {
+  const t = reelTiming([3.1]);
+  assert.equal(t.total, 3.1);
+  assert.equal(t.frames, 93);
+  assert.equal(t.scenes[0].start, 0);
+  assert.equal(DEFAULT_TRANSITION, 0.35);
+});
+
+check("reelTiming: transición demasiado larga → error claro", () => {
+  assert.throws(() => reelTiming([0.5, 0.5], 0.35), /transición/);
+  assert.throws(() => reelTiming([]), /escena/);
+});
+
+check("entranceBudget/entranceScale: comprime solo si hace falta", () => {
+  assert.equal(entranceBudget(3), 1.2);
+  assert.equal(entranceBudget(10), 1.6);
+  assert.equal(entranceScale(1.0, 1.2), 1);
+  assert.equal(entranceScale(2.4, 1.2), 2);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);
