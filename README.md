@@ -370,15 +370,15 @@ sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el ga
 ## Reels animados (video 9:16)
 
 Convierte cualquier carrusel en un Reel vertical (1080×1920, 30 fps) **animado** con GSAP:
-cada slide entra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
+los títulos entran palabra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
 y las escenas se cruzan con un empuje vertical. Reutiliza las mismas plantillas del carrusel.
-Requiere **ffmpeg** en el PATH.
 
 ```bash
-npm install ffmpeg  # primera vez: brew install ffmpeg
 npm run reel carousels/mi-carrusel.ts
 # → output/mi-carrusel/reel.mp4 (1080×1920, 30 fps, sin audio)
 ```
+
+Requisitos: **ffmpeg** en el PATH (`brew install ffmpeg`). No es necesario para `--frames-only`.
 
 ### Flags
 
@@ -412,19 +412,19 @@ Para quienes escriben plantillas nuevas, aquí están los atributos que controla
 
 | `data-anim` | Efecto | Uso |
 |---|---|---|
-| `bg` | Escala 1.06 → 1.0 durante toda la escena, lineal | `Frame` (fondo) |
-| `words` | Cada palabra entra desde abajo (opacidad 0 → 1, desplazamiento -60% → 0), stagger 0.06 s | Títulos de Hook, Lead, Step, Cta |
-| `pop` | Resalta la palabra clave: escala 0.9 → 1 y color → acento cian, 0.35 s | Palabra `highlight` |
-| `rise` | Sube desde abajo (desplazamiento +40 px → 0, opacidad 0 → 1), 0.45 s | Subtítulos, body, etiquetas |
-| `stagger` | Hijos entran como `rise`, uno cada 0.12 s | Lista de bullets |
-| `type` | Revelado carácter por carácter, duración min(1.5 s, 0.03 × chars) | Texto de Prompt |
-| `strike` | Línea que pasa de izquierda a derecha, 0.4 s | Mito en MythReality |
+| `bg` | Zoom lento del fondo durante la escena | `Frame` (fondo) |
+| `words` | El título entra palabra por palabra, subiendo | Títulos de Hook, Lead, Step, Cta |
+| `pop` | La palabra clave crece levemente y pasa al color de acento al terminar el título | Palabra `highlight` |
+| `rise` | Sube y aparece | Subtítulos, body, etiquetas |
+| `stagger` | Los hijos aparecen de a uno, de abajo hacia arriba | Lista de bullets |
+| `type` | Efecto máquina de escribir, con tope de duración | Texto de Prompt |
+| `strike` | Una línea tacha el texto de izquierda a derecha | Mito en MythReality |
 
 Reglas:
 - Las marcas son inertes sin el runtime: si renderizas estático (p.ej. `npm run generate`),
   el markup de `data-anim` se ignora.
 - Orden dentro de una escena: los elementos animados entran en orden de documento; cada uno
-  empieza cuando el anterior alcanza el 60% de su duración.
+  empieza cuando el anterior está en mitad de su animación.
 - El logo, chip de pilar, barra de progreso y fuente al pie no se animan.
 
 ## Roadmap
