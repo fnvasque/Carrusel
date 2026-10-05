@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium, type Browser, type Page } from "playwright";
 import { buildReelPage } from "../src/reel/page.ts";
 import { createElement } from "react";
-import { specTiming, type ReelTiming } from "../src/reel/timing.ts";
+import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, type ReelTiming } from "../src/reel/timing.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
 import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
 import { Stat, Step, Hook } from "../src/templates/index.ts";
@@ -573,28 +573,29 @@ try {
     const duration = await p.evaluate(() => (window as any).__reel.duration as number);
     assert.ok(Math.abs(duration - t.total) <= 1 / t.fps, `ensenar: duración ${duration} vs ${t.total}`);
     await hookGoals(p, "ensenar");
+    assert.ok(t.scenes[0].dur <= HOOK_MAX_SECONDS, `ensenar: el hook dura ≤ ${HOOK_MAX_SECONDS} s: ${t.scenes[0].dur}`);
     const scales = await p.evaluate(() =>
       Array.from(document.querySelectorAll("[data-scene]")).map((s) => ({ natural: Number((s as HTMLElement).dataset.reelNatural), scale: Number((s as HTMLElement).dataset.reelScale) })),
     );
     scales.forEach((r, i) => {
-      const slow = i === 0 ? 1 : 1.3;
+      const slow = i === 0 ? 1 : t.entranceSlow;
       const expected = r.natural * slow > t.scenes[i].budget ? r.natural / t.scenes[i].budget : 1 / slow;
       assert.ok(Math.abs(r.scale - expected) < 1e-3, `ensenar: escala de la escena ${i} = ${r.scale} (esperada ${expected})`);
     });
     assert.ok(scales[0].scale >= 1, "ensenar: la escena 0 no se hace más lenta");
-    assert.ok(scales.slice(1).some((r) => Math.abs(r.scale - 1 / 1.3) < 1e-3), `ensenar: hay escenas con entradas 1.3× más lentas: ${JSON.stringify(scales)}`);
+    assert.ok(scales.slice(1).some((r) => Math.abs(r.scale - 1 / t.entranceSlow) < 1e-3), `ensenar: hay escenas con entradas ${t.entranceSlow}× más lentas: ${JSON.stringify(scales)}`);
 
     // Bullets (Step, escena 2): uno cada 1.8 s (±1 cuadro), ✓ con su bullet,
     // y el último entra con tiempo para leerlo antes de la salida.
     const s2 = t.scenes[2];
-    assert.ok(s2.dur >= 1.0 + 1.8 + 2.5 - 1e-9, `ensenar: la escena de bullets dura lo de la fórmula: ${s2.dur}`);
+    assert.ok(s2.dur >= BULLET_LEAD + t.stagger + t.bulletTail - 1e-9, `ensenar: la escena de bullets dura lo de la fórmula: ${s2.dur}`);
     const starts = await bulletStarts(p, t, 2);
     for (let j = 1; j < starts.length; j++) {
       const gap = starts[j].li - starts[j - 1].li;
-      assert.ok(Math.abs(gap - 1.8) <= 1 / t.fps + 1e-6, `ensenar: bullet ${j} entra 1.8 s después del anterior (${gap.toFixed(3)})`);
+      assert.ok(Math.abs(gap - t.stagger) <= 1 / t.fps + 1e-6, `ensenar: bullet ${j} entra ${t.stagger} s después del anterior (${gap.toFixed(3)})`);
     }
-    assertChecksInSync(starts, 1.3, t.fps, "ensenar");
-    const lastIn = starts[starts.length - 1].li + 0.45 * 1.3;
+    assertChecksInSync(starts, t.entranceSlow, t.fps, "ensenar");
+    const lastIn = starts[starts.length - 1].li + 0.45 * t.entranceSlow;
     assert.ok(s2.start + s2.dur - t.transition - lastIn >= 1, `ensenar: el último bullet queda ≥ 1 s a la vista (${(s2.start + s2.dur - t.transition - lastIn).toFixed(2)} s)`);
 
     await assertMeterSync(p, t, 3, "ensenar");
@@ -618,13 +619,29 @@ try {
     } as unknown as CarouselSpec;
     const { page: q, timing: tq } = await open(browser, tight);
     const sq = tq.scenes[1];
-    assert.equal(sq.dur, 1.0 + 1.8 * 3 + 2.5, "ensenar: la duración de la escena la fija la fórmula de bullets");
+    assert.equal(sq.dur, +(BULLET_LEAD + tq.stagger * 3 + tq.bulletTail).toFixed(2), "ensenar: la duración de la escena la fija la fórmula de bullets");
     const tq1 = await bulletStarts(q, tq, 1);
-    for (let j = 1; j < tq1.length; j++) assert.ok(Math.abs(tq1[j].li - tq1[j - 1].li - 1.8) <= 1 / tq.fps + 1e-6, `ensenar (justo): bullet ${j} a 1.8 s del anterior`);
+    for (let j = 1; j < tq1.length; j++) assert.ok(Math.abs(tq1[j].li - tq1[j - 1].li - tq.stagger) <= 1 / tq.fps + 1e-6, `ensenar (justo): bullet ${j} a ${tq.stagger} s del anterior`);
     const lastStart = tq1[tq1.length - 1].li;
-    assert.ok(sq.start + sq.dur - lastStart >= 2.5 - 1 / tq.fps, `ensenar (justo): quedan ≥ 2.5 s tras el último bullet (${(sq.start + sq.dur - lastStart).toFixed(2)})`);
-    assertChecksInSync(tq1, 1.3, tq.fps, "ensenar (justo)");
+    assert.ok(sq.start + sq.dur - lastStart >= tq.bulletTail - 1 / tq.fps, `ensenar (justo): quedan ≥ ${tq.bulletTail} s tras el último bullet (${(sq.start + sq.dur - lastStart).toFixed(2)})`);
+    assertChecksInSync(tq1, tq.entranceSlow, tq.fps, "ensenar (justo)");
     await q.close();
+
+    // --seconds más corto que lo que piden los bullets: el intervalo se acorta
+    // (≥ 0.6 s) y el último bullet entra entero antes de la salida de la escena.
+    const { page: r, timing: tr } = await open(browser, tight, "ensenar", 4);
+    const sr = tr.scenes[1];
+    const tr1 = await bulletStarts(r, tr, 1);
+    const gaps = tr1.slice(1).map((b, j) => b.li - tr1[j].li);
+    assert.ok(gaps.every((g) => g < tr.stagger && g >= 0.6 - 1 / tr.fps && Math.abs(g - gaps[0]) <= 1 / tr.fps + 1e-6), `--seconds corto: intervalo acortado y parejo: ${gaps.map((g) => g.toFixed(3))}`);
+    assertChecksInSync(tr1, tr.entranceSlow, tr.fps, "--seconds corto");
+    const exitAt = sr.start + sr.dur - tr.transition;
+    const lis = await r.evaluate((x) => {
+      (window as any).__reel.seek(x);
+      return Array.from(document.querySelectorAll('[data-scene="1"] li')).map((li) => Number(getComputedStyle(li).opacity));
+    }, exitAt);
+    assert.ok(lis.length === 4 && lis.every((o) => o === 1), `--seconds corto: todos los bullets enteros antes de la salida: ${lis}`);
+    await r.close();
     console.log(`✓ ritmo ensenar: hook intacto, entradas 1.3× más lentas, bullets cada 1.8 s con su ✓, barra en sincronía (${t.total}s)`);
   }
 } finally {

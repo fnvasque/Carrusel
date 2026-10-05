@@ -389,12 +389,16 @@ Cada carrusel puede fijar `pace` en su spec (`pace: "ensenar"` o `pace: "rapido"
 
 | | `ensenar` (por defecto) | `rapido` (ritmo original) |
 |---|---|---|
-| Duración de escena | `clamp(2.4 + caracteres/16, 3.5, 8)` s, +1.0 s en la primera y la última | `clamp(1.8 + caracteres/26, 2.4, 4.8)` s, +0.7 s en la primera y la última |
+| Duración de escena | `clamp(2.4 + caracteres/16, 3.5, 8)` s, +1.0 s en la primera y la última; la escena 0 (hook) con tope de 5 s | `clamp(1.8 + caracteres/26, 2.4, 4.8)` s, +0.7 s en la primera y la última |
 | Escena con bullets | al menos `1.0 + 1.8 × (bullets − 1) + 2.5` s | según el texto |
 | Transición | 0.5 s | 0.35 s |
 | Presupuesto de entradas | `min(0.45 × dur, 2.4)` s | `min(0.4 × dur, 1.6)` s |
 | Entradas | 1.3× más lentas (salvo la escena 0) | como están |
-| Bullets (`stagger`) | de a uno cada 1.8 s, sin comprimir, con 2.5 s de lectura tras el último; cada ✓ con su bullet | cada 0.12 s |
+| Bullets (`stagger`) | de a uno cada 1.8 s, sin comprimir, con 2.5 s de lectura tras el último (si la escena no alcanza, p. ej. con `--seconds` corto, el intervalo se acorta hasta 0.6 s); cada ✓ con su bullet | cada 0.12 s |
+
+Los caracteres que cuentan son el texto que hay que leer: título, subtítulo, eyebrow, kicker,
+heading, body, bullets, texto, cita, mito/realidad, razón y nota, el dato de Stat (valor,
+etiqueta y contexto) y el prompt copiable de Prompt.
 
 En ambos ritmos el hook (escena 0) es igual de rápido: titular completo y legible en el
 cuadro 0, palabra clave en acento antes de 0.6 s. Un reel típico de 7-9 slides dura

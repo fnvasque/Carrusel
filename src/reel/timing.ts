@@ -52,18 +52,23 @@ export function parsePace(value: unknown, origin = "--pace"): Pace {
   throw new Error(`El ritmo ${JSON.stringify(value)} no es válido: ${origin} debe ser "ensenar" o "rapido".`);
 }
 
-const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note"];
 /**
- * En `ensenar` también se lee el texto de Stat (valor, etiqueta, contexto) y el
- * prompt copiable. `rapido` conserva la lista original para reproducir
- * exactamente los tiempos del motor anterior.
+ * Props cuyo texto hay que leer (en ambos ritmos): títulos, cuerpo, bullets,
+ * citas, mito/realidad, el dato de Stat (valor, etiqueta, contexto) y el
+ * prompt copiable.
  */
-const ENSENAR_TEXT_KEYS = [...TEXT_KEYS, "value", "label", "context", "prompt"];
+const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt"];
+
+/**
+ * Tope (s) de la escena 0 (hook) en `ensenar`: la promesa llega en 3 s y se
+ * sostiene hasta ~6 s (referencias/hook-de-video.md).
+ */
+export const HOOK_MAX_SECONDS = 5.0;
 
 /** Caracteres de texto visibles de una escena (los que hay que leer). */
-function textChars(props: Record<string, unknown>, keys: string[]): number {
+function textChars(props: Record<string, unknown>): number {
   let chars = 0;
-  for (const k of keys) {
+  for (const k of TEXT_KEYS) {
     const v = props[k];
     if (typeof v === "string") chars += v.length;
     else if (Array.isArray(v)) chars += v.filter((x) => typeof x === "string").join(" ").length;
@@ -77,10 +82,11 @@ function textChars(props: Record<string, unknown>, keys: string[]): number {
  *  - rapido:  clamp(1.8 + chars/26, 2.4, 4.8) + 0.7 si hold.
  *  - ensenar: clamp(2.4 + chars/16, 3.5, 8) + 1.0 si hold; con bullets, al menos
  *    BULLET_LEAD + stagger × (bullets − 1) + BULLET_TAIL (uno cada 1.8 s y
- *    tiempo para leer el último).
+ *    tiempo para leer el último). Si `hook` (escena 0), tope HOOK_MAX_SECONDS
+ *    (también cuando manda la fórmula de bullets: el runtime los acerca).
  */
-export function sceneSeconds(props: Record<string, unknown>, hold: boolean, pace: Pace = DEFAULT_PACE): number {
-  const chars = textChars(props, pace === "rapido" ? TEXT_KEYS : ENSENAR_TEXT_KEYS);
+export function sceneSeconds(props: Record<string, unknown>, hold: boolean, pace: Pace = DEFAULT_PACE, hook = false): number {
+  const chars = textChars(props);
   if (pace === "rapido") {
     const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
     return +(s + (hold ? 0.7 : 0)).toFixed(2);
@@ -88,7 +94,8 @@ export function sceneSeconds(props: Record<string, unknown>, hold: boolean, pace
   const text = Math.min(8, Math.max(3.5, 2.4 + chars / 16)) + (hold ? 1.0 : 0);
   const bullets = Array.isArray(props.bullets) ? props.bullets.filter((x) => typeof x === "string").length : 0;
   const forBullets = bullets > 0 ? BULLET_LEAD + PACES.ensenar.stagger * (bullets - 1) + BULLET_TAIL : 0;
-  return +Math.max(text, forBullets).toFixed(2);
+  const s = Math.max(text, forBullets);
+  return +(hook ? Math.min(HOOK_MAX_SECONDS, s) : s).toFixed(2);
 }
 
 /** Ritmo efectivo: `pace` explícito (p. ej. `--pace`) > el del carrusel > DEFAULT_PACE. */
@@ -103,7 +110,7 @@ export function specDurations(spec: CarouselSpec, seconds?: number, pace?: Pace)
   const last = spec.slides.length - 1;
   return spec.slides.map((slide, i) => {
     const props = { ...spec.defaults, ...slide.props } as Record<string, unknown>;
-    return seconds ?? sceneSeconds(props, i === 0 || i === last, p);
+    return seconds ?? sceneSeconds(props, i === 0 || i === last, p, i === 0);
   });
 }
 

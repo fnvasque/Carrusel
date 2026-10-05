@@ -51,6 +51,7 @@ document.fonts.ready.then(function () {
     // Separación entre bullets de un stagger: fuente única para los bullets y
     // sus ✓ (0.12 s en rapido; 1.8 s en ensenar).
     const STAGGER = T.stagger;
+    const MIN_BULLET_GAP = 0.6; // s: intervalo mínimo al acortar bullets que no caben
     const CHECK_DELAY = 0.1; // s tras la entrada de su bullet en que crece el ✓
     const CHECK_DUR = 0.3;
     const CARET_BLINK = 0.5; // s encendido / apagado del cursor del prompt
@@ -126,17 +127,18 @@ document.fonts.ready.then(function () {
       return DUR;
     }
 
-    // Bullets de un stagger en `tl` desde `at`, uno cada STAGGER s; el ✓ de
-    // cada bullet crece junto con su entrada (algo después), con el mismo
-    // índice. `k` alarga las duraciones (lentitud del ritmo). Devuelve la duración.
-    function bullets(kids, tl, at, k) {
+    // Bullets de un stagger en `tl` desde `at`, uno cada `gap` s (STAGGER
+    // salvo que la escena no alcance); el ✓ de cada bullet crece junto con su
+    // entrada (algo después), con el mismo índice y el mismo intervalo. `k`
+    // alarga las duraciones (lentitud del ritmo). Devuelve la duración.
+    function bullets(kids, tl, at, k, gap) {
       kids.forEach(function (kid, j) {
-        const t = at + STAGGER * j;
+        const t = at + gap * j;
         tl.from(kid, { y: 40, autoAlpha: 0, duration: ENTER * k, ease: "power3.out" }, t);
         const checks = kid.querySelectorAll('[data-anim="check"]');
         if (checks.length) tl.from(checks, { scale: 0, duration: CHECK_DUR * k, ease: "power2.out" }, t + CHECK_DELAY * k);
       });
-      return ENTER * k + STAGGER * (kids.length - 1);
+      return ENTER * k + gap * (kids.length - 1);
     }
 
     // Las from() usan immediateRender (por defecto en from): el estado inicial
@@ -165,13 +167,27 @@ document.fonts.ready.then(function () {
           // T.bulletTail s de lectura tras el último (la fórmula de duración
           // garantiza que ese límite cae ≥ 1.0 s después del inicio de la
           // escena). Si se adelanta a su tarjeta, se ve cuando ella aparece.
+          // Si la escena es más corta que lo que piden los bullets (--seconds
+          // corto o el tope del hook), el intervalo se acorta (hasta
+          // MIN_BULLET_GAP s, o menos si ni así caben) para que el último
+          // entre entero antes de la salida de la escena.
           ctx.post.push(function (real, end, begin) {
-            const latest = end - T.bulletTail - STAGGER * (kids.length - 1);
-            bullets(kids, master, Math.max(begin, Math.min(real(at), latest)), ctx.slow);
+            const n = kids.length;
+            const lastBy = end - T.transition - ENTER * ctx.slow;
+            let first = Math.max(begin, Math.min(real(at), end - T.bulletTail - STAGGER * (n - 1)));
+            let gap = STAGGER;
+            if (n > 1 && first + gap * (n - 1) > lastBy) {
+              gap = Math.max(MIN_BULLET_GAP, (lastBy - first) / (n - 1));
+              if (first + gap * (n - 1) > lastBy) {
+                first = begin;
+                gap = Math.max(0, (lastBy - first) / (n - 1));
+              }
+            }
+            bullets(kids, master, first, ctx.slow, gap);
           });
           return ENTER;
         }
-        return bullets(kids, sub, at, 1);
+        return bullets(kids, sub, at, 1, STAGGER);
       }
       if (kind === "words" && ctx.hookTitle) {
         // Hook: solo el PRIMER words de la escena 0 (el titular) está completo y

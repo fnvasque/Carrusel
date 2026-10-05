@@ -39,6 +39,7 @@ async function main() {
   const framesOnly = process.argv.includes("--frames-only");
   // Ritmo: sobrescribe el `pace` del carrusel; un valor inválido falla con un mensaje claro.
   const paceFlag = process.argv.includes("--pace") ? "" : strFlag("pace");
+  if (paceFlag === "") throw new Error("falta el valor de --pace (ensenar | rapido)");
   const pace = paceFlag === undefined ? undefined : parsePace(paceFlag);
 
   const mod = await import(pathToFileURL(resolve(file)).href);
