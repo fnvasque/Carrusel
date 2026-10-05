@@ -17,7 +17,7 @@ import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
-import { sceneSeconds, specDurations, entranceBudget, entranceScale, reelTiming, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
+import { sceneSeconds, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 
 /**
@@ -314,34 +314,39 @@ check("daysLeft: días al vencimiento; 0 = no expira", () => {
 });
 
 // --- reel: timing (tiempos puros del reel animado) ---
-check("sceneSeconds: más texto → más tiempo, con tope y piso", () => {
-  assert.equal(sceneSeconds({ title: "Hola" }, false), 2.4);
-  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false), 4.8);
-  assert.equal(sceneSeconds({ title: "Hola" }, true), 3.1);
-  assert.equal(sceneSeconds({ bullets: ["a".repeat(26), "b".repeat(26)] }, false), 3.84);
+// Ritmo rápido: exactamente los valores del motor original.
+check("sceneSeconds (rapido): más texto → más tiempo, con tope y piso", () => {
+  assert.equal(sceneSeconds({ title: "Hola" }, false, "rapido"), 2.4);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "rapido"), 4.8);
+  assert.equal(sceneSeconds({ title: "Hola" }, true, "rapido"), 3.1);
+  assert.equal(sceneSeconds({ bullets: ["a".repeat(26), "b".repeat(26)] }, false, "rapido"), 3.84);
 });
 
-check("specDurations: hold en primera y última; --seconds fija todas", () => {
+check("specDurations (rapido): hold en primera y última; --seconds fija todas", () => {
   const T = () => null;
-  const spec = { name: "x", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { title: "B" } }, { template: T, props: { title: "C" } }] };
+  const spec = { name: "x", pace: "rapido", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { title: "B" } }, { template: T, props: { title: "C" } }] };
   assert.deepEqual(specDurations(spec as any), [3.1, 2.4, 3.1]);
   assert.deepEqual(specDurations(spec as any, 2), [2, 2, 2]);
+  // --pace sobrescribe el ritmo del carrusel.
+  assert.deepEqual(specDurations({ ...spec, pace: "ensenar" } as any, undefined, "rapido"), [3.1, 2.4, 3.1]);
 });
 
-check("reelTiming: escenas solapadas por la transición", () => {
-  const t = reelTiming([3, 2.5, 4], 0.35);
+check("reelTiming (rapido): escenas solapadas por la transición", () => {
+  const t = reelTiming([3, 2.5, 4], 0.35, "rapido");
   assert.deepEqual(t.scenes.map((s) => s.start), [0, 2.65, 4.8]);
   assert.equal(t.total, 8.8);
   assert.equal(t.frames, 264);
   assert.equal(t.fps, FPS);
   assert.equal(t.transition, 0.35);
+  assert.deepEqual([t.pace, t.entranceSlow, t.stagger], ["rapido", 1, 0.12]);
 });
 
-check("reelTiming: 1 sola escena, sin transición", () => {
-  const t = reelTiming([3.1]);
+check("reelTiming (rapido): 1 sola escena, sin transición", () => {
+  const t = reelTiming([3.1], undefined, "rapido");
   assert.equal(t.total, 3.1);
   assert.equal(t.frames, 93);
   assert.equal(t.scenes[0].start, 0);
+  assert.equal(t.transition, 0.35);
   assert.equal(DEFAULT_TRANSITION, 0.35);
 });
 
@@ -360,11 +365,66 @@ check("reelTiming: duraciones y transición inválidas → error claro en españ
   assert.equal(reelTiming([3, 3], 0).total, 6);
 });
 
-check("entranceBudget/entranceScale: comprime solo si hace falta", () => {
-  assert.equal(entranceBudget(3), 1.2);
-  assert.equal(entranceBudget(10), 1.6);
+check("entranceBudget/entranceScale (rapido): comprime solo si hace falta", () => {
+  assert.equal(entranceBudget(3, "rapido"), 1.2);
+  assert.equal(entranceBudget(10, "rapido"), 1.6);
   assert.equal(entranceScale(1.0, 1.2), 1);
   assert.equal(entranceScale(2.4, 1.2), 2);
+});
+
+// Ritmo enseñar (por defecto): valores de la spec "Reel: estilo y ritmo".
+check("pace: ensenar por defecto; valores inválidos → error claro en español", () => {
+  assert.equal(DEFAULT_PACE, "ensenar");
+  assert.equal(parsePace("rapido"), "rapido");
+  assert.equal(parsePace("ensenar"), "ensenar");
+  for (const v of ["lento", "", "Ensenar", undefined]) {
+    assert.throws(() => parsePace(v), /--pace debe ser "ensenar" o "rapido"/, `pace ${v}`);
+  }
+  const T = () => null;
+  assert.throws(() => specDurations({ name: "x", pace: "turbo", slides: [{ template: T, props: {} }] } as any), /pace de "x" debe ser "ensenar" o "rapido"/);
+  assert.deepEqual(PACES.ensenar, { transition: 0.5, entranceSlow: 1.3, stagger: 1.8, budgetRatio: 0.45, budgetMax: 2.4 });
+});
+
+check("sceneSeconds (ensenar): clamp(2.4 + chars/16, 3.5, 8) + 1.0 en primera y última", () => {
+  assert.equal(sceneSeconds({ title: "Hola" }, false), 3.5);
+  assert.equal(sceneSeconds({ title: "Hola" }, true), 4.5);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "ensenar"), 8);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar"), 9);
+  assert.equal(sceneSeconds({ body: "x".repeat(40) }, false, "ensenar"), 4.9);
+});
+
+check("sceneSeconds (ensenar): con bullets, al menos 1.0 + 1.8 × (bullets − 1) + 2.5", () => {
+  // Poco texto: manda la fórmula de bullets.
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c"] }, false, "ensenar"), 7.1);
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "ensenar"), 10.7);
+  assert.equal(sceneSeconds({ bullets: ["a"] }, false, "ensenar"), 3.5);
+  // Mucho texto: manda el texto.
+  assert.equal(sceneSeconds({ body: "x".repeat(200), bullets: ["a", "b"] }, false, "ensenar"), 8);
+  // En rapido los bullets no alargan la escena más allá del texto.
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "rapido"), 2.4);
+});
+
+check("reelTiming/specTiming (ensenar): transición 0.5, presupuesto min(0.45 × dur, 2.4), lentitud 1.3, bullets cada 1.8 s", () => {
+  const t = reelTiming([4.5, 3.5, 8, 4.5]);
+  assert.deepEqual([t.pace, t.transition, t.entranceSlow, t.stagger], ["ensenar", 0.5, 1.3, 1.8]);
+  assert.deepEqual(t.scenes.map((s) => s.start), [0, 4, 7, 14.5]);
+  assert.equal(t.total, 19);
+  assert.deepEqual(t.scenes.map((s) => s.budget), [2.025, 1.575, 2.4, 2.025]);
+  assert.equal(entranceBudget(4), 1.8);
+  assert.equal(entranceBudget(10, "ensenar"), 2.4);
+  // Entradas 1.3× más lentas; solo se comprimen si así no caben.
+  assert.ok(Math.abs(entranceScale(1.0, 2.0, 1.3) - 1 / 1.3) < 1e-9);
+  assert.equal(entranceScale(2.0, 1.6, 1.3), 1.25);
+  const T = () => null;
+  const spec = { name: "x", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { bullets: ["a", "b", "c"] } }, { template: T, props: { title: "C" } }] };
+  const st = specTiming(spec as any);
+  assert.deepEqual(st.scenes.map((s) => s.dur), [4.5, 7.1, 4.5]);
+  assert.equal(st.pace, "ensenar");
+  // --pace, --seconds y --fade sobrescriben.
+  const fast = specTiming({ ...spec, pace: "ensenar" } as any, { pace: "rapido" });
+  assert.deepEqual([fast.pace, fast.transition, fast.scenes.map((s) => s.dur)], ["rapido", 0.35, [3.1, 2.4, 3.1]]);
+  const fixed = specTiming(spec as any, { seconds: 3, fade: 0.2 });
+  assert.deepEqual([fixed.transition, fixed.scenes.map((s) => s.dur), fixed.stagger], [0.2, [3, 3, 3], 1.8]);
 });
 
 check("plantillas: marcas data-anim en formato reel", () => {

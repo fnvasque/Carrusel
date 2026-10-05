@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { chromium, type Browser, type Page } from "playwright";
 import { buildReelPage } from "../src/reel/page.ts";
-import { reelTiming, specDurations } from "../src/reel/timing.ts";
+import { createElement } from "react";
+import { specTiming, type ReelTiming } from "../src/reel/timing.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
-import { FORMATS, type CarouselSpec } from "../src/templates/types.ts";
-import { Stat } from "../src/templates/index.ts";
+import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
+import { Stat, Step, Hook } from "../src/templates/index.ts";
+import { parseStatValue } from "../src/templates/Stat.tsx";
 import spec from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
 import mentiras from "../carousels/mentiras-ia.ts";
@@ -14,7 +16,9 @@ import mentiras from "../carousels/mentiras-ia.ts";
  * legible desde el cuadro 0 (acercamiento 1.04 → 1 y palabra clave en acento
  * antes de 0.6 s), deriva de la grilla, barra de progreso, count / check /
  * caret, tachado por línea y que SplitText no cambie el corte de líneas; todo
- * determinista con seek hacia adelante y atrás.
+ * determinista con seek hacia adelante y atrás. Los tiempos del motor original
+ * se prueban con pace "rapido" explícito; el ritmo "ensenar" (por defecto) se
+ * prueba aparte (hook, bullets cada 1.8 s, ✓ en sincronía, entradas más lentas).
  * Uso: npm run test:reel
  */
 
@@ -24,9 +28,9 @@ function offline(s: CarouselSpec): CarouselSpec {
   return { ...s, defaults: flat(s.defaults as any), slides: s.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
 }
 
-/** Abre la página del reel de `s` y espera al runtime sin errores. */
-async function open(browser: Browser, s: CarouselSpec): Promise<{ page: Page; timing: ReturnType<typeof reelTiming> }> {
-  const timing = reelTiming(specDurations(s));
+/** Abre la página del reel de `s` (con `pace` / `seconds` si se dan) y espera al runtime sin errores. */
+async function open(browser: Browser, s: CarouselSpec, pace?: Pace, seconds?: number): Promise<{ page: Page; timing: ReelTiming }> {
+  const timing = specTiming(s, { pace, seconds });
   const html = await buildReelPage(offline(s), timing);
   const page = await browser.newPage({ viewport: FORMATS.reel });
   const consoleErrors: string[] = [];
@@ -69,49 +73,159 @@ async function checkSplitHeights(page: Page, total: number, name: string): Promi
   return { split: rows.filter((r) => !r.fallback && !r.hook).length, fallback: rows.filter((r) => r.fallback).length };
 }
 
-const browser = await chromium.launch({ executablePath: findChromium() });
-try {
-  const { page, timing } = await open(browser, spec);
+/** Estado del titular del hook (escena 0) en el segundo `t`. */
+function hookState(page: Page, t: number) {
+  return page.evaluate((x) => {
+    (window as any).__reel.seek(x);
+    const h1 = document.querySelector('[data-scene="0"] h1') as HTMLElement;
+    const pop = h1.querySelector('[data-anim="pop"]') as HTMLElement;
+    const probe = document.createElement("span");
+    probe.style.color = pop.dataset.accent!;
+    document.body.appendChild(probe);
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      split: h1.querySelectorAll(".reel-word").length,
+      opacity: Number(getComputedStyle(h1).opacity),
+      visibility: getComputedStyle(h1).visibility,
+      scale: new DOMMatrix(getComputedStyle(h1).transform).a,
+      pop: getComputedStyle(pop).color,
+      accent,
+      parent: getComputedStyle(h1).color,
+    };
+  }, t);
+}
 
-  const duration = await page.evaluate(() => (window as any).__reel.duration as number);
-  assert.ok(Math.abs(duration - timing.total) <= 1 / timing.fps, `duración ${duration} vs ${timing.total}`);
-
-  // Hook (escena 0): titular completo y legible en el cuadro 0 (sin dividir
-  // en palabras), con un acercamiento 1.04 → 1 que ya se mueve desde el cuadro 0.
-  const hook = (t: number) =>
-    page.evaluate((x) => {
-      (window as any).__reel.seek(x);
-      const h1 = document.querySelector('[data-scene="0"] h1') as HTMLElement;
-      const pop = h1.querySelector('[data-anim="pop"]') as HTMLElement;
-      const probe = document.createElement("span");
-      probe.style.color = pop.dataset.accent!;
-      document.body.appendChild(probe);
-      const accent = getComputedStyle(probe).color;
-      probe.remove();
-      return {
-        split: h1.querySelectorAll(".reel-word").length,
-        opacity: Number(getComputedStyle(h1).opacity),
-        visibility: getComputedStyle(h1).visibility,
-        scale: new DOMMatrix(getComputedStyle(h1).transform).a,
-        pop: getComputedStyle(pop).color,
-        accent,
-        parent: getComputedStyle(h1).color,
-      };
-    }, t);
-  const h0 = await hook(0);
-  assert.equal(h0.split, 0, "el titular del hook no se divide en palabras");
-  assert.deepEqual([h0.opacity, h0.visibility], [1, "visible"], "titular completo y visible en el cuadro 0");
-  assert.ok(Math.abs(h0.scale - 1.04) < 1e-3, `titular a 1.04 en el cuadro 0: ${h0.scale}`);
-  assert.equal(h0.pop, h0.parent, "palabra clave aún en el color del titular en el cuadro 0");
+/**
+ * Metas del hook (en ambos ritmos): titular completo y legible en el cuadro 0
+ * (sin dividir en palabras) con el acercamiento ya en 1.04, cuadro 0 no vacío
+ * y palabra clave en acento antes de 0.6 s.
+ */
+async function hookGoals(page: Page, label: string): Promise<void> {
+  const h0 = await hookState(page, 0);
+  assert.equal(h0.split, 0, `${label}: el titular del hook no se divide en palabras`);
+  assert.deepEqual([h0.opacity, h0.visibility], [1, "visible"], `${label}: titular completo y visible en el cuadro 0`);
+  assert.ok(Math.abs(h0.scale - 1.04) < 1e-3, `${label}: titular a 1.04 en el cuadro 0: ${h0.scale}`);
+  assert.equal(h0.pop, h0.parent, `${label}: palabra clave aún en el color del titular en el cuadro 0`);
   // Miniatura: el cuadro 0 no sale vacío.
   const visible0 = await page.evaluate(() => {
     (window as any).__reel.seek(0);
     return Array.from(document.querySelectorAll('[data-scene="0"] [data-anim]'))
       .filter((el) => getComputedStyle(el).visibility === "visible" && Number(getComputedStyle(el).opacity) > 0 && el.getBoundingClientRect().height > 0).length;
   });
-  assert.ok(visible0 > 0, "el cuadro 0 muestra al menos un elemento (miniatura no vacía)");
-  const h06 = await hook(0.59);
-  assert.equal(h06.pop, h06.accent, "palabra clave en acento antes de 0.6 s");
+  assert.ok(visible0 > 0, `${label}: el cuadro 0 muestra al menos un elemento (miniatura no vacía)`);
+  const h06 = await hookState(page, 0.59);
+  assert.equal(h06.pop, h06.accent, `${label}: palabra clave en acento antes de 0.6 s`);
+}
+
+/**
+ * Bullets de un checklist (escena `scene`): segundo del primer cuadro en que
+ * cada bullet y su ✓ empiezan a verse, recorriendo la escena cuadro a cuadro.
+ */
+async function bulletStarts(page: Page, timing: ReelTiming, scene: number): Promise<{ li: number; check: number }[]> {
+  const sc = timing.scenes[scene];
+  const starts: { li: number; check: number }[] = [];
+  for (let k = Math.floor(sc.start * timing.fps); k / timing.fps <= sc.start + sc.dur; k++) {
+    const t = k / timing.fps;
+    const rows = await page.evaluate(
+      ([x, i]) => {
+        (window as any).__reel.seek(x);
+        return Array.from(document.querySelectorAll(`[data-scene="${i}"] li`)).map((li) => ({
+          li: Number(getComputedStyle(li).opacity),
+          check: new DOMMatrix(getComputedStyle(li.querySelector('[data-anim="check"]')!).transform).a,
+        }));
+      },
+      [t, scene] as const,
+    );
+    rows.forEach((r, j) => {
+      starts[j] ??= { li: NaN, check: NaN };
+      if (Number.isNaN(starts[j].li) && r.li > 0) starts[j].li = t;
+      if (Number.isNaN(starts[j].check) && r.check > 0) starts[j].check = t;
+    });
+  }
+  return starts;
+}
+
+/** Cada ✓ empieza con su bullet: después de él y a lo sumo CHECK_DELAY (× lentitud) + 1 cuadro. */
+function assertChecksInSync(starts: { li: number; check: number }[], slow: number, fps: number, label: string): void {
+  assert.ok(starts.length >= 2, `${label}: hay bullets`);
+  starts.forEach((st, j) => {
+    assert.ok(Number.isFinite(st.li) && Number.isFinite(st.check), `${label}: bullet ${j} y su ✓ aparecen: ${JSON.stringify(st)}`);
+    const d = st.check - st.li;
+    assert.ok(d >= 0 && d <= 0.1 * slow + 1 / fps + 1e-6, `${label}: ✓ ${j} empieza con su bullet (Δ ${d.toFixed(3)} s)`);
+  });
+}
+
+/**
+ * Estado del DOM en `t` (count + barra, ✓, cursor) y el mismo estado tras
+ * saltar al final y volver a `t`: deben ser idénticos (seek determinista a
+ * mitad de una animación).
+ */
+async function assertSeekStable(page: Page, total: number, t: number, selector: string, label: string): Promise<void> {
+  const read = (x: number) =>
+    page.evaluate(
+      ([x, sel]) => {
+        (window as any).__reel.seek(x);
+        return Array.from(document.querySelectorAll(sel)).map((el) => {
+          const cs = getComputedStyle(el);
+          return { text: el.textContent, width: (el as HTMLElement).getBoundingClientRect().width, transform: cs.transform, opacity: cs.opacity, visibility: cs.visibility };
+        });
+      },
+      [x, selector] as const,
+    );
+  const first = await read(t);
+  assert.ok(first.length > 0, `${label}: hay elementos (${selector})`);
+  await page.evaluate((x) => (window as any).__reel.seek(x), total);
+  assert.deepEqual(await read(t), first, `${label}: mismo estado en t=${t.toFixed(2)} tras ir al final y volver`);
+}
+
+/**
+ * Barra del Stat (escena `scene`) en sincronía con la cuenta: en cada cuadro
+ * de la escena, ancho de la barra / ancho final ≈ número mostrado / valor
+ * (±3 %); vacía con el número en 0 y completa con el texto final.
+ */
+async function assertMeterSync(page: Page, timing: ReelTiming, scene: number, label: string): Promise<void> {
+  const sc = timing.scenes[scene];
+  let mid = 0;
+  for (let k = Math.ceil(sc.start * timing.fps); k / timing.fps < sc.start + sc.dur - timing.transition; k++) {
+    const r = await page.evaluate(
+      ([x, i]) => {
+        (window as any).__reel.seek(x);
+        const el = document.querySelector(`[data-scene="${i}"] [data-anim="count"]`) as HTMLElement;
+        const track = document.querySelector(`[data-scene="${i}"] [data-meter]`) as HTMLElement;
+        const fill = track.firstElementChild as HTMLElement;
+        return {
+          text: el.textContent!,
+          raw: el.dataset.reelCount!,
+          fill: fill.getBoundingClientRect().width,
+          final: (track.getBoundingClientRect().width * parseFloat(fill.dataset.reelWidth!)) / 100,
+        };
+      },
+      [k / timing.fps, scene] as const,
+    );
+    const shown = parseStatValue(r.text)!.number;
+    const value = parseStatValue(r.raw)!.number;
+    const ratio = r.fill / r.final;
+    if (shown === 0) assert.ok(ratio < 0.03, `${label}: barra vacía con el número en 0 (${ratio.toFixed(3)})`);
+    else if (r.text === r.raw) assert.ok(ratio > 0.97, `${label}: barra completa con el número final (${ratio.toFixed(3)})`);
+    else {
+      mid++;
+      assert.ok(Math.abs(ratio - shown / value) <= 0.03, `${label}: barra ${ratio.toFixed(3)} vs número ${shown}/${value} (t=${(k / timing.fps).toFixed(2)})`);
+    }
+  }
+  assert.ok(mid >= 10, `${label}: se recorren cuadros a mitad de la cuenta (${mid})`);
+}
+
+const browser = await chromium.launch({ executablePath: findChromium() });
+try {
+  const { page, timing } = await open(browser, spec, "rapido");
+
+  const duration = await page.evaluate(() => (window as any).__reel.duration as number);
+  assert.ok(Math.abs(duration - timing.total) <= 1 / timing.fps, `duración ${duration} vs ${timing.total}`);
+
+  // Hook (escena 0): metas del cuadro 0 y palabra clave en acento antes de 0.6 s.
+  await hookGoals(page, "rapido");
+  const hook = (t: number) => hookState(page, t);
 
   // La escala del titular decrece en cada cuadro (estrictamente los primeros
   // 0.6 s) hasta 1.2 s y queda en 1, también tras haber visto el final (seek hacia atrás).
@@ -266,7 +380,17 @@ try {
   assert.ok(runs.filter((r) => r.on).length >= 2, `el cursor parpadea: ${JSON.stringify(runs)}`);
   runs.slice(1, -1).forEach((r) => assert.ok(Math.abs(r.n - 0.5 * timing.fps) <= 1, `tramo del parpadeo de ${r.n} cuadros (≈ 15): ${JSON.stringify(runs)}`));
   assert.equal((await caret(s4.start - 0.05)).on, false, "cursor oculto al volver atrás");
-  console.log("✓ count, check y caret: estados correctos y deterministas con seek");
+  // La barra del Stat se llena en sincronía con la cuenta.
+  await assertMeterSync(page, timing, 3, "rapido");
+  // Cada ✓ empieza con su bullet (misma fuente de escalonado).
+  const rapidBullets = await bulletStarts(page, timing, 2);
+  assertChecksInSync(rapidBullets, 1, timing.fps, "rapido");
+  // Seek determinista a mitad de count (+ barra), de un ✓ y del parpadeo del cursor.
+  await assertSeekStable(page, timing.total, s3.start + timing.transition / 2 + 0.4, '[data-scene="3"] [data-anim="count"], [data-scene="3"] [data-meter] > div', "count rapido");
+  await assertSeekStable(page, timing.total, rapidBullets[1].check + 0.1, '[data-scene="2"] li, [data-scene="2"] [data-anim="check"]', "check rapido");
+  await assertSeekStable(page, timing.total, s4.start + s4.dur - timing.transition - 0.25, '[data-scene="4"] [data-anim="caret"]', "caret rapido");
+  console.log("✓ count, check y caret: estados correctos y deterministas con seek (también a mitad de la animación)");
+  console.log("✓ barra del Stat en sincronía con la cuenta; cada ✓ empieza con su bullet");
 
   const smokeSplit = await checkSplitHeights(page, timing.total, spec.name);
   await page.close();
@@ -319,7 +443,7 @@ try {
     slides: values.map(([value]) => ({ template: Stat, props: { value, label: "Dato de prueba" } })),
   } as CarouselSpec;
   {
-    const { page: p, timing: t } = await open(browser, statSpec);
+    const { page: p, timing: t } = await open(browser, statSpec, "rapido");
     for (let i = 0; i < values.length; i++) {
       const [value, mid] = values[i];
       const sc = t.scenes[i];
@@ -338,6 +462,150 @@ try {
   console.log("✓ count: prefijos, sufijos, miles y decimales; lo ambiguo no cuenta");
   console.log(`✓ SplitText respeta el corte de líneas (${splits.join("; ")})`);
   console.log("✓ tachado: una barra por línea del mito");
+
+  // Paridad: countFormat (runtime) y parseStatValue (Stat.tsx) leen igual el
+  // número, el prefijo y el sufijo; lo que el runtime no cuenta es no numérico
+  // o ambiguo (dígitos en el sufijo).
+  {
+    const { page: p } = await open(browser, statSpec, "rapido");
+    const raws = ["47%", "$1.200/mes", "3,5×", "$25K", "12.5%", "1 de 3", "-12%", "+40%", "8×", "1.000.000", "0,75", "2026", "$20", "abc", "x10", "100%"];
+    const fmts = await p.evaluate((vs) =>
+      vs.map((v) => {
+        const f = (window as any).__reelCountFormat(v);
+        return f ? { value: f.value as number, zero: f.text(0) as string, end: f.text(f.value) as string } : null;
+      }), raws);
+    raws.forEach((raw, i) => {
+      const parsed = parseStatValue(raw);
+      const f = fmts[i];
+      if (!f) {
+        assert.ok(parsed === null || /\d/.test(parsed.suffix), `"${raw}": el runtime no cuenta solo si no es numérico o es ambiguo`);
+        return;
+      }
+      assert.ok(parsed, `"${raw}": parseStatValue también lo lee`);
+      assert.equal(f.value, parsed!.number, `"${raw}": mismo número`);
+      assert.equal(f.end, raw.trim(), `"${raw}": el valor final se escribe idéntico`);
+      assert.ok(f.zero.startsWith(parsed!.prefix) && f.zero.endsWith(parsed!.suffix), `"${raw}": mismo prefijo y sufijo (${f.zero})`);
+    });
+    await p.close();
+  }
+  console.log("✓ paridad countFormat (runtime) ↔ parseStatValue (Stat.tsx)");
+
+  // Hook: solo el primer words de la escena 0 (el titular) recibe el trato de
+  // hook; otro words en la misma escena entra palabra por palabra.
+  {
+    const Two = () =>
+      createElement(
+        "div",
+        { style: { padding: 120, color: "#F4F4F6", fontSize: 96 } },
+        createElement("h1", { "data-anim": "words", style: { margin: 0 } }, "Titular del hook"),
+        createElement("h2", { "data-anim": "words", style: { margin: 0, fontSize: 64 } }, "Segundo bloque normal"),
+      );
+    const twoSpec = { name: "_hook-uno", slides: [{ template: Two, props: {} }, { template: Two, props: {} }] } as unknown as CarouselSpec;
+    for (const pace of ["rapido", "ensenar"] as const) {
+      const { page: p } = await open(browser, twoSpec, pace);
+      const r = await p.evaluate(() => {
+        (window as any).__reel.seek(0);
+        const [h1, h2] = Array.from(document.querySelectorAll('[data-scene="0"] [data-anim="words"]')) as HTMLElement[];
+        return {
+          h1: { hook: h1.dataset.reelHook, words: h1.querySelectorAll(".reel-word").length, opacity: Number(getComputedStyle(h1).opacity) },
+          h2: { hook: h2.dataset.reelHook, words: Array.from(h2.querySelectorAll(".reel-word")).map((w) => Number(getComputedStyle(w).opacity)) },
+          scene1: Array.from(document.querySelectorAll('[data-scene="1"] [data-anim="words"]')).map((e) => (e as HTMLElement).dataset.reelHook ?? null),
+        };
+      });
+      assert.deepEqual(r.h1, { hook: "1", words: 0, opacity: 1 }, `${pace}: el titular (primer words) es el hook`);
+      assert.equal(r.h2.hook, undefined, `${pace}: el segundo words no es hook`);
+      assert.ok(r.h2.words.length === 3 && r.h2.words.every((o) => o === 0), `${pace}: el segundo words entra palabra por palabra: ${r.h2.words}`);
+      assert.deepEqual(r.scene1, [null, null], `${pace}: fuera de la escena 0 no hay hook`);
+      await p.close();
+    }
+  }
+  console.log("✓ el trato de hook solo aplica al titular (primer words de la escena 0)");
+
+  // La cuenta no alarga las entradas: en un Stat con etiqueta corta la sub no
+  // incluye los 1.2 s de la cuenta, así etiqueta y contexto no se comprimen por
+  // ella; la cuenta igual termina en su valor.
+  {
+    const short = {
+      name: "_count-budget",
+      slides: [
+        { template: Hook, props: { title: "Un dato", highlight: "dato" } },
+        { template: Stat, props: { value: "47%", label: "Dato corto" } },
+        { template: Stat, props: { value: "47%", label: "Dato corto", context: "Contexto en una frase." } },
+      ],
+    } as unknown as CarouselSpec;
+    for (const [pace, seconds] of [["rapido", 2.4], ["ensenar", undefined]] as const) {
+      const { page: p, timing: t } = await open(browser, short, pace, seconds);
+      for (const i of [1, 2]) {
+        const sc = t.scenes[i];
+        const r = await p.evaluate((i) => {
+          const s = document.querySelector(`[data-scene="${i}"]`) as HTMLElement;
+          return { natural: Number(s.dataset.reelNatural), scale: Number(s.dataset.reelScale) };
+        }, i);
+        const slow = t.entranceSlow;
+        const expected = r.natural * slow > sc.budget ? r.natural / sc.budget : 1 / slow;
+        assert.ok(Math.abs(r.scale - expected) < 1e-3, `${pace}: escala de la escena ${i} = ${r.scale} (esperada ${expected})`);
+        // Sin contexto, las entradas duran menos que la cuenta: la sub no la incluye.
+        if (i === 1) assert.ok(r.natural < 1.2, `${pace}: la cuenta no alarga las entradas (natural ${r.natural})`);
+        // Etiqueta y contexto completos en offset + natural / escala.
+        const settled = sc.start + t.transition / 2 + r.natural / r.scale + 0.05;
+        const ops = await p.evaluate(([x, i]) => {
+          (window as any).__reel.seek(x);
+          return Array.from(document.querySelectorAll(`[data-scene="${i}"] .reel-word, [data-scene="${i}"] p[data-anim="rise"]`)).map((e) => Number(getComputedStyle(e).opacity));
+        }, [settled, i] as const);
+        assert.ok(ops.length > 0 && ops.every((o) => o === 1), `${pace}: etiqueta/contexto de la escena ${i} completos a tiempo: ${ops}`);
+        const end = await p.evaluate(([x, i]) => {
+          (window as any).__reel.seek(x);
+          return document.querySelector(`[data-scene="${i}"] [data-anim="count"]`)!.textContent;
+        }, [sc.start + sc.dur - t.transition, i] as const);
+        assert.equal(end, "47%", `${pace}: la cuenta termina en su valor antes de salir de la escena ${i}`);
+      }
+      await p.close();
+    }
+  }
+  console.log("✓ la cuenta del Stat no comprime etiqueta ni contexto");
+
+  // Ritmo enseñar (por defecto): metas del hook, entradas 1.3× más lentas salvo
+  // la escena 0, bullets uno cada 1.8 s sin comprimir con su ✓ en sincronía,
+  // barra del Stat en sincronía y seek determinista.
+  {
+    const { page: p, timing: t } = await open(browser, spec);
+    assert.equal(t.pace, "ensenar");
+    const duration = await p.evaluate(() => (window as any).__reel.duration as number);
+    assert.ok(Math.abs(duration - t.total) <= 1 / t.fps, `ensenar: duración ${duration} vs ${t.total}`);
+    await hookGoals(p, "ensenar");
+    const scales = await p.evaluate(() =>
+      Array.from(document.querySelectorAll("[data-scene]")).map((s) => ({ natural: Number((s as HTMLElement).dataset.reelNatural), scale: Number((s as HTMLElement).dataset.reelScale) })),
+    );
+    scales.forEach((r, i) => {
+      const slow = i === 0 ? 1 : 1.3;
+      const expected = r.natural * slow > t.scenes[i].budget ? r.natural / t.scenes[i].budget : 1 / slow;
+      assert.ok(Math.abs(r.scale - expected) < 1e-3, `ensenar: escala de la escena ${i} = ${r.scale} (esperada ${expected})`);
+    });
+    assert.ok(scales[0].scale >= 1, "ensenar: la escena 0 no se hace más lenta");
+    assert.ok(scales.slice(1).some((r) => Math.abs(r.scale - 1 / 1.3) < 1e-3), `ensenar: hay escenas con entradas 1.3× más lentas: ${JSON.stringify(scales)}`);
+
+    // Bullets (Step, escena 2): uno cada 1.8 s (±1 cuadro), ✓ con su bullet,
+    // y el último entra con tiempo para leerlo antes de la salida.
+    const s2 = t.scenes[2];
+    assert.ok(s2.dur >= 1.0 + 1.8 + 2.5 - 1e-9, `ensenar: la escena de bullets dura lo de la fórmula: ${s2.dur}`);
+    const starts = await bulletStarts(p, t, 2);
+    for (let j = 1; j < starts.length; j++) {
+      const gap = starts[j].li - starts[j - 1].li;
+      assert.ok(Math.abs(gap - 1.8) <= 1 / t.fps + 1e-6, `ensenar: bullet ${j} entra 1.8 s después del anterior (${gap.toFixed(3)})`);
+    }
+    assertChecksInSync(starts, 1.3, t.fps, "ensenar");
+    const lastIn = starts[starts.length - 1].li + 0.45 * 1.3;
+    assert.ok(s2.start + s2.dur - t.transition - lastIn >= 1, `ensenar: el último bullet queda ≥ 1 s a la vista (${(s2.start + s2.dur - t.transition - lastIn).toFixed(2)} s)`);
+
+    await assertMeterSync(p, t, 3, "ensenar");
+    const s3 = t.scenes[3];
+    const s4 = t.scenes[4];
+    await assertSeekStable(p, t.total, s3.start + t.transition / 2 + 0.5, '[data-scene="3"] [data-anim="count"], [data-scene="3"] [data-meter] > div', "count ensenar");
+    await assertSeekStable(p, t.total, starts[1].check + 0.1, '[data-scene="2"] li, [data-scene="2"] [data-anim="check"]', "check ensenar");
+    await assertSeekStable(p, t.total, s4.start + s4.dur - t.transition - 0.25, '[data-scene="4"] [data-anim="caret"]', "caret ensenar");
+    await p.close();
+    console.log(`✓ ritmo ensenar: hook intacto, entradas 1.3× más lentas, bullets cada 1.8 s con su ✓, barra en sincronía (${t.total}s)`);
+  }
 } finally {
   await browser.close();
 }

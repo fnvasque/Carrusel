@@ -1,18 +1,20 @@
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { resolveBackground } from "../render/background.ts";
-import type { CarouselSpec } from "../templates/types.ts";
+import type { CarouselSpec, Pace } from "../templates/types.ts";
 import { buildReelPage } from "./page.ts";
 import { captureReel, captureStills, assertFfmpeg } from "./capture.ts";
-import { DEFAULT_TRANSITION, reelTiming, specDurations } from "./timing.ts";
+import { specTiming } from "./timing.ts";
 
 export interface RenderReelOptions {
   /** Carpeta base de salida (por defecto "output"). El reel va en <outDir>/<name>/. */
   outDir?: string;
   /** Override de duración uniforme por escena (s); por defecto según texto. */
   seconds?: number;
-  /** Duración de la transición entre escenas (s). */
+  /** Duración de la transición entre escenas (s); por defecto, la del ritmo. */
   fade?: number;
+  /** Ritmo del reel; sobrescribe el `pace` del carrusel (por defecto "ensenar"). */
+  pace?: Pace;
   /** Pista de audio opcional a muxear. */
   audio?: string;
   /** Solo exportar un PNG por escena (estado final), sin componer el video. */
@@ -26,7 +28,7 @@ export interface RenderReelOptions {
  */
 export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {}): Promise<string> {
   const base = join(process.cwd(), opts.outDir ?? "output", spec.name);
-  const timing = reelTiming(specDurations(spec, opts.seconds), opts.fade ?? DEFAULT_TRANSITION);
+  const timing = specTiming(spec, { seconds: opts.seconds, fade: opts.fade, pace: opts.pace });
   if (!opts.framesOnly) assertFfmpeg();
 
   // Fondos `ai`/`image` resueltos a data URI antes de armar la página.
@@ -50,7 +52,7 @@ export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {
 
   await mkdir(base, { recursive: true });
   const mp4 = join(base, "reel.mp4");
-  console.log(`⏳ Animando "${spec.name}" (${timing.scenes.length} escenas, ${timing.total}s, ${timing.frames} cuadros)…`);
+  console.log(`⏳ Animando "${spec.name}" (${timing.scenes.length} escenas, ${timing.total}s, ${timing.frames} cuadros, ritmo ${timing.pace})…`);
   await captureReel(html, timing, mp4, { audio: opts.audio });
   console.log(`✓ Reel "${spec.name}" → ${mp4}  (${timing.total}s, 1080×1920${opts.audio ? "" : ", sin audio"})`);
   if (!opts.audio) console.log("  Súbelo y añádele un audio en tendencia dentro de la app.");

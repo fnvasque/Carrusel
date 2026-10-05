@@ -2,8 +2,40 @@
  * (rise, stagger, words, type, strike, count, check, caret; bg y pop aparte),
  * arma una timeline maestra pausada y expone window.__reel = { duration, seek }.
  * La grilla [data-grid] deriva durante todo el reel.
+ * Ritmo (T.pace): las entradas de cada escena (salvo la 0) van T.entranceSlow
+ * veces más lentas y se comprimen solo si no caben en su presupuesto; en
+ * "ensenar" los bullets de un stagger van uno cada T.stagger s sin comprimir.
  * Sin rebotes: solo easings power*.out / power*.in / none. */
 window.__reelErrors = [];
+
+// Formato de un valor de Stat para contar desde 0, con la misma lógica que
+// parseStatValue (Stat.tsx): un [.,] seguido de 3 dígitos y luego un no
+// dígito (o el fin) es separador de miles; el otro, decimal. Devuelve null
+// si no es numérico o es ambiguo ("1 de 3": hay dígitos en el sufijo).
+function countFormat(raw) {
+  const m = raw.trim().match(/^([^\d-]*?)(-?\d+(?:[.,]\d+)*)(.*)$/);
+  if (!m || /\d/.test(m[3])) return null;
+  const num = m[2];
+  const value = Number(num.replace(/[.,](?=\d{3}(\D|$))/g, "").replace(",", "."));
+  if (!Number.isFinite(value)) return null;
+  const thousands = (num.match(/[.,](?=\d{3}(\D|$))/) || [null])[0];
+  const dec = num.replace(/[.,](?=\d{3}(\D|$))/g, "").match(/([.,])(\d+)$/);
+  const decimals = dec ? dec[2].length : 0;
+  const decSep = dec ? dec[1] : thousands === "." ? "," : ".";
+  return {
+    value: value,
+    text: function (v) {
+      const fixed = Math.abs(v).toFixed(decimals).split(".");
+      let int = fixed[0];
+      if (thousands) int = int.replace(/\B(?=(\d{3})+(?!\d))/g, thousands);
+      const sign = v < 0 && Math.abs(v) >= Math.pow(10, -decimals) / 2 ? "-" : "";
+      return m[1] + sign + int + (decimals ? decSep + fixed[1] : "") + m[3];
+    },
+  };
+}
+// Expuesta solo para el test de paridad con parseStatValue (no cambia el render).
+window.__reelCountFormat = countFormat;
+
 document.fonts.ready.then(function () {
   try {
     gsap.registerPlugin(SplitText);
@@ -14,7 +46,11 @@ document.fonts.ready.then(function () {
     const HOOK_ZOOM = 1.2; // s del acercamiento 1.04 → 1 del titular del hook
     const HOOK_POP_AT = 0.2; // s en que la palabra clave del hook empieza a pasar al acento
     const POP_DUR = 0.3;
+    const ENTER = 0.45; // s de una entrada rise (y de cada bullet)
     const COUNT_DUR = 1.2; // s que el número de un Stat tarda en contar desde 0
+    // Separación entre bullets de un stagger: fuente única para los bullets y
+    // sus ✓ (0.12 s en rapido; 1.8 s en ensenar).
+    const STAGGER = T.stagger;
     const CHECK_DELAY = 0.1; // s tras la entrada de su bullet en que crece el ✓
     const CHECK_DUR = 0.3;
     const CARET_BLINK = 0.5; // s encendido / apagado del cursor del prompt
@@ -90,36 +126,27 @@ document.fonts.ready.then(function () {
       return DUR;
     }
 
-    // Formato de un valor de Stat para contar desde 0, con la misma lógica que
-    // parseStatValue (Stat.tsx): un [.,] seguido de 3 dígitos y luego un no
-    // dígito (o el fin) es separador de miles; el otro, decimal. Devuelve null
-    // si no es numérico o es ambiguo ("1 de 3": hay dígitos en el sufijo).
-    function countFormat(raw) {
-      const m = raw.trim().match(/^([^\d-]*?)(-?\d+(?:[.,]\d+)*)(.*)$/);
-      if (!m || /\d/.test(m[3])) return null;
-      const num = m[2];
-      const value = Number(num.replace(/[.,](?=\d{3}(\D|$))/g, "").replace(",", "."));
-      if (!Number.isFinite(value)) return null;
-      const thousands = (num.match(/[.,](?=\d{3}(\D|$))/) || [null])[0];
-      const dec = num.replace(/[.,](?=\d{3}(\D|$))/g, "").match(/([.,])(\d+)$/);
-      const decimals = dec ? dec[2].length : 0;
-      const decSep = dec ? dec[1] : thousands === "." ? "," : ".";
-      return {
-        value: value,
-        text: function (v) {
-          const fixed = Math.abs(v).toFixed(decimals).split(".");
-          let int = fixed[0];
-          if (thousands) int = int.replace(/\B(?=(\d{3})+(?!\d))/g, thousands);
-          const sign = v < 0 && Math.abs(v) >= Math.pow(10, -decimals) / 2 ? "-" : "";
-          return m[1] + sign + int + (decimals ? decSep + fixed[1] : "") + m[3];
-        },
-      };
+    // Bullets de un stagger en `tl` desde `at`, uno cada STAGGER s; el ✓ de
+    // cada bullet crece junto con su entrada (algo después), con el mismo
+    // índice. `k` alarga las duraciones (lentitud del ritmo). Devuelve la duración.
+    function bullets(kids, tl, at, k) {
+      kids.forEach(function (kid, j) {
+        const t = at + STAGGER * j;
+        tl.from(kid, { y: 40, autoAlpha: 0, duration: ENTER * k, ease: "power3.out" }, t);
+        const checks = kid.querySelectorAll('[data-anim="check"]');
+        if (checks.length) tl.from(checks, { scale: 0, duration: CHECK_DUR * k, ease: "power2.out" }, t + CHECK_DELAY * k);
+      });
+      return ENTER * k + STAGGER * (kids.length - 1);
     }
 
     // Las from() usan immediateRender (por defecto en from): el estado inicial
     // (oculto) se pinta al crearlas, así ninguna entrada muestra su estado
     // final antes de empezar, aunque su sub-timeline arranque tarde.
-    // ctx: { hook: escena 0, carets: [] (cursores a encender al terminar de escribir) }.
+    // ctx: { hookTitle: el próximo words es el titular del hook (solo el primero
+    // de la escena 0), slow: lentitud de la escena, carets: [] (cursores a
+    // encender al terminar de escribir), post: [] (animaciones que van en la
+    // maestra fuera del presupuesto; reciben real(at) → segundo del reel y el
+    // fin de la escena) }.
     function entrance(el, sub, at, ctx) {
       const kind = el.getAttribute("data-anim");
       if (kind === "rise") {
@@ -129,18 +156,24 @@ document.fonts.ready.then(function () {
       if (kind === "stagger") {
         const kids = Array.from(el.children);
         if (kids.length === 0) return 0;
-        sub.from(kids, { y: 40, autoAlpha: 0, duration: 0.45, ease: "power3.out", stagger: 0.12 }, at);
-        // Los ✓ de cada bullet crecen junto con su entrada (algo después).
-        kids.forEach(function (kid, j) {
-          const checks = kid.querySelectorAll('[data-anim="check"]');
-          if (checks.length) sub.from(checks, { scale: 0, duration: CHECK_DUR, ease: "power2.out" }, at + 0.12 * j + CHECK_DELAY);
-        });
-        return 0.45 + 0.12 * (kids.length - 1);
+        if (T.pace === "ensenar") {
+          // Un dato nuevo cada ~2 s: los bullets van en la maestra, uno cada
+          // STAGGER s desde su turno, sin comprimirse por el presupuesto (la
+          // duración de la escena ya los cuenta, ver timing.ts). En la sub
+          // solo ocupan la entrada del primero.
+          ctx.post.push(function (real) {
+            bullets(kids, master, real(at), ctx.slow);
+          });
+          return ENTER;
+        }
+        return bullets(kids, sub, at, 1);
       }
-      if (kind === "words" && ctx.hook) {
-        // Hook (escena 0): el titular está completo y legible desde el cuadro 0;
-        // se mueve con un acercamiento sutil y la palabra clave pasa al acento
+      if (kind === "words" && ctx.hookTitle) {
+        // Hook: solo el PRIMER words de la escena 0 (el titular) está completo y
+        // legible desde el cuadro 0; los demás bloques de la escena entran normal.
+        // Se mueve con un acercamiento sutil y la palabra clave pasa al acento
         // antes de 0.6 s. Van en la maestra (no se escalan con el presupuesto).
+        ctx.hookTitle = false;
         el.dataset.reelHook = "1";
         el.dataset.reelH0 = String(el.getBoundingClientRect().height);
         master.fromTo(el, { scale: 1.04 }, { scale: 1, transformOrigin: "50% 50%", duration: HOOK_ZOOM, ease: "power2.out", immediateRender: true }, 0);
@@ -215,17 +248,32 @@ document.fonts.ready.then(function () {
         return 0;
       }
       if (kind === "count") {
-        // El número entra (rise) y cuenta desde 0; al terminar, el texto es el original.
+        // El número entra (rise) y cuenta desde 0; al terminar, el texto es el
+        // original. La barra del Stat ([data-meter]) se llena de 0 a su ancho
+        // final en sincronía con la cuenta (mismo inicio, duración y easing).
+        // La cuenta no es una entrada: va en la maestra (post), así no alarga
+        // la sub ni obliga a comprimir etiqueta y contexto; dura COUNT_DUR
+        // (× lentitud) con tope en la salida de la escena.
         const raw = el.textContent;
         const fmt = countFormat(raw);
-        sub.from(el, { y: 40, autoAlpha: 0, duration: 0.45, ease: "power3.out" }, at);
-        if (!fmt) return 0.45;
+        sub.from(el, { y: 40, autoAlpha: 0, duration: ENTER, ease: "power3.out" }, at);
+        if (!fmt) return ENTER;
         el.dataset.reelCount = raw;
+        const scene = el.closest("[data-scene]");
+        const fill = scene ? scene.querySelector("[data-meter] > div") : null;
         const proxy = { v: 0 };
         const paint = function () { el.textContent = proxy.v === fmt.value ? raw : fmt.text(proxy.v); };
-        sub.fromTo(proxy, { v: 0 }, { v: fmt.value, duration: COUNT_DUR, ease: "power2.out", immediateRender: true, onUpdate: paint, onStart: paint }, at);
+        ctx.post.push(function (real, end) {
+          const start = real(at);
+          const dur = Math.max(0.3, Math.min(COUNT_DUR * ctx.slow, end - T.transition - start));
+          master.fromTo(proxy, { v: 0 }, { v: fmt.value, duration: dur, ease: "power2.out", immediateRender: true, onUpdate: paint, onStart: paint }, start);
+          if (fill) {
+            fill.dataset.reelWidth = fill.style.width;
+            master.fromTo(fill, { width: "0%" }, { width: fill.style.width, duration: dur, ease: "power2.out", immediateRender: true }, start);
+          }
+        });
         paint();
-        return 0.45;
+        return ENTER;
       }
       if (kind === "check") {
         // ✓ suelto (fuera de un stagger): crece de 0 a 1.
@@ -260,7 +308,9 @@ document.fonts.ready.then(function () {
       // de dividir con SplitText para no recorrer nodos recién creados.
       // Pausada hasta colgarla de la maestra.
       const sub = gsap.timeline({ paused: true });
-      const ctx = { hook: i === 0, carets: [] };
+      // La escena 0 (hook) nunca se hace más lenta: sus metas valen en ambos ritmos.
+      const slow = i === 0 ? 1 : T.entranceSlow;
+      const ctx = { hookTitle: i === 0, slow: slow, carets: [], post: [] };
       let cursor = 0;
       Array.from(scene.querySelectorAll("[data-anim]")).forEach(function (el) {
         const kind = el.getAttribute("data-anim");
@@ -273,20 +323,28 @@ document.fonts.ready.then(function () {
       });
       // El hook (escena 0) arranca en 0: su titular ya está completo en el cuadro 0.
       const offset = i === 0 ? 0 : s.start + T.transition / 2;
+      // Entradas `slow` veces más lentas; se comprimen solo si así no caben en
+      // el presupuesto (misma regla que entranceScale en timing.ts).
       const natural = sub.duration();
+      const scale = natural * slow > s.budget ? natural / s.budget : 1 / slow;
+      scene.dataset.reelNatural = natural.toFixed(4);
+      scene.dataset.reelScale = scale.toFixed(4);
       if (natural > 0) {
-        if (natural > s.budget) sub.timeScale(natural / s.budget);
+        sub.timeScale(scale);
         master.add(sub.paused(false), offset);
       } else {
         sub.kill();
       }
+      // Segundo del reel de una posición de la sub.
+      const real = function (at) { return offset + at / scale; };
+      const end = s.start + s.dur;
+      ctx.post.forEach(function (place) { place(real, end); });
       // Cursor: oculto hasta que termina de escribirse; luego on/off cada
       // CARET_BLINK s hasta el fin de la escena (sets: sin easing).
-      const end = s.start + s.dur;
       ctx.carets.forEach(function (c) {
         gsap.set(c.el, { autoAlpha: 0 });
         let k = 0;
-        for (let t = offset + c.at / sub.timeScale(); t < end; t += CARET_BLINK, k++) {
+        for (let t = real(c.at); t < end; t += CARET_BLINK, k++) {
           master.set(c.el, { autoAlpha: k % 2 === 0 ? 1 : 0 }, +t.toFixed(4));
         }
       });

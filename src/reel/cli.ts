@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { renderReel } from "./renderReel.ts";
+import { parsePace } from "./timing.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 
 /**
@@ -10,6 +11,7 @@ import type { CarouselSpec } from "../templates/types.ts";
  *
  * Uso:
  *   npm run reel carousels/mi-carrusel.ts
+ *   npm run reel carousels/mi-carrusel.ts -- --pace=rapido
  *   npm run reel carousels/mi-carrusel.ts -- --seconds=3 --fade=0.5
  *   npm run reel carousels/mi-carrusel.ts -- --frames-only
  */
@@ -28,13 +30,16 @@ function strFlag(name: string): string | undefined {
 async function main() {
   const file = process.argv[2];
   if (!file) {
-    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --seconds=N --fade=N (transición) --frames-only --audio=ruta]");
+    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --pace=ensenar|rapido --seconds=N --fade=N (transición) --frames-only --audio=ruta]");
     process.exit(1);
   }
   const seconds = numFlag("seconds"); // override opcional: duración uniforme
   const fade = numFlag("fade");
   const audio = strFlag("audio"); // pista opcional; por defecto sin audio
   const framesOnly = process.argv.includes("--frames-only");
+  // Ritmo: sobrescribe el `pace` del carrusel; un valor inválido falla con un mensaje claro.
+  const paceFlag = process.argv.includes("--pace") ? "" : strFlag("pace");
+  const pace = paceFlag === undefined ? undefined : parsePace(paceFlag);
 
   const mod = await import(pathToFileURL(resolve(file)).href);
   const spec: CarouselSpec = mod.default;
@@ -42,7 +47,7 @@ async function main() {
     throw new Error(`El archivo ${file} no exporta por defecto un carrusel con slides.`);
   }
 
-  await renderReel(spec, { seconds, fade, audio, framesOnly });
+  await renderReel(spec, { seconds, fade, pace, audio, framesOnly });
 }
 
 main().catch((err) => {

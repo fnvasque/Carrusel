@@ -382,16 +382,37 @@ npm run reel carousels/mi-carrusel.ts
 
 Requisitos: **ffmpeg** en el PATH (`brew install ffmpeg`). No es necesario para `--frames-only`.
 
+### Ritmo (`pace`)
+
+Cada carrusel puede fijar `pace` en su spec (`pace: "ensenar"` o `pace: "rapido"`);
+`--pace=` lo sobrescribe. Por defecto es **`ensenar`**.
+
+| | `ensenar` (por defecto) | `rapido` (ritmo original) |
+|---|---|---|
+| Duración de escena | `clamp(2.4 + caracteres/16, 3.5, 8)` s, +1.0 s en la primera y la última | `clamp(1.8 + caracteres/26, 2.4, 4.8)` s, +0.7 s en la primera y la última |
+| Escena con bullets | al menos `1.0 + 1.8 × (bullets − 1) + 2.5` s | según el texto |
+| Transición | 0.5 s | 0.35 s |
+| Presupuesto de entradas | `min(0.45 × dur, 2.4)` s | `min(0.4 × dur, 1.6)` s |
+| Entradas | 1.3× más lentas (salvo la escena 0) | como están |
+| Bullets (`stagger`) | de a uno cada 1.8 s, sin comprimir; cada ✓ con su bullet | cada 0.12 s |
+
+En ambos ritmos el hook (escena 0) es igual de rápido: titular completo y legible en el
+cuadro 0, palabra clave en acento antes de 0.6 s. Un reel típico de 7-9 slides dura
+~45-75 s en `ensenar`. `--seconds` y `--fade` siguen sobrescribiendo la duración de las
+escenas y la transición.
+
 ### Flags
 
 | Flag | Efecto |
 |------|--------|
-| `--seconds=N` | Duración uniforme de todas las escenas (s); por defecto según la longitud del texto |
-| `--fade=N` | Duración de la transición entre escenas (s); por defecto 0.35 s |
+| `--pace=ensenar\|rapido` | Ritmo del reel (sobrescribe el `pace` del carrusel); un valor inválido falla con un mensaje claro |
+| `--seconds=N` | Duración uniforme de todas las escenas (s); por defecto según el texto y el ritmo |
+| `--fade=N` | Duración de la transición entre escenas (s); por defecto 0.5 s (`ensenar`) o 0.35 s (`rapido`) |
 | `--frames-only` | Solo exporta un PNG por escena en `output/<name>/reel/`, sin componer el video |
 | `--audio=ruta` | Muxea un archivo de audio (mp3, aac, etc.): se recorta a la duración del video con fade-out de 0.6 s; un audio más corto no acorta el video |
 
 ```bash
+npm run reel carousels/x.ts -- --pace=rapido     # ritmo ágil original
 npm run reel carousels/x.ts -- --seconds=2.5     # reel más ágil, duración fija
 npm run reel carousels/x.ts -- --fade=0.5        # transición más larga entre escenas
 npm run reel carousels/x.ts -- --audio=pista.mp3 # añade tu audio al video (TikTok/Shorts)
@@ -418,9 +439,12 @@ Para quienes escriben plantillas nuevas, aquí están los atributos que controla
 | `words` | El título entra palabra por palabra, subiendo (si dividirlo cambiara el corte de líneas, entra entero como `rise`) | Títulos de Hook, Lead, Step, Cta |
 | `pop` | La palabra clave crece levemente y pasa al color de acento al terminar el título | Palabra `highlight` |
 | `rise` | Sube y aparece | Subtítulos, body, etiquetas |
-| `stagger` | Los hijos aparecen de a uno, de abajo hacia arriba | Lista de bullets |
+| `stagger` | Los hijos aparecen de a uno, de abajo hacia arriba (cada 1.8 s en `ensenar`) | Lista de bullets |
 | `type` | Efecto máquina de escribir, con tope de duración | Texto de Prompt |
 | `strike` | Tacha el texto de izquierda a derecha, una barra por línea | Mito en MythReality |
+| `count` | El número cuenta desde 0 (respeta prefijos/sufijos; si no es numérico, entra como `rise`); la barra `[data-meter]` se llena en sincronía | Valor de Stat |
+| `check` | El ✓ crece de 0 a 1 cuando entra su bullet | Checklist de Step |
+| `caret` | El cursor parpadea (0.5 s) tras terminar de escribir | Prompt |
 
 Reglas:
 - Las marcas son inertes sin el runtime: si renderizas estático (p.ej. `npm run generate`),
