@@ -391,6 +391,11 @@ check("sceneSeconds (ensenar): clamp(2.4 + chars/16, 3.5, 8) + 1.0 en primera y 
   assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "ensenar"), 8);
   assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar"), 9);
   assert.equal(sceneSeconds({ body: "x".repeat(40) }, false, "ensenar"), 4.9);
+  // En ensenar se lee también el texto de Stat y del prompt; rapido conserva la lista original.
+  const stat = { value: "47%", label: "x".repeat(37), context: "y".repeat(40) };
+  assert.equal(sceneSeconds(stat, false, "ensenar"), 7.4);
+  assert.equal(sceneSeconds(stat, false, "rapido"), 2.4);
+  assert.equal(sceneSeconds({ heading: "x".repeat(8), prompt: "p".repeat(40) }, false, "ensenar"), 5.4);
 });
 
 check("sceneSeconds (ensenar): con bullets, al menos 1.0 + 1.8 × (bullets − 1) + 2.5", () => {

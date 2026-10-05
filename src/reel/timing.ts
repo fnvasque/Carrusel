@@ -53,11 +53,17 @@ export function parsePace(value: unknown, origin = "--pace"): Pace {
 }
 
 const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note"];
+/**
+ * En `ensenar` también se lee el texto de Stat (valor, etiqueta, contexto) y el
+ * prompt copiable. `rapido` conserva la lista original para reproducir
+ * exactamente los tiempos del motor anterior.
+ */
+const ENSENAR_TEXT_KEYS = [...TEXT_KEYS, "value", "label", "context", "prompt"];
 
 /** Caracteres de texto visibles de una escena (los que hay que leer). */
-function textChars(props: Record<string, unknown>): number {
+function textChars(props: Record<string, unknown>, keys: string[]): number {
   let chars = 0;
-  for (const k of TEXT_KEYS) {
+  for (const k of keys) {
     const v = props[k];
     if (typeof v === "string") chars += v.length;
     else if (Array.isArray(v)) chars += v.filter((x) => typeof x === "string").join(" ").length;
@@ -74,7 +80,7 @@ function textChars(props: Record<string, unknown>): number {
  *    tiempo para leer el último).
  */
 export function sceneSeconds(props: Record<string, unknown>, hold: boolean, pace: Pace = DEFAULT_PACE): number {
-  const chars = textChars(props);
+  const chars = textChars(props, pace === "rapido" ? TEXT_KEYS : ENSENAR_TEXT_KEYS);
   if (pace === "rapido") {
     const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
     return +(s + (hold ? 0.7 : 0)).toFixed(2);
