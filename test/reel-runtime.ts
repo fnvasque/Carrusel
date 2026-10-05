@@ -604,6 +604,27 @@ try {
     await assertSeekStable(p, t.total, starts[1].check + 0.1, '[data-scene="2"] li, [data-scene="2"] [data-anim="check"]', "check ensenar");
     await assertSeekStable(p, t.total, s4.start + s4.dur - t.transition - 0.25, '[data-scene="4"] [data-anim="caret"]', "caret ensenar");
     await p.close();
+
+    // Escena de bullets ajustada (la duración la fija la fórmula): el último
+    // bullet entra a más tardar BULLET_TAIL (2.5 s) antes del fin de la escena,
+    // manteniendo 1.8 s entre bullets.
+    const tight = {
+      name: "_bullets-justos",
+      slides: [
+        { template: Hook, props: { title: "Cuatro pasos", highlight: "pasos" } },
+        { template: Step, props: { step: "01", heading: "Haz esto", highlight: "esto", bullets: ["Uno corto", "Dos corto", "Tres corto", "Cuatro corto"] } },
+        { template: Hook, props: { title: "Fin del reel", highlight: "Fin" } },
+      ],
+    } as unknown as CarouselSpec;
+    const { page: q, timing: tq } = await open(browser, tight);
+    const sq = tq.scenes[1];
+    assert.equal(sq.dur, 1.0 + 1.8 * 3 + 2.5, "ensenar: la duración de la escena la fija la fórmula de bullets");
+    const tq1 = await bulletStarts(q, tq, 1);
+    for (let j = 1; j < tq1.length; j++) assert.ok(Math.abs(tq1[j].li - tq1[j - 1].li - 1.8) <= 1 / tq.fps + 1e-6, `ensenar (justo): bullet ${j} a 1.8 s del anterior`);
+    const lastStart = tq1[tq1.length - 1].li;
+    assert.ok(sq.start + sq.dur - lastStart >= 2.5 - 1 / tq.fps, `ensenar (justo): quedan ≥ 2.5 s tras el último bullet (${(sq.start + sq.dur - lastStart).toFixed(2)})`);
+    assertChecksInSync(tq1, 1.3, tq.fps, "ensenar (justo)");
+    await q.close();
     console.log(`✓ ritmo ensenar: hook intacto, entradas 1.3× más lentas, bullets cada 1.8 s con su ✓, barra en sincronía (${t.total}s)`);
   }
 } finally {

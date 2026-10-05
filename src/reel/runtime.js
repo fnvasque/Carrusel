@@ -145,8 +145,8 @@ document.fonts.ready.then(function () {
     // ctx: { hookTitle: el próximo words es el titular del hook (solo el primero
     // de la escena 0), slow: lentitud de la escena, carets: [] (cursores a
     // encender al terminar de escribir), post: [] (animaciones que van en la
-    // maestra fuera del presupuesto; reciben real(at) → segundo del reel y el
-    // fin de la escena) }.
+    // maestra fuera del presupuesto; reciben real(at) → segundo del reel, el
+    // fin de la escena y el inicio de sus entradas) }.
     function entrance(el, sub, at, ctx) {
       const kind = el.getAttribute("data-anim");
       if (kind === "rise") {
@@ -161,8 +161,13 @@ document.fonts.ready.then(function () {
           // STAGGER s desde su turno, sin comprimirse por el presupuesto (la
           // duración de la escena ya los cuenta, ver timing.ts). En la sub
           // solo ocupan la entrada del primero.
-          ctx.post.push(function (real) {
-            bullets(kids, master, real(at), ctx.slow);
+          // El primero sale en su turno, pero nunca más tarde de lo que deja
+          // T.bulletTail s de lectura tras el último (la fórmula de duración
+          // garantiza que ese límite cae ≥ 1.0 s después del inicio de la
+          // escena). Si se adelanta a su tarjeta, se ve cuando ella aparece.
+          ctx.post.push(function (real, end, begin) {
+            const latest = end - T.bulletTail - STAGGER * (kids.length - 1);
+            bullets(kids, master, Math.max(begin, Math.min(real(at), latest)), ctx.slow);
           });
           return ENTER;
         }
@@ -338,7 +343,7 @@ document.fonts.ready.then(function () {
       // Segundo del reel de una posición de la sub.
       const real = function (at) { return offset + at / scale; };
       const end = s.start + s.dur;
-      ctx.post.forEach(function (place) { place(real, end); });
+      ctx.post.forEach(function (place) { place(real, end, offset); });
       // Cursor: oculto hasta que termina de escribirse; luego on/off cada
       // CARET_BLINK s hasta el fin de la escena (sets: sin easing).
       ctx.carets.forEach(function (c) {

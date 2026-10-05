@@ -394,7 +394,7 @@ Cada carrusel puede fijar `pace` en su spec (`pace: "ensenar"` o `pace: "rapido"
 | Transición | 0.5 s | 0.35 s |
 | Presupuesto de entradas | `min(0.45 × dur, 2.4)` s | `min(0.4 × dur, 1.6)` s |
 | Entradas | 1.3× más lentas (salvo la escena 0) | como están |
-| Bullets (`stagger`) | de a uno cada 1.8 s, sin comprimir; cada ✓ con su bullet | cada 0.12 s |
+| Bullets (`stagger`) | de a uno cada 1.8 s, sin comprimir, con 2.5 s de lectura tras el último; cada ✓ con su bullet | cada 0.12 s |
 
 En ambos ritmos el hook (escena 0) es igual de rápido: titular completo y legible en el
 cuadro 0, palabra clave en acento antes de 0.6 s. Un reel típico de 7-9 slides dura

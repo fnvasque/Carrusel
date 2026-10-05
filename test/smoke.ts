@@ -411,7 +411,8 @@ check("sceneSeconds (ensenar): con bullets, al menos 1.0 + 1.8 × (bullets − 1
 
 check("reelTiming/specTiming (ensenar): transición 0.5, presupuesto min(0.45 × dur, 2.4), lentitud 1.3, bullets cada 1.8 s", () => {
   const t = reelTiming([4.5, 3.5, 8, 4.5]);
-  assert.deepEqual([t.pace, t.transition, t.entranceSlow, t.stagger], ["ensenar", 0.5, 1.3, 1.8]);
+  assert.deepEqual([t.pace, t.transition, t.entranceSlow, t.stagger, t.bulletTail], ["ensenar", 0.5, 1.3, 1.8, 2.5]);
+  assert.equal(reelTiming([3], undefined, "rapido").bulletTail, 0);
   assert.deepEqual(t.scenes.map((s) => s.start), [0, 4, 7, 14.5]);
   assert.equal(t.total, 19);
   assert.deepEqual(t.scenes.map((s) => s.budget), [2.025, 1.575, 2.4, 2.025]);

@@ -141,6 +141,11 @@ export interface ReelTiming {
   entranceSlow: number;
   /** Separación (s) entre bullets de un `stagger`; en `ensenar` no se comprime. */
   stagger: number;
+  /**
+   * Solo `ensenar`: segundos de lectura que quedan tras el último bullet hasta
+   * el fin de la escena (BULLET_TAIL); 0 en `rapido` (sin garantía).
+   */
+  bulletTail: number;
   total: number;
   frames: number;
   scenes: SceneTiming[];
@@ -175,7 +180,7 @@ export function reelTiming(durations: number[], transition?: number, pace: Pace 
   });
   const sum = durations.reduce((a, b) => a + b, 0);
   const total = +(sum - (durations.length - 1) * fade).toFixed(3);
-  return { fps, pace, transition: fade, entranceSlow: p.entranceSlow, stagger: p.stagger, total, frames: Math.round(total * fps), scenes };
+  return { fps, pace, transition: fade, entranceSlow: p.entranceSlow, stagger: p.stagger, bulletTail: pace === "ensenar" ? BULLET_TAIL : 0, total, frames: Math.round(total * fps), scenes };
 }
 
 export interface SpecTimingOptions {
