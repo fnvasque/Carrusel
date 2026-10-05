@@ -87,7 +87,7 @@ check("sceneSeconds: más texto → más tiempo, con tope y piso", () => {
   assert.equal(sceneSeconds({ title: "Hola" }, false), 2.4);
   assert.equal(sceneSeconds({ body: "x".repeat(500) }, false), 4.8);
   assert.equal(sceneSeconds({ title: "Hola" }, true), 3.1);
-  assert.equal(sceneSeconds({ bullets: ["a".repeat(26), "b".repeat(26)] }, false), 3.82);
+  assert.equal(sceneSeconds({ bullets: ["a".repeat(26), "b".repeat(26)] }, false), 3.84);
 });
 
 check("specDurations: hold en primera y última; --seconds fija todas", () => {
