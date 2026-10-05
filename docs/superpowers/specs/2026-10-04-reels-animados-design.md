@@ -106,6 +106,8 @@ Reglas:
   `timeScale = natural / presupuesto` a la sub-timeline (factor de compresión
   calculado por la función pura `entranceScale(natural, dur)` en `timing.ts`,
   replicada en el runtime).
+- Las entradas de la escena i > 0 arrancan en `start[i] + T/2` (a mitad del
+  empuje de entrada).
 - Hook: las entradas arrancan en t = 0 (incluido `bg`), así hay movimiento
   desde el cuadro 0. La primera escena no tiene transición de entrada.
 - Escena final: sin salida; queda quieta hasta el último cuadro.
