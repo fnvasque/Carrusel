@@ -367,28 +367,65 @@ npm run typecheck  # comprobación de tipos
 parsing de ingesta, catálogo de plantillas, validación de variaciones y scoring en memoria,
 sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el gate de calidad.
 
-## Reels (video 9:16)
+## Reels animados (video 9:16)
 
-Convierte cualquier carrusel en un Reel vertical (1080×1920) listo para Instagram,
-reutilizando las mismas plantillas. Requiere **ffmpeg** en el PATH.
+Convierte cualquier carrusel en un Reel vertical (1080×1920, 30 fps) **animado** con GSAP:
+cada slide entra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
+y las escenas se cruzan con un empuje vertical. Reutiliza las mismas plantillas del carrusel.
+Requiere **ffmpeg** en el PATH.
 
 ```bash
+npm install ffmpeg  # primera vez: brew install ffmpeg
 npm run reel carousels/mi-carrusel.ts
-# → output/mi-carrusel/reel.mp4
+# → output/mi-carrusel/reel.mp4 (1080×1920, 30 fps, sin audio)
 ```
 
-- Render nativo 9:16 con **zona segura** inferior (la UI de IG no tapa el texto).
-- **Duración por slide según su texto** (más texto = más tiempo de lectura), con hold en hook y CTA.
-- **Zoom sutil alternado** (Ken Burns) + **crossfades**, y una **barra de progreso cian** de marca.
-- Sin "DESLIZA →" (es video) y **sin audio** por defecto: súbelo a IG y añade un audio en tendencia ahí (más alcance).
+### Flags
 
-Opciones:
+| Flag | Efecto |
+|------|--------|
+| `--seconds=N` | Duración uniforme de todas las escenas (s); por defecto según la longitud del texto |
+| `--fade=N` | Duración de la transición entre escenas (s); por defecto 0.35 s |
+| `--frames-only` | Solo exporta un PNG por escena en `output/<name>/reel/`, sin componer el video |
+| `--audio=ruta` | Muxea un archivo de audio (mp3, aac, etc.) en el video final |
+
 ```bash
-npm run reel carousels/x.ts -- --seconds=2.5     # duración uniforme (reel más ágil)
-npm run reel carousels/x.ts -- --fade=0.5        # transición más larga
-npm run reel carousels/x.ts -- --audio=pista.mp3 # muxea tu audio (TikTok/Shorts/posteo nativo)
-npm run reel carousels/x.ts -- --frames-only     # solo los PNG 9:16, sin video
+npm run reel carousels/x.ts -- --seconds=2.5     # reel más ágil, duración fija
+npm run reel carousels/x.ts -- --fade=0.5        # transición más larga entre escenas
+npm run reel carousels/x.ts -- --audio=pista.mp3 # añade tu audio al video (TikTok/Shorts)
+npm run reel carousels/x.ts -- --frames-only     # solo los 9:16 PNG, sin video
 ```
+
+### Pruebas
+
+```bash
+npm run test:reel  # valida timing, markup y captura (requiere Chromium + ffmpeg)
+```
+
+Ejecuta dos suites:
+1. **Timing y runtime**: segundos por escena, inicios con transición, duración total, cuadros a 30 fps.
+2. **Captura**: Chromium + Playwright capturan cada cuadro y lo envían por stdin a ffmpeg.
+
+### Marcas de animación (`data-anim`)
+
+Para quienes escriben plantillas nuevas, aquí están los atributos que controlan qué y cómo se anima:
+
+| `data-anim` | Efecto | Uso |
+|---|---|---|
+| `bg` | Escala 1.06 → 1.0 durante toda la escena, lineal | `Frame` (fondo) |
+| `words` | Cada palabra entra desde abajo (opacidad 0 → 1, desplazamiento -60% → 0), stagger 0.06 s | Títulos de Hook, Lead, Step, Cta |
+| `pop` | Resalta la palabra clave: escala 0.9 → 1 y color → acento cian, 0.35 s | Palabra `highlight` |
+| `rise` | Sube desde abajo (desplazamiento +40 px → 0, opacidad 0 → 1), 0.45 s | Subtítulos, body, etiquetas |
+| `stagger` | Hijos entran como `rise`, uno cada 0.12 s | Lista de bullets |
+| `type` | Revelado carácter por carácter, duración min(1.5 s, 0.03 × chars) | Texto de Prompt |
+| `strike` | Línea que pasa de izquierda a derecha, 0.4 s | Mito en MythReality |
+
+Reglas:
+- Las marcas son inertes sin el runtime: si renderizas estático (p.ej. `npm run generate`),
+  el markup de `data-anim` se ignora.
+- Orden dentro de una escena: los elementos animados entran en orden de documento; cada uno
+  empieza cuando el anterior alcanza el 60% de su duración.
+- El logo, chip de pilar, barra de progreso y fuente al pie no se animan.
 
 ## Roadmap
 
