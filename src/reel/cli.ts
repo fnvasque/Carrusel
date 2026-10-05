@@ -4,9 +4,9 @@ import { renderReel } from "./renderReel.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 
 /**
- * Genera un Reel 9:16 a partir de un carrusel: renderiza los slides en vertical
- * (1080×1920) y los compone en output/<name>/reel.mp4 (zoom sutil + crossfades,
- * sin audio; el trending se añade en Instagram).
+ * Genera un Reel 9:16 animado a partir de un carrusel (entradas con GSAP,
+ * transiciones verticales, sin audio) en output/<name>/reel.mp4; el trending
+ * se añade en Instagram.
  *
  * Uso:
  *   npm run reel carousels/mi-carrusel.ts
@@ -28,11 +28,11 @@ function strFlag(name: string): string | undefined {
 async function main() {
   const file = process.argv[2];
   if (!file) {
-    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --seconds=N --fade=N --frames-only]");
+    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --seconds=N --fade=N (transición) --frames-only --audio=ruta]");
     process.exit(1);
   }
   const seconds = numFlag("seconds"); // override opcional: duración uniforme
-  const fade = numFlag("fade") ?? 0.4;
+  const fade = numFlag("fade");
   const audio = strFlag("audio"); // pista opcional; por defecto sin audio
   const framesOnly = process.argv.includes("--frames-only");
 
