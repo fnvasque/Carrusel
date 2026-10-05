@@ -9,7 +9,9 @@ import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/inge
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
-import { THRESHOLD } from "../src/score/virality.ts";
+import { THRESHOLD, scoreCarousel } from "../src/score/virality.ts";
+import { pillContent } from "../src/templates/Cta.tsx";
+import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
@@ -441,6 +443,76 @@ check("fitDisplaySize: cortos al máximo, largos más chicos y dentro de maxLine
   const long = "Seis niveles para que nadie te haga scroll nunca más";
   const s = fitDisplaySize(long, 150, { maxLines: 4 });
   assert.ok(s < 150 && estimateLines(long, s) <= 4, `tamaño ${s}`);
+});
+
+check("remix: Stat en el catálogo (nombre, props) y en draftToSpec", () => {
+  assert.equal(isTemplateName("Stat"), true);
+  const keys = validPropKeys("Stat");
+  for (const k of ["value", "label", "context", "source", "index"]) assert.ok(keys.has(k), k);
+  assert.ok(!keys.has("bullets"));
+  assert.ok(validPropKeys("Hook").has("mark"));
+  assert.ok(validPropKeys("Cta").has("ctaIcon"));
+  const v = validateDraft({ name: "s", angle: "x", pillar: "noticia", slides: [{ template: "Stat", props: { label: "del valor" } }] });
+  const stat = v.slides.find((x) => x.template === "Stat")!;
+  assert.equal(stat.props.value, "…", "value requerido se rellena");
+  const spec = draftToSpec(v);
+  assert.equal(spec.slides.find((x) => x.template === Stat)?.template, Stat);
+});
+
+check("viralidad: Stat cuenta como desarrollo accionable y como slide numerado", () => {
+  const hook = { template: Hook, props: { title: "Hook" } };
+  const cta = { template: Cta, props: { title: "Fin" } };
+  const withStat = scoreCarousel({ name: "a", slides: [hook, { template: Stat, props: { value: "47%", label: "del valor", context: "Usa esa ventana." } }, cta] });
+  const withLead = scoreCarousel({ name: "b", slides: [hook, { template: Lead, props: { text: "Usa esa ventana." } }, cta] });
+  const dim = (r: typeof withStat, n: string) => r.dimensions.find((d) => d.name === n)!.score;
+  assert.equal(dim(withStat, "Retención") - dim(withLead, "Retención"), 7, "Stat con número = slide numerado");
+  assert.ok(dim(withStat, "Accionable") > dim(withLead, "Accionable"), "Stat entra en los slides de desarrollo");
+  const nonNumeric = scoreCarousel({ name: "c", slides: [hook, { template: Stat, props: { value: "Gratis", label: "x" } }, cta] });
+  assert.equal(dim(nonNumeric, "Retención"), dim(withLead, "Retención"), "un Stat sin número no cuenta como numerado");
+});
+
+check("mono sin ligaduras: el código se ve como se escribe", () => {
+  const p = renderToStaticMarkup(createElement(Prompt, { heading: "H", prompt: "pip install kokoro>=0.9.4" }));
+  const typeDiv = p.match(/<div data-anim="type" style="([^"]*)"/)![1];
+  assert.match(typeDiv, /font-variant-ligatures:none/);
+  assert.match(typeDiv, /font-feature-settings:&quot;liga&quot; 0, &quot;calt&quot; 0/);
+  assert.match(p, /kokoro&gt;=0\.9\.4/);
+  const step = renderToStaticMarkup(createElement(Step, { heading: "H", pillar: "noticia", index: 2, source: "a->b" }));
+  for (const m of step.match(/<span data-brand="(label|source)" style="[^"]*"/g) ?? []) assert.match(m, /font-variant-ligatures:none/);
+});
+
+check("Cta: la pastilla quita emoji y usa ícono SVG", () => {
+  assert.deepEqual(pillContent("Guardar 🔖"), { text: "Guardar", icon: "bookmark" });
+  assert.deepEqual(pillContent("Compartir ↗"), { text: "Compartir", icon: "share" });
+  assert.deepEqual(pillContent("Link en bio →"), { text: "Link en bio →", icon: undefined });
+  assert.deepEqual(pillContent("Guardar 🔖", "none"), { text: "Guardar", icon: undefined });
+  const html = renderToStaticMarkup(createElement(Cta, { title: "T", cta: "Guardar 🔖" }));
+  assert.doesNotMatch(html, /🔖/);
+  assert.match(html, />Guardar<svg/);
+});
+
+check("layout: la fuente al pie reserva su alto real y Step/Stat se ajustan al área", () => {
+  const long = "Fuente: un informe con un nombre muy largo, publicado por una organización con un nombre igual de largo, 2026";
+  assert.equal(sourceLines("Fuente: X"), 1);
+  assert.ok(sourceLines(long) >= 2);
+  assert.ok(contentHeight("post", long) < contentHeight("post", "Fuente: X"));
+  assert.ok(contentHeight("reel") < 1920 - 440 - 150);
+  assert.equal(wrapLines("a\nb c", 10, 1000), 2);
+  const big = (html: string) => Number(html.match(/<li[^>]*font-size:(\d+)px/)![1]);
+  const few = renderToStaticMarkup(createElement(Step, { heading: "Paso", step: "01", bullets: ["Corta"] }));
+  const LONG = "Una viñeta larga de verdad, con bastante texto para ocupar dos líneas";
+  const many = renderToStaticMarkup(createElement(Step, { heading: "Paso", step: "01", bullets: [LONG, LONG, LONG, LONG, LONG], source: long, format: "reel" }));
+  assert.ok(big(many) <= big(few), "más viñetas → cuerpo igual o menor");
+  assert.ok(big(many) >= 36, "nunca bajo 36 px");
+  const wrapped = renderToStaticMarkup(createElement(Stat, { value: "1 de cada 3 personas", label: "x" }));
+  assert.match(wrapped, /data-anim="count" style="[^"]*white-space:normal/, "valor largo no numérico se parte en líneas");
+  const one = renderToStaticMarkup(createElement(Stat, { value: "47%", label: "x" }));
+  assert.match(one, /data-anim="count" style="[^"]*white-space:nowrap/);
+});
+
+check("highlight: la puntuación pegada no se separa de la palabra clave", () => {
+  const h = renderToStaticMarkup(createElement(Hook, { title: "Narra gratis, sin salir", highlight: "gratis" }));
+  assert.match(h, /<span style="white-space:nowrap"><span data-anim="pop"[^>]*>gratis<\/span>,<\/span>/);
 });
 
 check("plantillas: formato post sin capa bg ni strike", () => {

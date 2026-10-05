@@ -1,14 +1,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { Background, Pillar, Format } from "./types.ts";
 import { FORMATS } from "./types.ts";
-import { theme, pillarColor } from "../theme.ts";
+import { theme, pillarColor, monoText } from "../theme.ts";
+import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP, POST_PAD_Y, HEADER_HEIGHT, CONTENT_GAP_TOP, SOURCE_SIZE, sourceReserve, opticalLift } from "./layout.ts";
 
-/** Margen inferior reservado en Reels: la UI de IG tapa los últimos ~420px. */
-export const REEL_SAFE_BOTTOM = 440;
-/** Margen superior en Reels (la cabecera de IG tapa el borde de arriba). */
-const REEL_SAFE_TOP = 150;
-/** Alto de la cabecera de marca (etiqueta + wordmark) y aire bajo ella. */
-export const HEADER_HEIGHT = 44;
+export { REEL_SAFE_BOTTOM, HEADER_HEIGHT };
 
 /**
  * Capa base de cada slide: ocupa el lienzo completo (1080x1350 o 1080x1920) y
@@ -22,6 +18,12 @@ export const HEADER_HEIGHT = 44;
  * En Reel, el fondo opcional va en una capa `data-anim="bg"` y la grilla en una
  * capa propia `data-grid` (más grande que el lienzo, para poder derivar); en
  * post, todo es estático. Las plantillas envuelven su contenido en <Frame>.
+ *
+ * El área de contenido va entre la cabecera y la fuente al pie (se reserva el
+ * alto real de la fuente, según su nº de líneas) y deja abajo un alza óptica,
+ * para que un bloque centrado quede algo por encima del centro geométrico.
+ * `total` no se pinta (la etiqueta solo lleva el nº de slide): se acepta para
+ * que las plantillas puedan pasar sus props base tal cual.
  */
 export function Frame({
   background,
@@ -29,7 +31,6 @@ export function Frame({
   color,
   pillar,
   index,
-  total: _total,
   source,
   showLogo = true,
   format = "post",
@@ -63,9 +64,9 @@ export function Frame({
         flexDirection: "column",
         boxSizing: "border-box",
         padding: theme.padding,
-        paddingTop: reel ? REEL_SAFE_TOP : theme.padding - 24,
+        paddingTop: reel ? REEL_SAFE_TOP : POST_PAD_Y,
         // En Reel, reserva la zona segura inferior (UI de IG) sin tapar el contenido.
-        paddingBottom: reel ? REEL_SAFE_BOTTOM : theme.padding - 24,
+        paddingBottom: reel ? REEL_SAFE_BOTTOM : POST_PAD_Y,
         fontFamily: fontFamily ?? theme.fontFamily,
         color: color ?? theme.colors.text,
         backgroundColor: theme.colors.bg,
@@ -98,7 +99,7 @@ export function Frame({
             <span
               data-brand="label"
               style={{
-                fontFamily: theme.fonts.mono,
+                ...monoText,
                 fontSize: theme.fontSize.label,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -128,7 +129,7 @@ export function Frame({
           )}
         </div>
         {/* Contenido del slide */}
-        <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: 40, paddingBottom: source ? 56 : 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + opticalLift(format) }}>
           {children}
         </div>
         {/* Marca: fuente al pie */}
@@ -140,8 +141,8 @@ export function Frame({
               bottom: 0,
               left: 0,
               right: 0,
-              fontFamily: theme.fonts.mono,
-              fontSize: 24,
+              ...monoText,
+              fontSize: SOURCE_SIZE,
               lineHeight: 1.35,
               letterSpacing: "0.02em",
               color: theme.colors.textMuted,

@@ -28,7 +28,7 @@ export type Background =
   | { gradient: string; overlay?: number }
   /**
    * Prompt para generar la imagen con gpt-image-1. Por defecto se le anexa el
-   * estilo visual de la marca (navy + cyan rim light); `brandStyle: false` lo
+   * estilo visual de la marca (casi negro con acentos lima); `brandStyle: false` lo
    * desactiva para usar el prompt tal cual.
    */
   | { ai: string; overlay?: number; brandStyle?: boolean }
@@ -37,7 +37,7 @@ export type Background =
 
 /**
  * Pilar de contenido de la marca (design-brand.md §5/§7). Fija el color del
- * chip que pinta `Frame`: herramienta/prompt → cian, noticia → violeta,
+ * chip que pinta `Frame`: herramienta/prompt → lima, noticia → violeta,
  * curiosidad → rosa.
  */
 export type Pillar = "herramienta" | "noticia" | "prompt" | "curiosidad";

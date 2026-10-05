@@ -15,7 +15,7 @@ export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; option
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
-  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta"] },
+  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
 };
 
 /** Props comunes a todas las plantillas (BaseSlideProps), siempre permitidas. */

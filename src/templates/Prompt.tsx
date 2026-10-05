@@ -1,8 +1,9 @@
 import { Frame } from "./Frame.tsx";
-import { fitDisplaySize } from "./fit.ts";
+import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
+import { contentHeight, antonHeight, interHeight, wrapLines, pickFit, CHAR_EM } from "./layout.ts";
 import { Card } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
-import { theme } from "../theme.ts";
+import { theme, monoText } from "../theme.ts";
 
 export interface PromptProps extends BaseSlideProps {
   /** Título del slide. ≤6 palabras. */
@@ -18,22 +19,48 @@ export interface PromptProps extends BaseSlideProps {
  * con 3 puntos y título mono ("copia este prompt"), texto mono y cursor lima al
  * final (`data-anim="caret"`). Muy guardable.
  */
-export function Prompt({ heading, prompt, note, accent, format, ...base }: PromptProps) {
+export function Prompt({ heading, prompt, note, accent, format = "post", ...base }: PromptProps) {
   const lime = accent ?? theme.colors.accent;
-  // Prompts largos bajan un punto para no desbordar la ventana.
   const reel = format === "reel";
-  // Igual en reel: el mismo ancho útil, y un comando no debe partirse en otra línea.
-  const codeSize = prompt.length > 200 ? 32 : prompt.length <= 90 ? 40 : theme.fontSize.code;
+  const available = contentHeight(format, base.source);
+  // De la más grande a la más chica: las primeras llenan el área con un prompt
+  // corto (heading mayor, ventana con más líneas de alto mínimo); las últimas
+  // achican el código para que un prompt largo quepa.
+  const candidates = [
+    ...[6, 5].map((minLines) => ({ code: 40, minLines: minLines + (reel ? 2 : 0), headingMax: reel ? 136 : 120, gap: reel ? 60 : 52 })),
+    ...[40, 38, 36, 34, 32, 30, 28, 26].map((code) => ({
+      code,
+      minLines: reel ? 6 : 4,
+      headingMax: Math.round((reel ? 116 : theme.fontSize.heading) * Math.min(1, code / 36)),
+      gap: reel ? 52 : 44,
+    })),
+  ];
+  const codeW = CONTENT_WIDTH - 4 - 96;
+  const explicitLines = prompt.split("\n").length;
+  const codeLines = (code: number) => wrapLines(prompt, code * CHAR_EM.mono, codeW);
+  const height = (c: (typeof candidates)[number]) => {
+    const hs = fitDisplaySize(heading, c.headingMax, { maxLines: 2 });
+    let h = antonHeight(heading, hs, 1.0) + c.gap + 86 + 92 + Math.max(codeLines(c.code), c.minLines) * c.code * 1.5;
+    if (note) h += c.gap + interHeight(note, 40, CONTENT_WIDTH - 48, 1.35);
+    return h;
+  };
+  // Prefiere el mayor tamaño que cabe sin partir ninguna línea del código; si
+  // no hay, el mayor que cabe (un comando partido es peor que un punto menos).
+  // (Solo si ese tamaño sigue siendo legible: un prompt en prosa sí puede partirse.)
+  const sc =
+    candidates.find((c) => c.code >= 34 && height(c) <= available && codeLines(c.code) === explicitLines) ??
+    pickFit(candidates, height, available);
+  const codeSize = sc.code;
   return (
     <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 44 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: sc.gap }}>
         <h2
           data-anim="words"
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
             fontWeight: 400,
-            fontSize: fitDisplaySize(heading, theme.fontSize.heading + (reel ? 16 : 0), { maxLines: 2 }),
+            fontSize: fitDisplaySize(heading, sc.headingMax, { maxLines: 2 }),
             lineHeight: 1.0,
             textTransform: "uppercase",
             textWrap: "balance",
@@ -57,13 +84,13 @@ export function Prompt({ heading, prompt, note, accent, format, ...base }: Promp
             {[theme.colors.pink, theme.colors.violet, lime].map((c) => (
               <span key={c} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: c }} />
             ))}
-            <span style={{ marginLeft: 18, fontFamily: theme.fonts.mono, fontSize: 26, letterSpacing: "0.08em", color: theme.colors.textMuted }}>
+            <span style={{ marginLeft: 18, ...monoText, fontSize: 26, letterSpacing: "0.08em", color: theme.colors.textMuted }}>
               copia-este-prompt
             </span>
             <span
               style={{
                 marginLeft: "auto",
-                fontFamily: theme.fonts.mono,
+                ...monoText,
                 fontSize: 22,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
@@ -81,9 +108,9 @@ export function Prompt({ heading, prompt, note, accent, format, ...base }: Promp
             style={{
               padding: "44px 48px 48px",
               // Ventana con cuerpo mínimo: un prompt de 1-2 líneas no queda como una franja.
-              minHeight: codeSize * 1.5 * 4 + 92,
+              minHeight: codeSize * 1.5 * sc.minLines + 92,
               boxSizing: "border-box",
-              fontFamily: theme.fonts.mono,
+              ...monoText,
               fontSize: codeSize,
               lineHeight: 1.5,
               color: theme.colors.text,
@@ -99,7 +126,7 @@ export function Prompt({ heading, prompt, note, accent, format, ...base }: Promp
         </Card>
         {note && (
           <p data-anim="rise" style={{ margin: 0, display: "flex", gap: 20, fontFamily: theme.fonts.body, fontSize: 40, lineHeight: 1.35, color: theme.colors.textSoft }}>
-            <span style={{ color: lime, fontFamily: theme.fonts.mono }}>→</span>
+            <span style={{ color: lime, ...monoText }}>→</span>
             <span>{note}</span>
           </p>
         )}

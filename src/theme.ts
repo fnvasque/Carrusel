@@ -63,6 +63,16 @@ export const theme = {
   padding: 96,
 } as const;
 
+/**
+ * Estilo base de todo texto mono: JetBrains Mono SIN ligaduras, para que el
+ * código se vea exactamente como se escribe (">=" no debe volverse "≥").
+ */
+export const monoText = {
+  fontFamily: theme.fonts.mono,
+  fontVariantLigatures: "none",
+  fontFeatureSettings: '"liga" 0, "calt" 0',
+} as const;
+
 /** Color del pilar de contenido: herramienta/prompt → lima, noticia → violeta, curiosidad → rosa. */
 export function pillarColor(pillar?: Pillar): string {
   switch (pillar) {

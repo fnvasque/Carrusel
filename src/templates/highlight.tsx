@@ -36,7 +36,12 @@ export function highlightText(
   ranges.forEach((r, k) => {
     if (r.start > at) out.push(text.slice(at, r.start));
     const match = text.slice(r.start, r.end);
-    out.push(
+    // Puntuación pegada a la palabra ("gratis,"): va en un nowrap junto con
+    // ella, para que no quede sola al inicio de la línea siguiente (SplitText
+    // la separa en su propia "palabra" en el reel).
+    const next = ranges[k + 1]?.start ?? text.length;
+    const punct = (text.slice(r.end, next).match(/^[,.;:!?…)»"'”]+/) ?? [""])[0];
+    const el =
       r.kind === "pop" ? (
         // nowrap: la palabra clave no se parte entre líneas (igual en post y reel).
         <span key={k} data-anim="pop" style={{ color, whiteSpace: "nowrap" }}>
@@ -60,9 +65,18 @@ export function highlightText(
         >
           {match}
         </span>
+      );
+    out.push(
+      punct ? (
+        <span key={`p${k}`} style={{ whiteSpace: "nowrap" }}>
+          {el}
+          {punct}
+        </span>
+      ) : (
+        el
       ),
     );
-    at = r.end;
+    at = r.end + punct.length;
   });
   if (at < text.length) out.push(text.slice(at));
   return <>{out}</>;

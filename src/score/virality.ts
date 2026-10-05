@@ -86,7 +86,7 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
     if (/\d/.test(title)) { hook += 6; } else { hookNotes.push("sin número en el titular"); suggestions.push("Añade un número concreto al hook (ej. '3', '90%')."); }
     if (has(sub, ENEMY)) { hook += 8; } else { hookNotes.push("sin enemigo/tensión"); suggestions.push("Pon un enemigo o tensión al frente del hook (no/deja de/mentira/gratis…)."); }
     if (has(sub, OPEN_LOOP)) { hook += 6; } else { hookNotes.push("sin bucle abierto"); suggestions.push("Abre un bucle de curiosidad (#3, 'todavía', 'por qué')."); }
-    if (typeof p.highlight === "string" && p.highlight) { hook += 5; } else { hookNotes.push("sin palabra clave en cian"); suggestions.push("Define `highlight` para resaltar 1-2 palabras en cian."); }
+    if (typeof p.highlight === "string" && p.highlight) { hook += 5; } else { hookNotes.push("sin palabra clave en lima"); suggestions.push("Define `highlight` para resaltar 1-2 palabras en lima."); }
     const len = title.length;
     if (len >= 12 && len <= 48) { hook += 5; } else { hookNotes.push(`largo del titular fuera de rango (${len})`); }
   }

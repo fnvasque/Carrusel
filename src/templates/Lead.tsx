@@ -1,6 +1,8 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
 import { MonoLabel } from "./ui.tsx";
+import { CONTENT_WIDTH } from "./fit.ts";
+import { contentHeight, wrapLines, pickFit, CHAR_EM } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -21,7 +23,14 @@ export function Lead({ kicker, text, highlight, accent, format, ...base }: LeadP
   const lime = accent ?? theme.colors.accent;
   const reel = format === "reel";
   // Frase grande: protagonista del slide. Si es larga, baja un escalón.
-  const size = (text.length <= 72 ? 80 : text.length <= 110 ? theme.fontSize.lead : 58) + (reel ? 10 : 0);
+  // Frase grande: el mayor tamaño (con tope) que cabe en ≤ 5 líneas y en el área útil.
+  const max = reel ? 92 : 84;
+  const lines = (s: number) => wrapLines(text, s * CHAR_EM.interSemibold, CONTENT_WIDTH);
+  const size = pickFit(
+    [92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
+    (s) => (lines(s) > 5 ? Infinity : 48 + lines(s) * s * 1.18),
+    contentHeight(format, base.source),
+  );
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 40 }}>

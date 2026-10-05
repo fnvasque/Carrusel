@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { theme } from "../theme.ts";
+import { theme, monoText } from "../theme.ts";
 
 /**
  * Piezas visuales compartidas del look lima (tarjeta, etiqueta mono, círculo
@@ -12,7 +12,7 @@ export function MonoLabel({ children, color, style, anim }: { children: ReactNod
     <span
       {...(anim ? { "data-anim": anim } : {})}
       style={{
-        fontFamily: theme.fonts.mono,
+        ...monoText,
         fontSize: theme.fontSize.label,
         letterSpacing: "0.16em",
         textTransform: "uppercase",
@@ -71,6 +71,24 @@ export function BookmarkIcon({ size = 96, color = theme.colors.accent }: { size?
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round">
       <path d="M6 3.5h12a.5.5 0 0 1 .5.5v16.6a.4.4 0 0 1-.65.3L12 16.2l-5.85 4.7a.4.4 0 0 1-.65-.3V4a.5.5 0 0 1 .5-.5z" />
+    </svg>
+  );
+}
+
+/** Íconos de trazo para la pastilla del CTA (sustituyen a los emoji, que el render headless pinta mal). */
+export type PillIconName = "bookmark" | "arrow" | "share";
+
+const PILL_PATHS: Record<PillIconName, string> = {
+  bookmark: "M6 3.5h12a.5.5 0 0 1 .5.5v16.6a.4.4 0 0 1-.65.3L12 16.2l-5.85 4.7a.4.4 0 0 1-.65-.3V4a.5.5 0 0 1 .5-.5z",
+  arrow: "M4 12h15M13 6l6 6-6 6",
+  share: "M7 17 17 7M8 7h9v9",
+};
+
+/** Ícono de trazo `name`, del tamaño del texto (1em) y en el color del texto. */
+export function PillIcon({ name, color = "currentColor" }: { name: PillIconName; color?: string }) {
+  return (
+    <svg width="0.9em" height="0.9em" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+      <path d={PILL_PATHS[name]} />
     </svg>
   );
 }

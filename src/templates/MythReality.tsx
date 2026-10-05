@@ -1,7 +1,9 @@
 import { Frame } from "./Frame.tsx";
 import { Card } from "./ui.tsx";
+import { CONTENT_WIDTH } from "./fit.ts";
+import { contentHeight, antonHeight, pickFit } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
-import { theme } from "../theme.ts";
+import { theme, monoText } from "../theme.ts";
 
 export interface MythRealityProps extends BaseSlideProps {
   /** El mito / lo que se cree. */
@@ -29,13 +31,21 @@ export function MythReality({
   ...base
 }: MythRealityProps) {
   const lime = accent ?? theme.colors.accent;
-  const longest = Math.max(myth.length, reality.length);
-  const size = (longest > 70 ? 54 : longest > 44 ? 60 : theme.fontSize.myth) + (format === "reel" ? 14 : 0);
+  const reel = format === "reel";
+  // Mayor tamaño (con tope) que deja las dos tarjetas dentro del área útil.
+  const max = reel ? 84 : 76;
+  const textW = CONTENT_WIDTH - 104 - 6;
+  const cardH = (t: string, size: number) => 44 + 52 + 6 + 44 + 24 + antonHeight(t, size, 1.08, textW);
+  const size = pickFit(
+    [96, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44].filter((s) => s <= max),
+    (s) => cardH(myth, s) + cardH(reality, s) + 28,
+    contentHeight(format, base.source),
+  );
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 28 }}>
-        <Panel kind="myth" label={mythLabel} text={myth} size={size} reel={format === "reel"} lime={lime} />
-        <Panel kind="reality" label={realityLabel} text={reality} size={size} reel={format === "reel"} lime={lime} />
+        <Panel kind="myth" label={mythLabel} text={myth} size={size} reel={reel} lime={lime} />
+        <Panel kind="reality" label={realityLabel} text={reality} size={size} reel={reel} lime={lime} />
       </div>
     </Frame>
   );
@@ -93,7 +103,7 @@ function Panel({ kind, label, text, size, reel, lime }: { kind: "myth" | "realit
             {myth ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="m5 12 5 5 9-10" />}
           </svg>
         </span>
-        <span style={{ fontFamily: theme.fonts.mono, fontSize: theme.fontSize.label, letterSpacing: "0.16em", textTransform: "uppercase", color: tone }}>
+        <span style={{ ...monoText, fontSize: theme.fontSize.label, letterSpacing: "0.16em", textTransform: "uppercase", color: tone }}>
           {label}
         </span>
       </div>
