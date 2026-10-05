@@ -16,8 +16,8 @@ import type { CarouselSpec } from "../templates/types.ts";
 function numFlag(name: string): number | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   if (!hit) return undefined;
-  const n = Number(hit.split("=")[1]);
-  return Number.isFinite(n) ? n : undefined;
+  // Un valor no numérico llega como NaN y reelTiming lo rechaza con un mensaje claro.
+  return Number(hit.split("=")[1]);
 }
 
 function strFlag(name: string): string | undefined {

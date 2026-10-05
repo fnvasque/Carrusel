@@ -67,6 +67,13 @@ export interface ReelTiming {
  */
 export function reelTiming(durations: number[], transition = DEFAULT_TRANSITION, fps = FPS): ReelTiming {
   if (durations.length === 0) throw new Error("El reel necesita al menos una escena.");
+  const bad = durations.findIndex((d) => !Number.isFinite(d) || d <= 0);
+  if (bad !== -1) {
+    throw new Error(`La duración de la escena ${bad + 1} (${durations[bad]}) no es válida: --seconds debe ser un número mayor que 0.`);
+  }
+  if (!Number.isFinite(transition) || transition < 0) {
+    throw new Error(`La transición (${transition}) no es válida: --fade debe ser un número mayor o igual a 0.`);
+  }
   if (durations.length > 1 && transition * 2 >= Math.min(...durations)) {
     throw new Error(
       `La transición (${transition}s) es demasiado larga para escenas de ${Math.min(...durations)}s: debe durar menos de la mitad de la escena más corta.`,

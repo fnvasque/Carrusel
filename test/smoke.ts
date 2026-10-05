@@ -345,6 +345,16 @@ check("reelTiming: transición demasiado larga → error claro", () => {
   assert.throws(() => reelTiming([]), /escena/);
 });
 
+check("reelTiming: duraciones y transición inválidas → error claro en español", () => {
+  for (const d of [0, -1, NaN, Infinity]) {
+    assert.throws(() => reelTiming([3, d]), /--seconds debe ser un número mayor que 0/, `duración ${d}`);
+  }
+  for (const f of [-0.1, NaN, Infinity]) {
+    assert.throws(() => reelTiming([3, 3], f), /--fade debe ser un número mayor o igual a 0/, `transición ${f}`);
+  }
+  assert.equal(reelTiming([3, 3], 0).total, 6);
+});
+
 check("entranceBudget/entranceScale: comprime solo si hace falta", () => {
   assert.equal(entranceBudget(3), 1.2);
   assert.equal(entranceBudget(10), 1.6);
