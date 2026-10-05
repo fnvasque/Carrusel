@@ -13,6 +13,7 @@ import { extractShortcode, extractUsername, findByShortcode, hasMorePages, media
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
 import { sceneSeconds, specDurations, entranceBudget, entranceScale, reelTiming, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
+import { buildReelPage } from "../src/reel/page.ts";
 
 /**
  * Smoke tests offline del pipeline de remix: solo funciones puras (parsing de
@@ -25,6 +26,18 @@ let failed = 0;
 function check(name: string, fn: () => void): void {
   try {
     fn();
+    passed++;
+    console.log("✓", name);
+  } catch (e) {
+    failed++;
+    console.error("✗", name, "—", e instanceof Error ? e.message : e);
+  }
+}
+
+/** Igual que `check`, para casos async (se esperan con `await` en el top-level). */
+async function checkAsync(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
     passed++;
     console.log("✓", name);
   } catch (e) {
@@ -364,6 +377,24 @@ check("plantillas: formato post sin capa bg ni strike", () => {
   const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R" }));
   assert.doesNotMatch(hook, /data-anim="bg"/);
   assert.doesNotMatch(myth, /data-anim="strike"/);
+});
+
+// --- reel: página única ---
+await checkAsync("buildReelPage: una escena por slide, GSAP y tiempos inline", async () => {
+  const spec = {
+    name: "t",
+    slides: [
+      { template: Hook, props: { title: "Hola mundo", highlight: "mundo" } },
+      { template: Cta, props: { title: "Chao" } },
+    ],
+  };
+  const timing = reelTiming([3, 3]);
+  const html = await buildReelPage(spec as any, timing);
+  assert.equal((html.match(/data-scene="/g) ?? []).length, 2);
+  assert.match(html, /window\.__REEL_TIMING__\s*=\s*\{/);
+  assert.match(html, /SplitText/);
+  assert.match(html, /__reel\s*=/);
+  assert.match(html, /data-anim="pop"/);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

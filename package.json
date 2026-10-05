@@ -13,6 +13,7 @@
     "record": "tsx src/score/record.ts",
     "calibrate": "tsx src/score/calibrate.ts",
     "typecheck": "tsc --noEmit",
+    "test:reel": "tsx test/reel-runtime.ts",
     "test": "tsx test/smoke.ts && tsx test/kb.ts",
     "kb:add": "tsx src/kb/cli.ts add",
     "kb:ask": "tsx src/kb/cli.ts ask",
@@ -25,6 +26,7 @@
   "dependencies": {
     "grammy": "^1.46.0",
     "gray-matter": "^4.0.3",
+    "gsap": "^3.15.0",
     "openai": "^4.67.0",
     "playwright": "^1.48.0",
     "react": "^18.3.1",
