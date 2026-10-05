@@ -2,7 +2,7 @@ import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
 import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
 import { Card, CheckCircle } from "./ui.tsx";
-import { contentHeight, antonHeight, interHeight, pickFit } from "./layout.ts";
+import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps, Format } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -18,6 +18,12 @@ export interface StepProps extends BaseSlideProps {
   /** Lista de viñetas (alternativa o complemento a `body`): se pintan como checklist. */
   bullets?: string[];
 }
+
+/**
+ * Fill del reel para Step: su estimador sobreestima ~15 % (viñetas y tarjeta),
+ * así que pide más para terminar ocupando ~75-85 % real del alto útil.
+ */
+const STEP_REEL_FILL = 0.96;
 
 /** Medidas de un Step a una escala dada. */
 interface StepScale {
@@ -41,11 +47,11 @@ interface StepScale {
  */
 function scales(format: Format): StepScale[] {
   const reel = format === "reel";
-  const k = [1.2, 1.1, 1.0, 0.9, 0.8, 0.72, 0.66];
+  const k = [...(reel ? [1.4, 1.3] : []), 1.2, 1.1, 1.0, 0.9, 0.8, 0.72, 0.66];
   const out = k.map((s) => ({
     number: Math.round((reel ? 192 : theme.fontSize.stepNumber) * s),
     headingMax: Math.round((reel ? 124 : theme.fontSize.heading) * s),
-    body: Math.max(40, Math.min(reel ? 52 : 46, Math.round((reel ? 48 : 42) * s))),
+    body: Math.max(40, Math.min(reel ? 56 : 46, Math.round((reel ? 48 : 42) * s))),
     gap: Math.round(30 * s),
     blockGap: Math.round(44 * s),
     padY: Math.round((reel ? 56 : 48) * Math.min(1, s)),
@@ -60,9 +66,9 @@ function scales(format: Format): StepScale[] {
 }
 
 /** Alto estimado del bloque completo a una escala. */
-function stepHeight(sc: StepScale, p: { step?: string; heading: string; body?: string; bullets?: string[] }): number {
-  const headingSize = fitDisplaySize(p.heading, sc.headingMax, { maxLines: 2 });
-  let h = antonHeight(p.heading, headingSize, 1.0);
+function stepHeight(sc: StepScale, p: { step?: string; heading: string; highlight?: string; body?: string; bullets?: string[] }, tight: boolean): number {
+  const headingSize = fitDisplaySize(p.heading, sc.headingMax, { maxLines: 2, tight, keep: [p.highlight] });
+  let h = antonHeight(p.heading, headingSize, 1.0, undefined, tight, [p.highlight]);
   if (p.step) h += sc.number * 0.9 + 12;
   const bullets = p.bullets ?? [];
   if (!p.body && bullets.length === 0) return h;
@@ -88,8 +94,8 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
   const lime = accent ?? theme.colors.accent;
   const hasBullets = !!bullets && bullets.length > 0;
   const hasCard = !!body || hasBullets;
-  const sc = pickFit(scales(format), (c) => stepHeight(c, { step, heading, body, bullets }), contentHeight(format, base.source));
-  const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 2 });
+  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, body, bullets }, format === "reel"), contentHeight(format, base.source), format, STEP_REEL_FILL);
+  const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: format === "reel", keep: [highlight] });
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: sc.blockGap }}>

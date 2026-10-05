@@ -2,7 +2,7 @@ import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
 import { MonoLabel } from "./ui.tsx";
 import { CONTENT_WIDTH } from "./fit.ts";
-import { contentHeight, wrapLines, pickFit, CHAR_EM } from "./layout.ts";
+import { contentHeight, wrapLines, pickFill, CHAR_EM } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -22,14 +22,16 @@ export interface LeadProps extends BaseSlideProps {
 export function Lead({ kicker, text, highlight, accent, format, ...base }: LeadProps) {
   const lime = accent ?? theme.colors.accent;
   const reel = format === "reel";
-  // Frase grande: protagonista del slide. Si es larga, baja un escalón.
-  // Frase grande: el mayor tamaño (con tope) que cabe en ≤ 5 líneas y en el área útil.
-  const max = reel ? 92 : 84;
+  // Frase grande: el mayor tamaño (con tope) que cabe en ≤ 5 líneas (6 en el
+  // reel, más alto) y en el área útil.
+  const max = reel ? 116 : 84;
+  const maxLines = reel ? 6 : 5;
   const lines = (s: number) => wrapLines(text, s * CHAR_EM.interSemibold, CONTENT_WIDTH);
-  const size = pickFit(
-    [92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
-    (s) => (lines(s) > 5 ? Infinity : 48 + lines(s) * s * 1.18),
+  const size = pickFill(
+    [116, 108, 100, 92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
+    (s) => (lines(s) > maxLines ? Infinity : 48 + lines(s) * s * 1.18),
     contentHeight(format, base.source),
+    format,
   );
   return (
     <Frame format={format} {...base}>

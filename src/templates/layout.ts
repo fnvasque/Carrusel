@@ -45,7 +45,29 @@ export function sourceReserve(source?: string): number {
  * levantado unos px (el ojo percibe el centro geométrico como bajo).
  */
 export function opticalLift(format: Format = "post"): number {
-  return format === "reel" ? 56 : 40;
+  return format === "reel" ? 48 : 40;
+}
+
+/**
+ * Fracción máxima del alto útil que ocupa el bloque en el reel cuando hay
+ * escalas de sobra: el 9:16 es alto y un bloque al tamaño del post deja una
+ * franja vacía, así que las escaleras del reel suben más que las del post; este
+ * tope deja aire arriba y abajo. En post se llena hasta el 100 %.
+ */
+export const REEL_FILL = 0.88;
+
+/**
+ * Como `pickFit`, pero en el reel prefiere la mayor escala que ocupa a lo sumo
+ * `fill` (por defecto `REEL_FILL`) del alto útil, y si ninguna cabe ahí, la
+ * mayor que cabe en el alto completo. Una plantilla cuyo estimador sobreestima
+ * (Step: tarjeta + viñetas) puede pedir un `fill` mayor.
+ */
+export function pickFill<T>(candidates: T[], height: (c: T) => number, available: number, format: Format = "post", fill: number = REEL_FILL): T {
+  if (format === "reel") {
+    const c = candidates.find((x) => height(x) <= available * fill);
+    if (c !== undefined) return c;
+  }
+  return pickFit(candidates, height, available);
 }
 
 /** Alto disponible para el bloque de contenido (descontando cabecera, pie y alza óptica). */
@@ -92,8 +114,8 @@ export function interHeight(text: string, size: number, width: number, lineHeigh
 }
 
 /** Alto (px) de un titular Anton a `size` con `lineHeight`, en `width`. */
-export function antonHeight(text: string, size: number, lineHeight: number, width: number = CONTENT_WIDTH): number {
-  return estimateLines(text, size, width) * size * lineHeight;
+export function antonHeight(text: string, size: number, lineHeight: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
+  return estimateLines(text, size, width, tight, keep) * size * lineHeight;
 }
 
 /**

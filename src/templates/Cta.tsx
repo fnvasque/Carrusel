@@ -1,6 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
 import { fitDisplaySize } from "./fit.ts";
+import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import { BookmarkIcon, PillIcon, type PillIconName } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
 import { theme, monoText } from "../theme.ts";
@@ -40,11 +41,33 @@ export function pillContent(cta: string | undefined, icon?: PillIconName | "none
 export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, format, ...base }: CtaProps) {
   const lime = accent ?? theme.colors.accent;
   const pill = pillContent(cta, ctaIcon);
+  const reel = format === "reel";
+  // Reel: escala mayor que llena el 9:16 (el post queda con sus medidas fijas).
+  const post = { title: theme.fontSize.title, icon: 104, reason: 44, pill: 40, handle: 30, gap: 44 };
+  const sc = reel
+    ? pickFill(
+        [1.45, 1.35, 1.25, 1.15, 1.05, 1.0].map((s) => ({
+          title: Math.round(theme.fontSize.title * s),
+          icon: Math.min(144, Math.round(104 * s)),
+          reason: s >= 1.2 ? 54 : 48,
+          pill: s >= 1.2 ? 48 : 44,
+          handle: s >= 1.2 ? 36 : 32,
+          gap: Math.round(44 * Math.min(1.3, s)),
+        })),
+        (c) => {
+          let h = c.icon + c.gap + antonHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: true, keep: [highlight] }), 0.98, undefined, true, [highlight]);
+          if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
+          return h + c.gap + c.pill * 1.2 + 44;
+        },
+        contentHeight(format, base.source),
+        format,
+      )
+    : post;
   return (
     <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", flex: 1, gap: 44 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", flex: 1, gap: sc.gap }}>
         <div data-anim="rise" style={{ display: "flex" }}>
-          <BookmarkIcon size={104} color={lime} />
+          <BookmarkIcon size={sc.icon} color={lime} />
         </div>
         <h2
           data-anim="words"
@@ -52,7 +75,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
             margin: 0,
             fontFamily: theme.fonts.display,
             fontWeight: 400,
-            fontSize: fitDisplaySize(title, theme.fontSize.title + (format === "reel" ? 20 : 0), { maxLines: 4 }),
+            fontSize: fitDisplaySize(title, sc.title, { maxLines: 4, tight: reel, keep: [highlight] }),
             textWrap: "balance",
             lineHeight: 0.98,
             textTransform: "uppercase",
@@ -61,7 +84,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
           {highlightText(title, highlight, lime)}
         </h2>
         {reason && (
-          <p data-anim="rise" style={{ margin: 0, maxWidth: 840, fontFamily: theme.fonts.body, fontSize: format === "reel" ? 48 : 44, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
+          <p data-anim="rise" style={{ margin: 0, maxWidth: 840, fontFamily: theme.fonts.body, fontSize: sc.reason, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
             {reason}
           </p>
         )}
@@ -70,7 +93,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
             data-anim="rise"
             style={{
               fontFamily: theme.fonts.body,
-              fontSize: 40,
+              fontSize: sc.pill,
               fontWeight: 700,
               color: theme.colors.onAccent,
               backgroundColor: lime,
@@ -85,7 +108,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
             {pill.icon && <PillIcon name={pill.icon} />}
           </span>
           {handle && (
-            <span data-anim="rise" style={{ ...monoText, fontSize: 30, letterSpacing: "0.04em", color: theme.colors.text }}>
+            <span data-anim="rise" style={{ ...monoText, fontSize: sc.handle, letterSpacing: "0.04em", color: theme.colors.text }}>
               @{handle}
             </span>
           )}

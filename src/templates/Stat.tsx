@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { fitDisplaySize, estimateLines, CONTENT_WIDTH } from "./fit.ts";
-import { contentHeight, antonHeight, interHeight, pickFit } from "./layout.ts";
+import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -31,11 +31,11 @@ interface StatScale {
 }
 
 function scales(reel: boolean): StatScale[] {
-  return [1.2, 1.1, 1.0, 0.9, 0.8, 0.7].map((s) => ({
-    valueMax: Math.round((reel ? 340 : theme.fontSize.stat) * s),
-    labelMax: Math.round((reel ? 92 : 76) * Math.min(1.1, s)),
-    body: Math.max(40, Math.min(reel ? 52 : 46, Math.round((reel ? 48 : 42) * s))),
-    gap: Math.round(36 * Math.min(1.1, s)),
+  return [...(reel ? [1.4, 1.3] : []), 1.2, 1.1, 1.0, 0.9, 0.8, 0.7].map((s) => ({
+    valueMax: Math.min(reel ? 420 : Infinity, Math.round((reel ? 340 : theme.fontSize.stat) * s)),
+    labelMax: Math.round((reel ? 92 : 76) * Math.min(reel ? 1.35 : 1.1, s)),
+    body: Math.max(40, Math.min(reel ? 56 : 46, Math.round((reel ? 48 : 42) * s))),
+    gap: Math.round(36 * Math.min(reel ? 1.4 : 1.1, s)),
   }));
 }
 
@@ -49,11 +49,11 @@ function valueFit(value: string, max: number): { size: number; wrap: boolean } {
   return { size: fitDisplaySize(value, Math.min(max, 200), { maxLines: 3, min: 72 }), wrap: true };
 }
 
-function statHeight(sc: StatScale, p: { value: string; label: string; context?: string; percent: boolean }): number {
+function statHeight(sc: StatScale, p: { value: string; label: string; context?: string; percent: boolean }, tight: boolean): number {
   const v = valueFit(p.value, sc.valueMax);
   let h = estimateLines(p.value, v.size) * v.size * 0.86;
   if (p.percent) h += sc.gap + 20;
-  h += sc.gap + antonHeight(p.label, fitDisplaySize(p.label, sc.labelMax, { maxLines: 3 }), 1.02);
+  h += sc.gap + antonHeight(p.label, fitDisplaySize(p.label, sc.labelMax, { maxLines: 3, tight }), 1.02, undefined, tight);
   if (p.context) h += sc.gap + 34 + interHeight(p.context, sc.body, CONTENT_WIDTH, 1.4);
   return h;
 }
@@ -70,7 +70,7 @@ export function Stat({ value, label, context, accent, format = "post", ...base }
   const parsed = parseStatValue(value);
   const percent = parsed && /^\s*%/.test(parsed.suffix) && parsed.number >= 0 && parsed.number <= 100 ? parsed.number : null;
   const reel = format === "reel";
-  const sc = pickFit(scales(reel), (c) => statHeight(c, { value, label, context, percent: percent !== null }), contentHeight(format, base.source));
+  const sc = pickFill(scales(reel), (c) => statHeight(c, { value, label, context, percent: percent !== null }, reel), contentHeight(format, base.source), format);
   const v = valueFit(value, sc.valueMax);
   return (
     <Frame format={format} {...base}>
@@ -101,7 +101,7 @@ export function Stat({ value, label, context, accent, format = "post", ...base }
             margin: 0,
             fontFamily: theme.fonts.display,
             fontWeight: 400,
-            fontSize: fitDisplaySize(label, sc.labelMax, { maxLines: 3 }),
+            fontSize: fitDisplaySize(label, sc.labelMax, { maxLines: 3, tight: reel }),
             lineHeight: 1.02,
             textTransform: "uppercase",
             textWrap: "balance",

@@ -1,7 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { Card } from "./ui.tsx";
 import { CONTENT_WIDTH } from "./fit.ts";
-import { contentHeight, antonHeight, pickFit } from "./layout.ts";
+import { contentHeight, antonHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme, monoText } from "../theme.ts";
 
@@ -33,13 +33,14 @@ export function MythReality({
   const lime = accent ?? theme.colors.accent;
   const reel = format === "reel";
   // Mayor tamaño (con tope) que deja las dos tarjetas dentro del área útil.
-  const max = reel ? 84 : 76;
+  const max = reel ? 104 : 76;
   const textW = CONTENT_WIDTH - 104 - 6;
-  const cardH = (t: string, size: number) => 44 + 52 + 6 + 44 + 24 + antonHeight(t, size, 1.08, textW);
-  const size = pickFit(
-    [96, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44].filter((s) => s <= max),
+  const cardH = (t: string, size: number) => 44 + 52 + 6 + 44 + 24 + antonHeight(t, size, 1.08, textW, reel);
+  const size = pickFill(
+    [104, 96, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44].filter((s) => s <= max),
     (s) => cardH(myth, s) + cardH(reality, s) + 28,
     contentHeight(format, base.source),
+    format,
   );
   return (
     <Frame format={format} {...base}>

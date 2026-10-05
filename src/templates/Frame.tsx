@@ -129,7 +129,7 @@ export function Frame({
           )}
         </div>
         {/* Contenido del slide */}
-        <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + opticalLift(format) }}>
+        <div data-content="" style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + opticalLift(format) }}>
           {children}
         </div>
         {/* Marca: fuente al pie */}

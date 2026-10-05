@@ -20,7 +20,9 @@ import voz from "../carousels/voz-subtitulos-gratis.ts";
  * zona segura inferior del reel (440 px), el contenido no pisa la fuente al pie
  * ni la cabecera, y nada se desborda (scrollWidth). Incluye casos de estrés
  * (5 viñetas largas, valor de Stat largo no numérico, fuente de 2 líneas,
- * prompt largo, mito largo) y los carruseles de carousels/.
+ * prompt largo, mito largo) y los carruseles de carousels/. En el reel, además,
+ * el bloque de contenido de los 3 carruseles de contenido debe quedar centrado
+ * (±12 % del alto útil). `LAYOUT_DEBUG=1` imprime centro y relleno por slide.
  * Uso: npm run test:reel
  */
 
@@ -75,6 +77,25 @@ for (const spec of [smoke, estudiar, mentiras, video3, escalera, voz] as Carouse
   spec.slides.forEach((s, i) => cases.push({ name: `${spec.name} #${i + 1}`, template: s.template, props: offline({ ...spec.defaults, ...s.props }) }));
 }
 
+/**
+ * Reel: centro vertical del bloque de contenido (unión de los hijos del
+ * contenedor de la plantilla) y del área útil (bajo la cabecera, sobre la
+ * fuente al pie o la zona segura). Devuelve el desvío relativo al alto útil.
+ */
+async function centerOffset(page: Page): Promise<{ offset: number; fill: number }> {
+  return page.evaluate((safe) => {
+    const root = document.querySelector("[data-content] > div")!;
+    const rects = Array.from(root.children).map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
+    const top = Math.min(...rects.map((r) => r.top));
+    const bottom = Math.max(...rects.map((r) => r.bottom));
+    const header = document.querySelector('[data-brand="logo"]')!.parentElement!.getBoundingClientRect().bottom;
+    const src = document.querySelector('[data-brand="source"]');
+    const floor = src ? src.getBoundingClientRect().top : 1920 - safe;
+    const usable = floor - header;
+    return { offset: ((top + bottom) / 2 - (header + floor) / 2) / usable, fill: (bottom - top) / usable };
+  }, REEL_SAFE_BOTTOM);
+}
+
 const browser = await chromium.launch({ executablePath: findChromium() });
 const all: string[] = [];
 try {
@@ -91,4 +112,30 @@ try {
   await browser.close();
 }
 assert.deepEqual(all, [], `problemas de límites:\n${all.join("\n")}`);
+
+// Reel: el bloque de contenido queda centrado (±12 % del alto útil) en los 3
+// carruseles de contenido. Se informa también cuánto del alto útil ocupa.
+const offCenter: string[] = [];
+const fills: number[] = [];
+const browser2 = await chromium.launch({ executablePath: findChromium() });
+try {
+  const page = await browser2.newPage({ viewport: FORMATS.reel });
+  for (const spec of [video3, escalera, voz] as CarouselSpec[]) {
+    for (const [i, s] of spec.slides.entries()) {
+      const props = offline({ ...spec.defaults, ...s.props, format: "reel" });
+      await page.setContent(await htmlShell(renderToStaticMarkup(createElement(s.template, props))));
+      await page.evaluate(() => document.fonts.ready);
+      const { offset, fill } = await centerOffset(page);
+      fills.push(fill);
+      if (process.env.LAYOUT_DEBUG) console.log(`${spec.name} #${i + 1}: centro ${(offset * 100).toFixed(1)} %, ocupa ${(fill * 100).toFixed(0)} %`);
+      if (Math.abs(offset) > 0.12) offCenter.push(`${spec.name} #${i + 1}: centro desviado ${(offset * 100).toFixed(1)} % (ocupa ${(fill * 100).toFixed(0)} %)`);
+    }
+  }
+  await page.close();
+} finally {
+  await browser2.close();
+}
+assert.deepEqual(offCenter, [], `bloques descentrados en el reel:\n${offCenter.join("\n")}`);
+const avg = fills.reduce((a, b) => a + b, 0) / fills.length;
+console.log(`✓ reel: bloque centrado (±12 %) en ${fills.length} slides; ocupa en promedio ${(avg * 100).toFixed(0)} % del alto útil (mín ${(Math.min(...fills) * 100).toFixed(0)} %)`);
 console.log(`✓ límites del layout OK (${cases.length} slides × post/reel, incluye 5 viñetas largas y Stat no numérico largo)`);

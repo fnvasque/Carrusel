@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
-import { contentHeight, antonHeight, interHeight, wrapLines, pickFit, CHAR_EM } from "./layout.ts";
+import { contentHeight, antonHeight, interHeight, wrapLines, pickFill, CHAR_EM, REEL_FILL } from "./layout.ts";
 import { Card } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
 import { theme, monoText } from "../theme.ts";
@@ -27,6 +27,8 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
   // corto (heading mayor, ventana con más líneas de alto mínimo); las últimas
   // achican el código para que un prompt largo quepa.
   const candidates = [
+    // Reel: ventana alta y heading grande para llenar el 9:16.
+    ...(reel ? [12, 10].map((minLines) => ({ code: 40, minLines, headingMax: 160, gap: 64 })) : []),
     ...[6, 5].map((minLines) => ({ code: 40, minLines: minLines + (reel ? 2 : 0), headingMax: reel ? 136 : 120, gap: reel ? 60 : 52 })),
     ...[40, 38, 36, 34, 32, 30, 28, 26].map((code) => ({
       code,
@@ -39,8 +41,8 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
   const explicitLines = prompt.split("\n").length;
   const codeLines = (code: number) => wrapLines(prompt, code * CHAR_EM.mono, codeW);
   const height = (c: (typeof candidates)[number]) => {
-    const hs = fitDisplaySize(heading, c.headingMax, { maxLines: 2 });
-    let h = antonHeight(heading, hs, 1.0) + c.gap + 86 + 92 + Math.max(codeLines(c.code), c.minLines) * c.code * 1.5;
+    const hs = fitDisplaySize(heading, c.headingMax, { maxLines: 2, tight: reel });
+    let h = antonHeight(heading, hs, 1.0, undefined, reel) + c.gap + 86 + 92 + Math.max(codeLines(c.code), c.minLines) * c.code * 1.5;
     if (note) h += c.gap + interHeight(note, 40, CONTENT_WIDTH - 48, 1.35);
     return h;
   };
@@ -48,8 +50,9 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
   // no hay, el mayor que cabe (un comando partido es peor que un punto menos).
   // (Solo si ese tamaño sigue siendo legible: un prompt en prosa sí puede partirse.)
   const sc =
+    candidates.find((c) => c.code >= 34 && height(c) <= available * (reel ? REEL_FILL : 1) && codeLines(c.code) === explicitLines) ??
     candidates.find((c) => c.code >= 34 && height(c) <= available && codeLines(c.code) === explicitLines) ??
-    pickFit(candidates, height, available);
+    pickFill(candidates, height, available, format);
   const codeSize = sc.code;
   return (
     <Frame format={format} {...base}>
@@ -60,7 +63,7 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
             margin: 0,
             fontFamily: theme.fonts.display,
             fontWeight: 400,
-            fontSize: fitDisplaySize(heading, sc.headingMax, { maxLines: 2 }),
+            fontSize: fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: reel }),
             lineHeight: 1.0,
             textTransform: "uppercase",
             textWrap: "balance",
