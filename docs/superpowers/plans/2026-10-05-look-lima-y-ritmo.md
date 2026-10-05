@@ -13,7 +13,7 @@
 - Tokens exactos de la spec (bg `#06060A`, lima `#C6FF3D`, violeta `#7C5CFF`, rosa `#FF3D7F`, text `#F4F4F6`, muted `#8A8A99`, card `#13131A`, línea `#23232E`, grilla lima 7 % / 2 px / 120 px, viñeta radial).
 - Pilar → color: herramienta/prompt lima, noticia violeta, curiosidad rosa.
 - Easing solo `power*.out`, `power*.in`, `none`. Logo, etiqueta de cabecera, contador y fuente al pie no se animan (la grilla sí puede derivar).
-- Hook del reel: titular completo < 1.2 s, palabra clave en acento < 1.5 s, cuadro 0 no vacío — en ambos `pace`.
+- Hook del reel: titular completo y legible en t = 0, palabra clave en acento < 0.6 s, cuadro 0 no vacío — en ambos `pace`.
 - Zona segura inferior del reel: 440 px sin texto.
 - Comentarios y mensajes en español, estilo del código vecino.
 - `npm run typecheck`, `npm test` y `npm run test:reel` en verde al cerrar cada tarea. Los tests del look anterior se actualizan (no se borran).
@@ -50,10 +50,11 @@
 - `count`: anima el número desde 0 hasta el valor (parsear prefijo/sufijo y separadores; enteros o con decimales según el original; texto final idéntico al original al terminar). Si no es numérico, `rise`.
 - `check`: el círculo pasa de escala 0 a 1 (`power2.out`, ~0.3 s) al entrar su bullet (encadenado con `stagger`).
 - `caret`: tras terminar el `type`, parpadeo on/off cada 0.5 s hasta el fin de la escena.
+- Hook de la escena 0 según "Ajustes por la auditoría" de la spec: titular completo en t=0 con acercamiento 1.04→1, pop < 0.6 s, eyebrow/subtítulo con rise (en lugar de words en la escena 0).
 - Tests en Chromium: count llega exactamente al texto final; check visible al final de la escena e invisible antes de su bullet; seek hacia atrás restaura estados; las metas del hook siguen.
 
 ### Task 3: Ritmo `pace`
 
 **Files:** `src/templates/types.ts` (`CarouselSpec.pace?: "ensenar" | "rapido"`), `src/reel/timing.ts`, `src/reel/runtime.js` (factor de lentitud de entradas vía `__REEL_TIMING__`), `src/reel/renderReel.ts`, `src/reel/cli.ts` (flag `--pace=`), `test/smoke.ts`, `README.md`.
 
-**Requisitos:** exactamente los valores de la sección "Reel: estilo y ritmo" de la spec. `rapido` = valores actuales (los tests actuales de timing deben pasar con `pace: "rapido"` explícito o con la función de ritmo rápido). Por defecto `ensenar`. Escena 0 conserva las metas del hook en ambos ritmos (test en Chromium con un carrusel `ensenar`).
+**Requisitos:** incluye el escalonado de bullets de 1.8 s y la fórmula de duración con bullets de "Ajustes por la auditoría". Además, exactamente los valores de la sección "Reel: estilo y ritmo" de la spec. `rapido` = valores actuales (los tests actuales de timing deben pasar con `pace: "rapido"` explícito o con la función de ritmo rápido). Por defecto `ensenar`. Escena 0 conserva las metas del hook en ambos ritmos (test en Chromium con un carrusel `ensenar`).

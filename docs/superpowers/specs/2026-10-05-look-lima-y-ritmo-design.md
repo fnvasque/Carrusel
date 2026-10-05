@@ -78,6 +78,23 @@ y en el indicador de viralidad si aplica (cuenta como slide de desarrollo con n�
     palabra clave en acento < 1.5 s, cuadro 0 no vacío.
   - `--seconds` y `--fade` siguen sobrescribiendo.
 
+### Ajustes por la auditoría (`docs/auditoria/2026-10-05-auditoria-carruseles.md`)
+
+- **Hook legible desde el cuadro 0** (criterio K1, `referencias/hook-de-video.md`): en la
+  escena 0 el titular ya está completo y legible en t = 0; su movimiento es un
+  acercamiento sutil (escala 1.04 → 1, ~1.2 s, `power2.out`). La palabra clave pasa
+  a lima con el `pop` antes de 0.6 s; eyebrow y subtítulo entran con `rise`. Esto
+  reemplaza la entrada palabra por palabra solo en la escena 0 (ambos `pace`).
+  Metas que se mantienen: cuadro 0 no vacío, palabra clave en acento < 1.5 s.
+- **Un dato nuevo cada ~2 s en `ensenar`** (K7: "nuevo visual o línea cada 2-3 s",
+  ficha de @expert.pitch): en `stagger` (bullets) los hijos aparecen de a uno
+  separados 1.8 s, y no se comprimen por el presupuesto de entradas. La duración
+  de la escena se calcula en `timing.ts` como
+  `max(segundosPorTexto, 1.0 + 1.8 × (bullets − 1) + 2.5)` cuando hay bullets.
+  En `rapido` se mantiene el escalonado actual.
+- Audio: sigue fuera de alcance del motor (el reel sale sin pista; se agrega en
+  la app o con `--audio`).
+
 ## Fuera de alcance
 
 Audio/voz/subtítulos, formato TikTok foto, coreografías a medida por pieza,
