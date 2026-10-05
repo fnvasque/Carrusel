@@ -239,6 +239,15 @@ document.fonts.ready.then(function () {
         if (popWords.length) gsap.set(popWords, { scale: 0.9, transformOrigin: "50% 60%" });
         sub.from(words, { yPercent: 60, autoAlpha: 0, duration: 0.45, ease: "power4.out", stagger: 0.06 }, at);
         let len = 0.45 + 0.06 * (words.length - 1);
+        // La caja de color (`mark`) entra junto con su palabra: sin esto se vería
+        // la caja rosa vacía antes de que llegue el texto.
+        el.querySelectorAll("[data-mark]").forEach(function (mk) {
+          const mw = Array.from(mk.querySelectorAll(".reel-word"));
+          if (!mw.length) return;
+          const c = getComputedStyle(mk).backgroundColor;
+          const clear = c.replace(/^rgb\(([^)]*)\)$/, "rgba($1, 0)");
+          sub.from(mk, { backgroundColor: clear, duration: 0.45, ease: "power4.out" }, at + 0.06 * words.indexOf(mw[0]));
+        });
         if (pop) {
           const parentColor = getComputedStyle(el).color;
           sub.from(pop, { color: parentColor, duration: 0.3, ease: "power2.out" }, at + len);

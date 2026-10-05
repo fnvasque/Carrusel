@@ -9,6 +9,7 @@ import type { CarouselSpec } from "../src/templates/types.ts";
  * van". Reescrito según docs/auditoria/2026-10-05-auditoria-carruseles.md.
  */
 const SRC = "Fuente: Kallaway, Dopamine Ladder";
+const SRC_EP = "Fuente: Kallaway (Dopamine Ladder) y @expert.pitch";
 
 const carousel: CarouselSpec = {
   name: "escalera-dopamina",
@@ -48,7 +49,7 @@ const carousel: CarouselSpec = {
           "Cautiva: abre con una pregunta en la primera línea",
           "Nuevo visual o línea cada 2-3 segundos",
         ],
-        source: SRC,
+        source: SRC_EP,
       },
     },
     {
@@ -64,7 +65,7 @@ const carousel: CarouselSpec = {
           "Valida: una respuesta no obvia o un consejo usable",
           "Si predicen los próximos 5 segundos, se van",
         ],
-        source: SRC,
+        source: SRC_EP,
       },
     },
     {
@@ -89,7 +90,7 @@ const carousel: CarouselSpec = {
         index: 6,
         total: 8,
         myth: "Hay un estudio que valida los 6 niveles.",
-        reality: "Es un marco de creadores, sin estudios.",
+        reality: "Es un marco de creadores, sin estudios que lo validen.",
         source: "La ciencia respalda la curiosidad, no los 6 niveles (Neuron, 2014)",
       },
     },

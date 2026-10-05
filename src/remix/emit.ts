@@ -22,6 +22,12 @@ export function validateDraft(draft: VariationDraft): VariationDraft {
     for (const [k, v] of Object.entries(s.props)) {
       if (allowed.has(k)) props[k] = v;
     }
+    // Stat.value: el modelo a veces devuelve un número (47) en vez de "47".
+    if (s.template === "Stat" && typeof props.value === "number") props.value = String(props.value);
+    // Cta.ctaIcon: solo valores conocidos; el resto se descarta.
+    if (s.template === "Cta" && props.ctaIcon !== undefined && !["bookmark", "arrow", "share", "none"].includes(String(props.ctaIcon))) {
+      delete props.ctaIcon;
+    }
     for (const req of TEMPLATE_CATALOG[s.template].required) {
       if (props[req] === undefined || props[req] === "") props[req] = "…";
     }

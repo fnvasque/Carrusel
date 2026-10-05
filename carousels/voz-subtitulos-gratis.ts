@@ -27,6 +27,8 @@ const carousel: CarouselSpec = {
     {
       template: Lead,
       props: {
+        index: 2,
+        total: 8,
         kicker: "En una frase",
         text: "Whisper convierte tu audio en texto. Kokoro convierte texto en voz.",
         highlight: "texto",
@@ -74,9 +76,9 @@ const carousel: CarouselSpec = {
       props: {
         index: 6,
         total: 8,
-        heading: "Narra así",
-        prompt: "pip install kokoro>=0.9.4 soundfile\n\n# en Python:\nfrom kokoro import KPipeline\npipeline = KPipeline(lang_code='e')",
-        note: "lang_code='e' es español. Elige la voz en VOICES.md.",
+        heading: "Instala Kokoro así",
+        prompt: "pip install \"kokoro>=0.9.4\" soundfile\n\n# en Python:\nfrom kokoro import KPipeline\npipeline = KPipeline(lang_code='e')",
+        note: "lang_code='e' es español. La voz se elige en VOICES.md del repo.",
       },
     },
     {

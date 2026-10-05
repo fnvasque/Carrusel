@@ -59,6 +59,19 @@ async function shot(page: Page, t: number): Promise<Buffer> {
   return page.screenshot({ type: "png" });
 }
 
+/**
+ * Para las tomas fijas (`--frames-only`): el cursor parpadeante puede caer
+ * apagado justo en el instante de la toma; se fuerza encendido.
+ */
+export async function forceCaretsOn(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll<HTMLElement>('[data-anim="caret"]').forEach((c) => {
+      c.style.opacity = "1";
+      c.style.visibility = "visible";
+    });
+  });
+}
+
 /** Segundos de fade-out del audio al final del reel (como el motor anterior). */
 const AUDIO_FADE = 0.6;
 
@@ -143,7 +156,14 @@ export async function captureStills(html: string, timing: ReelTiming, outDir: st
       const s = timing.scenes[i];
       const t = i === n - 1 ? timing.total - 0.05 : s.start + s.dur - timing.transition - 0.05;
       const p = join(outDir, `escena-${String(i + 1).padStart(2, "0")}.png`);
-      await writeFile(p, await shot(page, t));
+      const png = await shot(page, t);
+      // shot() ya hizo el seek; se enciende el cursor y se toma de nuevo solo si hay uno.
+      if (await page.evaluate(() => document.querySelector('[data-anim="caret"]') !== null)) {
+        await forceCaretsOn(page);
+        await writeFile(p, await page.screenshot({ type: "png" }));
+      } else {
+        await writeFile(p, png);
+      }
       paths.push(p);
     }
   } finally {

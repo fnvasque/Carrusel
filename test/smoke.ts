@@ -536,6 +536,22 @@ check("remix: Stat en el catálogo (nombre, props) y en draftToSpec", () => {
   assert.equal(spec.slides.find((x) => x.template === Stat)?.template, Stat);
 });
 
+check("remix: Stat.value numérico se coacciona a string y ctaIcon desconocido se descarta", () => {
+  const v = validateDraft({
+    name: "s", angle: "x", pillar: "noticia",
+    slides: [
+      { template: "Stat", props: { value: 47 as any, label: "del valor" } },
+      { template: "Cta", props: { title: "Fin", ctaIcon: "estrella" as any } },
+    ],
+  });
+  assert.strictEqual(v.slides.find((x) => x.template === "Stat")!.props.value, "47");
+  assert.equal("ctaIcon" in v.slides.find((x) => x.template === "Cta")!.props, false);
+  const ok = validateDraft({ name: "s", angle: "x", pillar: "noticia", slides: [{ template: "Cta", props: { title: "Fin", ctaIcon: "arrow" } }] });
+  assert.equal(ok.slides.find((x) => x.template === "Cta")!.props.ctaIcon, "arrow");
+  // Defensa en la plantilla: un value numérico no rompe parseStatValue.
+  assert.doesNotThrow(() => Stat({ value: 47 as any, label: "x" }));
+});
+
 check("viralidad: Stat cuenta como desarrollo accionable y como slide numerado", () => {
   const hook = { template: Hook, props: { title: "Hook" } };
   const cta = { template: Cta, props: { title: "Fin" } };

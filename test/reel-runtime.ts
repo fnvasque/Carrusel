@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, type ReelTiming } from "../src/reel/timing.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
 import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
+import { forceCaretsOn } from "../src/reel/capture.ts";
 import { Stat, Step, Hook } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import spec from "../carousels/_smoke-plantillas.ts";
@@ -380,6 +381,15 @@ try {
   assert.ok(runs.filter((r) => r.on).length >= 2, `el cursor parpadea: ${JSON.stringify(runs)}`);
   runs.slice(1, -1).forEach((r) => assert.ok(Math.abs(r.n - 0.5 * timing.fps) <= 1, `tramo del parpadeo de ${r.n} cuadros (≈ 15): ${JSON.stringify(runs)}`));
   assert.equal((await caret(s4.start - 0.05)).on, false, "cursor oculto al volver atrás");
+  // Tomas fijas (--frames-only): con el cursor apagado en el instante de la toma, forceCaretsOn lo enciende.
+  {
+    const offK = states.findIndex((on, k) => k > 0 && !on && states[k - 1] !== undefined);
+    assert.ok(offK > 0, "hay un instante con el cursor apagado");
+    const tOff = Math.ceil(s4.start * timing.fps) / timing.fps + offK / timing.fps;
+    assert.equal((await caret(tOff)).on, false, "el cursor está apagado en ese instante");
+    await forceCaretsOn(page);
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[data-scene="4"] [data-anim="caret"]')!).visibility), "visible", "forceCaretsOn enciende el cursor");
+  }
   // La barra del Stat se llena en sincronía con la cuenta.
   await assertMeterSync(page, timing, 3, "rapido");
   // Cada ✓ empieza con su bullet (misma fuente de escalonado).
@@ -520,6 +530,32 @@ try {
     }
   }
   console.log("✓ el trato de hook solo aplica al titular (primer words de la escena 0)");
+
+  // Un Hook fuera de la escena 0: la caja rosa (`mark`) no aparece antes de su palabra.
+  {
+    const markSpec = {
+      name: "_hook-mark",
+      slides: [
+        { template: Hook, props: { title: "Primero", highlight: "Primero" } },
+        { template: Hook, props: { title: "Nada de esto es gratis", highlight: "Nada", mark: "gratis" } },
+      ],
+    } as unknown as CarouselSpec;
+    for (const pace of ["rapido", "ensenar"] as const) {
+      const { page: p, timing: t } = await open(browser, markSpec, pace);
+      const sc = t.scenes[1];
+      const alpha = (x: number) =>
+        p.evaluate((x) => {
+          (window as any).__reel.seek(x);
+          const mk = document.querySelector('[data-scene="1"] [data-mark]') as HTMLElement;
+          const m = getComputedStyle(mk).backgroundColor.match(/[\d.]+/g)!.map(Number);
+          return m.length > 3 ? m[3] : 1;
+        }, x);
+      assert.equal(await alpha(sc.start + t.transition / 2 + 0.01), 0, `${pace}: la caja rosa está oculta antes de su palabra`);
+      assert.equal(await alpha(sc.start + sc.dur - t.transition), 1, `${pace}: la caja rosa se ve completa al final`);
+      await p.close();
+    }
+  }
+  console.log("✓ la caja rosa del Hook entra junto con su palabra");
 
   // La cuenta no alarga las entradas: en un Stat con etiqueta corta la sub no
   // incluye los 1.2 s de la cuenta, así etiqueta y contexto no se comprimen por

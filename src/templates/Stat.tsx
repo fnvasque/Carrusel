@@ -65,7 +65,8 @@ function statHeight(sc: StatScale, p: { value: string; label: string; context?: 
  * El número lleva `data-anim="count"` (en el reel cuenta desde 0). La escala
  * se elige para llenar el área útil sin desbordar.
  */
-export function Stat({ value, label, context, accent, format = "post", ...base }: StatProps) {
+export function Stat({ value: rawValue, label, context, accent, format = "post", ...base }: StatProps) {
+  const value = String(rawValue);
   const lime = accent ?? theme.colors.accent;
   const parsed = parseStatValue(value);
   const percent = parsed && /^\s*%/.test(parsed.suffix) && parsed.number >= 0 && parsed.number <= 100 ? parsed.number : null;

@@ -35,7 +35,7 @@ const carousel: CarouselSpec = {
         index: 4,
         total: 7,
         value: "47%",
-        label: "del valor de un video llega en 3 segundos",
+        label: "del valor de un video puede llegar en 3 segundos",
         context: "Por eso lo primero que se ve tiene que ser la promesa.",
         source: "Fuente: Meta / Nielsen",
       },
