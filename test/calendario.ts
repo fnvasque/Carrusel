@@ -8,5 +8,6 @@ import "./calendario/validar.ts";
 import "./calendario/publish.ts";
 import "./calendario/scheduler.ts";
 import "./calendario/render.ts";
+import "./calendario/bucle.ts";
 
 await done();

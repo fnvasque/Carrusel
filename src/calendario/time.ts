@@ -71,3 +71,38 @@ export function weekMonday(at: Date, zone = ZONA): string {
   const l = localParts(at, zone);
   return addDays(l.dia, -((l.weekday + 6) % 7));
 }
+
+/**
+ * Zona de las horas de `online_followers`. Meta documenta que los períodos de insights
+ * terminan en UTC−07:00 (hora del Pacífico), así que por defecto las claves "0".."23" se
+ * leen en `America/Los_Angeles`. Se puede cambiar en `config.json → zonaOnlineFollowers`
+ * (supuesto: verificar al cruzar 100 seguidores).
+ */
+export const ZONA_ONLINE_FOLLOWERS = "America/Los_Angeles";
+
+/** ¿`zona` es una zona IANA que Intl entiende? */
+function zonaValida(zona: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zona });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** `config.json → zonaOnlineFollowers` (`{ valor }` o texto); la zona del Pacífico si falta o no es válida. */
+export function zonaOnlineFollowers(config: unknown): string {
+  const c = typeof config === "object" && config !== null ? (config as Record<string, unknown>).zonaOnlineFollowers : undefined;
+  const v = typeof c === "object" && c !== null ? (c as Record<string, unknown>).valor : c;
+  return typeof v === "string" && v && zonaValida(v) ? v : ZONA_ONLINE_FOLLOWERS;
+}
+
+/**
+ * Hora de Chile ("HH:MM") que corresponde a la hora `h` (0-23) de `online_followers` en
+ * `zonaOrigen`, el día `dia`. Único punto de conversión: lo usan el bucle (horas del
+ * calendario) y el resumen semanal (hora con más audiencia). Respeta el cambio de hora de
+ * ambas zonas porque convierte el instante concreto de ese día.
+ */
+export function horaOnlineALocal(h: number, dia: string, zonaOrigen = ZONA_ONLINE_FOLLOWERS): string {
+  return localParts(zonedToUtc(dia, `${String(h).padStart(2, "0")}:00`, zonaOrigen)).hora;
+}

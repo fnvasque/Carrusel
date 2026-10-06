@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { localParts } from "../calendario/time.ts";
+import { localParts, zonaOnlineFollowers } from "../calendario/time.ts";
+import { diagnosticoDeDatos } from "../calendario/bucle.ts";
 import { calendarioDir } from "../calendario/plan.ts";
 import { openDb } from "../kb/db.ts";
 import { kbDir } from "../kb/store.ts";
@@ -29,15 +30,20 @@ export function guardarEstado(clave: string, valor: string): void {
   openDb().prepare("INSERT OR REPLACE INTO calendario_estado (clave, valor) VALUES (?, ?)").run(clave, valor);
 }
 
-/** `umbralAlcanceTasas` de `_calendario/config.json` (la escribe el usuario); 50 si falta o es raro. */
-export function leerUmbral(): number {
+/** `_calendario/config.json` (la escribe el usuario); `undefined` si falta o es ilegible. */
+export function leerConfig(): unknown {
   try {
-    const v = (JSON.parse(readFileSync(join(calendarioDir(), "config.json"), "utf8")) as { umbralAlcanceTasas?: unknown }).umbralAlcanceTasas;
-    if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+    return JSON.parse(readFileSync(join(calendarioDir(), "config.json"), "utf8"));
   } catch {
-    // sin config o ilegible: se usa el valor por defecto.
+    return undefined;
   }
-  return UMBRAL_POR_DEFECTO;
+}
+
+/** `umbralAlcanceTasas` de `_calendario/config.json`; 50 si falta o es raro. */
+export function leerUmbral(): number {
+  const c = leerConfig();
+  const v = typeof c === "object" && c !== null ? (c as { umbralAlcanceTasas?: unknown }).umbralAlcanceTasas : undefined;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : UMBRAL_POR_DEFECTO;
 }
 
 export function leerCuenta(): unknown {
@@ -97,7 +103,7 @@ export function resumenDeLaSemana(hasta: string): ResumenSemana {
   const registro = leerRegistroPublicados();
   // Margen de 10 días hacia atrás: sobra para cubrir (hasta − 7 d, hasta] en cualquier zona horaria.
   const desdeIso = new Date(new Date(`${hasta}T00:00:00Z`).getTime() - 10 * DIA_MS).toISOString();
-  return resumirSemana(leerInstantaneas(registro, desdeIso), leerCuenta(), registro, hasta, leerUmbral());
+  return resumirSemana(leerInstantaneas(registro, desdeIso), leerCuenta(), registro, hasta, leerUmbral(), zonaOnlineFollowers(leerConfig()));
 }
 
 /** Resumen de los últimos 7 días contados hasta hoy (hora de Chile). */
@@ -109,6 +115,13 @@ export function resumenReciente(now: Date): ResumenSemana {
 export function resumenDelDomingo(now: Date): { domingo: string; md: string; html: string } {
   const domingo = domingoDeResumen(now);
   const r = resumenDeLaSemana(domingo);
+  try {
+    // Diagnóstico mensual del bucle (necesita toda la historia, no solo la semana).
+    const registro = leerRegistroPublicados();
+    r.diagnostico = diagnosticoDeDatos(now, leerInstantaneas(registro), registro, leerCuenta(), leerUmbral());
+  } catch (err) {
+    r.avisos.push(`No pude calcular el diagnóstico mensual: ${err instanceof Error ? err.message : String(err)}`);
+  }
   return { domingo, md: formatResumen(r), html: formatResumenTelegram(r) };
 }
 
