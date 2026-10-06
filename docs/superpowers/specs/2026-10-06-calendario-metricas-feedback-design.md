@@ -80,11 +80,12 @@ alcance") que solo las métricas reales pueden confirmar o tumbar.
 | Decisión | Elección | Motivo |
 |---|---|---|
 | Quién planifica y escribe el contenido | Agente de Claude en la nube, tarea programada **domingo 06:00 America/Santiago** (2 h después de la investigación de la kb), siguiendo `_calendario/INSTRUCCIONES.md` | Mismo patrón que la investigación semanal: costo extra 0, juicio sobre una base de cualquier tema, lee las referencias recién investigadas |
-| Quién renderiza, publica y mide | El bot del servidor (`src/kb/bot.ts`), que ya corre 24/7 y ya hace pull de `ia-es-kb` cada hora | Solo él está encendido a la hora de publicar; ya tiene git, ffmpeg, Telegram y el token de Meta |
+| Quién renderiza | **El Mac del usuario** (`npm run calendario:render`, lanzado cada hora por `launchd` mientras esté encendido): hace pull, renderiza las piezas pendientes con Chromium y ffmpeg, sube los archivos al servidor por SSH y marca `estado: renderizado` con las URLs | Chromium y ffmpeg ya están ahí; el servidor de Google (e2-micro, 1 GB) no aguanta 1 500 cuadros por reel. Una sola corrida por semana, en cualquier momento antes del lunes |
+| Quién publica y mide | El bot del servidor de Google (`src/kb/bot.ts`), que ya corre 24/7 y ya hace pull de `ia-es-kb` cada hora | Lo que exige puntualidad (publicar a la hora, instantáneas a 24 h/72 h/7 d) queda en la máquina que no se apaga; son solo llamadas HTTP |
 | Dónde viven calendario, borradores y métricas | Repo privado `ia-es-kb`, carpetas nuevas `_calendario/` y `_metricas/` | Es la memoria estratégica de la cuenta (ritual del skill, punto 5); el agente de la nube la lee; Obsidian la muestra; el bot ya la sincroniza |
 | Formato de los borradores | JSON con el `VariationDraft` del remix (`name, angle, pillar, slides: LogicalSlide[]`) + metadatos de planificación | Es lo que `emitCarouselFile` ya convierte a `carousels/*.ts`; no obliga al agente a escribir TSX |
-| URL pública de los medios | El servidor sirve `GET /media/<token>/<archivo>` por el ngrok con dominio fijo que ya existe (mismo proceso que el webhook de DMs) | Cero servicios nuevos; Meta descarga cada archivo una vez. Alternativa documentada: Cloudflare R2 |
-| Render en el servidor | Agregar Chromium (Playwright) a la imagen Docker | Ya estaba previsto para `/remix` por Telegram (`202609301500`, fase 6) |
+| Dónde quedan JPEG y MP4 | En el servidor, `/data/media/<semana>/<id>/`, subidos desde el Mac con `rsync` por la misma clave SSH de `deploy-to-server.sh`. El bot los sirve en `GET /media/<token>/…` por el ngrok con dominio fijo que ya existe | Cero servicios nuevos; Meta descarga cada archivo una vez. Se borran a los 7 días del publish. Alternativa documentada: Cloudflare R2 |
+| Chromium en Docker | **No.** La imagen del servidor sigue como está (`node:24-bookworm-slim` + ffmpeg + git) | El render no corre allá |
 | Modo de publicación | `auto` desde el primer domingo. `CALENDARIO_MODO=aviso` existe solo como herramienta de depuración (hace todo menos los POST) | Con 4 seguidores el riesgo de un post fallido es cero y se borra desde la app |
 | Freno | `/pausar` y `/reanudar` en Telegram; botón **Saltar** en el aviso de cada pieza (vale hasta la hora de publicación). La API no borra posts: se borra desde la app de Instagram | Barato, y será útil cuando la cuenta crezca |
 | Horas | Hasta 100 seguidores: tabla fija en `config.json` (una hora por día de la semana, editable). Desde 100: `online_followers` de la semana anterior, hora con más seguidores en línea dentro de 08:00–23:00, redondeada a :00/:30, con separación mínima de 20 h entre piezas | Ventana crítica de 30-60 min (skill); `online_followers` no existe bajo 100 seguidores |
@@ -239,19 +240,42 @@ El manual indica:
    si hace falta. Si no hay nada publicable, igual deja una línea de latido en
    `registro.jsonl` (alerta de silencio a los 8 días, como la investigación).
 
+### Render en el Mac (`npm run calendario:render`)
+
+Comando idempotente; `deploy/launchd/es.ia.calendario-render.plist` lo lanza
+cada hora mientras el Mac esté encendido (si estaba dormido, `launchd` lo corre
+al despertar). También se puede correr a mano.
+
+1. `git pull --rebase` de `knowledge/` (el clon del repo privado que ya tiene el
+   Mac). Si no hay piezas `planificadas`, termina en silencio.
+2. Por cada pieza: `emitCarouselFile` → `renderCarousel` (PNG) → JPEG con ffmpeg
+   (`-q:v 2`, 1080×1350); reel: `renderReel` con `pace` y `audio` (MP4 h264,
+   1080×1920, 30 fps) + `cover.jpg` (cuadro 0). Revalida score ≥ 75; si falla,
+   `estado: fallido` con las sugerencias y sigue con la siguiente.
+3. `rsync -az output/calendario/<semana>/<id>/ servidor:/data/media/<semana>/<id>/`
+   con la clave SSH que ya registra `deploy-to-server.sh` (`SERVER_HOST` en `.env`).
+   Luego `curl` a cada URL pública para confirmar que el servidor la sirve (200 y
+   `Content-Type` correcto) antes de darla por buena.
+4. Escribe en `plan.json` `estado: renderizado`, `medios: { urls[], cover, duracionMs }`,
+   commit `calendario: render <semana> (<n> piezas)` y push con `pull --rebase`.
+5. Un render completo (2 carruseles + 4 reels de ~50 s) toma unos 10-15 min en un
+   Mac M-series; el comando muestra progreso y no bloquea el bot (son procesos
+   distintos; el bot del Mac sigue apagado, solo corre el de Google).
+
 ### Bot del servidor (`src/calendario/`)
 
-- `syncFromRemote` (ya existe, cada hora) detecta una semana nueva en
-  `_calendario/` y encola `renderizar` para cada pieza `planificada`.
-- `render(pieza)`: `emitCarouselFile` → `renderCarousel` (PNG) → JPEG con ffmpeg
-  (`-q:v 2`, 1080×1350); reel: `renderReel` con `--pace` y `--audio`. Guarda en
-  `/data/media/<semana>/<id>/`. Revalida score ≥ 75; si falla, `estado: fallido`
-  y aviso. Luego `estado: renderizado` y Telegram manda la portada, el caption, la
-  hora y el botón **Saltar**.
+- `syncFromRemote` (ya existe, cada hora) detecta piezas recién `renderizadas`,
+  las pasa a `programadas` y Telegram manda la portada, el caption, la hora y el
+  botón **Saltar**. Una semana nueva sin render todavía solo se anota.
+- **Aviso de render pendiente**: si el sábado a las 12:00 (o 12 h antes de la
+  primera pieza de la semana siguiente) hay piezas `planificadas` sin render,
+  Telegram avisa «Prende el Mac: faltan N piezas por renderizar». A la hora de
+  publicar, una pieza sin render se marca `saltada` con motivo y avisa.
 - Servidor estático: `GET /media/<token>/<semana>/<id>/<archivo>` en el mismo
   `node:http` del inbox (`KB_INBOX_PORT`), con un token largo por despliegue
-  (`MEDIA_PUBLIC_TOKEN`) para que la URL no sea adivinable. Expira a los 7 días
-  del publish.
+  (`MEDIA_PUBLIC_TOKEN`) para que la URL no sea adivinable. Sirve desde
+  `/data/media` (volumen de Docker). Borra la carpeta de una pieza 7 días después
+  de su publish (Meta ya copió los archivos).
 - `scheduler`: cada minuto revisa `registro.jsonl`/SQLite por piezas
   `programadas` cuya hora llegó (zona `America/Santiago`). Idempotente: la tabla
   `publicaciones` guarda `container_id` y `media_id`; si el proceso se reinicia a
@@ -277,14 +301,18 @@ El manual indica:
 | `src/meta/check.ts` | `REQUIRED_SCOPES` + `instagram_content_publish` cuando `CALENDARIO_MODO` está definido; muestra `followers_count` y si `online_followers` está disponible |
 | `src/meta/client.ts` | `graphPost` ya existe; agregar `graphPostForm` si Meta exige form-encoded para `media` (verificar en implementación) |
 | `src/insights/*` (nuevo) | `client.ts`, `snapshots.ts`, `derive.ts`, `summary.ts`, `cli.ts` |
-| `src/calendario/*` (nuevo) | `plan.ts` (tipos + lectura), `render.ts`, `publish.ts`, `scheduler.ts`, `media-server.ts`, `telegram.ts` |
-| `src/kb/bot.ts` | registra timers y comandos nuevos; `syncFromRemote` dispara render |
+| `src/calendario/*` (nuevo) | `plan.ts` (tipos + lectura), `render.ts` + `render-cli.ts` (Mac: render, rsync, verificación, commit), `publish.ts`, `scheduler.ts`, `media-server.ts`, `telegram.ts` (servidor) |
+| `src/kb/bot.ts` | registra timers y comandos nuevos; `syncFromRemote` detecta piezas renderizadas y avisa si falta render |
+| `package.json` | script `calendario:render` |
+| `deploy/launchd/es.ia.calendario-render.plist` (nuevo) | lanza `calendario:render` cada hora en el Mac; `scripts/calendario-install-mac.sh` lo instala en `~/Library/LaunchAgents` |
+| `.env` (Mac) | `SERVER_HOST`, `SERVER_MEDIA_DIR=/data/media`, `MEDIA_PUBLIC_BASE`, `MEDIA_PUBLIC_TOKEN` (mismos valores que el servidor) |
 | `src/kb/db.ts` | tablas `insights`, `publicaciones`, `calendario_estado` |
 | `src/score/calibration.ts` | sin cambios; recibe `metrics/*.json` del puente |
 | `src/remix/emit.ts` | exponer `emitCarouselFile` para borradores JSON (hoy solo lo usa el remix) |
 | `src/reel/*` | `renderReel(spec, {pace, audio, outDir})` como función (hoy solo CLI) |
-| `Dockerfile` | `npx playwright install --with-deps chromium` (arm64); `PLAYWRIGHT_BROWSERS_PATH` |
+| `Dockerfile` | sin cambios (no hay Chromium en el servidor) |
 | `compose.yaml` | volumen `/data/media`; `MEDIA_PUBLIC_TOKEN`, `CALENDARIO_MODO`, `MEDIA_PUBLIC_BASE` (dominio ngrok) |
+| `scripts/server-setup.sh` | crea `/data/media` con permisos para el usuario de `rsync` |
 | `kb-plantilla/_calendario/` (nuevo) | `INSTRUCCIONES.md`, `config.json`, `validar.mjs`; `scripts/kb-calendario-install.sh` los copia a la base |
 | `promo/audio/` (nuevo) | 2-3 pistas libres de derechos (el usuario las elige) |
 | `test/insights.ts`, `test/calendario.ts` (nuevos) | pruebas offline: parseo de insights con métricas faltantes, cálculo de ventanas, asignación de horas, máquina de estados idempotente, validación de borradores |
@@ -327,9 +355,9 @@ semanas, no de una.
 
 | Fase | Entrega | Tamaño | Valor que deja |
 |---|---|---|---|
-| 0 · Prerrequisitos | Token con `instagram_content_publish` (System User), Chromium en la imagen Docker, `MEDIA_PUBLIC_TOKEN` + ruta `/media`, pistas de audio, `kb-calendario-install.sh` | S | Nada visible; destraba lo demás |
+| 0 · Prerrequisitos | Token con `instagram_content_publish` (System User), `/data/media` + ruta `/media` + `MEDIA_PUBLIC_TOKEN` en el servidor, `rsync` por SSH desde el Mac probado, pistas de audio, `kb-calendario-install.sh` | S | Nada visible; destraba lo demás |
 | 1 · Métricas | `src/insights/`, instantáneas, `/metricas`, resumen semanal, puente a `metrics/*.json` | M | Desde el primer día se mide lo que publiques a mano. Sin riesgo: solo lectura |
-| 2 · Calendario y publicación | Agente planificador + `_calendario/` + render en servidor + `publish.ts` + scheduler idempotente + `/pausar` + previews y aviso post-publicación por Telegram | L | Manos libres desde el primer domingo |
+| 2 · Calendario y publicación | Agente planificador + `_calendario/` + `calendario:render` en el Mac (launchd) + `publish.ts` + scheduler idempotente + `/pausar` + previews, aviso de render pendiente y aviso post-publicación por Telegram | L | Manos libres salvo tener el Mac encendido un rato entre el domingo y el lunes |
 | 3 · Bucle | Prioridad por métricas, derivados, experimentos, diagnóstico mensual, `aprendizajes.md` | M | El calendario aprende de la cuenta |
 
 Orden recomendado: 0 → 1 → 2 → 3. La fase 1 antes que la 2 porque el bucle
@@ -354,8 +382,20 @@ publiques a mano. La primera corrida real de la fase 2 se prueba con
   nunca falla la instantánea completa.
 - **Pieza con score < 75 tras render** (el validador en la nube no pudo correr el
   score): `fallido` con las sugerencias del score; hueco vacío.
+- **El Mac no se prendió antes de la hora**: la pieza se marca `saltada` con
+  motivo y avisa; no se publica tarde (la hora es parte del plan y del
+  experimento). El sábado a las 12:00 ya hubo un aviso preventivo.
+- **`rsync` falla o la URL no responde 200**: el render queda local, la pieza
+  sigue `planificada`, el comando avisa en la terminal y por Telegram
+  (`notifyAdmin` vía el bot del servidor no aplica: el Mac no tiene bot; usa un
+  `sendMessage` directo con el token de Telegram que ya está en `.env`). La
+  próxima corrida horaria reintenta sin volver a renderizar (los archivos están).
+- **Render a medias por reposo del Mac**: el comando escribe cada pieza en una
+  carpeta temporal y la mueve al final; una pieza incompleta se vuelve a
+  renderizar entera en la corrida siguiente.
 - **Dos bots** (Mac y servidor): ya está resuelto (409 de Telegram); el scheduler
   además exige `CALENDARIO_MODO` definido, que solo lo tiene el servidor.
+  `calendario:render` no arranca ningún bot.
 
 ## Pruebas
 
@@ -365,22 +405,26 @@ publiques a mano. La primera corrida real de la fase 2 se prueba con
   métricas (encogimiento, mínimo 3); máquina de estados de publicación
   (reinicio a mitad → sin duplicado); `validar.mjs` con borradores válidos e
   inválidos (11 slides, sin señal, caption sin hashtags).
-- Con Chromium (`npm run test:reel` ampliado): borrador JSON → JPEG 1080×1350 y
-  MP4 con audio.
+- Con Chromium (`npm run test:reel` ampliado, en el Mac): borrador JSON → JPEG
+  1080×1350 y MP4 con audio; `rsync` a un directorio local simulando el servidor.
 - Manual, una vez: `/publicar <id>` de una pieza de prueba y comprobar en
   Instagram, el `media_id` en `registro.jsonl` y la instantánea de 24 h. Si algo
   sale mal, se borra desde la app.
 
 ## Puesta en marcha
 
-1. Fase 0 en el servidor (`deploy-to-server.sh` con la imagen nueva).
+1. Fase 0 en el servidor (`deploy-to-server.sh`: volumen `/data/media`, token
+   público, `CALENDARIO_MODO=auto`) y en el Mac (`scripts/calendario-install-mac.sh`:
+   `SERVER_HOST` en `.env`, prueba de `rsync`, agente de `launchd`).
 2. `scripts/kb-calendario-install.sh` → copia manual, config y validador a
    `ia-es-kb`; editar `config.json` (horas por defecto, hashtags base).
 3. Crear la tarea programada en claude.ai: domingo 06:00 America/Santiago,
    repo `ia-es-kb`, prompt «Sigue `_calendario/INSTRUCCIONES.md` al pie de la
    letra».
-4. `/publicar <id>` con una pieza de prueba; corregir el manual con lo que se vea.
-5. Dejar correr el primer domingo completo.
+4. Primer domingo: `npm run calendario:render` a mano en el Mac para ver el
+   proceso; `/publicar <id>` con una pieza de prueba; corregir el manual con lo
+   que se vea.
+5. Dejar correr la primera semana completa con `launchd`.
 
 ## Fuera de alcance
 
