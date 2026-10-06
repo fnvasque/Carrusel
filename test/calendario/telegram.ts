@@ -59,19 +59,29 @@ check("telegram: preview truncado con … a 1024 caracteres", () => {
 
 // --- avisoRenderPendiente ---
 
-check("telegram: render pendiente — sábado 11:59 no, 12:00 sí (semana siguiente con piezas sin render)", () => {
+check("telegram: render pendiente (R41) — domingo 17:59 no, 18:00 sí (semana que empieza al día siguiente)", () => {
   const s = [semana([pieza({ hora: "14:00" })])];
-  assert.equal(avisoRenderPendiente(s, Z("2026-10-10T14:59:00Z")), undefined); // sáb 11:59 Chile (UTC-3)
-  const a = avisoRenderPendiente(s, Z("2026-10-10T15:00:00Z"));
+  assert.equal(avisoRenderPendiente(s, Z("2026-10-10T15:00:00Z")), undefined); // sábado 12:00: ya no avisa
+  assert.equal(avisoRenderPendiente(s, Z("2026-10-11T20:59:00Z")), undefined); // dom 17:59 Chile (UTC-3)
+  const a = avisoRenderPendiente(s, Z("2026-10-11T21:00:00Z")); // dom 18:00
   assert.ok(a);
   assert.match(a.texto, /Prende el Mac: faltan 1 piezas? por renderizar/);
-  assert.equal(a.clave, "2026-10-12:sabado");
+  assert.equal(a.clave, "2026-10-12:domingo");
 });
 
-check("telegram: render pendiente — primera pieza lun 08:00 → aviso el domingo 20:00 si aún falta", () => {
+check("telegram: render pendiente (R41) — post lun 14:00 → segunda etapa el lunes 02:00 si sigue pendiente", () => {
+  const s = [semana([pieza({ hora: "14:00" })])];
+  const ya = ["2026-10-12:domingo"];
+  assert.equal(avisoRenderPendiente(s, Z("2026-10-12T04:59:00Z"), ya), undefined); // lun 01:59
+  const a = avisoRenderPendiente(s, Z("2026-10-12T05:00:00Z"), ya); // lun 02:00
+  assert.ok(a);
+  assert.equal(a.clave, "2026-10-12:12h");
+  assert.equal(avisoRenderPendiente(s, Z("2026-10-12T05:00:00Z"), [...ya, a.clave]), undefined);
+});
+
+check("telegram: render pendiente — primera pieza lun 08:00 → 12 h antes (dom 20:00) si aún falta", () => {
   const s = [semana([pieza()])];
-  // El aviso del sábado ya salió: el de 12 h antes es otro.
-  const ya = ["2026-10-12:sabado"];
+  const ya = ["2026-10-12:domingo"];
   assert.equal(avisoRenderPendiente(s, Z("2026-10-11T22:59:00Z"), ya), undefined); // dom 19:59
   const a = avisoRenderPendiente(s, Z("2026-10-11T23:00:00Z"), ya); // dom 20:00
   assert.ok(a);
@@ -80,12 +90,13 @@ check("telegram: render pendiente — primera pieza lun 08:00 → aviso el domin
   assert.equal(avisoRenderPendiente([semana([pieza()], { [pieza().id]: rend() })], Z("2026-10-11T23:00:00Z"), ya), undefined);
 });
 
-check("telegram: render pendiente — no avisa dos veces la misma semana (yaAvisado)", () => {
+check("telegram: render pendiente — cada etapa una vez por semana (yaAvisado); la de 12 h tapa la del domingo", () => {
   const s = [semana([pieza({ hora: "14:00" })])];
-  const ahora = Z("2026-10-10T16:00:00Z");
+  const ahora = Z("2026-10-11T22:00:00Z"); // dom 19:00
   const a = avisoRenderPendiente(s, ahora);
   assert.ok(a);
   assert.equal(avisoRenderPendiente(s, ahora, [a.clave]), undefined);
+  assert.equal(avisoRenderPendiente(s, ahora, ["2026-10-12:12h"]), undefined);
 });
 
 check("telegram: render pendiente — ignora piezas cuya hora pasó, renderizadas, saltadas o semanas vacías", () => {

@@ -22,13 +22,14 @@ import {
   cargarFilasDb, claveFila, depsReales, esPausado, guardarClaveDb, leerClaveDb, ORDEN_PUBLICAR, ORDEN_SALTAR, tick, type SchedulerDeps,
 } from "../calendario/scheduler.ts";
 import {
-  avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
+  avisoRenderPendiente, avisosPostPublicacion, ETAPAS_RENDER, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
   modoCalendario, porProgramar, publicadas, recordatorioLunes, silencioCalendario, TEXTO_POST_PUBLICACION, TEXTO_RECORDATORIO_LUNES,
 } from "../calendario/telegram.ts";
 import { graphGet } from "../meta/client.ts";
 import { guardarCuenta, tomarInstantaneas } from "../insights/snapshots.ts";
 import { guardarEstado, leerEstado, resumenDelDomingo, resumenReciente, textoPost } from "../insights/lectura.ts";
 import { debeCuenta, debeResumir, formatResumenTelegram } from "../insights/summary.ts";
+import { debeEscribirBucle, escribirBucle, marcaBucle } from "../calendario/bucle.ts";
 import { markSummaryNotified, newSummaries, registroPath, silenceAlert } from "./research.ts";
 import { sendDm } from "../meta/messages.ts";
 import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
@@ -848,6 +849,34 @@ async function summaryTick(): Promise<void> {
   }
 }
 
+/**
+ * `_metricas/bucle.json` (Task 12, R30): justo después del resumen del domingo (misma
+ * pasada de 10 min, desde las 05:30) y antes del planificador de las 06:00. La marca
+ * `bucle:ultimo` (calendario_estado) se guarda solo si la escritura salió bien.
+ */
+async function bucleTick(): Promise<void> {
+  try {
+    if (!debeEscribirBucle(new Date(), leerEstado("bucle:ultimo"))) return;
+    await serial(async () => {
+      const now = new Date();
+      // Otra pasada pudo escribirlo mientras esperaba su turno.
+      if (!debeEscribirBucle(now, leerEstado("bucle:ultimo"))) return;
+      const rutas = await escribirBucle(now);
+      await commitMetricas(rutas, `métricas: bucle ${marcaBucle(now)}`);
+      guardarEstado("bucle:ultimo", marcaBucle(now));
+    });
+    ultimoErrorMetricas.delete("bucle");
+  } catch (err) {
+    await avisarUnaVez("bucle", err);
+  }
+}
+
+/** Resumen del domingo y, a continuación, el bucle (en ese orden, en la misma pasada). */
+async function resumenYBucle(): Promise<void> {
+  await summaryTick();
+  await bucleTick();
+}
+
 /** `/metricas` (últimos 7 días) y `/metricas <link|media_id|piezaId>` (todas las instantáneas de un post). */
 async function responderMetricas(api: Api, chatId: number, arg: string): Promise<void> {
   try {
@@ -869,8 +898,8 @@ function iniciarMetricas(): void {
   // La cuenta se guarda a lo más una vez por día local; la pasada horaria solo revisa si ya toca.
   setTimeout(() => void accountTick(), METRICAS_PRIMERA_MS + 60_000);
   setInterval(() => void accountTick(), METRICAS_CADA_MS);
-  setTimeout(() => void summaryTick(), METRICAS_PRIMERA_MS + 3 * 60_000);
-  setInterval(() => void summaryTick(), RESUMEN_CADA_MS);
+  setTimeout(() => void resumenYBucle(), METRICAS_PRIMERA_MS + 3 * 60_000);
+  setInterval(() => void resumenYBucle(), RESUMEN_CADA_MS);
 }
 
 // --- calendario ---
@@ -893,6 +922,8 @@ type PiezaCal = SemanaLeida["plan"]["piezas"][number];
 
 const sinToken = (t: string): string => (mediaToken ? ocultarToken(t, mediaToken) : t);
 
+let ultimoErrorCommit: string | undefined;
+
 /** Dependencias del scheduler, una sola vez (su memoria de proceso va atada a este objeto). */
 let calDeps: SchedulerDeps | undefined;
 function depsCalendario(): SchedulerDeps {
@@ -908,7 +939,17 @@ function depsCalendario(): SchedulerDeps {
     // El commit entra a la cadena serial (nunca a mitad de un guardado o de un pull) pero
     // sin esperarla: un guardado largo no puede atrasar una publicación.
     commit: (paths, mensaje) => {
-      void serial(() => commitPaths(paths, mensaje)).catch((e) => console.warn(`⚠️  Calendario, commit: ${sinToken(errText(e))}`));
+      // Un fallo no se pierde: se avisa por Telegram (una vez por error distinto). El push
+      // fallido ya lo avisa `setSyncErrorHandler`; lo no commiteado sube con el próximo commit.
+      void serial(() => commitPaths(paths, mensaje)).then(
+        () => { ultimoErrorCommit = undefined; },
+        (e) => {
+          const msg = sinToken(errText(e));
+          if (msg === ultimoErrorCommit) return;
+          ultimoErrorCommit = msg;
+          void notifyAdmin(`⚠️ Calendario: no pude commitear ${paths.length} archivo(s) («${mensaje}»): ${msg}`);
+        },
+      );
       return Promise.resolve();
     },
   };
@@ -1010,7 +1051,8 @@ async function cmdPublicar(chatId: number, arg: string): Promise<void> {
     const ef = estadoEfectivo(p, r, s.estado[p.id]);
     if (ef !== "programado") return say(`Solo publico piezas programadas: ${p.id} está ${ef}.`);
     guardarClaveDb(ORDEN_PUBLICAR + clave, new Date().toISOString());
-    await say(`▶️ Publicando ${p.id} ahora${calendarioModo === "aviso" ? " (modo aviso: sin POST a Meta)" : ""}…`);
+    await say(`▶️ Publicando ${p.id} ahora${calendarioModo === "aviso" ? " (modo aviso: sin POST a Meta)" : ""}… ` +
+      `Ojo: si falla, la pieza queda fallida o saltada y no vuelve a su hora del plan (${p.dia} ${p.hora}).`);
     await tick(depsCalendario());
     const fin = filaPost(clave);
     if (!fin) await say("Quedó en cola: sale en el próximo minuto (te aviso).");
@@ -1105,7 +1147,7 @@ async function revisarCalendario(): Promise<void> {
       commitCalendario([estadoPath(x.semana)], `calendario: programado ${x.pieza.id}`);
       await enviarPreview(s, x.pieza, x.medios);
     }
-    const ya = semanas.flatMap((s) => ["sabado", "12h"].map((e) => `${s.semana}:${e}`)).filter((k) => leerClaveDb(K_RENDER + k));
+    const ya = semanas.flatMap((s) => ETAPAS_RENDER.map((e) => `${s.semana}:${e}`)).filter((k) => leerClaveDb(K_RENDER + k));
     const render = avisoRenderPendiente(semanas, ahora, ya);
     if (render && (await sendToAdmins(render.texto))) guardarClaveDb(K_RENDER + render.clave, ahora.toISOString());
     const silencio = silencioCalendario(await listarSemanas(), ahora);

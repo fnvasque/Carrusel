@@ -94,12 +94,14 @@ function pendienteDeRender(s: SemanaLeida, p: Pieza, t: number): boolean {
 }
 
 /**
- * Aviso de render pendiente, por semana y en dos etapas:
- * - `sabado`: desde el sábado 12:00 anterior a la semana;
- * - `12h`: desde 12 h antes de la primera pieza pendiente.
+ * Aviso de render pendiente (R41), por semana y en dos etapas:
+ * - `domingo`: desde el domingo 18:00 (Chile) anterior a la semana (el plan nace el
+ *   domingo 06:00, así que antes no hay piezas de la semana siguiente);
+ * - `12h`: desde 12 h antes de la primera pieza pendiente, si sigue pendiente
+ *   (p. ej. lunes 02:00 para un post de las 14:00).
  * Solo si hay piezas `planificadas` sin render cuya hora no pasó. La clave devuelta
- * (`"<semana>:sabado"` o `"<semana>:12h"`) se guarda y se pasa en `yaAvisado`; avisada la
- * etapa `12h`, la del sábado ya no sale. Nunca dos veces la misma etapa.
+ * (`"<semana>:domingo"` o `"<semana>:12h"`) se guarda y se pasa en `yaAvisado`; cada
+ * etapa sale una vez por semana, y avisada la de 12 h ya no sale la del domingo.
  */
 export function avisoRenderPendiente(
   semanas: SemanaLeida[],
@@ -113,21 +115,24 @@ export function avisoRenderPendiente(
     if (!pendientes.length) continue;
     const primera = Math.min(...pendientes.map((p) => horaDe(p)!));
     const texto = `🖥 Prende el Mac: faltan ${pendientes.length} ${pendientes.length === 1 ? "pieza" : "piezas"} por renderizar ` +
-      `(semana del ${s.semana}; la primera sale ${diaCortoDe(primera)}).`;
+      `(semana del ${s.semana}; la primera sale el ${diaCortoDe(primera)}).`;
     const k12 = `${s.semana}:12h`;
-    const kSab = `${s.semana}:sabado`;
+    const kDom = `${s.semana}:domingo`;
     if (ya.has(k12)) continue;
     if (t >= primera - 12 * 3_600_000) return { clave: k12, texto };
-    let sabado: number;
+    let domingo: number;
     try {
-      sabado = zonedToUtc(addDays(s.semana, -2), "12:00").getTime();
+      domingo = zonedToUtc(addDays(s.semana, -1), "18:00").getTime();
     } catch {
       continue;
     }
-    if (!ya.has(kSab) && t >= sabado) return { clave: kSab, texto };
+    if (!ya.has(kDom) && t >= domingo) return { clave: kDom, texto };
   }
   return undefined;
 }
+
+/** Etapas de `avisoRenderPendiente` (para armar `yaAvisado`). */
+export const ETAPAS_RENDER = ["domingo", "12h"] as const;
 
 function diaCortoDe(t: number): string {
   const l = localParts(new Date(t));
