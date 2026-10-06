@@ -99,8 +99,9 @@ alcance") que solo las métricas reales pueden confirmar o tumbar.
 | Rituales manuales | El sistema **no** responde comentarios, no comenta en otras cuentas ni gestiona colaboraciones: manda recordatorios por Telegram (post-publicación: "responde comentarios en la primera hora"; lunes: "30-60 min de interacción en el nicho esta semana") | El skill los exige en fase 1; automatizarlos es lo que hace que Instagram marque la cuenta |
 | Señal objetivo por pieza | Declarada antes de producir: guardados, envíos, comentarios o retención. Sin señal, no se produce | Regla "un post = un trabajo" del skill; `ingenieria-de-bucles`: métrica fija y comparable |
 | Puerta de calidad | Tres filtros en serie, ninguno se salta: (1) reglas duras de texto en `validar.mjs` (longitudes, siglas, relleno, tiempo de lectura); (2) **lector frío**: un evaluador con contexto limpio que solo ve el texto de las slides y debe reconstruir tema, entregable, emoción y acción sin confundirse (ver "Puerta de comprensión y emoción"); (3) score léxico ≥ 75 y checklist K1–K14. Si una pieza no pasa tras 3 reescrituras, **se deja el hueco vacío** | El score léxico cuenta palabras, no entendimiento: la auditoría encontró piezas con 100/100 que mezclaban 3 ideas y usaban jerga. "Evaluador fuera del alcance del agente" (`ingenieria-de-bucles`); validador de 5 puertas del skill `reels-hooks-ia` |
-| Emoción por pieza | Cada pieza declara **una emoción objetivo** (de una lista cerrada por arquetipo) y la **"frase de amigo"**: cómo el espectador se lo contaría a alguien en una línea sin usar términos técnicos. El hook se escribe al final, como promesa de ese entregable y esa emoción | "Un post = un trabajo" (skill); gatillo antes que hook (`reels-hooks-ia`); test de la frase de amigo (puerta 1 del validador) |
-| Logo y cabecera en el primer cuadro | En reels, el wordmark y la cabecera `NN / PILAR` **entran a los 3 s**, no en el cuadro 0; en carruseles, la portada no lleva wordmark (va en el CTA). El resto del look lima no cambia | Regla del skill de la cuenta: ~100 % de los views son de no seguidores, nadie conoce la marca y el logo quema el segundo más valioso |
+| Emoción por pieza | Cada pieza declara **la emoción que busca** (la elige el planificador; puede encadenar más de una) y la **"frase de amigo"**: cómo el espectador se lo contaría a alguien en una línea sin términos técnicos. El entregable se decide antes que el hook | "Start with emotion" (ficha high); escalera de la dopamina; prueba de la cena (`storyworthy`); maldición del conocimiento (`made-to-stick`) |
+| Logo y cabecera en el primer cuadro | **Se mantienen** (look lima tal cual: wordmark y `NN / PILAR` desde el cuadro 0). "Logo tarde" queda como **experimento** del bucle, no como regla | La base dice "marca y mensaje al inicio" (Meta/Nielsen, `hook-de-video`) y todas las portadas guardadas llevan marca; el skill de reels dice lo contrario para audiencia fría. Contradicción → la resuelven tus métricas |
+| Reglas vs. parámetros | Lo que la base respalda es **regla dura**; cada número sin respaldo (longitudes, umbral del hook, velocidad de lectura, tope de reescrituras) es un **parámetro en `config.json`** marcado `supuesto`, variable de experimento | Contraste contra `ia-es-kb` del 2026-10-06: la base sostiene la dirección, no los números |
 | Ventanas de medición | Instantáneas a 24 h, 72 h, 7 d y luego semanal hasta 28 d. La comparación entre piezas usa siempre la de **7 d** | "Mismas ventanas siempre" (skill); patrón vs. señal aislada (base) |
 | Métrica de comparación | Con `reach < 50`: conteos absolutos (`reach`, `saved`, `shares`, `views`) y, en reels, `avg_watch_time / duración`. Con `reach ≥ 50`: tasas por alcance (`saved/reach`, `shares/reach`, `comments/reach`). El umbral vive en `config.json` | Con 4 seguidores una tasa sobre 12 de alcance es ruido; la retención por reel sí es comparable desde el primer post |
 | Alcance a no seguidores | `reach` de cuenta con `breakdown=follow_type` (diario) y, por pieza, `reach` − seguidores del día como aproximación | Es la métrica que importa en la fase "desierto": si el contenido no sale del círculo, nada más cuenta |
@@ -186,88 +187,89 @@ de código está al lado; si no, lo omite y lo deja al Mac).
 ### Puerta de comprensión y emoción
 
 Objetivo: que nadie de la audiencia (hispanohablante curioso de IA, **no
-técnico**, en el celular, distraído, probablemente sin sonido) se confunda, y que
-cada pieza produzca la emoción que la hace detenerse, guardar o enviar. Adapta el
-validador de 5 puertas de `reels-hooks-ia` a carruseles, reels y stories.
+técnico**, en el celular, distraído) se confunda, y que cada pieza produzca la
+emoción que la hace detenerse, guardar o enviar.
 
-**1. Antes de escribir** (orden obligatorio, al revés del intuitivo):
+**Contrastada contra `ia-es-kb` el 2026-10-06.** La base respalda con fuentes
+serias la *dirección* (claridad, concreción, recompensa, evaluador separado) y no
+respalda casi ningún *número*. Por eso la puerta tiene dos niveles: **reglas
+duras** (lo que la base sostiene) y **parámetros por defecto** (supuestos
+tomados del skill `reels-hooks-ia` o míos, que viven en `config.json`, se marcan
+como tales y son variables legítimas del experimento semanal). La base tampoco
+tiene nada sobre carruseles: todo su material de hooks es de video, así que
+aplicarlo a slides es una extrapolación que las métricas deben confirmar.
 
-1. Entregable material: qué se lleva el espectador (prompt copiable, pasos
-   numerados, nombre de herramienta + caso de uso, lista, comparativa). Sin
-   entregable no hay pieza; "inspirar" no cuenta.
-2. Señal objetivo y, si es envío, el destinatario nombrado ("mándaselo a quien
-   sigue pagando X").
-3. Emoción objetivo, una por pieza, de esta lista por arquetipo:
+**1. Reglas duras** (las aplica el planificador y el lector frío; no se
+configuran):
 
-   | Arquetipo | Emoción objetivo | Categoría de hook (de la base) |
-   |---|---|---|
-   | Tutorial (lun) | Alivio: "es más fácil de lo que creía" | Curiosidad o autoridad |
-   | Lista / guía (mar) | Saturación útil: "es demasiado, lo guardo" | Curiosidad |
-   | Compartible (mié) | Reconocimiento: "esto es para [nombre]" | Identificación |
-   | Demo (jue) | Sorpresa: "¿eso se puede?" | Storytelling o curiosidad |
-   | Opinión / mito (vie) | Validación o contrariedad: "yo lo sabía" / "¿cómo que no?" | Controversia |
-   | Atemporal (sáb) | Curiosidad: bucle abierto que se cierra en la pieza | Curiosidad |
-   | Story | Anticipación: "hay algo nuevo" | — |
+| Regla | Respaldo en la base |
+|---|---|
+| **Entregable material primero.** Antes de escribir, cada pieza declara qué se lleva el espectador (prompt copiable, pasos, lista, herramienta + caso de uso). Sin entregable no hay pieza | "Sin recompensa, no hay post" (`fuentes/2026-10-05-dm-18035497727845829.md`); escalera nivel 4 "entregar el consejo accionable" (`referencias/escalera-de-la-dopamina.md`). Fichas de creadores, sin datos |
+| **Un solo núcleo** por pieza; una idea por slide o escena | Principio Simple, `referencias/made-to-stick.md` |
+| **Concreto**: número, detalle o imagen, no abstracción | Efecto de concreción replicado (*Memory & Cognition* 2019, `referencias/mostrar-no-decir.md`); "42 degrees, no shade" (`fuentes/2026-10-04-dm-18137943652614038.md`). **Fuerte** |
+| **Sin jerga sin explicar.** Todo término que un no técnico no conozca se reemplaza o se explica al vuelo | Maldición del conocimiento, experimento de Newton (`referencias/made-to-stick.md`); "use simple language" (`fuentes/2026-10-04-dm-18064855235788769.md`). **Fuerte** |
+| **Sin relleno ni hype vacío** | "Say less, mean more"; "no vague hype" (`fuentes/2026-10-01-dm-17889686487437515.md`, high) |
+| **Promesa visible desde la portada / 0-3 s**; la resolución **no** se da de inmediato: se sostiene con tensión y llega como remate | TikTok: propuesta en 3 s y "sostener el hook hasta el segundo 6"; escalera: "el pico llega justo antes de la revelación" (`referencias/hook-de-video.md`, `escalera-de-la-dopamina.md`) |
+| **Emoción declarada antes de escribir**, elegida por el planificador (no hay mapeo fijo por arquetipo); puede encadenar más de una (estimulación → curiosidad → validación) | "Start with emotion, not visuals" (`fuentes/2026-10-03-dm-18105124301113571.md`, high); escalera |
+| **Frase de amigo**: cómo se lo contaría a alguien en una línea; si exige saber qué es una API o un modelo, se reescribe | "Prueba de la cena" (`referencias/storyworthy.md`); maldición del conocimiento. Matiz: la base lo dice del narrador, no del espectador |
+| **Evaluador separado del que escribe**, contexto limpio, criterio fijo, tope de vueltas | `referencias/ingenieria-de-bucles.md` (Anthropic, Karpathy); "una skill hace, otra califica, otra reescribe" (`fuentes/2026-10-04-dm-18095603915396617.md`). **Fuerte** |
+| **Títulos informativos con la palabra clave al inicio**; la pieza se entiende leyendo solo títulos | Patrón layer-cake, NN/g eyetracking (`referencias/patron-de-lectura-en-f.md`). Fuerte, pero medido en páginas web |
+| **CTA con un solo gesto**: guardar como utilidad futura, enviar a un destinatario nombrado, o "comenta PALABRA y te lo mando por DM" | Práctica observada en muchas fichas; la base **no tiene datos de conversión** de ningún CTA (auditoría K13) |
 
-4. Frase de amigo: una línea de cómo el espectador se lo contaría a alguien. Si
-   esa línea necesita saber qué es una API, un token o un modelo, la idea se
-   reescribe antes de producir nada.
-5. Recién entonces el hook: promesa de ese entregable con esa emoción; se puntúa
-   con la rúbrica de 10 puntos del skill (especificidad +2, gatillo +2, segundo
-   gatillo +2, destinatario +1, legible sin sonido +1, movimiento desde el
-   cuadro 0 +1, promesa cumplible en la slide/segundo siguiente +1). Se entrega
-   solo con **≥ 8**. Saludo, contexto previo o logo en el primer cuadro = 0.
+**2. Parámetros por defecto** (`config.json`, sección `puerta`; cada uno lleva
+`respaldo: "skill" | "supuesto"` y es candidato a experimento):
 
-**2. Reglas duras de texto** (las aplica `validar.mjs`, sin juicio):
-
-| Regla | Carrusel | Reel | Story |
+| Parámetro | Valor inicial | De dónde sale | Qué dice la base |
 |---|---|---|---|
-| Título del hook | ≤ 8 palabras | ≤ 8 palabras | ≤ 8 palabras |
-| Títulos de slide / escena | ≤ 10 palabras | ≤ 10 palabras | — |
-| Bullet | ≤ 10 palabras | ≤ 8 palabras | — |
-| Cuerpo (`body`) | ≤ 25 palabras, 1 idea | ≤ 15 palabras | — |
-| Tiempo de lectura (reel) | — | por escena: `≥ palabras ÷ 2.5 + 1.5 s`; el motor ya lo cumple con `pace: ensenar`, el validador lo verifica con la fórmula de `sceneSeconds` | — |
-| Siglas | Prohibidas salvo lista blanca en `config.json` (GPT como parte de un nombre) | igual | igual |
-| Término técnico | Máximo **uno** por pieza, explicado al vuelo en ≤ 3 palabras: "prompt (la instrucción)" | igual | ninguno |
-| Relleno | Cero: "increíble", "brutal", "realmente", "básicamente", "la verdad", "muy" (lista en `config.json`) | igual | igual |
-| Cada texto lleva | número, beneficio o destinatario | igual | — |
-| Una sola idea | 1 núcleo por pieza; 1 idea por slide; la slide 2 (`Lead`) cumple la promesa del hook | la escena 2 cumple la promesa (≤ 4 s desde el inicio) | — |
-| CTA | guardado como utilidad futura ("guárdalo para cuando…") y/o envío con destinatario; "link en la bio" solo secundario | igual | — |
-| Idioma | Español neutro; anglicismos solo si son el nombre de la herramienta | igual | igual |
+| `tituloMaxPalabras` | 12 | único número en la base (`fuentes/2026-10-01-dm-17889686487437515.md`) | las portadas guardadas tienen 15-20; el skill dice 8 |
+| `bulletMaxPalabras` / `cuerpoMaxPalabras` | 12 / 30 | supuesto | silencio ("menos palabras") |
+| `terminosTecnicosMax` | 1, explicado en ≤ 3 palabras | skill | silencio en el número; un post guardado usa "MCP" sin explicar |
+| `siglasPermitidas` | `["GPT", "PDF", "IA", "DM"]` | skill | silencio |
+| `relleno` | `["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"]` | skill | principio sí, lista no |
+| `hookUmbral` | 8 de 10, **en cada criterio** (claro, específico, conciso, con destinatario) | un reel demo (`…17889686487437515`): "every criterion ≥ 8" | un solo caso; "legible sin sonido" se quita (TikTok pide sonido) |
+| `lecturaPalabrasPorSegundo` | 2,5 (mín. 1,5 s por texto) | skill | silencio; tensión con "línea nueva cada 2-3 s" |
+| `reescriturasMax` | 3 | supuesto | la base solo da un ejemplo de 20 turnos |
+| `logoEnCuadro0` | **true** (el look lima tal cual) | base: "marca y mensaje al inicio" (Meta/Nielsen, `hook-de-video`); todas las portadas guardadas llevan marca | el skill dice lo contrario para audiencia fría orgánica → **experimento**, no regla |
 
-**3. Lector frío** (evaluador fuera del alcance del que escribe):
+**3. Lector frío** (la regla dura de evaluador separado, instrumentada):
 
-El planificador lanza, por cada pieza, un subagente con **contexto limpio** que
+Por cada pieza, el planificador lanza un subagente con **contexto limpio** que
 recibe solo el texto de las slides en orden (sin tema, sin fuentes, sin plan, sin
-la emoción buscada) con el perfil de la audiencia y responde un cuestionario fijo:
+la emoción buscada), con el perfil de la audiencia, y responde un cuestionario
+fijo (`_calendario/lector-frio.md`, versionado para que no lo cambie el que
+escribe):
 
 1. ¿De qué trata, en una frase?
 2. ¿Qué te llevas o qué puedes hacer después de verlo?
 3. ¿Qué palabra o frase no entendiste o te hizo dudar?
-4. ¿Qué sentiste al leer la primera slide? (elige una de la lista de emociones)
+4. ¿Qué sentiste al ver la primera slide? (lista abierta)
 5. ¿Qué harías al terminar? (guardar / enviárselo a alguien / comentar / nada)
 6. ¿Algo te confundió, se contradijo o prometió algo que no llegó?
 
 Se corren **dos lectores**: el no técnico completo y uno "con prisa" que solo
-recibe títulos y `highlight` de cada slide (escaneo en capas, K12). Pasa si:
-(1) coincide con el tema, (2) nombra el entregable, (3) está vacío o solo cita el
-término permitido, (4) coincide con la emoción objetivo, (5) coincide con la
-señal objetivo, (6) está vacío, **en ambos lectores**. Si no, el planificador
-reescribe (máximo 3 vueltas) y vuelve a correr. El resultado y las notas de cada
-intento quedan en `plan.json` (`lectorFrio`) y en `registro.jsonl`: sirven para
-cruzarlos con las métricas (si una pieza que pasó el lector frío tiene retención
-< 0,3, el problema no es de claridad sino de hook o de tema).
+recibe títulos y `highlight` (layer-cake). Pasa si: (1) coincide con el tema,
+(2) nombra el entregable, (3) está vacío o solo cita el término permitido,
+(4) es compatible con la emoción declarada, (5) coincide con la señal objetivo,
+(6) está vacío, **en ambos**. Si no, reescritura hasta `reescriturasMax` y luego
+hueco vacío. Resultado y notas de cada intento quedan en `plan.json`
+(`lectorFrio`) y `registro.jsonl`.
 
-**4. QA del archivo final** (en el Mac, después del render, sin juicio):
+**4. Cómo lo corrige el bucle de feedback** (ver Mejora 3): cada parámetro de
+la tabla 2 es una variable de experimento del ritual semanal. Las piezas llevan
+en el registro los valores con que se produjeron (longitud real del título,
+términos técnicos, logo en cuadro 0, resultado del lector frío), así que a las
+4 semanas el planificador puede comparar retención, guardados y envíos por valor
+y proponer un cambio al `config.json`. Lo propone en `aprendizajes.md`; el
+cambio lo aplica el usuario (el evaluador queda fuera del alcance del agente).
+
+**5. QA del archivo final** (en el Mac, después del render, sin juicio):
 
 - Cuadro 0 del reel y portada del carrusel: luminancia media > 12 % (no es una
-  pantalla negra), hay texto detectado en la zona segura (15-75 % vertical), sin
-  wordmark (el logo entra a los 3 s).
+  pantalla negra), hay texto detectado en la zona segura (15-75 % vertical).
 - Pista de audio presente (`ffprobe`); un MP4 mudo no se sube.
-- Cada texto del reel visible al menos `palabras ÷ 2.5` s (lo garantiza
-  `sceneSeconds`; se comprueba sobre el timeline exportado).
-- Story: ≤ 8 palabras, texto en zona segura.
-
+- Cada texto del reel visible al menos `palabras ÷ lecturaPalabrasPorSegundo` s
+  (lo garantiza `sceneSeconds`; se comprueba sobre el timeline exportado).
+- Story: texto en zona segura.
 Lo que no pasa se marca `fallido` con el motivo y no se publica.
 
 ## Mejora 2 — Métricas (`src/insights/`)
@@ -334,8 +336,9 @@ El manual indica:
    probada, recompensa concreta (prompt copiable, checklist, comando), fuente
    citada al pie (`source`), caption con keyword en la primera línea y 3-5
    hashtags. Orden obligatorio: entregable → señal y destinatario → emoción →
-   frase de amigo → cuerpo → hook (puntuado ≥ 8). Aplicar las reglas duras de
-   texto y K1–K14; carrusel ≤ 10 slides; reel con `pace: ensenar` y una pista de
+   frase de amigo → cuerpo → hook (puntuado contra `hookUmbral`). Aplicar las
+   reglas duras, los parámetros de `config.json` y K1–K14; carrusel ≤ 10
+   slides; reel con `pace: ensenar` y una pista de
    `promo/audio/`. Puede pedir fondo `ai` en Hook o Cta (tope 3 por semana, lo
    cuenta el validador). Copy en español neutro.
 6. **Lector frío** por pieza (dos lectores con contexto limpio, ver "Puerta de
@@ -430,11 +433,11 @@ al despertar). También se puede correr a mano.
 | `kb-plantilla/_calendario/` (nuevo) | `INSTRUCCIONES.md`, `config.json`, `validar.mjs`; `scripts/kb-calendario-install.sh` los copia a la base |
 | `promo/audio/` (nuevo) | 2-3 pistas libres de derechos (el usuario las elige) |
 | `src/templates/StoryCover.tsx` (nuevo) | portada 9:16 para la story: hook + rótulo, look lima, registrada en el catálogo |
-| `src/templates/Frame.tsx`, `src/reel/runtime` | wordmark y cabecera `NN / PILAR` con `data-anim="late"` (entran a los 3 s en el reel); prop `showLogo: false` por defecto en `Hook` cuando es portada de carrusel |
+| `src/templates/Frame.tsx`, `src/reel/runtime` | sin cambio de estilo. Solo se agrega la opción `logoEnCuadro0: false` (wordmark con `data-anim="late"`, entra a los 3 s) para cuando el bucle la pruebe como experimento; por defecto `true` |
 | `src/calendario/qa.ts` (nuevo) | QA del archivo final: luminancia del cuadro 0, texto en zona segura (OCR ligero o bounding boxes del render), `ffprobe` de audio, tiempos de lectura por escena |
 | `kb-plantilla/_calendario/lector-frio.md` (nuevo) | prompt fijo del lector frío (perfil de audiencia, cuestionario, criterio de paso) y el perfil "con prisa"; versionado para que el evaluador no lo cambie el que escribe |
 | `README.md` | sección "Marca" con el look lima (hoy navy + cian); sección nueva "Calendario y métricas" |
-| `test/insights.ts`, `test/calendario.ts` (nuevos) | pruebas offline: parseo de insights con métricas faltantes, cálculo de ventanas, asignación de horas, máquina de estados idempotente (pieza y su story), validación de borradores (catálogo, tope de fondos IA, caption, reglas duras de texto: longitudes, siglas, relleno, un término técnico, tiempo de lectura por escena), QA del archivo con un MP4 mudo y un cuadro 0 negro |
+| `test/insights.ts`, `test/calendario.ts` (nuevos) | pruebas offline: parseo de insights con métricas faltantes, cálculo de ventanas, asignación de horas, máquina de estados idempotente (pieza y su story), validación de borradores (catálogo, tope de fondos IA, caption, parámetros de la puerta leídos de `config.json`: longitudes, siglas, relleno, términos técnicos, tiempo de lectura por escena), QA del archivo con un MP4 mudo y un cuadro 0 negro |
 
 ## Mejora 3 — Bucle de feedback
 
@@ -450,10 +453,12 @@ fija qué cambia con los datos y qué no.
 | `follower_count` diario vs. piezas | Detecta qué piezas traen seguidores (delta del día siguiente) | Semana 1 |
 | Instantánea 7 d → `metrics/*.json` | Calibración del score (`refreshCalibration`); proyección en `score`/`generate`/`remix` | ≥ 3 piezas |
 | `aprendizajes.md` | Contexto del agente la semana siguiente (lo que ya se sabe de la cuenta) | Semana 2 |
+| **Parámetros de la puerta** (`config.json → puerta`: longitudes, umbral del hook, logo en cuadro 0, velocidad de lectura…) | Cada pieza registra los valores con que se produjo; a las 4 semanas el planificador compara retención, guardados y envíos por valor y **propone** un cambio en `aprendizajes.md`. El cambio lo aplica el usuario | ≥ 4 semanas y ≥ 6 piezas por valor comparado |
 
 Lo que **no** cambia solo: los pesos léxicos de `virality.ts`, el mix semanal, la
-zona horaria y el modo de publicación. Cambiarlos exige editar `config.json` o
-código: el evaluador queda fuera del alcance del agente (`ingenieria-de-bucles`).
+zona horaria, el modo de publicación y los parámetros de la puerta. Cambiarlos
+exige editar `config.json` o código: el evaluador queda fuera del alcance del
+agente (`ingenieria-de-bucles`). El agente propone; tú decides.
 
 Diagnóstico mensual (árbol del skill, con lo que la API sí da):
 
