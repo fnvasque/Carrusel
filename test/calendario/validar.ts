@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { check } from "../_check.ts";
 import {
   CATALOGO,
+  aUtc,
   EJEMPLO,
   PLANTILLAS,
   contarFondosIA,
@@ -18,6 +19,7 @@ import {
   validarSemana,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds } from "../../src/reel/timing.ts";
+import { zonedToUtc } from "../../src/calendario/time.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 
 /**
@@ -608,4 +610,90 @@ check("calendario/validar (CLI): --self-test, semana válida → 0, semana invá
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// --- fix ronda 1 ---
+
+check("calendario/validar: presupuesto de lectura del manual — 12 palabras pasan en cualquier escena; de más fallan", () => {
+  const segundos = (b: any) => reglasDeTexto(b, config, "reel").filter((e) => /segundos/.test(e));
+  const doce = borrador();
+  doce.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast", subtitle: "sin leer una sola página" }; // 6 + 5 = 11
+  doce.slides[1].props = { step: "1", heading: "Pide el resumen en audio", body: "Elige la versión corta y escúchala caminando." }; // 5 + 7 = 12
+  doce.slides[2].props = { step: "2", heading: "Copia el prompt de abajo", bullets: ["Pégalo antes de generar", "Pide tres ideas clave"] }; // 5 + 8 = 13 (bullets: 1,8 s c/u)
+  doce.slides[3].props = { title: "Guárdalo para tu próxima pila de lectura", highlight: "Guárdalo", reason: "Lo vas a usar esta semana.", source: "x" }; // 7 + 6 = 13
+  assertNone(segundos(doce));
+  const hook = borrador();
+  hook.slides[0].props.subtitle = "sin leer una sola página del montón"; // 9 + 7 = 16 > 12 (tope 5 s)
+  assert.ok(segundos(hook).some((e) => e.startsWith("slide 1")), JSON.stringify(segundos(hook)));
+  const medio = borrador();
+  medio.slides[1].props.body = "Crea un cuaderno nuevo, arrastra los archivos que tengas pendientes y espera a que termine de leerlos."; // 5 + 17 = 22 > 20 (tope 8 s)
+  assert.ok(segundos(medio).some((e) => e.startsWith("slide 2")), JSON.stringify(segundos(medio)));
+});
+
+check("calendario/validar: segundosEscena coincide con sceneSeconds usando todas las props de texto", () => {
+  const claves = ["title", "subtitle", "eyebrow", "heading", "body", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "highlight", "source"];
+  claves.forEach((k, i) => {
+    const props: Record<string, unknown> = { [k]: "palabra ".repeat(5 + i * 3).trim() };
+    for (const hold of [false, true]) {
+      for (const pace of ["ensenar", "rapido"] as const) assert.equal(segundosEscena(props, hold, pace, false), sceneSeconds(props, hold, pace, false), k);
+    }
+  });
+});
+
+check("calendario/validar: aUtc coincide con zonedToUtc en ambos cambios de hora (2026 y 2027)", () => {
+  for (const dia of ["2026-04-04", "2026-04-05", "2026-09-05", "2026-09-06", "2027-04-03", "2027-04-04", "2027-09-04", "2027-09-05", "2026-10-12"]) {
+    for (let m = 0; m < 24 * 60; m += 30) {
+      const hora = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      assert.equal(aUtc(dia, hora).toISOString(), zonedToUtc(dia, hora).toISOString(), `${dia} ${hora}`);
+    }
+  }
+});
+
+check("calendario/validar: separación entre piezas medida en tiempo real (UTC de Chile)", () => {
+  // Los cambios de hora de Chile caen la noche del sábado al domingo, así que hoy
+  // no separan dos piezas consecutivas; se verifica que la cuenta usa instantes
+  // reales (aUtc) y reporta horas con decimales.
+  const p = plan({ semana: "2026-08-31" });
+  p.piezas = [
+    pieza({ id: "vie-carrusel-a", dia: "2026-09-04", hora: "23:00", formato: "carrusel", arquetipo: "opinion", borrador: "vie-carrusel-a.json" }),
+    pieza({ id: "sab-reel-b", dia: "2026-09-05", hora: "18:30", formato: "reel", arquetipo: "atemporal", tema: "otro tema", borrador: "sab-reel-b.json" }),
+  ];
+  p.experimento = { variable: "hora", hipotesis: "x", piezas: ["sab-reel-b"] };
+  assertHas(validarPlan(p, config), /sab-reel-b: está a 19\.5 h/);
+});
+
+check("calendario/validar: la palabra clave en mayúsculas solo vale tras \"Comenta\" en el Cta, y solo una", () => {
+  const b = borrador();
+  b.slides[1].props.body = "Comenta RESUMEN y te lo mando.";
+  assertHas(reglasDeTexto(b, config), /RESUMEN/);
+  const c = borrador();
+  c.slides[3].props.reason = "Escribe RESUMEN y te lo mando por DM.";
+  assertHas(reglasDeTexto(c, config), /RESUMEN/);
+  const d = borrador();
+  d.slides[3].props.reason = "Comenta RESUMEN LLM y te lo mando.";
+  assertHas(reglasDeTexto(d, config), /LLM/);
+});
+
+check("calendario/validar: JSON inválido → mensaje con la línea, sin repetir el contenido", () => {
+  const { root, dir } = semanaTemporal();
+  try {
+    writeFileSync(join(dir, "plan.json"), '{\n  "semana": "2026-10-12",\n  TOKEN_SECRETO\n}');
+    const errs = validarSemana(dir, config);
+    assertHas(errs, /JSON inválido \(línea 3\)/);
+    assert.ok(!errs.some((e) => e.includes("TOKEN_SECRETO")), JSON.stringify(errs));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: INSTRUCCIONES.md — mix con los valores exactos, presupuesto de lectura, audios vacíos y esqueleto de plan.json", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const m of CONFIG_BASE.mix) assert.ok(md.includes(`| \`${m.formato}\` | \`${m.arquetipo}\` |`), `mix: ${m.arquetipo}`);
+  assert.ok(/12 palabras/.test(md));
+  assert.ok(/`config\.audios` está vacío/.test(md));
+  const m = md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/);
+  assert.ok(m, "falta el esqueleto de plan.json");
+  const esqueleto = JSON.parse(m[1]);
+  assert.deepEqual(Object.keys(esqueleto), ["semana", "zona", "experimento", "piezas"]);
+  assert.equal(esqueleto.piezas.length, 6);
 });

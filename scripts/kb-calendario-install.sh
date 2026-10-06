@@ -39,6 +39,8 @@ for f in experimentos.md aprendizajes.md; do
   fi
 done
 
+# Valida config.json y el ejemplo; avisa en una línea si config.audios está vacío
+# (sin pistas el planificador no escribe reels).
 node "$DEST/validar.mjs" --self-test
 
 git -C "$KB" add "${ADD[@]}"

@@ -12,7 +12,7 @@ conversación). A cada uno le pasas **solo** este archivo y el texto que le toca
 | Lector | Qué recibe |
 |---|---|
 | **Completo** | El texto visible de todas las slides, en orden, slide por slide (`Slide 1: …`, `Slide 2: …`): títulos, `highlight`, cuerpo, bullets, prompt, mito/realidad, dato, CTA. |
-| **Con prisa** | Solo el título (`title` o `heading`) y el `highlight` de cada slide, en orden. Nada más. |
+| **Con prisa** | Solo el título y el `highlight` de cada slide, en orden. Nada más. Título = `title` o `heading`; en las slides sin título, su texto principal: `Lead` → `text`, `Stat` → `value` + `label`, `MythReality` → `myth`. |
 
 **Prohibido** pasarle al lector: el tema, las fuentes o fichas, el plan, el
 caption, el id, la señal objetivo, el entregable, la frase de amigo ni la

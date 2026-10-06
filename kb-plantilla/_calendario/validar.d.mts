@@ -1,6 +1,7 @@
 export declare const CATALOGO: Record<string, { required: string[]; optional: string[] }>;
 export declare const PLANTILLAS: Set<string>;
 export declare const EJEMPLO: { plan: any; borrador: any };
+export declare function aUtc(dia: string, hora: string, zona?: string): Date;
 export declare function normalizar(s: string): string;
 export declare function segundosEscena(props: Record<string, unknown>, hold: boolean, pace?: "ensenar" | "rapido", hook?: boolean): number;
 export declare function validarConfig(config: unknown): string[];

@@ -110,16 +110,25 @@ mismo tema en la misma semana, salvo derivados (el validador lo revisa).
 
 ## Paso 4 — Mix, horas, señal y experimento
 
-Mix fijo (`config.json → mix`; `dia`: 1 = lunes … 6 = sábado):
+Mix fijo (`config.json → mix`; `dia`: 1 = lunes … 6 = sábado). En
+`plan.json`, `formato` y `arquetipo` llevan **exactamente** el valor de la
+tabla (sin tildes ni agregados: `opinion`, no "opinión"); el validador compara
+texto exacto con `config.json → mix`, que manda si difiere de esta tabla:
 
-| Día | Formato | Arquetipo |
-|---|---|---|
-| Lunes | reel | tutorial |
-| Martes | carrusel | lista |
-| Miércoles | reel | compartible |
-| Jueves | reel | demo (resultado + prompt) |
-| Viernes | carrusel | opinión / mito |
-| Sábado | reel | atemporal (formato repetible) |
+| Día | `formato` | `arquetipo` | Qué es |
+|---|---|---|---|
+| Lunes | `reel` | `tutorial` | Pasos para lograr algo concreto |
+| Martes | `carrusel` | `lista` | Lista o guía guardable |
+| Miércoles | `reel` | `compartible` | Algo que se envía a alguien |
+| Jueves | `reel` | `demo` | Resultado + el prompt que lo produjo |
+| Viernes | `carrusel` | `opinion` | Opinión o mito contra realidad |
+| Sábado | `reel` | `atemporal` | Formato repetible, no de tendencia |
+
+**Si `config.audios` está vacío, no escribas reels**: todo reel necesita una
+pista de esa lista y tú no puedes agregarla. Esa semana escribe solo los
+carruseles (martes y viernes) y anota en `plan.json → motivo`: "config.audios
+vacío: faltan pistas de audio (las agrega el usuario); sin reels esta semana".
+Nunca inventes un nombre de pista ni copies el del ejemplo.
 
 - **Horas:** las de `bucle.json → horas` si existe; si no,
   `config.json → horasPorDefecto`. Siempre en `:00` o `:30`, dentro de
@@ -138,6 +147,12 @@ Mix fijo (`config.json → mix`; `dia`: 1 = lunes … 6 = sábado):
   variable es `arquetipo`, las piezas del experimento pueden salirse del
   arquetipo del mix. Para probar `logoEnCuadro0`, pon `"logoEnCuadro0": false`
   en los borradores de esas piezas.
+- **Un experimento se declara una sola vez** (la semana en que empieza) y se
+  evalúa a las 4 semanas (Paso 2). Las semanas siguientes no vuelvas a
+  declararlo: mientras haya uno abierto en `experimentos.md` (con "Resultado:
+  pendiente"), declara uno **nuevo** sobre otra variable, o
+  `"experimento": null` si no cabe otro sin mezclar efectos. Nunca dos
+  experimentos sobre la misma variable a la vez.
 
 ## Paso 5 — Escribir cada pieza
 
@@ -188,20 +203,46 @@ Los lee el validador; no los copies a mano, léelos de `config.json` cada semana
 - `siglasPermitidas`: palabras en mayúsculas permitidas (GPT, PDF, IA, DM; con
   plural: "PDFs"). Cualquier otra palabra en mayúsculas cuenta como sigla y es
   error: escribe los títulos en minúsculas normales (el motor los pasa a
-  mayúsculas). Sin siglas con puntos ("I.A."). Única excepción: la palabra
-  clave del CTA justo después de "Comenta" ("Comenta RESUMEN y te lo mando por
-  DM").
+  mayúsculas). Sin siglas con puntos en ninguna forma ("I.A.", "I.A", "I. A.").
+  Única excepción: **una** palabra clave en mayúsculas justo después de
+  "Comenta", **solo en el `Cta`** ("Comenta RESUMEN y te lo mando por DM").
 - `relleno`: palabras prohibidas en slides y caption ("increíble", "muy"…).
 - `hookUmbral`: mínimo de `hook.score`.
 - `lecturaPalabrasPorSegundo` y `lecturaMinSegundos`: en reels, cada escena
-  debe poder leerse en el tiempo que el motor la muestra (el Hook, máximo 5 s:
-  ~12 palabras en total). Si el validador dice que falta tiempo, acorta.
+  debe poder leerse en el tiempo que el motor la muestra. Ver "Presupuesto de
+  texto por escena de reel".
 - `reescriturasMax`: vueltas máximas por pieza (lector frío + validador).
 - `logoEnCuadro0`: marca en el primer cuadro (por defecto sí).
 
 El prompt copiable (`prompt` de la plantilla Prompt) y la cita (`source`) no
 pasan por las reglas de siglas, relleno y términos: son para copiar y para
 citar, no para leer de pasada.
+
+### Presupuesto de texto por escena de reel
+
+Cada slide de un reel es una escena. El validador exige que su texto se pueda
+leer a `lecturaPalabrasPorSegundo` (2,5 palabras/s, mínimo
+`lecturaMinSegundos`) en el tiempo que el motor la muestra. Con
+`"pace": "ensenar"` el motor da (fórmula de `sceneSeconds` en
+`src/reel/timing.ts`):
+
+```
+segundos = min(8, max(3.5, 2.4 + caracteres / 16))   (+1 s en la primera y la última escena)
+con bullets: al menos 1 + 1,8 × (bullets − 1) + 2,5
+el Hook (escena 1): tope de 5 s
+```
+
+Cuentan las palabras y caracteres de `title`, `subtitle`, `eyebrow`,
+`heading`, `body`, `bullets`, `text`, `kicker`, `reality`, `myth`, `reason`,
+`note`, `value`, `label`, `context` y `prompt` (no `highlight`, `source` ni
+`handle`).
+
+**Regla práctica: ≤ 12 palabras por escena en total**, sumando título, cuerpo,
+bullets y prompt. Con 12 palabras normales pasa en cualquier escena. Topes
+duros: 12 en el Hook (5 s), 20 en las del medio (8 s), 22 en la última; con
+palabras muy cortas ("de", "la", "y") el tope baja. Si una idea no cabe,
+pártela en dos escenas o pasa el detalle al caption. En carruseles no hay
+presupuesto de tiempo (rigen solo las longitudes de la puerta).
 
 ### Lo que revisa el validador además
 
@@ -210,12 +251,18 @@ citar, no para leer de pasada.
 - Solo las plantillas y props del catálogo de abajo, más `source` y `pillar`.
   Nada de colores, fuentes ni formato: el look lima lo pone el motor.
 - `highlight` debe aparecer **tal cual** (mismas tildes) dentro del título de
-  su slide; se compara sin distinguir mayúsculas.
+  su slide; se compara sin distinguir mayúsculas. Todo texto va en Unicode
+  NFC (tildes normales, no letra + tilde combinada).
+- Sin emojis en títulos ni `highlight` (tampoco banderas ni números con
+  recuadro como 1️⃣).
 - Fondos con IA: `"background": { "ai": "<descripción de la imagen>" }`, solo
   en `Hook` o `Cta`, **máximo `fondosIAMaxSemana` (3) en toda la semana**,
   nunca con `brandStyle: false` (el estilo de marca se anexa siempre).
 - Reel: `"pace": "ensenar"` y `"audio"` con el nombre exacto de una pista de
-  `config.audios` (sin rutas). Carrusel: `pace` y `audio` no hacen falta.
+  `config.audios` (sin rutas; si la lista está vacía, no hay reels: ver Paso 4).
+  Carrusel: `pace` y `audio` no hacen falta.
+- `plan.json` y los borradores son archivos normales de la carpeta (no enlaces
+  simbólicos) y JSON válido en UTF-8 sin BOM.
 - `name` del borrador = `id` de la pieza; `pillar` = `pilar` de la pieza.
 - `id`: minúsculas, números y guiones, 3 a 80 caracteres
   (`^[a-z0-9-]{3,80}$`), con la forma `<dia>-<formato>-<slug>` (p. ej.
@@ -257,10 +304,38 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
   valor de la variable del experimento si la pieza participa). Es lo que el
   bucle compara a las 4 semanas.
 
+### Esqueleto de `plan.json`
+
+Una semana completa (los `"..."` se reemplazan; cada pieza lleva todos los
+campos del ejemplo de abajo):
+
+<!-- esqueleto:plan -->
+```json
+{
+  "semana": "2026-10-12",
+  "zona": "America/Santiago",
+  "experimento": { "variable": "hook", "hipotesis": "...", "piezas": ["lun-reel-..."] },
+  "piezas": [
+    { "id": "lun-reel-...", "dia": "2026-10-12", "hora": "14:00", "formato": "reel", "arquetipo": "tutorial", "borrador": "lun-reel-....json" },
+    { "id": "mar-carrusel-...", "dia": "2026-10-13", "hora": "14:00", "formato": "carrusel", "arquetipo": "lista", "borrador": "mar-carrusel-....json" },
+    { "id": "mie-reel-...", "dia": "2026-10-14", "hora": "14:00", "formato": "reel", "arquetipo": "compartible", "borrador": "mie-reel-....json" },
+    { "id": "jue-reel-...", "dia": "2026-10-15", "hora": "14:00", "formato": "reel", "arquetipo": "demo", "borrador": "jue-reel-....json" },
+    { "id": "vie-carrusel-...", "dia": "2026-10-16", "hora": "14:00", "formato": "carrusel", "arquetipo": "opinion", "borrador": "vie-carrusel-....json" },
+    { "id": "sab-reel-...", "dia": "2026-10-17", "hora": "14:00", "formato": "reel", "arquetipo": "atemporal", "borrador": "sab-reel-....json" }
+  ]
+}
+```
+
+Campos de cada pieza: `id`, `dia`, `hora`, `formato`, `arquetipo`, `senal`,
+`tema`, `pilar`, `hook` (`categoria`, `texto`, `score`), `emocion`,
+`entregable`, `fraseAmigo`, `lectorFrio` (`intentos`, `resultado`, `notas`),
+`origen` (`fichas`, `referencias`), `derivadoDe`, `caption`, `borrador`,
+`estado: "planificado"` y `parametros`. Si quitas piezas, quedan menos
+entradas; sin ninguna, `"piezas": []`, `"experimento": null` y `"motivo"`.
+
 ### Ejemplo completo
 
-Una entrada de `plan.json → piezas` (el `plan.json` completo es
-`{ "semana", "zona": "America/Santiago", "experimento", "piezas": [...] }`):
+Una entrada de `plan.json → piezas`:
 
 <!-- ejemplo:pieza -->
 ```json

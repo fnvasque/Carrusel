@@ -11,7 +11,7 @@
 // Lo escribe el usuario (scripts/kb-calendario-install.sh); el agente planificador
 // lo corre pero nunca lo modifica.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -101,8 +101,12 @@ export const normalizar = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, 
 const palabras = (s) => String(s).split(/\s+/).filter(Boolean);
 /** Palabras normalizadas, sin puntuación (para buscar términos y relleno). */
 const tokens = (s) => normalizar(s).replace(/[^a-z0-9]+/g, " ").split(" ").filter(Boolean);
-/** Como compara el motor (`highlightText`): sin distinguir mayúsculas, pero sí tildes. */
-const minus = (s) => String(s).normalize("NFC").toLowerCase();
+/**
+ * Como compara el motor (`highlightText`): sin distinguir mayúsculas, pero sí
+ * tildes y sin normalizar la composición Unicode (por eso los textos deben venir
+ * en NFC: lo exige `erroresDeBorrador`).
+ */
+const minus = (s) => String(s).toLowerCase();
 
 /** ¿Aparece la frase `frase` (tokens) en `ts`? Acepta plural en la última palabra. */
 function contieneFrase(ts, frase) {
@@ -131,12 +135,46 @@ const sumarDias = (s, n) => {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
-/** Minutos de reloj local desde 1970 (para medir separación entre piezas). */
-const minutosLocales = (dia, hora) => {
+/**
+ * COPIA de `localParts`, `offsetMinutes` y `zonedToUtc` de
+ * `src/calendario/time.ts` (repo de código): el instante real de una fecha y
+ * hora de Chile, con el cambio de hora. Si la hora se repite (abril) toma la
+ * primera; si no existe (septiembre), la misma hora de reloj después del salto.
+ * `test/calendario/validar.ts` compara ambas en los dos cambios de hora.
+ */
+const ZONA = "America/Santiago";
+const formatoLocal = new Map();
+function partesLocales(at, zona) {
+  if (!formatoLocal.has(zona)) {
+    formatoLocal.set(
+      zona,
+      new Intl.DateTimeFormat("en-US", { timeZone: zona, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+    );
+  }
+  const parts = formatoLocal.get(zona).formatToParts(at);
+  const get = (t) => parts.find((x) => x.type === t).value;
+  return { dia: `${get("year")}-${get("month")}-${get("day")}`, hora: `${get("hour")}:${get("minute")}` };
+}
+function minutosDeDesfase(at, zona) {
+  const l = partesLocales(at, zona);
+  const [y, m, d] = l.dia.split("-").map(Number);
+  const [hh, mm] = l.hora.split(":").map(Number);
+  return Math.round((Date.UTC(y, m - 1, d, hh, mm) - Math.floor(at.getTime() / 60_000) * 60_000) / 60_000);
+}
+/** Instante UTC (Date) de `dia` `hora` locales de `zona` (misma lógica que `zonedToUtc`). */
+export function aUtc(dia, hora, zona = ZONA) {
   const [y, m, d] = dia.split("-").map(Number);
   const [hh, mm] = hora.split(":").map(Number);
-  return Date.UTC(y, m - 1, d, hh, mm) / 60_000;
-};
+  const guess = Date.UTC(y, m - 1, d, hh, mm);
+  const antes = minutosDeDesfase(new Date(guess - 12 * 3_600_000), zona);
+  const despues = minutosDeDesfase(new Date(guess + 12 * 3_600_000), zona);
+  const candidatos = [...new Set([antes, despues])].map((o) => guess - o * 60_000).sort((a, b) => a - b);
+  for (const t of candidatos) {
+    const l = partesLocales(new Date(t), zona);
+    if (l.dia === dia && l.hora === hora) return new Date(t);
+  }
+  return new Date(guess - antes * 60_000);
+}
 
 /** Valor de un parámetro de la puerta (`config.puerta.<k>.valor`), con respaldo por defecto. */
 function puerta(config, k) {
@@ -147,15 +185,34 @@ const lista = (x) => (Array.isArray(x) ? x.filter((v) => typeof v === "string") 
 
 /** Lee un JSON: `{ data }` o `{ error }` (nunca lanza). Un BOM inicial es error. */
 function leerJson(path) {
+  let text;
   try {
     if (!existsSync(path)) return { error: "no existe" };
-    if (!statSync(path).isFile()) return { error: "no es un archivo" };
-    const text = readFileSync(path, "utf8");
-    if (text.charCodeAt(0) === 0xfeff) return { error: "empieza con BOM: guárdalo como UTF-8 sin BOM" };
+    // lstat: un enlace simbólico podría apuntar fuera de la carpeta de la semana.
+    const st = lstatSync(path);
+    if (st.isSymbolicLink()) return { error: "es un enlace simbólico (no permitido: debe ser un archivo de la carpeta)" };
+    if (!st.isFile()) return { error: "no es un archivo" };
+    text = readFileSync(path, "utf8");
+  } catch {
+    return { error: "no se pudo leer" };
+  }
+  if (text.charCodeAt(0) === 0xfeff) return { error: "empieza con BOM: guárdalo como UTF-8 sin BOM" };
+  try {
     return { data: JSON.parse(text) };
   } catch (e) {
-    return { error: `no se pudo leer como JSON (${e instanceof Error ? e.message : e})` };
+    // Sin repetir el mensaje del parser: trae un trozo del archivo (podría ser un token).
+    return { error: `JSON inválido (línea ${lineaDelError(text, e)})` };
   }
+}
+
+/** Línea (1-based) donde falló `JSON.parse`, o "?" si el mensaje no la trae. */
+function lineaDelError(text, e) {
+  const msg = e instanceof Error ? e.message : "";
+  const linea = msg.match(/line (\d+)/);
+  if (linea) return Number(linea[1]);
+  const pos = msg.match(/position (\d+)/);
+  if (pos) return text.slice(0, Number(pos[1])).split("\n").length;
+  return "?";
 }
 
 /** Corre `fn` y convierte cualquier excepción en un error de la lista. */
@@ -219,9 +276,12 @@ function palabrasEscena(props) {
 
 const SIGLA_RE = /(?<![\p{L}\p{N}])(\p{Lu}{2,})s?(?![\p{L}\p{N}])/gu;
 const SIGLA_PUNTOS_RE = /(?<![\p{L}\p{N}])(?:\p{L}\.){2,}/gu;
-const EMOJI_RE = /\p{Extended_Pictographic}/u;
+/** Variantes: "I.A" (sin punto final) e "I. A." (con espacio). */
+const SIGLA_PUNTOS_VARIANTES_RE = /(?<![\p{L}\p{N}])\p{Lu}\.\s?\p{Lu}(?:\.|(?![\p{L}\p{N}]))/gu;
+/** Emojis, incluidas banderas (indicadores regionales) y keycaps (1️⃣). */
+const EMOJI_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u;
 /** "Comenta PALABRA": la palabra clave del CTA va en mayúsculas y no es una sigla. */
-const ANTES_DE_PALABRA_CLAVE = /(comenta|comentame|escribe|escribeme|responde)\s*["«“']?\s*$/;
+const ANTES_DE_PALABRA_CLAVE = /(?<![a-z])comenta\s*["«“']?\s*$/;
 
 /** Textos de un slide sujetos a reglas de lenguaje: [prop, texto]. */
 function textosDeLenguaje(props) {
@@ -235,14 +295,20 @@ function textosDeLenguaje(props) {
 }
 
 /** Siglas no permitidas en un texto (y siglas con puntos). */
-function siglasProhibidas(texto, permitidas) {
+function siglasProhibidas(texto, permitidas, enCta) {
   const malas = [];
+  let palabraClave = false;
   for (const m of texto.matchAll(SIGLA_RE)) {
     if (permitidas.has(m[1])) continue;
-    if (ANTES_DE_PALABRA_CLAVE.test(normalizar(texto.slice(0, m.index)))) continue;
+    // Excepción única: una palabra en mayúsculas justo después de "Comenta", en el Cta.
+    if (enCta && !palabraClave && ANTES_DE_PALABRA_CLAVE.test(normalizar(texto.slice(0, m.index)))) {
+      palabraClave = true;
+      continue;
+    }
     malas.push(m[1]);
   }
   for (const m of texto.matchAll(SIGLA_PUNTOS_RE)) malas.push(m[0]);
+  for (const m of texto.matchAll(SIGLA_PUNTOS_VARIANTES_RE)) malas.push(m[0]);
   return malas;
 }
 
@@ -304,7 +370,7 @@ export function reglasDeTexto(borrador, config, formato) {
         if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.cuerpoMaxPalabras)`);
       }
       for (const [k, texto] of textosDeLenguaje(p)) {
-        for (const s of new Set(siglasProhibidas(texto, permitidas))) {
+        for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta"))) {
           errs.push(`${donde}: ${k} usa la sigla "${s}" (permitidas: ${[...permitidas].join(", ")}; puerta.siglasPermitidas; sin puntos)`);
         }
         for (const r of rellenoEn(texto, relleno)) errs.push(`${donde}: ${k} tiene relleno "${r}" (puerta.relleno)`);
@@ -371,7 +437,7 @@ export function validarCaption(caption, config, tema) {
     for (const b of lista(esObj(config) ? config.hashtagsBase : [])) {
       if (!vistos.has(b)) errs.push(`falta el hashtag base ${b} (config.hashtagsBase)`);
     }
-    if (normalizar(caption).includes("primer comentario")) errs.push('el caption no puede mandar al "primer comentario"');
+    if (contieneFrase(tokens(caption), "primer comentario")) errs.push('el caption no puede mandar al "primer comentario"');
     for (const r of rellenoEn(caption, lista(puerta(config, "relleno")))) errs.push(`el caption tiene relleno "${r}" (puerta.relleno)`);
     return errs;
   });
@@ -493,6 +559,10 @@ function erroresDeBorrador(b, p, config) {
       }
       const e = tipoDeProp(k, v);
       if (e) errs.push(`${donde} (${t}): ${k} ${e}`);
+      // El motor compara el highlight sin normalizar: todo texto debe venir en NFC.
+      else if ([v].flat().some((x) => typeof x === "string" && x !== x.normalize("NFC"))) {
+        errs.push(`${donde} (${t}): ${k} no está en Unicode NFC (tildes compuestas): reescríbelo con tildes normales`);
+      }
     }
     for (const k of cat.required) {
       const v = s.props[k];
@@ -586,7 +656,8 @@ export function validarPlan(plan, config) {
       const horaOk = typeof p.hora === "string" && HORA_RE.test(p.hora);
       if (!horaOk) errs.push(`${id}: hora ${q(p.hora)} inválida (HH:MM en :00 o :30, hora de Chile)`);
       else if (p.hora < desde || p.hora > hasta) errs.push(`${id}: hora ${p.hora} fuera de la ventana ${desde}–${hasta} (config.ventanaHoras)`);
-      if (diaOk && horaOk) conHora.push({ id, min: minutosLocales(p.dia, p.hora) });
+      // Tiempo real (con el cambio de hora de Chile), no reloj local.
+      if (diaOk && horaOk) conHora.push({ id, min: instanteSeguro(p.dia, p.hora, esObj(config) ? config.zona : undefined) });
       if (diaOk && diaSemana(p.dia) !== 0) {
         const m = mix.find((x) => x.dia === diaSemana(p.dia));
         if (!m) errs.push(`${id}: config.mix no tiene entrada para ese día`);
@@ -606,7 +677,7 @@ export function validarPlan(plan, config) {
     const sep = esObj(config) && typeof config.separacionMinHoras === "number" ? config.separacionMinHoras : 20;
     conHora.sort((a, b) => a.min - b.min);
     for (let i = 1; i < conHora.length; i++) {
-      const h = (conHora[i].min - conHora[i - 1].min) / 60;
+      const h = +((conHora[i].min - conHora[i - 1].min) / 60).toFixed(2);
       if (h < sep) errs.push(`${conHora[i].id}: está a ${h} h de ${conHora[i - 1].id} (mínimo ${sep} h, config.separacionMinHoras)`);
     }
     if (exp === null || exp === undefined) {
@@ -621,6 +692,15 @@ export function validarPlan(plan, config) {
     }
     return errs;
   });
+}
+
+/** Minutos UTC de una hora local; si la zona no es válida, usa America/Santiago. */
+function instanteSeguro(dia, hora, zona) {
+  try {
+    return aUtc(dia, hora, typeof zona === "string" && zona ? zona : ZONA).getTime() / 60_000;
+  } catch {
+    return aUtc(dia, hora, ZONA).getTime() / 60_000;
+  }
 }
 
 // --- config -----------------------------------------------------------------
@@ -859,7 +939,7 @@ function main(args) {
       errs.push(...validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, c).map((e) => `ejemplo: ${e}`));
     }
     if (errs.length) fallar(errs);
-    if (!config.audios.length) console.warn("⚠ config.audios está vacío: ningún reel pasará hasta que agregues las pistas de promo/audio/.");
+    if (!config.audios.length) console.warn("⚠ config.audios está vacío: el planificador no escribirá reels (solo carruseles) hasta que agregues a _calendario/config.json los nombres de las pistas de promo/audio/.");
     console.log("✓ Autoprueba del calendario: config.json y ejemplo válidos.");
     return;
   }
