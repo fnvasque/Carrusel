@@ -28,7 +28,7 @@ export type Background =
   | { gradient: string; overlay?: number }
   /**
    * Prompt para generar la imagen con gpt-image-1. Por defecto se le anexa el
-   * estilo visual de la marca (navy + cyan rim light); `brandStyle: false` lo
+   * estilo visual de la marca (casi negro con acentos lima); `brandStyle: false` lo
    * desactiva para usar el prompt tal cual.
    */
   | { ai: string; overlay?: number; brandStyle?: boolean }
@@ -37,7 +37,7 @@ export type Background =
 
 /**
  * Pilar de contenido de la marca (design-brand.md §5/§7). Fija el color del
- * chip que pinta `Frame`: herramienta/prompt → cian, noticia → violeta,
+ * chip que pinta `Frame`: herramienta/prompt → lima, noticia → violeta,
  * curiosidad → rosa.
  */
 export type Pillar = "herramienta" | "noticia" | "prompt" | "curiosidad";
@@ -75,9 +75,18 @@ export interface SlideSpec<P extends BaseSlideProps = BaseSlideProps> {
   props: P;
 }
 
+/**
+ * Ritmo del reel animado: `ensenar` (por defecto) deja leer, con escenas más
+ * largas, entradas más lentas y bullets de a uno cada 1.8 s; `rapido` es el
+ * ritmo ágil original. No afecta al carrusel estático.
+ */
+export type Pace = "ensenar" | "rapido";
+
 /** Un carrusel completo. `name` define la carpeta de salida en output/. */
 export interface CarouselSpec {
   name: string;
+  /** Ritmo del reel (`npm run reel`); por defecto "ensenar". `--pace` lo sobrescribe. */
+  pace?: Pace;
   /** Valores por defecto aplicados a todos los slides (se pueden sobreescribir). */
   defaults?: Partial<BaseSlideProps>;
   slides: SlideSpec<any>[];

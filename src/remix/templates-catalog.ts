@@ -9,12 +9,13 @@ import type { TemplateName } from "./types.ts";
  * Debe mantenerse alineado con src/templates/index.ts.
  */
 export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; optional: string[] }> = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "subtitle", "titleSize", "swipe"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe"] },
   Lead: { required: ["text"], optional: ["kicker", "highlight"] },
   Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
-  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta"] },
+  Stat: { required: ["value", "label"], optional: ["context"] },
+  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
 };
 
 /** Props comunes a todas las plantillas (BaseSlideProps), siempre permitidas. */

@@ -367,28 +367,96 @@ npm run typecheck  # comprobación de tipos
 parsing de ingesta, catálogo de plantillas, validación de variaciones y scoring en memoria,
 sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el gate de calidad.
 
-## Reels (video 9:16)
+## Reels animados (video 9:16)
 
-Convierte cualquier carrusel en un Reel vertical (1080×1920) listo para Instagram,
-reutilizando las mismas plantillas. Requiere **ffmpeg** en el PATH.
+Convierte cualquier carrusel en un Reel vertical (1080×1920, 30 fps) **animado** con GSAP:
+los títulos entran palabra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
+y las escenas se cruzan con un empuje vertical. Una barra de progreso cian crece en el borde
+superior durante todo el reel y el primer cuadro (miniatura) ya muestra el hook entrando.
+Reutiliza las mismas plantillas del carrusel.
 
 ```bash
 npm run reel carousels/mi-carrusel.ts
-# → output/mi-carrusel/reel.mp4
+# → output/mi-carrusel/reel.mp4 (1080×1920, 30 fps, sin audio)
 ```
 
-- Render nativo 9:16 con **zona segura** inferior (la UI de IG no tapa el texto).
-- **Duración por slide según su texto** (más texto = más tiempo de lectura), con hold en hook y CTA.
-- **Zoom sutil alternado** (Ken Burns) + **crossfades**, y una **barra de progreso cian** de marca.
-- Sin "DESLIZA →" (es video) y **sin audio** por defecto: súbelo a IG y añade un audio en tendencia ahí (más alcance).
+Requisitos: **ffmpeg** en el PATH (`brew install ffmpeg`). No es necesario para `--frames-only`.
 
-Opciones:
+### Ritmo (`pace`)
+
+Cada carrusel puede fijar `pace` en su spec (`pace: "ensenar"` o `pace: "rapido"`);
+`--pace=` lo sobrescribe. Por defecto es **`ensenar`**.
+
+| | `ensenar` (por defecto) | `rapido` (ritmo original) |
+|---|---|---|
+| Duración de escena | `clamp(2.4 + caracteres/16, 3.5, 8)` s, +1.0 s en la primera y la última; la escena 0 (hook) con tope de 5 s | `clamp(1.8 + caracteres/26, 2.4, 4.8)` s, +0.7 s en la primera y la última |
+| Escena con bullets | al menos `1.0 + 1.8 × (bullets − 1) + 2.5` s | según el texto |
+| Transición | 0.5 s | 0.35 s |
+| Presupuesto de entradas | `min(0.45 × dur, 2.4)` s | `min(0.4 × dur, 1.6)` s |
+| Entradas | 1.3× más lentas (salvo la escena 0) | como están |
+| Bullets (`stagger`) | de a uno cada 1.8 s, sin comprimir, con 2.5 s de lectura tras el último (si la escena no alcanza, p. ej. con `--seconds` corto, el intervalo se acorta hasta 0.6 s); cada ✓ con su bullet | cada 0.12 s |
+
+Los caracteres que cuentan son el texto que hay que leer: título, subtítulo, eyebrow, kicker,
+heading, body, bullets, texto, cita, mito/realidad, razón y nota, el dato de Stat (valor,
+etiqueta y contexto) y el prompt copiable de Prompt.
+
+En ambos ritmos el hook (escena 0) es igual de rápido: titular completo y legible en el
+cuadro 0, palabra clave en acento antes de 0.6 s. Un reel típico de 7-9 slides dura
+~45-75 s en `ensenar`. `--seconds` y `--fade` siguen sobrescribiendo la duración de las
+escenas y la transición.
+
+### Flags
+
+| Flag | Efecto |
+|------|--------|
+| `--pace=ensenar\|rapido` | Ritmo del reel (sobrescribe el `pace` del carrusel); un valor inválido falla con un mensaje claro |
+| `--seconds=N` | Duración uniforme de todas las escenas (s); por defecto según el texto y el ritmo |
+| `--fade=N` | Duración de la transición entre escenas (s); por defecto 0.5 s (`ensenar`) o 0.35 s (`rapido`) |
+| `--frames-only` | Solo exporta un PNG por escena en `output/<name>/reel/`, sin componer el video |
+| `--audio=ruta` | Muxea un archivo de audio (mp3, aac, etc.): se recorta a la duración del video con fade-out de 0.6 s; un audio más corto no acorta el video |
+
 ```bash
-npm run reel carousels/x.ts -- --seconds=2.5     # duración uniforme (reel más ágil)
-npm run reel carousels/x.ts -- --fade=0.5        # transición más larga
-npm run reel carousels/x.ts -- --audio=pista.mp3 # muxea tu audio (TikTok/Shorts/posteo nativo)
-npm run reel carousels/x.ts -- --frames-only     # solo los PNG 9:16, sin video
+npm run reel carousels/x.ts -- --pace=rapido     # ritmo ágil original
+npm run reel carousels/x.ts -- --seconds=2.5     # reel más ágil, duración fija
+npm run reel carousels/x.ts -- --fade=0.5        # transición más larga entre escenas
+npm run reel carousels/x.ts -- --audio=pista.mp3 # añade tu audio al video (TikTok/Shorts)
+npm run reel carousels/x.ts -- --frames-only     # solo los 9:16 PNG, sin video
 ```
+
+### Pruebas
+
+```bash
+npm run test:reel  # valida timing, markup y captura (requiere Chromium + ffmpeg)
+```
+
+Ejecuta dos suites:
+1. **Timing y runtime**: segundos por escena, inicios con transición, duración total, cuadros a 30 fps.
+2. **Captura**: Chromium + Playwright capturan cada cuadro y lo envían por stdin a ffmpeg.
+
+### Marcas de animación (`data-anim`)
+
+Para quienes escriben plantillas nuevas, aquí están los atributos que controlan qué y cómo se anima:
+
+| `data-anim` | Efecto | Uso |
+|---|---|---|
+| `bg` | Zoom lento del fondo durante la escena | `Frame` (fondo) |
+| `words` | El título entra palabra por palabra, subiendo (si dividirlo cambiara el corte de líneas, entra entero como `rise`) | Títulos de Hook, Lead, Step, Cta |
+| `pop` | La palabra clave crece levemente y pasa al color de acento al terminar el título | Palabra `highlight` |
+| `rise` | Sube y aparece | Subtítulos, body, etiquetas |
+| `stagger` | Los hijos aparecen de a uno, de abajo hacia arriba (cada 1.8 s en `ensenar`) | Lista de bullets |
+| `type` | Efecto máquina de escribir, con tope de duración | Texto de Prompt |
+| `strike` | Tacha el texto de izquierda a derecha, una barra por línea | Mito en MythReality |
+| `count` | El número cuenta desde 0 (respeta prefijos/sufijos; si no es numérico, entra como `rise`); la barra `[data-meter]` se llena en sincronía | Valor de Stat |
+| `check` | El ✓ crece de 0 a 1 cuando entra su bullet | Checklist de Step |
+| `caret` | El cursor parpadea (0.5 s) tras terminar de escribir | Prompt |
+
+Reglas:
+- Las marcas son inertes sin el runtime: si renderizas estático (p.ej. `npm run generate`),
+  el markup de `data-anim` se ignora.
+- Orden dentro de una escena: los elementos animados entran en orden de documento; cada uno
+  empieza cuando el anterior está en mitad de su animación.
+- El logo, chip de pilar, indicador `NN/MM` y fuente al pie no se animan (la barra de progreso
+  del reel es un elemento aparte, solo del video).
 
 ## Roadmap
 

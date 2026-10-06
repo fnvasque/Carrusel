@@ -4,14 +4,14 @@ import type { Background } from "../templates/types.ts";
 import { generateBackground } from "../ai/openaiImage.ts";
 
 /**
- * Estilo visual de marca (design-brand.md §6) que se anexa a cada prompt de
- * fondo `{ ai }`, para que todos los fondos generados compartan el look navy +
- * cyan rim light. Sin flags de Midjourney (no aplican a gpt-image-1; el aspecto
- * lo fija el lienzo 1080x1350).
+ * Estilo visual de marca (look lima, spec 2026-10-05) que se anexa a cada
+ * prompt de fondo `{ ai }`, para que todos los fondos generados compartan el
+ * look: casi negro con acentos lima. Sin flags de Midjourney (no aplican a
+ * gpt-image-1; el aspecto lo fija el lienzo 1080x1350).
  */
 const BRAND_IMAGE_STYLE =
-  "editorial tech photography, deep navy #0B1020 background, cinematic cyan rim light " +
-  "with subtle violet glow, high contrast, minimalist composition, generous negative " +
+  "minimal editorial tech photography, near-black #06060A background, sparse lime #C6FF3D " +
+  "accent light on the subject, high contrast, minimalist composition, generous negative " +
   "space for text, shallow depth of field, photoreal, no text, no watermark";
 
 /** Anexa el estilo de marca al prompt, salvo que `brandStyle` sea false. */

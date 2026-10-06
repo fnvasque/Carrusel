@@ -1,14 +1,24 @@
 import assert from "node:assert/strict";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt } from "../src/templates/index.ts";
+import { parseStatValue } from "../src/templates/Stat.tsx";
+import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
+import { theme } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
-import { THRESHOLD } from "../src/score/virality.ts";
+import { THRESHOLD, scoreCarousel } from "../src/score/virality.ts";
+import { pillContent } from "../src/templates/Cta.tsx";
+import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
+import { sceneSeconds, HOOK_MAX_SECONDS, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
+import { buildReelPage } from "../src/reel/page.ts";
 
 /**
  * Smoke tests offline del pipeline de remix: solo funciones puras (parsing de
@@ -21,6 +31,18 @@ let failed = 0;
 function check(name: string, fn: () => void): void {
   try {
     fn();
+    passed++;
+    console.log("✓", name);
+  } catch (e) {
+    failed++;
+    console.error("✗", name, "—", e instanceof Error ? e.message : e);
+  }
+}
+
+/** Igual que `check`, para casos async (se esperan con `await` en el top-level). */
+async function checkAsync(name: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
     passed++;
     console.log("✓", name);
   } catch (e) {
@@ -289,6 +311,327 @@ check("daysLeft: días al vencimiento; 0 = no expira", () => {
   assert.equal(daysLeft(now / 1000 + 5 * 86_400, now), 5);
   assert.equal(daysLeft(0, now), Infinity);
   assert.equal(daysLeft(undefined, now), undefined);
+});
+
+// --- reel: timing (tiempos puros del reel animado) ---
+// Ritmo rápido: exactamente los valores del motor original.
+check("sceneSeconds (rapido): más texto → más tiempo, con tope y piso", () => {
+  assert.equal(sceneSeconds({ title: "Hola" }, false, "rapido"), 2.4);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "rapido"), 4.8);
+  assert.equal(sceneSeconds({ title: "Hola" }, true, "rapido"), 3.1);
+  assert.equal(sceneSeconds({ bullets: ["a".repeat(26), "b".repeat(26)] }, false, "rapido"), 3.84);
+});
+
+check("specDurations (rapido): hold en primera y última; --seconds fija todas", () => {
+  const T = () => null;
+  const spec = { name: "x", pace: "rapido", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { title: "B" } }, { template: T, props: { title: "C" } }] };
+  assert.deepEqual(specDurations(spec as any), [3.1, 2.4, 3.1]);
+  assert.deepEqual(specDurations(spec as any, 2), [2, 2, 2]);
+  // --pace sobrescribe el ritmo del carrusel.
+  assert.deepEqual(specDurations({ ...spec, pace: "ensenar" } as any, undefined, "rapido"), [3.1, 2.4, 3.1]);
+});
+
+check("reelTiming (rapido): escenas solapadas por la transición", () => {
+  const t = reelTiming([3, 2.5, 4], 0.35, "rapido");
+  assert.deepEqual(t.scenes.map((s) => s.start), [0, 2.65, 4.8]);
+  assert.equal(t.total, 8.8);
+  assert.equal(t.frames, 264);
+  assert.equal(t.fps, FPS);
+  assert.equal(t.transition, 0.35);
+  assert.deepEqual([t.pace, t.entranceSlow, t.stagger], ["rapido", 1, 0.12]);
+});
+
+check("reelTiming (rapido): 1 sola escena, sin transición", () => {
+  const t = reelTiming([3.1], undefined, "rapido");
+  assert.equal(t.total, 3.1);
+  assert.equal(t.frames, 93);
+  assert.equal(t.scenes[0].start, 0);
+  assert.equal(t.transition, 0.35);
+  assert.equal(DEFAULT_TRANSITION, 0.35);
+});
+
+check("reelTiming: transición demasiado larga → error claro", () => {
+  assert.throws(() => reelTiming([0.5, 0.5], 0.35), /transición/);
+  assert.throws(() => reelTiming([]), /escena/);
+});
+
+check("reelTiming: duraciones y transición inválidas → error claro en español", () => {
+  for (const d of [0, -1, NaN, Infinity]) {
+    assert.throws(() => reelTiming([3, d]), /--seconds debe ser un número mayor que 0/, `duración ${d}`);
+  }
+  for (const f of [-0.1, NaN, Infinity]) {
+    assert.throws(() => reelTiming([3, 3], f), /--fade debe ser un número mayor o igual a 0/, `transición ${f}`);
+  }
+  assert.equal(reelTiming([3, 3], 0).total, 6);
+});
+
+check("entranceBudget/entranceScale (rapido): comprime solo si hace falta", () => {
+  assert.equal(entranceBudget(3, "rapido"), 1.2);
+  assert.equal(entranceBudget(10, "rapido"), 1.6);
+  assert.equal(entranceScale(1.0, 1.2), 1);
+  assert.equal(entranceScale(2.4, 1.2), 2);
+});
+
+// Ritmo enseñar (por defecto): valores de la spec "Reel: estilo y ritmo".
+check("pace: ensenar por defecto; valores inválidos → error claro en español", () => {
+  assert.equal(DEFAULT_PACE, "ensenar");
+  assert.equal(parsePace("rapido"), "rapido");
+  assert.equal(parsePace("ensenar"), "ensenar");
+  for (const v of ["lento", "", "Ensenar", undefined]) {
+    assert.throws(() => parsePace(v), /--pace debe ser "ensenar" o "rapido"/, `pace ${v}`);
+  }
+  const T = () => null;
+  assert.throws(() => specDurations({ name: "x", pace: "turbo", slides: [{ template: T, props: {} }] } as any), /pace de "x" debe ser "ensenar" o "rapido"/);
+  assert.deepEqual(PACES.ensenar, { transition: 0.5, entranceSlow: 1.3, stagger: 1.8, budgetRatio: 0.45, budgetMax: 2.4 });
+});
+
+check("sceneSeconds (ensenar): clamp(2.4 + chars/16, 3.5, 8) + 1.0 en primera y última", () => {
+  assert.equal(sceneSeconds({ title: "Hola" }, false), 3.5);
+  assert.equal(sceneSeconds({ title: "Hola" }, true), 4.5);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "ensenar"), 8);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar"), 9);
+  // Escena 0 (hook): tope de 5 s en ensenar, también si mandan los bullets; rapido sin tope nuevo.
+  assert.equal(HOOK_MAX_SECONDS, 5);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar", true), 5);
+  assert.equal(sceneSeconds({ title: "Hola" }, true, "ensenar", true), 4.5);
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d"] }, true, "ensenar", true), 5);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "rapido", true), 5.5);
+  assert.equal(sceneSeconds({ body: "x".repeat(40) }, false, "ensenar"), 4.9);
+  // El texto de Stat (valor, etiqueta, contexto) y del prompt cuenta en ambos ritmos.
+  const stat = { value: "47%", label: "x".repeat(37), context: "y".repeat(40) };
+  assert.equal(sceneSeconds(stat, false, "ensenar"), 7.4);
+  assert.equal(sceneSeconds(stat, false, "rapido"), 4.8);
+  assert.equal(sceneSeconds({ heading: "x".repeat(8), prompt: "p".repeat(40) }, false, "rapido"), 3.65);
+  assert.equal(sceneSeconds({ heading: "x".repeat(8), prompt: "p".repeat(40) }, false, "ensenar"), 5.4);
+});
+
+check("sceneSeconds (ensenar): con bullets, al menos 1.0 + 1.8 × (bullets − 1) + 2.5", () => {
+  // Poco texto: manda la fórmula de bullets.
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c"] }, false, "ensenar"), 7.1);
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "ensenar"), 10.7);
+  assert.equal(sceneSeconds({ bullets: ["a"] }, false, "ensenar"), 3.5);
+  // Mucho texto: manda el texto.
+  assert.equal(sceneSeconds({ body: "x".repeat(200), bullets: ["a", "b"] }, false, "ensenar"), 8);
+  // En rapido los bullets no alargan la escena más allá del texto.
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "rapido"), 2.4);
+});
+
+check("reelTiming/specTiming (ensenar): transición 0.5, presupuesto min(0.45 × dur, 2.4), lentitud 1.3, bullets cada 1.8 s", () => {
+  const t = reelTiming([4.5, 3.5, 8, 4.5]);
+  assert.deepEqual([t.pace, t.transition, t.entranceSlow, t.stagger, t.bulletTail], ["ensenar", 0.5, 1.3, 1.8, 2.5]);
+  assert.equal(reelTiming([3], undefined, "rapido").bulletTail, 0);
+  assert.deepEqual(t.scenes.map((s) => s.start), [0, 4, 7, 14.5]);
+  assert.equal(t.total, 19);
+  assert.deepEqual(t.scenes.map((s) => s.budget), [2.025, 1.575, 2.4, 2.025]);
+  assert.equal(entranceBudget(4), 1.8);
+  assert.equal(entranceBudget(10, "ensenar"), 2.4);
+  // Entradas 1.3× más lentas; solo se comprimen si así no caben.
+  assert.ok(Math.abs(entranceScale(1.0, 2.0, 1.3) - 1 / 1.3) < 1e-9);
+  assert.equal(entranceScale(2.0, 1.6, 1.3), 1.25);
+  const T = () => null;
+  const spec = { name: "x", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { bullets: ["a", "b", "c"] } }, { template: T, props: { title: "C" } }] };
+  const st = specTiming(spec as any);
+  assert.deepEqual(st.scenes.map((s) => s.dur), [4.5, 7.1, 4.5]);
+  assert.equal(st.pace, "ensenar");
+  // --pace, --seconds y --fade sobrescriben.
+  const fast = specTiming({ ...spec, pace: "ensenar" } as any, { pace: "rapido" });
+  assert.deepEqual([fast.pace, fast.transition, fast.scenes.map((s) => s.dur)], ["rapido", 0.35, [3.1, 2.4, 3.1]]);
+  // Hook largo: specDurations pasa la escena 0 como hook (tope 5 s); --seconds sigue mandando.
+  const longHook = { name: "h", slides: [{ template: T, props: { title: "x".repeat(200) } }, { template: T, props: { title: "x".repeat(200) } }, { template: T, props: { title: "C" } }] };
+  assert.deepEqual(specDurations(longHook as any), [5, 8, 4.5]);
+  assert.deepEqual(specDurations(longHook as any, 7), [7, 7, 7]);
+  const fixed = specTiming(spec as any, { seconds: 3, fade: 0.2 });
+  assert.deepEqual([fixed.transition, fixed.scenes.map((s) => s.dur), fixed.stagger], [0.2, [3, 3, 3], 1.8]);
+});
+
+check("plantillas: marcas data-anim en formato reel", () => {
+  const hook = renderToStaticMarkup(createElement(Hook, { title: "La IA cambió todo", highlight: "cambió", eyebrow: "Ojo", subtitle: "Sub", format: "reel", background: { color: "#000" } }));
+  assert.match(hook, /<h1[^>]*data-anim="words"/);
+  assert.match(hook, /data-anim="pop"[^>]*>cambió</);
+  assert.match(hook, /data-anim="bg"/);
+  assert.equal((hook.match(/data-anim="rise"/g) ?? []).length, 2);
+  const step = renderToStaticMarkup(createElement(Step, { heading: "Paso", bullets: ["a", "b"], format: "reel" }));
+  assert.match(step, /<ul[^>]*data-anim="stagger"/);
+  const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R", format: "reel" }));
+  assert.match(myth, /data-anim="strike"/);
+});
+
+check("plantillas: sin highlight (o no encontrado) no hay pop", () => {
+  const a = renderToStaticMarkup(createElement(Cta, { title: "Suscríbete", format: "reel" }));
+  const b = renderToStaticMarkup(createElement(Lead, { text: "Una frase", highlight: "nada", format: "reel" }));
+  assert.doesNotMatch(a, /data-anim="pop"/);
+  assert.doesNotMatch(b, /data-anim="pop"/);
+  assert.match(b, /data-anim="words"/);
+});
+
+check("plantillas: Stat marca count con valor numérico y no numérico", () => {
+  const num = renderToStaticMarkup(createElement(Stat, { value: "47%", label: "del valor", context: "Contexto", format: "reel" }));
+  assert.match(num, /data-anim="count"[^>]*>47%</);
+  assert.match(num, /<h2[^>]*data-anim="words"/);
+  assert.match(num, /data-meter=""/, "barra del porcentaje");
+  assert.match(num, /width:47%/);
+  const txt = renderToStaticMarkup(createElement(Stat, { value: "Gratis", label: "para siempre" }));
+  assert.match(txt, /data-anim="count"[^>]*>Gratis</);
+  assert.doesNotMatch(txt, /data-meter/, "sin barra si no es porcentaje");
+});
+
+check("parseStatValue: prefijos, sufijos, miles y no numéricos", () => {
+  assert.deepEqual(parseStatValue("47%"), { prefix: "", number: 47, suffix: "%" });
+  assert.deepEqual(parseStatValue("$1.200/mes"), { prefix: "$", number: 1200, suffix: "/mes" });
+  assert.deepEqual(parseStatValue("8×"), { prefix: "", number: 8, suffix: "×" });
+  assert.deepEqual(parseStatValue("3,5 s"), { prefix: "", number: 3.5, suffix: " s" });
+  assert.equal(parseStatValue("Gratis"), null);
+});
+
+check("plantillas: checklist con un check por viñeta y cursor del Prompt", () => {
+  const step = renderToStaticMarkup(createElement(Step, { heading: "Paso", bullets: ["a", "b", "c"], format: "reel" }));
+  const lis = step.match(/<li[^>]*>.*?<\/li>/g) ?? [];
+  assert.equal(lis.length, 3);
+  for (const li of lis) assert.equal((li.match(/data-anim="check"/g) ?? []).length, 1, "un check dentro de cada li");
+  const body = renderToStaticMarkup(createElement(Step, { heading: "Paso", body: "Cuerpo" }));
+  assert.doesNotMatch(body, /data-anim="check"/);
+  const prompt = renderToStaticMarkup(createElement(Prompt, { heading: "H", prompt: "hola", format: "reel" }));
+  assert.match(prompt, /data-anim="type"[^>]*>hola<span data-anim="caret"/);
+});
+
+check("Frame: grilla data-grid solo en reel, etiqueta NN / PILAR y tokens lima", () => {
+  const reel = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7, format: "reel" }));
+  const post = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7 }));
+  assert.match(reel, /data-grid=""/);
+  assert.doesNotMatch(post, /data-grid/);
+  assert.match(post, /rgba\(198,255,61,0\.07\)/, "grilla lima al 7 %");
+  assert.match(post, /background-color:#06060A/);
+  assert.match(post, new RegExp(`color:${theme.colors.violet}">03</span>`), "número en color del pilar");
+  assert.match(post, />NOTICIA</);
+  // Logo, etiqueta y fuente no llevan data-anim.
+  const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", pillar: "noticia", index: 3, format: "reel" }));
+  for (const b of withSrc.match(/<[^>]*data-brand="[^"]*"[^>]*>/g) ?? []) assert.doesNotMatch(b, /data-anim/);
+});
+
+check("Hook: mark pinta la palabra con caja rosa sin pop", () => {
+  const h = renderToStaticMarkup(createElement(Hook, { title: "No encuentras ninguno.", highlight: "encuentras", mark: "ninguno.", format: "reel" }));
+  assert.match(h, /data-anim="pop"[^>]*>encuentras</);
+  assert.match(h, /data-mark=""[^>]*background-color:#FF3D7F[^>]*>ninguno\.</);
+  assert.equal((h.match(/data-anim="pop"/g) ?? []).length, 1);
+});
+
+check("fitDisplaySize: cortos al máximo, largos más chicos y dentro de maxLines", () => {
+  assert.equal(fitDisplaySize("Hola", 150), 150);
+  const long = "Seis niveles para que nadie te haga scroll nunca más";
+  const s = fitDisplaySize(long, 150, { maxLines: 4 });
+  assert.ok(s < 150 && estimateLines(long, s) <= 4, `tamaño ${s}`);
+});
+
+check("remix: Stat en el catálogo (nombre, props) y en draftToSpec", () => {
+  assert.equal(isTemplateName("Stat"), true);
+  const keys = validPropKeys("Stat");
+  for (const k of ["value", "label", "context", "source", "index"]) assert.ok(keys.has(k), k);
+  assert.ok(!keys.has("bullets"));
+  assert.ok(validPropKeys("Hook").has("mark"));
+  assert.ok(validPropKeys("Cta").has("ctaIcon"));
+  const v = validateDraft({ name: "s", angle: "x", pillar: "noticia", slides: [{ template: "Stat", props: { label: "del valor" } }] });
+  const stat = v.slides.find((x) => x.template === "Stat")!;
+  assert.equal(stat.props.value, "…", "value requerido se rellena");
+  const spec = draftToSpec(v);
+  assert.equal(spec.slides.find((x) => x.template === Stat)?.template, Stat);
+});
+
+check("remix: Stat.value numérico se coacciona a string y ctaIcon desconocido se descarta", () => {
+  const v = validateDraft({
+    name: "s", angle: "x", pillar: "noticia",
+    slides: [
+      { template: "Stat", props: { value: 47 as any, label: "del valor" } },
+      { template: "Cta", props: { title: "Fin", ctaIcon: "estrella" as any } },
+    ],
+  });
+  assert.strictEqual(v.slides.find((x) => x.template === "Stat")!.props.value, "47");
+  assert.equal("ctaIcon" in v.slides.find((x) => x.template === "Cta")!.props, false);
+  const ok = validateDraft({ name: "s", angle: "x", pillar: "noticia", slides: [{ template: "Cta", props: { title: "Fin", ctaIcon: "arrow" } }] });
+  assert.equal(ok.slides.find((x) => x.template === "Cta")!.props.ctaIcon, "arrow");
+  // Defensa en la plantilla: un value numérico no rompe parseStatValue.
+  assert.doesNotThrow(() => Stat({ value: 47 as any, label: "x" }));
+});
+
+check("viralidad: Stat cuenta como desarrollo accionable y como slide numerado", () => {
+  const hook = { template: Hook, props: { title: "Hook" } };
+  const cta = { template: Cta, props: { title: "Fin" } };
+  const withStat = scoreCarousel({ name: "a", slides: [hook, { template: Stat, props: { value: "47%", label: "del valor", context: "Usa esa ventana." } }, cta] });
+  const withLead = scoreCarousel({ name: "b", slides: [hook, { template: Lead, props: { text: "Usa esa ventana." } }, cta] });
+  const dim = (r: typeof withStat, n: string) => r.dimensions.find((d) => d.name === n)!.score;
+  assert.equal(dim(withStat, "Retención") - dim(withLead, "Retención"), 7, "Stat con número = slide numerado");
+  assert.ok(dim(withStat, "Accionable") > dim(withLead, "Accionable"), "Stat entra en los slides de desarrollo");
+  const nonNumeric = scoreCarousel({ name: "c", slides: [hook, { template: Stat, props: { value: "Gratis", label: "x" } }, cta] });
+  assert.equal(dim(nonNumeric, "Retención"), dim(withLead, "Retención"), "un Stat sin número no cuenta como numerado");
+});
+
+check("mono sin ligaduras: el código se ve como se escribe", () => {
+  const p = renderToStaticMarkup(createElement(Prompt, { heading: "H", prompt: "pip install kokoro>=0.9.4" }));
+  const typeDiv = p.match(/<div data-anim="type" style="([^"]*)"/)![1];
+  assert.match(typeDiv, /font-variant-ligatures:none/);
+  assert.match(typeDiv, /font-feature-settings:&quot;liga&quot; 0, &quot;calt&quot; 0/);
+  assert.match(p, /kokoro&gt;=0\.9\.4/);
+  const step = renderToStaticMarkup(createElement(Step, { heading: "H", pillar: "noticia", index: 2, source: "a->b" }));
+  for (const m of step.match(/<span data-brand="(label|source)" style="[^"]*"/g) ?? []) assert.match(m, /font-variant-ligatures:none/);
+});
+
+check("Cta: la pastilla quita emoji y usa ícono SVG", () => {
+  assert.deepEqual(pillContent("Guardar 🔖"), { text: "Guardar", icon: "bookmark" });
+  assert.deepEqual(pillContent("Compartir ↗"), { text: "Compartir", icon: "share" });
+  assert.deepEqual(pillContent("Link en bio →"), { text: "Link en bio →", icon: undefined });
+  assert.deepEqual(pillContent("Guardar 🔖", "none"), { text: "Guardar", icon: undefined });
+  const html = renderToStaticMarkup(createElement(Cta, { title: "T", cta: "Guardar 🔖" }));
+  assert.doesNotMatch(html, /🔖/);
+  assert.match(html, />Guardar<svg/);
+});
+
+check("layout: la fuente al pie reserva su alto real y Step/Stat se ajustan al área", () => {
+  const long = "Fuente: un informe con un nombre muy largo, publicado por una organización con un nombre igual de largo, 2026";
+  assert.equal(sourceLines("Fuente: X"), 1);
+  assert.ok(sourceLines(long) >= 2);
+  assert.ok(contentHeight("post", long) < contentHeight("post", "Fuente: X"));
+  assert.ok(contentHeight("reel") < 1920 - 440 - 150);
+  assert.equal(wrapLines("a\nb c", 10, 1000), 2);
+  const big = (html: string) => Number(html.match(/<li[^>]*font-size:(\d+)px/)![1]);
+  const few = renderToStaticMarkup(createElement(Step, { heading: "Paso", step: "01", bullets: ["Corta"] }));
+  const LONG = "Una viñeta larga de verdad, con bastante texto para ocupar dos líneas";
+  const many = renderToStaticMarkup(createElement(Step, { heading: "Paso", step: "01", bullets: [LONG, LONG, LONG, LONG, LONG], source: long, format: "reel" }));
+  assert.ok(big(many) <= big(few), "más viñetas → cuerpo igual o menor");
+  assert.ok(big(many) >= 36, "nunca bajo 36 px");
+  const wrapped = renderToStaticMarkup(createElement(Stat, { value: "1 de cada 3 personas", label: "x" }));
+  assert.match(wrapped, /data-anim="count" style="[^"]*white-space:normal/, "valor largo no numérico se parte en líneas");
+  const one = renderToStaticMarkup(createElement(Stat, { value: "47%", label: "x" }));
+  assert.match(one, /data-anim="count" style="[^"]*white-space:nowrap/);
+});
+
+check("highlight: la puntuación pegada no se separa de la palabra clave", () => {
+  const h = renderToStaticMarkup(createElement(Hook, { title: "Narra gratis, sin salir", highlight: "gratis" }));
+  assert.match(h, /<span style="white-space:nowrap"><span data-anim="pop"[^>]*>gratis<\/span>,<\/span>/);
+});
+
+check("plantillas: formato post sin capa bg ni strike", () => {
+  const hook = renderToStaticMarkup(createElement(Hook, { title: "T", background: { color: "#000" } }));
+  const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R" }));
+  assert.doesNotMatch(hook, /data-anim="bg"/);
+  assert.doesNotMatch(myth, /data-anim="strike"/);
+  assert.match(myth, /text-decoration-line:line-through/, "en post, tachado rosa estático");
+});
+
+// --- reel: página única ---
+await checkAsync("buildReelPage: una escena por slide, GSAP y tiempos inline", async () => {
+  const spec = {
+    name: "t",
+    slides: [
+      { template: Hook, props: { title: "Hola mundo", highlight: "mundo" } },
+      { template: Cta, props: { title: "Chao" } },
+    ],
+  };
+  const timing = reelTiming([3, 3]);
+  const html = await buildReelPage(spec as any, timing);
+  assert.equal((html.match(/data-scene="/g) ?? []).length, 2);
+  assert.match(html, /window\.__REEL_TIMING__\s*=\s*\{/);
+  assert.match(html, /SplitText/);
+  assert.match(html, /__reel\s*=/);
+  assert.match(html, /data-anim="pop"/);
 });
 
 console.log(`\n${passed} ok, ${failed} fallos`);

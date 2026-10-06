@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Genera la variante solo-wordmark del logo de marca recortando el bloque superior
-("ia.es") del logo transparente, por análisis del canal alfa. Conserva el punto
-cian. Reproducible: re-ejecuta para regenerar el asset.
+("ia.es") del logo transparente, por análisis del canal alfa, y lo recolorea al
+look lima: letras en #F4F4F6 y el punto en lima #C6FF3D (el logo fuente lo trae
+cian). Reproducible: re-ejecuta para regenerar el asset.
 
 Uso: python3 scripts/make-wordmark.py
 Salida: src/assets/ia_es_wordmark.png (+ imprime WIDTH,HEIGHT,ASPECT)
@@ -73,6 +74,19 @@ top = max(0, top - pad)
 bottom = min(h, bottom + pad)
 
 crop = img.crop((left, top, right, bottom))
+
+# Recolor: el punto es el único trazo saturado (cian, R bajo); las letras son
+# gris claro. Se conserva el alfa (antialiasing) y se cambia solo el RGB.
+TEXT = (0xF4, 0xF4, 0xF6)
+LIME = (0xC6, 0xFF, 0x3D)
+cp = crop.load()
+for y in range(crop.size[1]):
+    for x in range(crop.size[0]):
+        r, g, b, a = cp[x, y]
+        if a == 0:
+            continue
+        saturated = max(r, g, b) - min(r, g, b) > 60
+        cp[x, y] = (*(LIME if saturated else TEXT), a)
 crop.save(OUT)
 cw, ch = crop.size
 print(f"WIDTH,HEIGHT,ASPECT={cw},{ch},{cw / ch:.4f}")

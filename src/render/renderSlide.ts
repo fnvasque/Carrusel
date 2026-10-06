@@ -13,7 +13,7 @@ import { FORMATS } from "../templates/types.ts";
  *  2. el chrome bajo PLAYWRIGHT_BROWSERS_PATH (entornos que ya lo traen)
  *  3. undefined → Playwright usa su propio navegador gestionado
  */
-function findChromium(): string | undefined {
+export function findChromium(): string | undefined {
   const override = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
   if (override && existsSync(override)) return override;
 

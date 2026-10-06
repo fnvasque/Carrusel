@@ -37,6 +37,7 @@ const CLICKBAIT = ["no vas a creer", "esto lo cambia todo", "el truco que nadie"
 const CONTENT_KEYS = [
   "title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker",
   "quote", "author", "myth", "reality", "reason", "note", "cta",
+  "value", "label", "context",
 ];
 
 function templateName(slide: SlideSpec): string {
@@ -85,7 +86,7 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
     if (/\d/.test(title)) { hook += 6; } else { hookNotes.push("sin número en el titular"); suggestions.push("Añade un número concreto al hook (ej. '3', '90%')."); }
     if (has(sub, ENEMY)) { hook += 8; } else { hookNotes.push("sin enemigo/tensión"); suggestions.push("Pon un enemigo o tensión al frente del hook (no/deja de/mentira/gratis…)."); }
     if (has(sub, OPEN_LOOP)) { hook += 6; } else { hookNotes.push("sin bucle abierto"); suggestions.push("Abre un bucle de curiosidad (#3, 'todavía', 'por qué')."); }
-    if (typeof p.highlight === "string" && p.highlight) { hook += 5; } else { hookNotes.push("sin palabra clave en cian"); suggestions.push("Define `highlight` para resaltar 1-2 palabras en cian."); }
+    if (typeof p.highlight === "string" && p.highlight) { hook += 5; } else { hookNotes.push("sin palabra clave en lima"); suggestions.push("Define `highlight` para resaltar 1-2 palabras en lima."); }
     const len = title.length;
     if (len >= 12 && len <= 48) { hook += 5; } else { hookNotes.push(`largo del titular fuera de rango (${len})`); }
   }
@@ -104,7 +105,8 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   // --- Accionable + específico (20) ---
   const actNotes: string[] = [];
   let act = 0;
-  const devSlides = slides.filter((s) => /step|prompt/i.test(templateName(s)));
+  // Stat cuenta como slide de desarrollo (con número).
+  const devSlides = slides.filter((s) => /step|prompt|stat/i.test(templateName(s)));
   const actionable = devSlides.filter((s) => has(contentText(s), ACTION)).length;
   const actScore = Math.min(8, actionable * 3);
   act += actScore;
@@ -128,7 +130,11 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   if (hasProgress) ret += 8; else { retNotes.push("sin indicador de progreso"); suggestions.push("Añade index/total a los slides de desarrollo (barra de progreso)."); }
   const numbered = slides.some((s) => {
     const p = s.props as Record<string, unknown>;
-    return (typeof p.step === "string" && p.step) || (typeof p.mythLabel === "string" && /\d/.test(String(p.mythLabel)));
+    return (
+      (typeof p.step === "string" && p.step) ||
+      (typeof p.mythLabel === "string" && /\d/.test(String(p.mythLabel))) ||
+      (/stat/i.test(templateName(s)) && typeof p.value === "string" && /\d/.test(p.value))
+    );
   });
   if (numbered) ret += 7; else { retNotes.push("pasos sin numerar"); suggestions.push("Numera los pasos/mitos (01, 02… o Nº1, Nº2…)."); }
 
