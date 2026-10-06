@@ -1,8 +1,9 @@
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
 import { link, mkdir, open, readFile, readdir, realpath, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { createElement } from "react";
 import { abortStaleRebase, commitPaths, kbDir, pullKb } from "../kb/store.ts";
 import { scoreDraft } from "../remix/registry.ts";
@@ -15,7 +16,7 @@ import { FORMATS } from "../templates/types.ts";
 import { borradorASpec, parseBorrador, storySpec, type Borrador } from "./draft.ts";
 import {
   calendarioDir, estadoEfectivo, leerSemana, ocultarToken, semanaDir, urlPublica,
-  type Medios, type Pieza, type RenderEntry, type SemanaLeida,
+  type MediosRender, type Pieza, type RenderEntry, type SemanaLeida,
 } from "./plan.ts";
 import { qaImagen, qaReel, type Puerta } from "./qa.ts";
 import { zonedToUtc } from "./time.ts";
@@ -143,19 +144,23 @@ export function tipoDe(archivo: string): string {
   return archivo.endsWith(".mp4") ? "video/mp4" : "image/jpeg";
 }
 
-/** `medios` de render.json: reel → urls [mp4] + cover; carrusel → urls de los slides (cover = el primero). */
-function armarMedios(formato: Pieza["formato"], m: Manifiesto, url: (a: string) => string): Medios {
-  const story = m.archivos.includes("story.jpg") ? url("story.jpg") : undefined;
+/**
+ * `medios` de render.json (R48): solo nombres de archivo, nunca URLs (llevarían el token al
+ * repo). Reel → archivos [mp4] + cover; carrusel → los slides (cover = el primero). El bot
+ * arma las URLs con `mediosPublicos` al publicar.
+ */
+function armarMedios(formato: Pieza["formato"], m: Manifiesto): MediosRender {
+  const story = m.archivos.includes("story.jpg") ? "story.jpg" : undefined;
   if (formato === "reel") {
     return {
-      urls: m.archivos.filter((a) => a.endsWith(".mp4")).map(url),
-      ...(m.archivos.includes("cover.jpg") ? { cover: url("cover.jpg") } : {}),
+      archivos: m.archivos.filter((a) => a.endsWith(".mp4")),
+      ...(m.archivos.includes("cover.jpg") ? { cover: "cover.jpg" } : {}),
       ...(story ? { story } : {}),
       ...(m.duracionMs !== undefined ? { duracionMs: m.duracionMs } : {}),
     };
   }
-  const urls = m.archivos.filter((a) => /^\d{2}\.jpg$/.test(a)).sort().map(url);
-  return { urls, ...(urls[0] ? { cover: urls[0] } : {}), ...(story ? { story } : {}) };
+  const archivos = m.archivos.filter((a) => /^\d{2}\.jpg$/.test(a)).sort();
+  return { archivos, ...(archivos[0] ? { cover: archivos[0] } : {}), ...(story ? { story } : {}) };
 }
 
 /** Destino de rsync: `host:dir/semana/id/` (o `dir/semana/id/` sin host). */
@@ -297,7 +302,7 @@ export async function procesar(
       continue;
     }
 
-    await deps.escribirRender(p.semana, id, { estado: "renderizado", medios: armarMedios(p.pieza.formato, manifiesto, url), en: en() });
+    await deps.escribirRender(p.semana, id, { estado: "renderizado", medios: armarMedios(p.pieza.formato, manifiesto), en: en() });
     log(`✓ ${etiqueta} renderizada y subida.`);
     res.ok++;
   }
@@ -610,14 +615,20 @@ async function commitArchivo(root: string, archivo: string, n: number, semana: s
   return (await gitEn(root, ["commit", "-m", msg, "--", rel])).code === 0;
 }
 
-/** Escribe y commitea (local) cada semana. */
-async function escribirLocal(root: string | undefined, todas: Map<string, Entradas>): Promise<void> {
+/**
+ * Escribe y commitea (local) cada semana. Devuelve el error si algún commit falló
+ * (p. ej. `index.lock` tomado por otra operación de git): lo escrito queda en disco y
+ * la próxima corrida lo sube (`sincronizarPendiente`), pero esta corrida no es buena (I4).
+ */
+async function escribirLocal(root: string | undefined, todas: Map<string, Entradas>): Promise<string | undefined> {
+  const fallidas: string[] = [];
   for (const [semana, entradas] of todas) {
     const n = Object.keys(entradas).length;
     if (!n) continue;
     const archivo = await aplicarEntradas(semana, entradas);
-    if (root) await commitArchivo(root, archivo, n, semana);
+    if (root && !(await commitArchivo(root, archivo, n, semana))) fallidas.push(semana);
   }
+  return fallidas.length ? `no pude commitear render.json de ${fallidas.join(", ")} (¿otra operación de git tiene tomada la base?)` : undefined;
 }
 
 function combinar(a: Map<string, Entradas>, b: Map<string, Entradas>): Map<string, Entradas> {
@@ -704,10 +715,7 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
   }
   const root = top.out.trim();
   const conRemoto = (await gitEn(root, ["rev-parse", "--abbrev-ref", "@{u}"])).code === 0;
-  if (process.env.KB_GIT_PUSH !== "1" || !conRemoto) {
-    await escribirLocal(root, nuevas);
-    return undefined;
-  }
+  if (process.env.KB_GIT_PUSH !== "1" || !conRemoto) return escribirLocal(root, nuevas);
   await abortStaleRebase();
   let error = "";
   let locales = new Map<string, Entradas>();
@@ -725,7 +733,12 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
     }
     const todas = combinar(locales, nuevas);
     if (![...todas.values()].some((e) => Object.keys(e).length)) return undefined;
-    await escribirLocal(root, todas);
+    const errCommit = await escribirLocal(root, todas);
+    if (errCommit) {
+      // Sin commit, el push no tiene nada que subir y saldría 0: no se da por buena (I4).
+      error = errCommit;
+      break;
+    }
     const push = await gitEn(root, ["push", "-q"]);
     if (push.code === 0) return undefined;
     error = `git push falló: ${ultimaLinea(push.out)}`;
@@ -740,17 +753,23 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
     for (const [id, v] of Object.entries(e)) if (JSON.stringify(ya[id]) !== JSON.stringify(v)) resto[id] = v;
     if (Object.keys(resto).length) faltan.set(s, resto);
   }
-  await escribirLocal(root, faltan);
-  return error || "no pude subir render.json";
+  const errLocal = await escribirLocal(root, faltan);
+  return [error, errLocal].filter(Boolean).join("; ") || "no pude subir render.json";
 }
 
 /**
  * Escritor de `render.json` (único archivo que escribe el Mac): acumula las entradas de
  * la corrida y, por semana, las sube con `subirRender` (un solo commit por semana).
  */
-export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<void> }): Pick<Deps, "escribirRender" | "confirmar"> & { confirmar: (semana: string) => Promise<void> } {
+export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
+  confirmar: (semana: string) => Promise<void>;
+  /** ¿Alguna semana quedó sin subir? La corrida termina con código ≠ 0 (I4). */
+  huboError: () => boolean;
+} {
   const buffer = new Map<string, Record<string, RenderEntry>>();
+  let fallo = false;
   return {
+    huboError: () => fallo,
     escribirRender: async (semana, id, e) => {
       const m = buffer.get(semana) ?? {};
       m[id] = e;
@@ -761,6 +780,7 @@ export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<v
       if (!nuevas || !Object.keys(nuevas).length) return;
       buffer.delete(semana);
       const err = await subirRender(new Map([[semana, nuevas as Entradas]]));
+      if (err) fallo = true;
       if (err) await opts.avisar(`No pude subir render.json de ${semana} a la base (${err}). Quedó en el Mac; la próxima corrida reintenta.`);
     },
   };
@@ -782,6 +802,44 @@ export async function sincronizarPendiente(semanas: string[]): Promise<string | 
     return undefined;
   }
   return subirRender(new Map());
+}
+
+// --- clon propio de la base (R49) ---
+
+/**
+ * Clon de ia-es-kb que usa el render (R49): `CALENDARIO_KB_DIR` (por defecto
+ * `~/.cache/carrusel/kb-calendario`). Si no existe, lo clona de `KB_REPO` o, sin él, del
+ * remoto `origin` de `knowledge/` (solo si `knowledge/` es su propio repo). Nunca es la
+ * bóveda de Obsidian: launchd hace pull cada hora y no debe tocar lo que el usuario edita.
+ */
+export async function clonKbCalendario(o: { env?: NodeJS.ProcessEnv; cwd?: string; home?: string } = {}): Promise<
+  { dir: string; clonado: boolean } | { error: string }
+> {
+  const env = o.env ?? process.env;
+  const cwd = o.cwd ?? process.cwd();
+  const home = o.home ?? homedir();
+  // `.env` no expande `~`: se hace aquí.
+  const pedido = env.CALENDARIO_KB_DIR?.trim().replace(/^~(?=\/|$)/, home);
+  const dir = resolve(cwd, pedido || join(home, ".cache", "carrusel", "kb-calendario"));
+  if (existsSync(join(dir, ".git"))) return { dir, clonado: false };
+  if (existsSync(dir) && readdirSync(dir).length) {
+    return { error: `${dir} existe y no es un clon de la base; bórralo o apunta CALENDARIO_KB_DIR a otra carpeta.` };
+  }
+  let repo = env.KB_REPO?.trim();
+  if (!repo) {
+    const boveda = join(cwd, "knowledge");
+    const top = existsSync(boveda) ? await gitEn(boveda, ["rev-parse", "--show-toplevel"]) : { code: 1, out: "" };
+    // knowledge/ dentro del repo de código daría el origin del código: no sirve.
+    if (top.code === 0 && realpathSync(top.out.trim()) === realpathSync(boveda)) {
+      const url = await gitEn(boveda, ["remote", "get-url", "origin"]);
+      if (url.code === 0) repo = url.out.trim();
+    }
+  }
+  if (!repo) return { error: "no sé de dónde clonar la base para el render: define KB_REPO en .env (p. ej. git@github.com:fnvasque/ia-es-kb.git)." };
+  await mkdir(dirname(dir), { recursive: true });
+  const c = await gitEn(dirname(dir), ["clone", "-q", repo, dir]);
+  if (c.code !== 0) return { error: `git clone de la base falló: ${ultimaLinea(c.out)}` };
+  return { dir, clonado: true };
 }
 
 // --- candado ---

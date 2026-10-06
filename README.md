@@ -403,7 +403,9 @@ scripts/calendario-install-mac.sh
 
 Para ver qué haría sin tocar nada: `scripts/calendario-install-mac.sh --dry-run`. El script prueba
 ssh con clave, sube un JPEG de prueba, pide su URL pública (espera 200 e `image/jpeg`) y lo borra.
-Deja el render corriendo cada hora (log en `output/calendario/render.log`).
+Deja el render corriendo cada hora (log en `output/calendario/render.log`). El render trabaja sobre
+**su propio clon** de `ia-es-kb` (`CALENDARIO_KB_DIR`, por defecto `~/.cache/carrusel/kb-calendario`,
+clonado de `KB_REPO` o del `origin` de `knowledge/`), nunca sobre tu bóveda de Obsidian.
 
 **2. Plantilla del planificador en la base.** Copia el manual, el validador y el `config.json` a
 `ia-es-kb`:

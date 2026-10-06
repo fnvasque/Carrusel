@@ -598,6 +598,11 @@ function erroresDeBorrador(b, p, config) {
   return errs;
 }
 
+/** Errores de los campos de planificación de una pieza, sin mirar su borrador ([] = válida). */
+export function validarPieza(pieza, config) {
+  return seguro(() => (esObj(pieza) ? erroresDePieza(pieza, config) : ["la pieza no es un objeto"]));
+}
+
 /**
  * Errores de una pieza del plan y su borrador ([] = válida). Los mensajes no
  * llevan el id: `validarSemana` lo antepone.

@@ -24,7 +24,7 @@ export interface Pieza {
   tema: string;
   pilar: string;
   hook: { categoria: string; texto: string; score: number };
-  emocion: string;
+  emocion: string | string[];
   entregable: string;
   fraseAmigo: string;
   lectorFrio: { intentos: number; resultado: string; notas: string };
@@ -44,6 +44,7 @@ export interface Plan {
   motivo?: string;
 }
 
+/** URLs públicas de una pieza, armadas por el bot al publicar (`mediosPublicos`). Nunca se guardan. */
 export interface Medios {
   urls: string[];
   cover?: string;
@@ -51,9 +52,20 @@ export interface Medios {
   duracionMs?: number;
 }
 
+/**
+ * `medios` de render.json (R48): solo NOMBRES de archivo de `<semana>/<id>/`, nunca URLs
+ * (llevarían `MEDIA_PUBLIC_TOKEN` al repo). Reel: `archivos` = [mp4]; carrusel: los slides.
+ */
+export interface MediosRender {
+  archivos: string[];
+  cover?: string;
+  story?: string;
+  duracionMs?: number;
+}
+
 export interface RenderEntry {
   estado: "renderizado" | "fallido";
-  medios?: Medios;
+  medios?: MediosRender;
   motivo?: string;
   en: string;
 }
@@ -90,23 +102,26 @@ const PiezaSchema = z.object({
   tema: z.string(),
   pilar: z.string(),
   hook: z.object({ categoria: z.string(), texto: z.string(), score: z.number() }),
-  emocion: z.string(),
+  // R46: la spec deja encadenar emociones ("curiosidad", "alivio"); validar.mjs acepta ambas formas.
+  emocion: z.union([z.string(), z.array(z.string()).min(1)]),
   entregable: z.string(),
   fraseAmigo: z.string(),
   lectorFrio: z.object({ intentos: z.number().int(), resultado: z.string(), notas: z.string() }),
   origen: z.object({ fichas: z.array(z.string()), referencias: z.array(z.string()) }),
-  derivadoDe: z.string().nullable(),
+  // Opcionales en validar.mjs: sin derivadoDe la pieza no deriva de nadie; sin estado, está planificada.
+  derivadoDe: z.string().nullable().default(null),
   caption: z.string(),
   borrador: z.string(),
-  estado: estadoEnum,
+  estado: estadoEnum.default("planificado"),
   parametros: z.record(z.unknown()).optional(),
 });
 
-export const PlanSchema: z.ZodType<Plan> = z
+export const PlanSchema: z.ZodType<Plan, z.ZodTypeDef, unknown> = z
   .object({
     semana: dia,
     zona: z.string(),
-    experimento: z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()) }).nullable(),
+    // El latido (`piezas: []`) puede omitir el experimento (validar.mjs solo lo exige con piezas).
+    experimento: z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()) }).nullable().default(null),
     piezas: z.array(PiezaSchema),
     motivo: z.string().optional(),
   })
@@ -155,12 +170,36 @@ export function semanaDir(semana: string): string {
   return join(calendarioDir(), semana);
 }
 
-const MediosSchema = z.object({
-  urls: z.array(z.string()),
-  cover: z.string().optional(),
-  story: z.string().optional(),
-  duracionMs: z.number().optional(),
-});
+/**
+ * Nombre de archivo de una URL o ruta (último segmento, sin `?query`, decodificado). Sirve
+ * para leer render.json del formato viejo (`medios.urls`, con el token) como nombres.
+ */
+export function nombreDeArchivo(u: string): string {
+  const sinQuery = u.split(/[?#]/)[0] ?? "";
+  const ultimo = sinQuery.slice(sinQuery.lastIndexOf("/") + 1);
+  try {
+    return decodeURIComponent(ultimo);
+  } catch {
+    return ultimo;
+  }
+}
+
+const MediosSchema: z.ZodType<MediosRender, z.ZodTypeDef, unknown> = z
+  .object({
+    archivos: z.array(z.string()).optional(),
+    // Formato viejo (antes de R48): URLs completas. Se convierten a nombres al leer.
+    urls: z.array(z.string()).optional(),
+    cover: z.string().optional(),
+    story: z.string().optional(),
+    duracionMs: z.number().optional(),
+  })
+  .refine((m) => m.archivos !== undefined || m.urls !== undefined, "medios sin archivos")
+  .transform((m) => ({
+    archivos: m.archivos ?? (m.urls ?? []).map(nombreDeArchivo),
+    ...(m.cover !== undefined ? { cover: nombreDeArchivo(m.cover) } : {}),
+    ...(m.story !== undefined ? { story: nombreDeArchivo(m.story) } : {}),
+    ...(m.duracionMs !== undefined ? { duracionMs: m.duracionMs } : {}),
+  }));
 const RenderEntrySchema = z.object({
   estado: z.enum(["renderizado", "fallido"]),
   medios: MediosSchema.optional(),
@@ -182,7 +221,7 @@ const EstadoEntrySchema = z.object({
  * se avisa y se ignora (nunca lanza). El resultado no tiene prototipo: `m["constructor"]`
  * no devuelve nada.
  */
-async function leerMapa<T>(archivo: string, schema: z.ZodType<T>): Promise<Record<string, T>> {
+async function leerMapa<T>(archivo: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>): Promise<Record<string, T>> {
   const out: Record<string, T> = Object.create(null);
   let texto: string;
   try {
@@ -247,6 +286,31 @@ export function urlPublica(base: string, token: string, semana: string, id: stri
   const segs = [token, semana, id, archivo];
   if (segs.some((s) => s === "")) throw new Error("urlPublica: segmento vacío");
   return `${base.replace(/\/+$/, "")}/media/${segs.map(encodeURIComponent).join("/")}`;
+}
+
+/**
+ * URLs públicas de los medios de una pieza (R48), armadas al publicar con
+ * `MEDIA_PUBLIC_BASE` y `MEDIA_PUBLIC_TOKEN`. Sin base o sin token no hay URLs (el
+ * publish rechaza la pieza con su motivo).
+ */
+export function mediosPublicos(m: MediosRender, base: string | undefined, token: string | undefined, semana: string, id: string): Medios {
+  const url = (a: string): string | undefined => {
+    if (!base || !token || !a) return undefined;
+    try {
+      return urlPublica(base, token, semana, id, a);
+    } catch {
+      return undefined;
+    }
+  };
+  const urls = m.archivos.map(url).filter((u): u is string => u !== undefined);
+  const cover = m.cover !== undefined ? url(m.cover) : undefined;
+  const story = m.story !== undefined ? url(m.story) : undefined;
+  return {
+    urls,
+    ...(cover ? { cover } : {}),
+    ...(story ? { story } : {}),
+    ...(m.duracionMs !== undefined ? { duracionMs: m.duracionMs } : {}),
+  };
 }
 
 /** Reemplaza toda aparición del token (también codificado) por `***`. Sin token no hace nada. */

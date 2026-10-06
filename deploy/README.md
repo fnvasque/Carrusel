@@ -101,8 +101,17 @@ estas variables directamente en el servidor. `--update` avisa (sin mostrar valor
 
 En el `.env` del **Mac** van además `SERVER_HOST=ubuntu@<ip>` y `SERVER_MEDIA_DIR=carrusel/media`: la
 ruta del **host** del servidor, relativa a su home, **no** `/data/media` (esa es la del contenedor).
-Solo letras, números y `_ . / -`; sin espacios. Después corre `scripts/calendario-install-mac.sh`
-(instala el agente de launchd y prueba ssh, `rsync` y la URL pública).
+Solo letras, números y `_ . / -`; sin espacios (una ruta que empiece con `-` se rechaza). Después corre
+`scripts/calendario-install-mac.sh` (instala el agente de launchd, prepara el clon de la base y prueba
+ssh, `rsync` y la URL pública).
+
+**El render del Mac usa su propio clon de `ia-es-kb`**, nunca la bóveda de Obsidian (`knowledge/`):
+launchd hace `git pull` cada hora y no debe tocar notas que estás editando. El clon vive en
+`CALENDARIO_KB_DIR` (por defecto `~/.cache/carrusel/kb-calendario`); si no existe, se clona de
+`KB_REPO` o, sin esa variable, del remoto `origin` de `knowledge/`. Si una pull de ese clon choca, el
+Mac avisa por Telegram una sola vez por error distinto y sigue con la copia local. Si el commit o el
+push de `render.json` fallan, la corrida termina con error y avisa; las piezas quedan renderizadas
+en el Mac y la próxima corrida solo reintenta la subida.
 
 **Token con permiso de publicar.** Publicar exige `instagram_content_publish` además de los permisos
 de lectura. Genera un token de **System User** (Business Manager → Usuarios del sistema → Generar

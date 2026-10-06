@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorContenido, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar,
+  ErrorContenido, clonKbCalendario, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar,
   sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
@@ -145,14 +145,14 @@ await checkAsync("procesar: render + rsync + verificar ok → renderizado con me
     assert.equal(s, SEMANA);
     assert.equal(id, "lun-reel-x");
     assert.equal(e.estado, "renderizado");
-    const u = (a: string, i = "lun-reel-x") => urlPublica(ENV.base, TOKEN, SEMANA, i, a);
-    assert.deepEqual(e.medios, { urls: [u("reel.mp4")], cover: u("cover.jpg"), story: u("story.jpg"), duracionMs: 42_000 });
+    // R48: render.json guarda nombres de archivo; el bot arma las URLs (con el token) al publicar.
+    assert.deepEqual(e.medios, { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg", duracionMs: 42_000 });
     const c = reg.escritos[1][2];
-    assert.deepEqual(c.medios, {
-      urls: [u("01.jpg", "mar-carrusel-y"), u("02.jpg", "mar-carrusel-y")],
-      cover: u("01.jpg", "mar-carrusel-y"),
-      story: u("story.jpg", "mar-carrusel-y"),
-    });
+    assert.deepEqual(c.medios, { archivos: ["01.jpg", "02.jpg"], cover: "01.jpg", story: "story.jpg" });
+    assert.ok(!JSON.stringify(reg.escritos).includes(TOKEN), "ningún render.json lleva el token");
+    // La verificación sí usa la URL pública completa.
+    const u = (a: string, i = "lun-reel-x") => urlPublica(ENV.base, TOKEN, SEMANA, i, a);
+    assert.ok(reg.verificar.includes(u("reel.mp4")));
     assert.equal(reg.verificar.length, 6, "verifica cada archivo subido");
     assert.deepEqual(reg.confirmados, [SEMANA], "una sola escritura por semana y corrida");
     assert.ok(existsSync(join(out, SEMANA, "lun-reel-x", "reel.mp4")));
@@ -498,6 +498,105 @@ await checkAsync("crearEscritorRender: lee render.json fresco tras el pull, fusi
     assert.deepEqual(Object.keys(rec).sort(), ["jue-c", "lun-previo", "mar-a", "mie-b", "vie-d"]);
     assert.equal(git(mac, "status", "--porcelain").trim(), "");
     assert.equal(await sincronizarPendiente([SEMANA]), undefined, "sin nada pendiente no hace nada");
+  } finally {
+    for (const [k, v] of [["KB_DIR", prev.KB_DIR], ["KB_GIT_PUSH", prev.PUSH], ["KB_GIT", prev.GIT]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+    rmSync(raiz, { recursive: true, force: true });
+  }
+});
+
+// R49: el render usa un clon propio de ia-es-kb, nunca la bóveda de Obsidian.
+await checkAsync("clonKbCalendario (R49): clona de KB_REPO o del origin de knowledge/ y reutiliza el clon; nunca la bóveda", async () => {
+  const raiz = mkdtempSync(join(tmpdir(), "cal-clon-"));
+  try {
+    const bare = join(raiz, "ia-es-kb.git");
+    git(raiz, "init", "--bare", "-b", "main", bare);
+    const semilla = join(raiz, "semilla");
+    git(raiz, "clone", bare, semilla);
+    writeFileSync(join(semilla, "a.md"), "uno\n");
+    git(semilla, "add", ".");
+    git(semilla, "commit", "-m", "1");
+    git(semilla, "push", "-u", "origin", "main");
+
+    // Con KB_REPO: clona en CALENDARIO_KB_DIR.
+    const destino = join(raiz, "cache", "kb-calendario");
+    const a = await clonKbCalendario({ env: { KB_REPO: bare, CALENDARIO_KB_DIR: destino }, cwd: raiz, home: raiz });
+    assert.deepEqual(a, { dir: destino, clonado: true });
+    assert.equal(readFileSync(join(destino, "a.md"), "utf8"), "uno\n");
+    // Segunda corrida: el clon ya existe, no se vuelve a clonar.
+    assert.deepEqual(await clonKbCalendario({ env: { KB_REPO: bare, CALENDARIO_KB_DIR: destino }, cwd: raiz, home: raiz }), { dir: destino, clonado: false });
+
+    // `~` del .env se expande al home.
+    assert.deepEqual(await clonKbCalendario({ env: { KB_REPO: bare, CALENDARIO_KB_DIR: "~/tilde" }, cwd: join(raiz, "cache"), home: raiz }), { dir: join(raiz, "tilde"), clonado: true });
+
+    // Sin KB_REPO ni CALENDARIO_KB_DIR: remoto origin de knowledge/ y ~/.cache/carrusel/kb-calendario.
+    const repo = join(raiz, "repo");
+    mkdirSync(repo);
+    git(raiz, "clone", bare, join(repo, "knowledge"));
+    const b = await clonKbCalendario({ env: {}, cwd: repo, home: raiz });
+    assert.deepEqual(b, { dir: join(raiz, ".cache", "carrusel", "kb-calendario"), clonado: true });
+    assert.notEqual("dir" in b ? b.dir : "", join(repo, "knowledge"), "nunca la bóveda");
+
+    // knowledge/ que no es su propio repo (vive dentro del repo de código) no sirve de origen.
+    const codigo = join(raiz, "codigo");
+    mkdirSync(join(codigo, "knowledge"), { recursive: true });
+    git(codigo, "init", "-b", "main");
+    git(codigo, "remote", "add", "origin", "git@ejemplo:codigo.git");
+    const c = await clonKbCalendario({ env: { CALENDARIO_KB_DIR: join(raiz, "otro") }, cwd: codigo, home: raiz });
+    assert.ok("error" in c && /KB_REPO/.test(c.error), JSON.stringify(c));
+
+    // Carpeta existente con algo que no es un clon: error, no se toca.
+    const sucia = join(raiz, "sucia");
+    mkdirSync(sucia);
+    writeFileSync(join(sucia, "x"), "x");
+    const d = await clonKbCalendario({ env: { KB_REPO: bare, CALENDARIO_KB_DIR: sucia }, cwd: raiz, home: raiz });
+    assert.ok("error" in d && /no es un clon/.test(d.error), JSON.stringify(d));
+  } finally {
+    rmSync(raiz, { recursive: true, force: true });
+  }
+});
+
+// I4: un commit fallido de render.json no se traga.
+await checkAsync("crearEscritorRender (I4): commit de render.json fallido → error y aviso; queda escrito en el Mac y la próxima corrida solo sube", async () => {
+  const raiz = mkdtempSync(join(tmpdir(), "cal-git-lock-"));
+  const prev = { KB_DIR: process.env.KB_DIR, PUSH: process.env.KB_GIT_PUSH, GIT: process.env.KB_GIT };
+  try {
+    const bare = join(raiz, "remoto.git");
+    git(raiz, "init", "--bare", "-b", "main", bare);
+    const mac = join(raiz, "mac");
+    git(raiz, "clone", bare, mac);
+    mkdirSync(join(mac, "_calendario", SEMANA), { recursive: true });
+    writeFileSync(join(mac, "_calendario", SEMANA, "plan.json"), "{}");
+    git(mac, "add", ".");
+    git(mac, "commit", "-m", "plan");
+    git(mac, "push", "-u", "origin", "main");
+    process.env.KB_DIR = mac;
+    process.env.KB_GIT_PUSH = "1";
+    delete process.env.KB_GIT;
+
+    // Otra operación de git (Obsidian, el usuario) tiene tomado el índice.
+    writeFileSync(join(mac, ".git", "index.lock"), "");
+    const avisos: string[] = [];
+    const esc = crearEscritorRender({ avisar: async (t) => void avisos.push(t) });
+    assert.equal(esc.huboError(), false);
+    await esc.escribirRender(SEMANA, "mar-a", { estado: "renderizado", en: "1" });
+    await esc.confirmar(SEMANA);
+    assert.equal(esc.huboError(), true, "la corrida debe terminar con error");
+    assert.equal(avisos.length, 1, avisos.join("\n"));
+    assert.match(avisos[0], /No pude subir render\.json/);
+    // Escrito en el Mac (la pieza ya no es pendiente: no se re-renderiza), pero no en el remoto.
+    assert.ok(JSON.parse(readFileSync(join(mac, "_calendario", SEMANA, "render.json"), "utf8"))["mar-a"]);
+    assert.throws(() => git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/render.json`));
+
+    // Mientras el índice siga tomado, sincronizarPendiente también devuelve error.
+    assert.ok(await sincronizarPendiente([SEMANA]));
+    // Se suelta el índice: la próxima corrida sube solo lo pendiente.
+    rmSync(join(mac, ".git", "index.lock"));
+    assert.equal(await sincronizarPendiente([SEMANA]), undefined);
+    const remoto = JSON.parse(git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/render.json`));
+    assert.deepEqual(Object.keys(remoto), ["mar-a"]);
   } finally {
     for (const [k, v] of [["KB_DIR", prev.KB_DIR], ["KB_GIT_PUSH", prev.PUSH], ["KB_GIT", prev.GIT]] as const) {
       if (v === undefined) delete process.env[k];

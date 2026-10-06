@@ -16,7 +16,7 @@ import {
 } from "./store.ts";
 import { addDays, localParts, weekMonday, zonedToUtc } from "../calendario/time.ts";
 import { limpiarMedios, manejarMedio } from "../calendario/media-server.ts";
-import { estadoEfectivo, leerSemana, listarSemanas, ocultarToken, type Medios, type SemanaLeida } from "../calendario/plan.ts";
+import { estadoEfectivo, leerSemana, listarSemanas, ocultarToken, type MediosRender, type SemanaLeida } from "../calendario/plan.ts";
 import { escribirEstado, estadoPath } from "../calendario/registro.ts";
 import {
   cargarFilasDb, claveFila, depsReales, esPausado, guardarClaveDb, leerClaveDb, ORDEN_PUBLICAR, ORDEN_SALTAR, tick, type SchedulerDeps,
@@ -1154,7 +1154,7 @@ async function archivoLocalSeguro(ruta: string | undefined): Promise<string | un
  * Preview de una pieza programada: portada SUBIDA desde la raíz de medios (R44) + caption
  * + botón Saltar. Sin archivo local (o si falla la foto), solo texto. Dice si llegó a algún chat.
  */
-async function enviarPreview(s: SemanaLeida, p: PiezaCal, medios: Medios): Promise<boolean> {
+async function enviarPreview(s: SemanaLeida, p: PiezaCal, medios: MediosRender): Promise<boolean> {
   const { caption, ruta } = argsPreview(MEDIA_ROOT, s.semana, p, medios);
   const local = await archivoLocalSeguro(ruta);
   const reply_markup = new InlineKeyboard().text("⏭️ Saltar", callbackSaltar(s.semana, p.id));

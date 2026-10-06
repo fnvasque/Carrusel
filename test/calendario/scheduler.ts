@@ -6,7 +6,7 @@ import { check, checkAsync } from "../_check.ts";
 import { tareasDebidas, tick, cargarFilasDb, guardarFilaDb, type SchedulerDeps } from "../../src/calendario/scheduler.ts";
 import { anotarRegistro, escribirEstado } from "../../src/calendario/registro.ts";
 import type { Fila } from "../../src/calendario/publish.ts";
-import type { EstadoEntry, Pieza, RenderEntry, SemanaLeida } from "../../src/calendario/plan.ts";
+import type { EstadoEntry, MediosRender, Pieza, RenderEntry, SemanaLeida } from "../../src/calendario/plan.ts";
 import { closeDb } from "../../src/kb/db.ts";
 import { MetaFalso, IG, mediosReel, piezaDe } from "./publish.ts";
 // Los módulos hermanos con top-level await corren en paralelo: este archivo cambia
@@ -15,7 +15,9 @@ import { MetaFalso, IG, mediosReel, piezaDe } from "./publish.ts";
 import "./plan.ts";
 
 const Z = (s: string): Date => new Date(s);
-const render = (medios = mediosReel): RenderEntry => ({ estado: "renderizado", medios, en: "2026-10-11T10:00:00Z" });
+/** render.json del Mac (R48): nombres de archivo; el bot arma las URLs con MEDIA_PUBLIC_BASE y el token. */
+const renderReel: MediosRender = { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg", duracionMs: 21000 };
+const render = (medios = renderReel): RenderEntry => ({ estado: "renderizado", medios, en: "2026-10-11T10:00:00Z" });
 
 function semanaDe(piezas: Pieza[], rend: Record<string, RenderEntry> = {}, est: Record<string, EstadoEntry> = {}, semana = "2026-10-12"): SemanaLeida {
   return {
@@ -240,11 +242,26 @@ function mundo(semanas: SemanaLeida[], extra: Partial<SchedulerDeps> = {}): Mund
         { template: "Cta", props: { title: "Guarda este post" } },
       ],
     }),
+    mediaBase: "https://media.ejemplo.cl",
     mediaToken: "tok",
     ...extra,
   };
   return { deps, meta, avisos, estados, registro, commits, orden, filas, claves, reloj };
 }
+
+// R48: render.json trae nombres; el bot arma las URLs con urlPublica(MEDIA_PUBLIC_BASE, MEDIA_PUBLIC_TOKEN, …).
+await checkAsync("tick (R48): arma las URLs públicas de los medios con MEDIA_PUBLIC_BASE y el token al publicar", async () => {
+  const w = mundo([programada()]);
+  await tick(w.deps);
+  const params = [...w.meta.contenedores.values()].map((c) => c.params);
+  assert.equal(params[0]?.video_url, "https://media.ejemplo.cl/media/tok/2026-10-12/lun-reel-agentes/reel.mp4");
+  assert.equal(params[0]?.cover_url, "https://media.ejemplo.cl/media/tok/2026-10-12/lun-reel-agentes/cover.jpg");
+  // Sin MEDIA_PUBLIC_BASE no hay URL: la pieza falla con motivo claro y sin POST a Meta.
+  const sinBase = mundo([programada()], { mediaBase: undefined });
+  await tick(sinBase.deps);
+  assert.equal(sinBase.meta.contenedores.size, 0);
+  assert.match(sinBase.estados.at(-1)?.e.motivo ?? "", /MEDIA_PUBLIC_BASE/);
+});
 
 await checkAsync("tick: publica la pieza debida, persiste la fila antes del commit y anota el registro con los campos de T3", async () => {
   const w = mundo([programada()]);
@@ -523,7 +540,7 @@ await checkAsync("tick: un error de avisar no imprime su mensaje (puede llevar e
 
 await checkAsync("tick: R29 — URL caída ERROR ×4 → 3 reintentos a ~10 min, nunca después de hora + 30 min, fallido; la pieza vecina sale a su hora", async () => {
   const vecina = piezaDe({ id: "lun-reel-vecina", hora: "19:50", caption: "Otra pieza\n\n#ia" }); // 22:50Z
-  const s = semanaDe([lunes, vecina], { [lunes.id]: render(), [vecina.id]: render({ ...mediosReel, urls: ["https://media.ejemplo.cl/media/tok/2026-10-12/lun-reel-vecina/reel.mp4"] }) },
+  const s = semanaDe([lunes, vecina], { [lunes.id]: render(), [vecina.id]: render() },
     { [lunes.id]: { estado: "programado" }, [vecina.id]: { estado: "programado" } });
   const w = mundo([s]);
   const hora = Date.parse("2026-10-12T22:30:00Z");

@@ -180,22 +180,47 @@ export async function abortStaleRebase(): Promise<boolean> {
   return true;
 }
 
+/** Archivos sin fusionar (índice en `UU`, `AA`…), relativos a la raíz. */
+async function sinFusionar(root: string): Promise<string[]> {
+  const r = await git(["diff", "--name-only", "--diff-filter=U"], root);
+  return r.code === 0 ? r.out.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+}
+
+const errorAutostash = (archivos: string[]): string =>
+  `conflicto al reaplicar cambios locales en ${archivos.join(", ") || "la base"}; tus cambios están en el archivo y en git stash ` +
+  "(resuélvelo a mano: edita el archivo, git add, y git stash drop cuando esté bien)";
+
 /**
  * Trae lo que otros subieron a la base (la investigación semanal, ediciones en
  * Obsidian). Si el rebase choca, lo aborta y la base local queda como estaba.
+ * `pull --autostash` sale 0 aunque reaplicar los cambios sin commit choque (deja el
+ * archivo con marcas, el índice en UU y un stash nuevo): eso se devuelve como error y
+ * no se toca nada más (R49). Con archivos ya sin fusionar, ni siquiera intenta la pull.
  */
 export async function pullKb(): Promise<{ changed: boolean; error?: string }> {
   if (process.env.KB_GIT === "0") return { changed: false };
   const top = await git(["rev-parse", "--show-toplevel"], kbDir());
   if (top.code !== 0) return { changed: false };
   const root = top.out.trim();
+  // Un rebase a medias también deja archivos sin fusionar: ese lo aborta la pull fallida de abajo.
+  const gitDir = (await git(["rev-parse", "--absolute-git-dir"], root)).out.trim();
+  const rebaseAMedias = existsSync(join(gitDir, "rebase-merge")) || existsSync(join(gitDir, "rebase-apply"));
+  const previos = rebaseAMedias ? [] : await sinFusionar(root);
+  if (previos.length) return { changed: false, error: errorAutostash(previos) };
   const before = (await git(["rev-parse", "HEAD"], root)).out.trim();
+  const stashAntes = (await git(["rev-parse", "-q", "--verify", "refs/stash"], root)).out.trim();
   const pull = await git(["-c", "user.name=kb", "-c", "user.email=kb@local", "pull", "--rebase", "--autostash"], root);
   if (pull.code !== 0) {
     await git(["rebase", "--abort"], root);
     return { changed: false, error: pull.out.trim().split("\n").pop() || "git pull falló" };
   }
   const after = (await git(["rev-parse", "HEAD"], root)).out.trim();
+  const conflicto = await sinFusionar(root);
+  const stashDespues = (await git(["rev-parse", "-q", "--verify", "refs/stash"], root)).out.trim();
+  // Un stash nuevo tras la pull = el autostash no se pudo reaplicar (git lo guarda ahí).
+  if (conflicto.length || (stashDespues !== "" && stashDespues !== stashAntes)) {
+    return { changed: before !== after, error: errorAutostash(conflicto) };
+  }
   return { changed: before !== after };
 }
 

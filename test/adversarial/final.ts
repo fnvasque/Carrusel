@@ -212,6 +212,8 @@ function depsBot(meta: MetaFalso, reloj: { t: Date }, modo: "auto" | "aviso", av
     tokenOk: async () => true,
     commit: async () => undefined,
     mediaToken: TOKEN_MEDIOS,
+    // R48 (ola de arreglos finales): render.json ya no trae URLs; el bot las arma con MEDIA_PUBLIC_BASE.
+    mediaBase: "https://media.ejemplo.cl",
   };
 }
 

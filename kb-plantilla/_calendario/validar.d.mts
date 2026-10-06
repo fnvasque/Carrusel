@@ -6,6 +6,7 @@ export declare function normalizar(s: string): string;
 export declare function segundosEscena(props: Record<string, unknown>, hold: boolean, pace?: "ensenar" | "rapido", hook?: boolean): number;
 export declare function validarConfig(config: unknown): string[];
 export declare function validarPlan(plan: unknown, config: unknown): string[];
+export declare function validarPieza(pieza: unknown, config: unknown): string[];
 export declare function validarBorrador(pieza: unknown, borrador: unknown, config: unknown): string[];
 export declare function reglasDeTexto(borrador: unknown, config: unknown, formato?: "reel" | "carrusel"): string[];
 export declare function contarFondosIA(borradores: unknown[]): number;

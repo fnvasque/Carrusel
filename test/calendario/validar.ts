@@ -15,11 +15,13 @@ import {
   validarBorrador,
   validarCaption,
   validarConfig,
+  validarPieza,
   validarPlan,
   validarSemana,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
+import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 
 /**
@@ -684,6 +686,43 @@ check("calendario/validar: JSON inválido → mensaje con la línea, sin repetir
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// R46 + punto 14: lo que el agente copia de INSTRUCCIONES.md pasa validar.mjs Y plan.ts (bot y Mac).
+check("calendario/validar (R46): paridad validar.mjs ↔ plan.ts — EJEMPLO embebido, ejemplo y esqueleto de INSTRUCCIONES.md", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  const bloque = (marca: string) => {
+    const m = md.match(new RegExp(`<!-- ${marca} -->\\s*\`\`\`json\\n([\\s\\S]*?)\\n\`\`\``));
+    assert.ok(m, `falta el bloque ${marca}`);
+    return JSON.parse(m[1]);
+  };
+  const casos: [string, any][] = [
+    ["EJEMPLO embebido", EJEMPLO.plan],
+    ["ejemplo de INSTRUCCIONES.md", { ...clone(EJEMPLO.plan), piezas: [bloque("ejemplo:pieza")] }],
+    ["esqueleto de INSTRUCCIONES.md (pegable tal cual)", bloque("esqueleto:plan")],
+  ];
+  for (const [nombre, plan] of casos) {
+    assert.deepEqual(validarPlan(plan, config), [], `${nombre}: validarPlan`);
+    for (const p of plan.piezas) assert.deepEqual(validarPieza(p, config), [], `${nombre}: ${p.id}`);
+    assert.doesNotThrow(() => parsePlan(JSON.stringify(plan)), `${nombre}: parsePlan`);
+  }
+  // El esqueleto es una semana completa: 6 piezas, temas distintos, experimento sobre una de ellas.
+  const esqueleto = bloque("esqueleto:plan");
+  assert.equal(esqueleto.piezas.length, 6);
+  assert.equal(new Set(esqueleto.piezas.map((p: any) => p.tema)).size, 6);
+  assert.ok(esqueleto.experimento.piezas.every((id: string) => esqueleto.piezas.some((p: any) => p.id === id)));
+  assert.ok(!JSON.stringify(esqueleto).includes("..."), "sin marcadores para reemplazar");
+  // Variantes que validar.mjs acepta: sin estado, sin derivadoDe, emoción en texto, latido sin experimento.
+  const variante = clone(EJEMPLO.plan);
+  delete variante.piezas[0].estado;
+  delete variante.piezas[0].derivadoDe;
+  variante.piezas[0].emocion = "curiosidad";
+  assert.deepEqual(validarPlan(variante, config), []);
+  assert.deepEqual(validarPieza(variante.piezas[0], config), []);
+  assert.doesNotThrow(() => parsePlan(JSON.stringify(variante)));
+  const latido = { semana: "2026-10-12", zona: "America/Santiago", piezas: [], motivo: "sin piezas publicables" };
+  assert.deepEqual(validarPlan(latido, config), []);
+  assert.doesNotThrow(() => parsePlan(JSON.stringify(latido)));
 });
 
 check("calendario/validar: INSTRUCCIONES.md — mix con los valores exactos, presupuesto de lectura, audios vacíos y esqueleto de plan.json", () => {

@@ -28,7 +28,8 @@ const medios = (id: string): Medios => ({
   cover: `https://kb.ngrok.app/media/T/2026-10-12/${id}/cover.jpg`,
   story: `https://kb.ngrok.app/media/T/2026-10-12/${id}/story.jpg`,
 });
-const rendido = (id: string): RenderEntry => ({ estado: "renderizado", medios: medios(id), en: "2026-10-11T10:00:00Z" });
+// R48: render.json trae nombres; el scheduler arma las mismas URLs de `medios` con mediaBase y mediaToken.
+const rendido = (_id: string): RenderEntry => ({ estado: "renderizado", medios: { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg" }, en: "2026-10-11T10:00:00Z" });
 
 /** Meta mínimo y estricto: registra cada media_publish exitoso con su hora. */
 function metaSimple(reloj: { t: number }, contenedores: Record<string, string> = {}) {
@@ -94,6 +95,8 @@ function mundo(reloj: { t: number }, planes: Record<string, Pieza[]>, meta: Retu
     anotarRegistro: async () => undefined,
     commit: async () => undefined,
     leerBorrador: async () => { throw new Error("sin borrador"); },
+    mediaBase: "https://kb.ngrok.app",
+    mediaToken: "T",
   };
   return { deps, render, estado, filas, avisos };
 }

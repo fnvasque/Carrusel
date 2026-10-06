@@ -1,8 +1,9 @@
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { abortStaleRebase, pullKb, setSyncErrorHandler } from "../kb/store.ts";
 import { leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "./plan.ts";
 import {
-  crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
+  clonKbCalendario, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
   verificarReal,
   type EnvRender,
 } from "./render.ts";
@@ -15,8 +16,11 @@ import { avisarTelegram } from "./telegram-directo.ts";
  *
  * Variables (`.env`): SERVER_HOST, SERVER_MEDIA_DIR, MEDIA_PUBLIC_BASE,
  * MEDIA_PUBLIC_TOKEN (obligatorias); TELEGRAM_BOT_TOKEN y TELEGRAM_ALLOWED_CHAT_IDS
- * (avisos); KB_DIR (default ./knowledge); CALENDARIO_AUDIO_DIR (default promo/audio);
+ * (avisos); CALENDARIO_KB_DIR (clon propio de ia-es-kb, default
+ * ~/.cache/carrusel/kb-calendario; se clona de KB_REPO o del origin de knowledge/ si
+ * falta: nunca la bóveda de Obsidian, R49); CALENDARIO_AUDIO_DIR (default promo/audio);
  * CALENDARIO_RSYNC_LOCAL=1 copia a SERVER_MEDIA_DIR en este disco (pruebas sin ssh).
+ * Termina con código ≠ 0 si render.json no llegó a la base (I4).
  */
 
 try {
@@ -72,17 +76,51 @@ for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
   });
 }
 
+/**
+ * Avisa por Telegram un error de pull solo si cambió desde el último (launchd corre cada
+ * hora: el mismo error no se repite 24 veces al día). El último queda en `output/`.
+ */
+async function avisarPullUnaVez(error: string | undefined): Promise<void> {
+  const marca = join(outRoot, ".ultimo-error-pull");
+  let previo = "";
+  try {
+    previo = readFileSync(marca, "utf8");
+  } catch {
+    // primera vez
+  }
+  if (!error) {
+    if (previo) rmSync(marca, { force: true });
+    return;
+  }
+  console.warn(`⚠️  No pude traer la base (${error}); sigo con la copia local.`);
+  if (previo === error) return;
+  writeFileSync(marca, error);
+  await avisar(`No pude traer la base (${error}); sigo con la copia local.`);
+}
+
 let codigo = 0;
 try {
+  // Clon propio de la base (R49): nunca la bóveda de Obsidian.
+  const clon = await clonKbCalendario();
+  if ("error" in clon) {
+    await avisar(clon.error);
+    throw new Error(clon.error);
+  }
+  process.env.KB_DIR = clon.dir;
+  if (clon.clonado) console.log(`📥 Base clonada en ${clon.dir} (clon propio del render).`);
+
   setSyncErrorHandler((m) => void avisar(m));
   if (await abortStaleRebase()) console.warn("⚠️  Había un rebase a medias en la base; lo aborté.");
   const pull = await pullKb();
-  if (pull.error) console.warn(`⚠️  No pude traer la base (${pull.error}); sigo con la copia local.`);
+  await avisarPullUnaVez(pull.error);
 
   const nombres = await listarSemanas();
   if (!dryRun) {
     const errPush = await sincronizarPendiente(nombres);
-    if (errPush) await avisar(`No pude subir a la base un render.json de una corrida anterior (${errPush}); reintento en la próxima.`);
+    if (errPush) {
+      codigo = 1;
+      await avisar(`No pude subir a la base un render.json de una corrida anterior (${errPush}); reintento en la próxima.`);
+    }
   }
 
   const semanas: SemanaLeida[] = [];
@@ -117,6 +155,8 @@ try {
       log: (t) => console.log(ocultarToken(t, token)),
     });
     console.log(`Listo: ${r.ok} renderizada(s), ${r.fallidas} fallida(s), ${r.pendientes} pendiente(s).`);
+    // render.json sin subir (I4): ya avisado; la corrida no es buena y la próxima reintenta solo la subida.
+    if (escritor.huboError()) codigo = 1;
   }
 } catch (e) {
   console.error(`✗ ${ocultarToken(e instanceof Error ? (e.stack ?? e.message) : String(e), token)}`);

@@ -88,4 +88,21 @@ if [ "${FALLO:-0}" = 1 ]; then
   exit 1
 fi
 
+echo "4) clon propio de la base para el render (nunca la bóveda de Obsidian)"
+KB_CAL="${CALENDARIO_KB_DIR:-$HOME/.cache/carrusel/kb-calendario}"
+if [ -d "$KB_CAL/.git" ]; then
+  echo "✓ Ya existe: $KB_CAL"
+else
+  ORIGEN="${KB_REPO:-}"
+  if [ -z "$ORIGEN" ] && [ -d knowledge ] && [ "$(git -C knowledge rev-parse --show-toplevel 2>/dev/null)" = "$(cd knowledge && pwd -P)" ]; then
+    ORIGEN="$(git -C knowledge remote get-url origin 2>/dev/null || true)"
+  fi
+  if [ -z "$ORIGEN" ]; then
+    echo "✗ No sé de dónde clonar la base: define KB_REPO en .env (p. ej. git@github.com:fnvasque/ia-es-kb.git)." >&2
+    exit 1
+  fi
+  run mkdir -p "$(dirname "$KB_CAL")"
+  run git clone -q "$ORIGEN" "$KB_CAL"
+fi
+
 echo "Listo. Para correrlo ya: launchctl kickstart gui/$UID/$LABEL  (o npm run calendario:render)."

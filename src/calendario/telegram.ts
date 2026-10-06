@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { resolve, sep } from "node:path";
-import { estadoEfectivo, type Estado, type Medios, type Pieza, type SemanaLeida } from "./plan.ts";
+import { estadoEfectivo, type Estado, type MediosRender, type Pieza, type SemanaLeida } from "./plan.ts";
 import { claveFila } from "./scheduler.ts";
 import { addDays, localParts, weekMonday, zonedToUtc } from "./time.ts";
 
@@ -101,6 +101,12 @@ export function archivoDeUrl(u: string | undefined): string {
   } catch {
     return "";
   }
+  return nombreSeguro(nombre);
+}
+
+/** El nombre si es seguro (`^[A-Za-z0-9._-]+$`, sin `..` ni `.` inicial); si no, "". */
+function nombreSeguro(nombre: string | undefined): string {
+  if (!nombre) return "";
   return ARCHIVO_RE.test(nombre) && !nombre.includes("..") && !nombre.startsWith(".") ? nombre : "";
 }
 
@@ -110,9 +116,10 @@ export function archivoDeUrl(u: string | undefined): string {
  * la raíz de medios: la URL pública, con `MEDIA_PUBLIC_TOKEN`, nunca va a Telegram.
  * Caption con día, hora, formato, hook y el caption de Instagram, truncado a 1024 con "…".
  */
-export function formatPreview(p: Pieza, medios: Medios): { caption: string; archivo: string } {
-  const candidatos = p.formato === "carrusel" ? [medios.urls[0], medios.story] : [medios.cover, medios.story];
-  const archivo = candidatos.map(archivoDeUrl).find((a) => a !== "") ?? "";
+export function formatPreview(p: Pieza, medios: MediosRender): { caption: string; archivo: string } {
+  // R48: render.json ya trae nombres de archivo; solo se acepta un nombre seguro.
+  const candidatos = p.formato === "carrusel" ? [medios.archivos[0], medios.story] : [medios.cover, medios.story];
+  const archivo = candidatos.map(nombreSeguro).find((a) => a !== "") ?? "";
   const texto = [
     `🗓 ${diaCorto(p.dia)} ${p.hora} · ${p.formato} · ${p.id}`,
     `🪝 ${p.hook.texto}`,
@@ -320,9 +327,9 @@ export function previewsPendientes(
   semanas: SemanaLeida[],
   ahora: Date,
   enviado: (clave: string) => boolean,
-): { semana: string; pieza: Pieza; medios: Medios; nueva: boolean }[] {
+): { semana: string; pieza: Pieza; medios: MediosRender; nueva: boolean }[] {
   const t = ahora.getTime();
-  const out: { semana: string; pieza: Pieza; medios: Medios; nueva: boolean }[] = [];
+  const out: { semana: string; pieza: Pieza; medios: MediosRender; nueva: boolean }[] = [];
   for (const s of semanas) {
     for (const p of s.plan.piezas) {
       const r = s.render[p.id];
@@ -351,7 +358,7 @@ export function publicadas(semanas: SemanaLeida[]): { semana: string; id: string
  * (bajo `root`), nunca la URL pública. Sin archivo válido, `ruta` queda undefined
  * (el bot manda solo el texto).
  */
-export function argsPreview(root: string, semana: string, p: Pieza, medios: Medios): { caption: string; ruta?: string } {
+export function argsPreview(root: string, semana: string, p: Pieza, medios: MediosRender): { caption: string; ruta?: string } {
   const { caption, archivo } = formatPreview(p, medios);
   const ruta = archivo ? rutaMedioLocal(root, semana, p.id, archivo) : undefined;
   return ruta ? { caption, ruta } : { caption };

@@ -4,7 +4,9 @@
   Render del calendario en el Mac: corre `npm run calendario:render` cada hora y al
   cargarse (si el Mac estaba dormido, launchd lo corre al despertar). No se instala a
   mano: scripts/calendario-install-mac.sh reemplaza __REPO__ por la ruta del repo y lo
-  copia a ~/Library/LaunchAgents/.
+  copia a ~/Library/LaunchAgents/. La base que lee y escribe es un clon propio de ia-es-kb
+  (CALENDARIO_KB_DIR, por defecto ~/.cache/carrusel/kb-calendario), nunca la bóveda de
+  Obsidian: este agente hace git pull cada hora (R49). Para otra ruta, ponla en .env.
 -->
 <plist version="1.0">
 <dict>

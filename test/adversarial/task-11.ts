@@ -26,7 +26,7 @@ check("adversario T11: formatPreview corta un emoji por la mitad al truncar a 10
   const malos: number[] = [];
   for (let off = 0; off < 11; off++) {
     const caption = "x".repeat(off) + "<b>&</b> 🚀".repeat(500);
-    const r = formatPreview(pz("reel-x", caption), { urls: ["u"], cover: "c" });
+    const r = formatPreview(pz("reel-x", caption), { archivos: ["u"], cover: "c" });
     assert.ok(r.caption.length <= 1024);
     if (SURROGATE_SUELTO.test(r.caption)) malos.push(off);
   }

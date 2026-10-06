@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { checkAsync, done } from "../_check.ts";
 import { startHttp } from "../../src/kb/inbox.ts";
 import { manejarMedio } from "../../src/calendario/media-server.ts";
-import { leerSemana } from "../../src/calendario/plan.ts";
+import { leerSemana, urlPublica } from "../../src/calendario/plan.ts";
 import { addDays, localParts, weekMonday } from "../../src/calendario/time.ts";
 import {
   crearEscritorRender, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, verificarReal,
@@ -141,12 +141,13 @@ try {
     git(raiz, "clone", bare, clon);
     const rj = JSON.parse(readFileSync(join(clon, "_calendario", semana, "render.json"), "utf8"));
     assert.equal(rj["prueba-reel"].estado, "renderizado");
-    assert.equal(rj["prueba-reel"].medios.urls.length, 1);
+    assert.deepEqual(rj["prueba-reel"].medios.archivos, ["reel.mp4"]);
+    assert.ok(!JSON.stringify(rj).includes(TOKEN), "R48: render.json sin el token");
     assert.ok(rj["prueba-reel"].medios.duracionMs > 5000);
-    assert.equal(rj["prueba-carrusel"].medios.urls.length, 7);
+    assert.equal(rj["prueba-carrusel"].medios.archivos.length, 7);
     assert.equal(rj["prueba-fuera"].estado, "fallido");
     assert.match(rj["prueba-fuera"].motivo, /borrador/i);
-    const head = await fetch(rj["prueba-reel"].medios.cover, { method: "HEAD" });
+    const head = await fetch(urlPublica(base, TOKEN, semana, "prueba-reel", rj["prueba-reel"].medios.cover), { method: "HEAD" });
     assert.equal(head.status, 200);
     assert.equal(git(clon, "log", "-1", "--format=%s").trim(), `calendario: render ${semana} (3 piezas)`);
     assert.ok(existsSync(join(clon, "_calendario", semana, "plan.json")));

@@ -370,22 +370,143 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 
 ### Esqueleto de `plan.json`
 
-Una semana completa (los `"..."` se reemplazan; cada pieza lleva todos los
-campos del ejemplo de abajo):
+Una semana completa y válida tal cual (pasa `validar.mjs` y el lector del bot; un
+test lo verifica). Cópiala y cambia el contenido de cada pieza: ids, temas,
+hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
 
 <!-- esqueleto:plan -->
 ```json
 {
   "semana": "2026-10-12",
   "zona": "America/Santiago",
-  "experimento": { "variable": "hook", "hipotesis": "...", "piezas": ["lun-reel-..."] },
+  "experimento": {"variable": "hook", "hipotesis": "en tutoriales, un hook de curiosidad retiene más que uno de lista", "piezas": ["lun-reel-pdfs-a-podcast"]},
   "piezas": [
-    { "id": "lun-reel-...", "dia": "2026-10-12", "hora": "14:00", "formato": "reel", "arquetipo": "tutorial", "borrador": "lun-reel-....json" },
-    { "id": "mar-carrusel-...", "dia": "2026-10-13", "hora": "14:00", "formato": "carrusel", "arquetipo": "lista", "borrador": "mar-carrusel-....json" },
-    { "id": "mie-reel-...", "dia": "2026-10-14", "hora": "14:00", "formato": "reel", "arquetipo": "compartible", "borrador": "mie-reel-....json" },
-    { "id": "jue-reel-...", "dia": "2026-10-15", "hora": "14:00", "formato": "reel", "arquetipo": "demo", "borrador": "jue-reel-....json" },
-    { "id": "vie-carrusel-...", "dia": "2026-10-16", "hora": "14:00", "formato": "carrusel", "arquetipo": "opinion", "borrador": "vie-carrusel-....json" },
-    { "id": "sab-reel-...", "dia": "2026-10-17", "hora": "14:00", "formato": "reel", "arquetipo": "atemporal", "borrador": "sab-reel-....json" }
+    {
+      "id": "lun-reel-pdfs-a-podcast",
+      "dia": "2026-10-12",
+      "hora": "14:00",
+      "formato": "reel",
+      "arquetipo": "tutorial",
+      "senal": "guardados",
+      "tema": "[[Automatización con IA]]",
+      "pilar": "herramienta",
+      "hook": {"categoria": "curiosidad", "texto": "Convierte 6 PDFs en un podcast gratis", "score": 9},
+      "emocion": ["curiosidad", "alivio"],
+      "entregable": "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
+      "fraseAmigo": "hay una herramienta gratis que convierte tus documentos en un podcast para escuchar caminando",
+      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable a la primera"},
+      "origen": {"fichas": ["fuentes/2026-10-04-dm-ejemplo.md"], "referencias": ["referencias/notebooklm.md"]},
+      "derivadoDe": null,
+      "caption": "Automatización para estudiar: 6 PDFs convertidos en un podcast gratis.\n\nGuárdalo para tu próxima semana de lectura.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "lun-reel-pdfs-a-podcast.json",
+      "estado": "planificado",
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+    },
+    {
+      "id": "mar-carrusel-estudio-pdfs",
+      "dia": "2026-10-13",
+      "hora": "14:00",
+      "formato": "carrusel",
+      "arquetipo": "lista",
+      "senal": "guardados",
+      "tema": "[[Estudio con IA]]",
+      "pilar": "prompt",
+      "hook": {"categoria": "autoridad", "texto": "5 preguntas para repasar un PDF en 10 minutos", "score": 9},
+      "emocion": "alivio",
+      "entregable": "lista de 5 preguntas copiables para repasar cualquier apunte",
+      "fraseAmigo": "le pegas tu apunte y te hace las preguntas que te haría el profe",
+      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable a la primera"},
+      "origen": {"fichas": ["fuentes/2026-10-04-dm-ejemplo.md"], "referencias": ["referencias/notebooklm.md"]},
+      "derivadoDe": null,
+      "caption": "Estudio en 10 minutos: 5 preguntas para repasar cualquier PDF.\n\nGuárdalo para tu próxima prueba.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "mar-carrusel-estudio-pdfs.json",
+      "estado": "planificado",
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+    },
+    {
+      "id": "mie-reel-podcast-amigo",
+      "dia": "2026-10-14",
+      "hora": "14:00",
+      "formato": "reel",
+      "arquetipo": "compartible",
+      "senal": "envios",
+      "tema": "[[Podcasts con IA]]",
+      "pilar": "curiosidad",
+      "hook": {"categoria": "identificación", "texto": "Para quien nunca termina de leer", "score": 9},
+      "emocion": ["identificación", "alivio"],
+      "entregable": "el truco para escuchar en 10 minutos lo que tenías pendiente de leer",
+      "fraseAmigo": "tu amigo que nunca lee puede escuchar sus apuntes como si fueran un programa de radio",
+      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable a la primera"},
+      "origen": {"fichas": ["fuentes/2026-10-04-dm-ejemplo.md"], "referencias": ["referencias/notebooklm.md"]},
+      "derivadoDe": null,
+      "caption": "Podcasts hechos con tus propios documentos, gratis.\n\nMándaselo a quien tiene la pila de lectura más alta.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "mie-reel-podcast-amigo.json",
+      "estado": "planificado",
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+    },
+    {
+      "id": "jue-reel-lectura-audio",
+      "dia": "2026-10-15",
+      "hora": "14:00",
+      "formato": "reel",
+      "arquetipo": "demo",
+      "senal": "retencion",
+      "tema": "[[Lectura con IA]]",
+      "pilar": "herramienta",
+      "hook": {"categoria": "curiosidad", "texto": "Un PDF de 40 páginas en 3 minutos de audio", "score": 9},
+      "emocion": "sorpresa",
+      "entregable": "demostración paso a paso de un PDF largo convertido en audio",
+      "fraseAmigo": "subes un documento largo y en un rato lo tienes para escuchar en el bus",
+      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable a la primera"},
+      "origen": {"fichas": ["fuentes/2026-10-04-dm-ejemplo.md"], "referencias": ["referencias/notebooklm.md"]},
+      "derivadoDe": null,
+      "caption": "Lectura en audio: un PDF de 40 páginas en 3 minutos.\n\nMíralo hasta el final para ver el resultado.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "jue-reel-lectura-audio.json",
+      "estado": "planificado",
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+    },
+    {
+      "id": "vie-carrusel-resumenes",
+      "dia": "2026-10-16",
+      "hora": "14:00",
+      "formato": "carrusel",
+      "arquetipo": "opinion",
+      "senal": "comentarios",
+      "tema": "[[Resúmenes con IA]]",
+      "pilar": "curiosidad",
+      "hook": {"categoria": "controversia", "texto": "Un resumen en audio no reemplaza leer", "score": 9},
+      "emocion": ["sorpresa", "validación"],
+      "entregable": "cuándo sirve un resumen en audio y cuándo hay que leer el original",
+      "fraseAmigo": "escuchar el resumen te sirve para elegir qué leer, no para saltarte la lectura",
+      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable a la primera"},
+      "origen": {"fichas": ["fuentes/2026-10-04-dm-ejemplo.md"], "referencias": ["referencias/notebooklm.md"]},
+      "derivadoDe": null,
+      "caption": "Resúmenes en audio: cuándo sirven y cuándo no.\n\n¿Tú los usas para estudiar? Cuéntalo en los comentarios.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "vie-carrusel-resumenes.json",
+      "estado": "planificado",
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+    },
+    {
+      "id": "sab-reel-productividad",
+      "dia": "2026-10-17",
+      "hora": "14:00",
+      "formato": "reel",
+      "arquetipo": "atemporal",
+      "senal": "guardados",
+      "tema": "[[Productividad con IA]]",
+      "pilar": "prompt",
+      "hook": {"categoria": "storytelling", "texto": "Así escucho mi pila de lectura al caminar", "score": 9},
+      "emocion": ["identificación", "curiosidad"],
+      "entregable": "rutina de 3 pasos para escuchar tus lecturas pendientes al caminar",
+      "fraseAmigo": "junto todo lo que tengo pendiente de leer y lo escucho mientras camino",
+      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable a la primera"},
+      "origen": {"fichas": ["fuentes/2026-10-04-dm-ejemplo.md"], "referencias": ["referencias/notebooklm.md"]},
+      "derivadoDe": null,
+      "caption": "Productividad al caminar: tu pila de lectura convertida en un podcast.\n\nGuárdalo para tu próxima caminata.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "sab-reel-productividad.json",
+      "estado": "planificado",
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+    }
   ]
 }
 ```

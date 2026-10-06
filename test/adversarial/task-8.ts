@@ -131,7 +131,7 @@ exit 0
   setSyncErrorHandler((m) => void avisos.push(m));
   try {
     const escritor = crearEscritorRender({ avisar: async (t) => void avisos.push(t) });
-    const entrada: RenderEntry = { estado: "renderizado", medios: { urls: ["u"] }, en: "2026-10-11T00:00:00Z" };
+    const entrada: RenderEntry = { estado: "renderizado", medios: { archivos: ["u"] }, en: "2026-10-11T00:00:00Z" };
     await escritor.escribirRender(SEMANA, "lun-reel-mac", entrada);
     await escritor.confirmar(SEMANA);
 

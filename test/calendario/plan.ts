@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import {
-  estadoEfectivo, leerSemana, listarSemanas, ocultarToken, parsePlan, semanaDir, urlPublica,
+  estadoEfectivo, leerSemana, listarSemanas, mediosPublicos, ocultarToken, parsePlan, semanaDir, urlPublica,
   type EstadoEntry, type Pieza, type Plan, type RenderEntry,
 } from "../../src/calendario/plan.ts";
 import { closeDb, openDb } from "../../src/kb/db.ts";
@@ -41,6 +41,24 @@ check("parsePlan acepta el ejemplo de la spec", () => {
   assert.equal(p.piezas.length, 1);
   assert.equal(p.piezas[0].hook.score, 9);
   assert.equal(p.experimento?.variable, "hora");
+});
+// R46: plan.ts acepta todo plan que validar.mjs acepta.
+check("parsePlan (R46): emocion texto o lista; sin estado → planificado; sin derivadoDe → null; latido sin experimento → null", () => {
+  const lista = parsePlan(plan([pieza({ emocion: ["curiosidad", "alivio"] })]));
+  assert.deepEqual(lista.piezas[0].emocion, ["curiosidad", "alivio"]);
+  const sinEstado = { ...pieza() };
+  delete sinEstado.estado;
+  delete sinEstado.derivadoDe;
+  const p = parsePlan(plan([sinEstado])).piezas[0];
+  assert.equal(p.estado, "planificado");
+  assert.equal(p.derivadoDe, null);
+  assert.equal(estadoEfectivo(p), "planificado");
+  const latido = parsePlan(JSON.stringify({ semana: "2026-10-12", zona: "America/Santiago", piezas: [], motivo: "sin piezas" }));
+  assert.equal(latido.experimento, null);
+  assert.deepEqual(latido.piezas, []);
+  // Lo que validar.mjs rechaza, plan.ts también: emoción vacía o con algo que no es texto.
+  assert.throws(() => parsePlan(plan([pieza({ emocion: [] })])), /emocion/);
+  assert.throws(() => parsePlan(plan([pieza({ emocion: ["curiosidad", 3] })])), /emocion/);
 });
 check("parsePlan rechaza formato story y dice la ruta del campo", () => {
   assert.throws(() => parsePlan(plan([pieza({ formato: "story" })])), /piezas\.0\.formato/);
@@ -148,7 +166,7 @@ await checkAsync("leerSemana / listarSemanas: lee plan, tolera archivos opcional
     writeFileSync(join(semanaDir("2026-10-12"), "plan.json"), plan(), "utf8");
     writeFileSync(join(semanaDir("2026-10-12"), "estado.json"), "{corrupto", "utf8");
     writeFileSync(join(semanaDir("2026-10-12"), "render.json"), JSON.stringify({
-      "lun-reel-agentes-claude-code": { estado: "renderizado", en: "2026-10-12T10:00:00Z", medios: { urls: ["a.mp4"] } },
+      "lun-reel-agentes-claude-code": { estado: "renderizado", en: "2026-10-12T10:00:00Z", medios: { archivos: ["a.mp4"] } },
       basura: 5,
     }), "utf8");
     assert.deepEqual(await listarSemanas(), ["2026-10-05", "2026-10-12"]);
@@ -160,6 +178,31 @@ await checkAsync("leerSemana / listarSemanas: lee plan, tolera archivos opcional
     assert.equal(s.render["basura"], undefined);
     assert.equal(s.render["constructor"], undefined);
     assert.equal(await leerSemana("../etc"), undefined);
+  }),
+);
+
+// R48: render.json guarda nombres de archivo; un render.json viejo (`medios.urls`) se sigue leyendo.
+await checkAsync("leerSemana (R48): medios.urls del formato viejo → nombres de archivo; mediosPublicos arma las URLs con el token", () =>
+  conBase(async () => {
+    mkdirSync(semanaDir("2026-10-12"), { recursive: true });
+    writeFileSync(join(semanaDir("2026-10-12"), "plan.json"), plan(), "utf8");
+    const viejo = "https://m.example/media/tok-viejo/2026-10-12/lun-reel-agentes-claude-code";
+    writeFileSync(join(semanaDir("2026-10-12"), "render.json"), JSON.stringify({
+      "lun-reel-agentes-claude-code": {
+        estado: "renderizado", en: "2026-10-12T10:00:00Z",
+        medios: { urls: [`${viejo}/reel.mp4`], cover: `${viejo}/cover.jpg`, story: `${viejo}/story%201.jpg`, duracionMs: 9000 },
+      },
+    }), "utf8");
+    const s = await leerSemana("2026-10-12");
+    const m = s!.render["lun-reel-agentes-claude-code"].medios!;
+    assert.deepEqual(m, { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story 1.jpg", duracionMs: 9000 });
+    assert.ok(!JSON.stringify(m).includes("tok-viejo"));
+    const pub = mediosPublicos(m, "https://nuevo.example/", "tok-nuevo", "2026-10-12", "lun-reel-agentes-claude-code");
+    const u = (a: string) => urlPublica("https://nuevo.example/", "tok-nuevo", "2026-10-12", "lun-reel-agentes-claude-code", a);
+    assert.deepEqual(pub, { urls: [u("reel.mp4")], cover: u("cover.jpg"), story: u("story 1.jpg"), duracionMs: 9000 });
+    // Sin base o sin token no hay URLs (el publish lo rechaza con su motivo).
+    assert.deepEqual(mediosPublicos(m, "", "tok", "2026-10-12", "x").urls, []);
+    assert.deepEqual(mediosPublicos(m, "https://n.example", undefined, "2026-10-12", "x").urls, []);
   }),
 );
 

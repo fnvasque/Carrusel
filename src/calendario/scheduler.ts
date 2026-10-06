@@ -7,7 +7,7 @@ import { tokenDaysLeft } from "../meta/check.ts";
 import { metaConfig } from "../meta/env.ts";
 import { slugify } from "../remix/emit.ts";
 import {
-  estadoEfectivo, leerSemana, listarSemanas, ocultarToken, semanaDir,
+  estadoEfectivo, leerSemana, listarSemanas, mediosPublicos, ocultarToken, semanaDir,
   type EstadoEntry, type Estado, type Pieza, type RenderEntry, type SemanaLeida,
 } from "./plan.ts";
 import { ErrorAmbiguo, PREFIJO_SALTO, publicar, publicarStory, type Fila, type Graph, type PublishCtx } from "./publish.ts";
@@ -269,6 +269,8 @@ export interface SchedulerDeps {
   leerBorrador: (semana: string, archivo: string) => Promise<unknown>;
   /** MEDIA_PUBLIC_TOKEN: se reemplaza por *** en todo lo que sale (avisos, estado, registro, filas). */
   mediaToken?: string;
+  /** MEDIA_PUBLIC_BASE: con el token arma las URLs de los medios al publicar (R48). */
+  mediaBase?: string;
 }
 
 /** Valor de `calendario_estado.pausado` que significa "en pausa". */
@@ -395,7 +397,16 @@ async function procesar(deps: SchedulerDeps, t: Tarea, semanas: SemanaLeida[], a
     deps.guardarFila(fila, deps.ahora());
   }
   const s = semanas.find((x) => x.semana === t.semana)!;
-  const medios = s.render[id]?.medios ?? { urls: [] };
+  // R48: render.json trae nombres de archivo; la URL (con el token) se arma recién aquí.
+  const enRender = s.render[id]?.medios;
+  const medios = enRender ? mediosPublicos(enRender, deps.mediaBase, deps.mediaToken, t.semana, id) : { urls: [] };
+  if (enRender && (!deps.mediaBase || !deps.mediaToken) && fila.paso === "inicio") {
+    const falta = !deps.mediaBase ? "MEDIA_PUBLIC_BASE" : "MEDIA_PUBLIC_TOKEN";
+    fila = { ...fila, paso: "fallido", error: `Falta ${falta} en el servidor: no puedo armar la URL de los medios.` };
+    deps.guardarFila(fila, deps.ahora());
+    await cerrar(deps, t, s, fila, avisar);
+    return;
+  }
   // Post: primer contenedor hasta hora + 15 min (R26), reintentos hasta + 30 (R29), publicar uno listo hasta + 40.
   // Story: todo hasta publicadoEn + 6 h (t.hora = publicadoEn + 60 min).
   const base = t.hora.getTime();
@@ -421,7 +432,12 @@ async function procesar(deps: SchedulerDeps, t: Tarea, semanas: SemanaLeida[], a
   }
   memoria(deps).avisadosPendientes.delete(pend);
   if (!terminal(r)) return; // reintento programado (`proximo`): lo retoma un tick posterior.
+  await cerrar(deps, t, s, r, avisar);
+}
 
+/** Fila terminal → estado.json + registro + commit (en ese orden) y aviso. */
+async function cerrar(deps: SchedulerDeps, t: Tarea, s: SemanaLeida, r: Fila, avisar: Avisar): Promise<void> {
+  const id = t.pieza.id;
   const en = deps.ahora().toISOString();
   const aviso = deps.modo === "aviso";
   const error = r.error ? limpiar(deps, r.error) : undefined;
@@ -804,5 +820,6 @@ export function depsReales(o: { modo: "auto" | "aviso"; avisar: (texto: string) 
     commit: commitPaths,
     leerBorrador: leerBorradorDisco,
     mediaToken: process.env.MEDIA_PUBLIC_TOKEN?.trim() || undefined,
+    mediaBase: process.env.MEDIA_PUBLIC_BASE?.trim() || undefined,
   };
 }

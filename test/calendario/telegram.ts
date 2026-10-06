@@ -7,7 +7,7 @@ import {
 } from "../../src/calendario/telegram.ts";
 import { empezado, ORDEN_PUBLICAR, ORDEN_SALTAR, ordenesVencidas, tareasDebidas, tick, type SchedulerDeps } from "../../src/calendario/scheduler.ts";
 import type { Fila } from "../../src/calendario/publish.ts";
-import type { EstadoEntry, Medios, Pieza, RenderEntry, SemanaLeida } from "../../src/calendario/plan.ts";
+import { nombreDeArchivo, type EstadoEntry, type MediosRender, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import { mensajeOnlineFollowers, onlineFollowersDisponible, PUBLISH_SCOPES, scopesRequeridos, REQUIRED_SCOPES, DM_SCOPES } from "../../src/meta/check.ts";
 
 const Z = (s: string): Date => new Date(s);
@@ -24,8 +24,9 @@ function pieza(extra: Partial<Pieza> = {}): Pieza {
   };
 }
 const BASE = "https://m.ejemplo.cl/media/SECRETO/2026-10-12/lun-reel-agentes";
-const medios: Medios = { urls: [`${BASE}/reel.mp4`], cover: `${BASE}/cover.jpg`, story: `${BASE}/story.jpg` };
-const rend = (m: Medios = medios): RenderEntry => ({ estado: "renderizado", medios: m, en: "2026-10-11T10:00:00Z" });
+// R48: render.json trae nombres de archivo, no URLs.
+const medios: MediosRender = { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg" };
+const rend = (m: MediosRender = medios): RenderEntry => ({ estado: "renderizado", medios: m, en: "2026-10-11T10:00:00Z" });
 
 function semana(piezas: Pieza[], render: Record<string, RenderEntry> = {}, estado: Record<string, EstadoEntry> = {}, s = "2026-10-12"): SemanaLeida {
   return { semana: s, plan: { semana: s, zona: "America/Santiago", experimento: null, piezas }, render, estado };
@@ -42,14 +43,18 @@ check("telegram: preview con caption (día, hora, formato) y el NOMBRE del archi
 });
 
 check("telegram: preview de carrusel usa la primera imagen; reel sin cover usa la story; sin nada, ''", () => {
-  const c = formatPreview(pieza({ formato: "carrusel" }), { urls: [`${BASE}/01.jpg`, `${BASE}/02.jpg`] });
+  const c = formatPreview(pieza({ formato: "carrusel" }), { archivos: ["01.jpg", "02.jpg"] });
   assert.equal(c.archivo, "01.jpg");
-  assert.equal(formatPreview(pieza(), { urls: [`${BASE}/reel.mp4`], story: `${BASE}/story.jpg` }).archivo, "story.jpg");
-  assert.equal(formatPreview(pieza(), { urls: [`${BASE}/reel.mp4`] }).archivo, "");
+  assert.equal(formatPreview(pieza(), { archivos: ["reel.mp4"], story: "story.jpg" }).archivo, "story.jpg");
+  assert.equal(formatPreview(pieza(), { archivos: ["reel.mp4"] }).archivo, "");
+  // Un nombre inseguro en render.json no sale de la carpeta de la pieza.
+  assert.equal(formatPreview(pieza(), { archivos: ["reel.mp4"], cover: "../secreto.jpg" }).archivo, "");
 });
 
 check("telegram (R44): nada de formatPreview ni de lo que va a sendPhoto contiene el token de medios", () => {
-  for (const m of [medios, { urls: [`${BASE}/01.jpg`] }, { urls: [`${BASE}/reel.mp4`], story: `${BASE}/story.jpg` }]) {
+  // Formato viejo de render.json (URLs con el token) leído por leerSemana: queda como nombres.
+  const viejo = { archivos: [`${BASE}/01.jpg`].map(nombreDeArchivo), story: nombreDeArchivo(`${BASE}/story.jpg`) };
+  for (const m of [medios, { archivos: ["01.jpg"] }, { archivos: ["reel.mp4"], story: "story.jpg" }, viejo]) {
     for (const f of ["reel", "carrusel"] as const) {
       assert.ok(!JSON.stringify(formatPreview(pieza({ formato: f }), m)).includes("SECRETO"));
       const a = argsPreview("/data/media", "2026-10-12", pieza({ formato: f }), m);
@@ -73,7 +78,7 @@ check("telegram (R44): nombre de archivo validado y ruta dentro de la raíz", ()
   assert.equal(rutaMedioLocal("/data/media", "2026-10-12", "../../etc", "cover.jpg"), undefined);
   assert.equal(rutaMedioLocal("/data/media", "2026-10-12", "lun-reel-agentes", ".."), undefined);
   // Sin archivo válido: solo texto.
-  assert.equal(argsPreview("/data/media", "2026-10-12", pieza(), { urls: [`${BASE}/reel.mp4`] }).ruta, undefined);
+  assert.equal(argsPreview("/data/media", "2026-10-12", pieza(), { archivos: ["reel.mp4"] }).ruta, undefined);
 });
 
 check("telegram: truncar corta entre grafemas (emojis, banderas, familias) y mide en UTF-16", () => {
@@ -415,6 +420,8 @@ function mundoAviso(semanas: SemanaLeida[], ahora: Date) {
       x.estado[id] = { ...x.estado[id], ...e } as EstadoEntry;
     },
     anotarRegistro: async () => {}, commit: async () => {}, leerBorrador: async () => ({}),
+    // Modo aviso hace todo menos los POST a Meta: también arma las URLs (R48).
+    mediaBase: "https://m.ejemplo.cl", mediaToken: "SECRETO",
   };
   return { deps, filas, claves, avisos };
 }
