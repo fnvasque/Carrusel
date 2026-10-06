@@ -7,5 +7,6 @@ import "./calendario/qa.ts";
 import "./calendario/validar.ts";
 import "./calendario/publish.ts";
 import "./calendario/scheduler.ts";
+import "./calendario/render.ts";
 
 await done();
