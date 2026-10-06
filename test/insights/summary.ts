@@ -91,8 +91,21 @@ check("resumirSemana: compara cada señal contra su propio grupo (no mezcla rete
 check("resumirSemana: seguidores ganados, hora top y no seguidores", () => {
   const r = resumirSemana([inst("a")], cuenta, [reg("a")], HASTA, 50);
   assert.equal(r.seguidoresGanados, 3 + 4 + 2); // solo días dentro de (desde, hasta]
-  assert.equal(r.horaTop, "20:00");
+  // R39: las horas de online_followers vienen en hora del Pacífico. 2026-10-04: Los Ángeles UTC−7,
+  // Chile UTC−3 → 20:00 del Pacífico = 00:00 de Chile.
+  assert.equal(r.horaTop, "00:00");
   assert.equal(r.noSeguidores, 1234);
+  assert.match(formatResumen(r), /Hora con más audiencia: 00:00 \(hora de Chile\)/);
+});
+
+check("resumirSemana: hora top con la zona de config y con cambio de hora en cada zona", () => {
+  const of = { seguidores: 250, porDia: {}, onlineFollowers: { "9": 10, "20": 80 } };
+  assert.equal(resumirSemana([], of, [], HASTA, 50, "America/Santiago").horaTop, "20:00");
+  // Chile cambia el 2026-09-06 (UTC−4 → UTC−3); Los Ángeles sigue en UTC−7: 20:00 PDT = 23:00 Chile antes, 00:00 después.
+  assert.equal(resumirSemana([], of, [], "2026-09-05", 50).horaTop, "23:00");
+  assert.equal(resumirSemana([], of, [], "2026-09-07", 50).horaTop, "00:00");
+  // Los Ángeles cambia el 2026-11-01 (UTC−7 → UTC−8): 20:00 PST = 01:00 Chile.
+  assert.equal(resumirSemana([], of, [], "2026-11-02", 50).horaTop, "01:00");
 });
 
 check("resumirSemana: sin onlineFollowers usa la tabla por defecto", () => {

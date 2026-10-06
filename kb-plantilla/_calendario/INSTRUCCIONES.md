@@ -82,25 +82,37 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   la cuenta en su señal; 1,3 = 30 % mejor que la media. Ya viene encogido hacia
   1 para que un viral no dicte el mes, y **solo aparece con `n ≥ 3`**: sin
   `peso`, ese nombre todavía no tiene historia suficiente (no lo uses para
-  priorizar). Los nombres de tema van sin `[[ ]]`; en `plan.json` escríbelos
-  con `[[ ]]` como siempre.
-- `ganadores`: piezas en el 20 % superior de su señal a 7 días (`piezaId`,
-  `senal`, `valor`, `modo`, `semana`, `tema`).
+  priorizar).
+- Una pieza se identifica por `"<semana>/<id>"` (el mismo `id` puede repetirse
+  en otra semana); así vienen las claves de `ganadoresVistos` y
+  `seguidoresPorPieza`.
+- `ganadores`: piezas en el 20 % superior de su señal a 7 días, cada una
+  comparada solo con las de su misma escala (`piezaId`, `senal`, `valor`,
+  `modo`, `semana`, `tema`).
+- `ganadoresVistos`: la primera semana de planificación en que cada ganador
+  apareció (lo mantiene el bot de un domingo al siguiente). Solo informativo.
 - `derivados`: lo que debes programar en la prioridad (a) del Paso 3: `de` (id
   del ganador, va en `derivadoDe`), `tema` (el mismo tema, con otro ángulo) y
-  `hasta` (último lunes en que cabe). Cada ganador admite a lo más 2
-  derivados; cuando ya los tiene, desaparece de la lista.
-- `horas` (solo desde 100 seguidores): hora por día (`"1"` = lunes … `"6"` =
-  sábado), ya dentro de `ventanaHoras`, en `:00`/`:30` y con
-  `separacionMinHoras`. Un día que falta usa `config.json → horasPorDefecto`.
+  `hasta` (último lunes en que cabe: 2 semanas desde la primera vez que el
+  ganador apareció). Cada ganador admite a lo más 2 derivados; cuando ya los
+  tiene, desaparece de la lista.
+- `tema` en `pesos`, `ganadores` y `derivados` viene sin `[[ ]]`; en
+  `plan.json` escríbelo con `[[ ]]` como siempre.
+- `horas` (solo desde 100 seguidores): hora de Chile por día (`"1"` = lunes …
+  `"6"` = sábado), ya convertida desde la zona de `online_followers`
+  (`config.json → zonaOnlineFollowers`), dentro de `ventanaHoras`, en
+  `:00`/`:30` y con `separacionMinHoras`. Un día que falta usa
+  `config.json → horasPorDefecto`.
 - `seguidoresPorPieza`: seguidores nuevos del día siguiente a cada pieza
   (aproximación: también cuentan los de otras causas).
-- `cuenta`: seguidores nuevos y alcance de los últimos 28 días (y los
-  seguidores nuevos de los 28 anteriores), la base del diagnóstico.
+- `cuenta`: `seguidoresNuevos28d` y `alcance28d` (últimos 28 días; el alcance
+  suma el de cada post a 7 días) y `seguidoresNuevosPrevios28d` (los 28
+  anteriores), la base del diagnóstico.
 - `diagnostico`: frases del diagnóstico mensual (sale solo con ≥ 4 semanas de
   datos). Úsalas como dice el Paso 2.
-- `parametros`: por parámetro de `plan.json → parametros`, la media relativa
-  (`media`, 1 = la media de la cuenta) y `n` por valor. Solo aparece con ≥ 4
+- `parametros`: por parámetro de `plan.json → parametros`, una lista con un
+  elemento por valor: `valor` (como texto, p. ej. `"true"` o `"12"`), `n`
+  (piezas) y `media` (media relativa, 1 = la media de la cuenta). Solo aparece con ≥ 4
   semanas y ≥ 6 piezas por valor: es la base de una `Propuesta:` en
   `aprendizajes.md`.
 - `experimentos`: cada experimento declarado en las últimas semanas, con

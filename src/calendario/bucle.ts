@@ -6,7 +6,7 @@ import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
 import { kbDir } from "../kb/store.ts";
 import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLeida, type Senal } from "./plan.ts";
-import { addDays, localParts, weekMonday, zonedToUtc } from "./time.ts";
+import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
 /**
  * Bucle de feedback: con las instantáneas de 7 d ya medidas calcula pesos por
@@ -84,6 +84,16 @@ export function pesoEncogido(valores: number[], mediaGlobal: number, k = K_ENCOG
   return (v.length * media(v) + k * mediaGlobal) / (v.length + k);
 }
 
+/** Clave única de una pieza (R20): el mismo id puede repetirse en otra semana. */
+export const clavePieza = (semana: string, piezaId: string): string => `${semana}/${piezaId}`;
+const claveDe = (x: Medicion): string => clavePieza(x.semana, x.piezaId);
+
+/** Mediciones con señal conocida y valor finito. */
+const comparables = (m: Medicion[]): Medicion[] => (Array.isArray(m) ? m : []).filter((x) => x && esNum(x.valor) && SENALES.includes(x.senal));
+
+/** ¿La cuenta ya cruzó el umbral de tasas? (alguna pieza, fuera de la retención, medida en `tasa`). */
+const cruzoUmbral = (m: Medicion[]): boolean => m.some((x) => x.senal !== "retencion" && x.modo === "tasa");
+
 /**
  * Mediciones que se pueden comparar entre sí, con su índice relativo (`rel`): el valor
  * dividido por la media de su grupo (señal y escala). Así un tema con retención y otro
@@ -95,8 +105,8 @@ export function pesoEncogido(valores: number[], mediaGlobal: number, k = K_ENCOG
  * es razón), solo cuentan las piezas medidas en modo `tasa`.
  */
 function indices(m: Medicion[]): { m: Medicion; rel: number }[] {
-  const validas = m.filter((x) => x && esNum(x.valor) && SENALES.includes(x.senal));
-  const cruzo = validas.some((x) => x.senal !== "retencion" && x.modo === "tasa");
+  const validas = comparables(m);
+  const cruzo = cruzoUmbral(validas);
   const usadas = validas.filter((x) => x.senal === "retencion" || !cruzo || x.modo === "tasa");
   const grupos = new Map<string, number[]>();
   const g = (x: Medicion): string => `${x.senal}:${x.modo}`;
@@ -140,47 +150,76 @@ export function pesos(m: Medicion[], clave: "tema" | "arquetipo" | "hookCategori
 // --- ganadores y derivados ---
 
 /**
- * Ganadores: el 20 % superior dentro de cada señal (y escala), con la instantánea de
- * 7 d. Solo con ≥ 5 piezas de esa señal (mínimo 1 ganador). Los empatados en el corte
+ * Ganadores: el 20 % superior dentro de cada señal y escala, con la instantánea de
+ * 7 d. Solo con ≥ 5 piezas de ese grupo (mínimo 1 ganador). Los empatados en el corte
  * entran todos; si el corte no supera al peor del grupo (todos iguales, todos en 0),
  * nadie se distingue y no hay ganador.
+ *
+ * A diferencia de los pesos, aquí NO se descartan los absolutos cuando la cuenta cruza
+ * el umbral: cada pieza compite solo contra las de su misma escala (no se mezcla nada),
+ * así que un ganador medido en conteos sigue siéndolo y conserva sus derivados.
  */
-export function ganadores(m: Medicion[]): string[] {
+function medicionesGanadoras(m: Medicion[]): Medicion[] {
   const grupos = new Map<string, Medicion[]>();
-  for (const { m: x } of indices(m)) {
+  for (const x of comparables(m)) {
     const g = `${x.senal}:${x.modo}`;
     grupos.set(g, [...(grupos.get(g) ?? []), x]);
   }
-  const out: string[] = [];
+  const out: Medicion[] = [];
   for (const xs of grupos.values()) {
     if (xs.length < MIN_PIEZAS_GANADOR) continue;
     const orden = xs.map((x) => x.valor).sort((a, b) => b - a);
     const corte = orden[Math.max(1, Math.floor(xs.length * FRACCION_GANADORES)) - 1]!;
     if (corte <= orden[orden.length - 1]!) continue;
-    for (const x of xs) if (x.valor >= corte) out.push(x.piezaId);
+    for (const x of xs) if (x.valor >= corte) out.push(x);
   }
   return out;
 }
 
+/** Ids de las piezas ganadoras (ver `medicionesGanadoras`). */
+export function ganadores(m: Medicion[]): string[] {
+  return medicionesGanadoras(m).map((x) => x.piezaId);
+}
+
 /**
- * Derivados pendientes: cada ganador de la semana W pide 1-2 derivados (mismo tema,
- * otro ángulo) hasta el lunes W + 14 d inclusive. Ya no se piden si el ganador tiene
- * 2 derivados planificados o publicados, o si la semana que se planifica pasó ese límite.
+ * Primera semana de planificación en que se vio cada ganador (R37), por clave
+ * `"<semana>/<piezaId>"`. Un ganador ya visto conserva su fecha; uno nuevo toma
+ * `semanaActual`. Las entradas inválidas del historial se descartan.
+ */
+export function fusionarGanadoresVistos(anteriores: unknown, m: Medicion[], semanaActual: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (esObj(anteriores)) {
+    for (const [k, v] of Object.entries(anteriores)) if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out[k] = v;
+  }
+  for (const g of medicionesGanadoras(m)) out[claveDe(g)] ??= semanaActual;
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/**
+ * Derivados pendientes (R37): cada ganador pide 1-2 derivados (mismo tema, otro ángulo)
+ * en las 2 semanas siguientes a la primera planificación en que apareció como ganador
+ * (`vistos`, clave `"<semana>/<piezaId>"`; sin historial, la semana que se planifica):
+ * `hasta` = esa semana + 14 d, inclusive. Ya no se piden si el ganador tiene 2 derivados
+ * vivos (planificados o publicados de verdad; los `mediaId` `aviso-…` no cuentan, R21),
+ * o si la semana que se planifica pasó ese límite. El tema sale sin `[[ ]]`.
  */
 export function derivadosPendientes(
   m: Medicion[],
-  publicadas: { derivadoDe: string | null; semana: string }[],
+  publicadas: { derivadoDe: string | null; semana: string; mediaId?: string }[],
   semanaActual: string,
+  vistos: Record<string, string> = {},
 ): { de: string; tema: string; hasta: string }[] {
-  const porId = new Map(m.map((x) => [x.piezaId, x]));
   const out: { de: string; tema: string; hasta: string }[] = [];
-  for (const id of ganadores(m)) {
-    const g = porId.get(id)!;
-    const hasta = addDays(g.semana, 7 * SEMANAS_DERIVADO);
+  for (const g of medicionesGanadoras(m)) {
+    const identificada = esObj(vistos) && typeof vistos[claveDe(g)] === "string" ? vistos[claveDe(g)]! : semanaActual;
+    const hasta = addDays(identificada, 7 * SEMANAS_DERIVADO);
     if (semanaActual > hasta) continue;
-    const hechos = publicadas.filter((p) => p && p.derivadoDe === id).length;
+    // `derivadoDe` es solo un id: cuentan los derivados de semanas posteriores al ganador (R20).
+    const hechos = publicadas.filter(
+      (p) => p && p.derivadoDe === g.piezaId && p.semana > g.semana && !(typeof p.mediaId === "string" && p.mediaId.startsWith("aviso-")),
+    ).length;
     if (hechos >= MAX_DERIVADOS) continue;
-    out.push({ de: id, tema: g.tema, hasta });
+    out.push({ de: g.piezaId, tema: sinCorchetes(g.tema), hasta });
   }
   return out;
 }
@@ -215,10 +254,10 @@ function redondear(hora: string): string {
 /**
  * Hora de publicación por día (`"1"` = lunes … `"6"` = sábado) desde `online_followers`.
  *
- * Suposición documentada: Meta entrega un perfil de 24 claves `"0".."23"` y no fija
- * su zona con claridad; se asume **UTC** (`zonaOrigen`). Cada hora se convierte con
- * `zonedToUtc` a la hora de Chile del día concreto de la semana (así el cambio de hora
- * de Chile se respeta). Se elige la hora con más seguidores en línea dentro de
+ Meta entrega un perfil de 24 claves `"0".."23"`; sus períodos terminan en UTC−07:00,
+ * así que se leen en la hora del Pacífico (`zonaOrigen`, `config.json → zonaOnlineFollowers`,
+ * R39). Cada hora se convierte con `horaOnlineALocal` (el mismo helper del resumen) a la
+ * hora de Chile del día concreto de la semana: el cambio de hora de ambas zonas se respeta. Se elige la hora con más seguidores en línea dentro de
  * `ventana`, redondeada a :00/:30, con `separacionH` entre días seguidos. Horas
  * faltantes, no numéricas o en 0 se ignoran; sin datos útiles → `undefined`.
  */
@@ -228,7 +267,7 @@ export function horasDesdeOnline(
   separacionH: number,
   dias: number[],
   semana: string,
-  zonaOrigen = "UTC",
+  zonaOrigen = ZONA_ONLINE_FOLLOWERS,
 ): Record<string, string> | undefined {
   if (!esObj(online)) return undefined;
   const horas: { h: number; n: number }[] = [];
@@ -242,7 +281,7 @@ export function horasDesdeOnline(
     const dia = addDays(semana, d - 1);
     const porHora = new Map<string, number>();
     for (const { h, n } of horas) {
-      const local = redondear(localParts(zonedToUtc(dia, `${String(h).padStart(2, "0")}:00`, zonaOrigen)).hora);
+      const local = redondear(horaOnlineALocal(h, dia, zonaOrigen));
       if (local < ventana[0] || local > ventana[1]) continue;
       porHora.set(local, Math.max(porHora.get(local) ?? 0, n));
     }
@@ -317,7 +356,8 @@ export function diagnostico(m: Medicion[], cuenta: CuentaDiagnostico): string[] 
   }
 
   let planos = false;
-  if (!retencionMala) {
+  // "Retención bien" exige evidencia: sin reels con retención medida, la regla 3 no se evalúa.
+  if (!retencionMala && porArq.size > 0) {
     const tasa = (xs: Medicion[], k: "saved" | "shares"): number | undefined => {
       const v = xs.filter((x) => esNum(x.reach) && x.reach > 0 && esNum(x[k])).map((x) => x[k]! / x.reach!);
       return v.length ? media(v) : undefined;
@@ -382,10 +422,11 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     if (esObj(r) && r.tipo === "publicado" && typeof r.mediaId === "string" && !r.mediaId.startsWith("aviso-")) reg.set(r.mediaId, r);
   }
   const params = new Map<string, Record<string, unknown>>();
-  for (const s of semanas) for (const p of s.plan?.piezas ?? []) if (esObj(p?.parametros)) params.set(p.id, p.parametros);
+  for (const s of semanas) for (const p of s.plan?.piezas ?? []) if (esObj(p?.parametros)) params.set(clavePieza(s.semana, p.id), p.parametros);
 
   const out: Medicion[] = [];
   const vistos = new Set<string>();
+  const claves = new Set<string>();
   for (const i of Array.isArray(inst) ? inst : []) {
     if (!i || i.ventana !== "7d" || i.origen !== "motor" || typeof i.mediaId !== "string" || i.mediaId.startsWith("aviso-") || vistos.has(i.mediaId)) continue;
     const r = reg.get(i.mediaId);
@@ -401,11 +442,14 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     if (!esNum(valor)) continue;
     vistos.add(i.mediaId);
     const semana = /^\d{4}-\d{2}-\d{2}$/.test(texto(r.semana)) ? texto(r.semana) : weekMonday(new Date(pub));
+    // Una medición por pieza (R20: la pieza es semana + id, no el id solo).
+    if (claves.has(clavePieza(semana, piezaId))) continue;
+    claves.add(clavePieza(semana, piezaId));
     const m: Medicion = {
       piezaId, mediaId: i.mediaId, tema: texto(r.tema), arquetipo: texto(r.arquetipo), hookCategoria: texto(r.hookCategoria),
       senal, valor, modo: senal === "retencion" ? "tasa" : modoComparacion(i.reach, umbral), semana, publicadoEn: new Date(pub).toISOString(),
     };
-    const p = params.get(piezaId);
+    const p = params.get(clavePieza(semana, piezaId));
     if (p) m.parametros = p;
     if (esNum(d.retencion)) m.retencion = d.retencion;
     if (esNum(i.reach)) m.reach = i.reach;
@@ -431,6 +475,8 @@ export interface EntradasBucle {
   config: unknown;
   /** Avisos de la lectura (plan.json ilegible…), se copian al JSON. */
   avisos?: string[];
+  /** `bucle.json` anterior (para `ganadoresVistos`, R37); ausente o corrupto → historial vacío. */
+  anterior?: unknown;
 }
 
 export interface Experimento {
@@ -456,6 +502,8 @@ export interface BucleJson {
   medidas: number;
   pesos: Record<"tema" | "arquetipo" | "hookCategoria", Record<string, { n: number; peso?: number }>>;
   ganadores: { piezaId: string; senal: Senal; valor: number; modo: "absoluto" | "tasa"; semana: string; tema: string }[];
+  /** Primera semana de planificación en que se vio cada ganador, por `"<semana>/<piezaId>"` (R37). */
+  ganadoresVistos: Record<string, string>;
   derivados: { de: string; tema: string; hasta: string }[];
   horas?: Record<string, string>;
   seguidoresPorPieza: Record<string, number>;
@@ -523,14 +571,15 @@ export function construirBucle(e: EntradasBucle): BucleJson {
   const avisos = [...(e.avisos ?? [])];
 
   const idx = indices(m);
-  const porId = new Map(m.map((x) => [x.piezaId, x]));
-  const ids = ganadores(m);
+  const ganadas = medicionesGanadoras(m);
+  const ganadoresVistos = fusionarGanadoresVistos(esObj(e.anterior) ? e.anterior.ganadoresVistos : undefined, m, semana);
 
-  // Piezas planificadas que siguen vivas (un derivado saltado o fallido no cuenta).
+  // Piezas planificadas que siguen vivas (un derivado saltado o fallido no cuenta; uno
+  // "publicado" en modo aviso tampoco, R21: se filtra por su `mediaId`).
   const planificadas = semanas.flatMap((s) =>
     (s.plan?.piezas ?? [])
       .filter((p) => !["saltado", "fallido"].includes(estadoEfectivo(p, s.render?.[p.id], s.estado?.[p.id])))
-      .map((p) => ({ derivadoDe: p.derivadoDe ?? null, semana: s.semana })),
+      .map((p) => ({ derivadoDe: p.derivadoDe ?? null, semana: s.semana, mediaId: s.estado?.[p.id]?.mediaId })),
   );
 
   const config = esObj(e.config) ? e.config : {};
@@ -544,14 +593,20 @@ export function construirBucle(e: EntradasBucle): BucleJson {
   const seguidores = esNum(cuenta.seguidores) ? cuenta.seguidores : undefined;
   const horas =
     seguidores === undefined || seguidores >= SEGUIDORES_PARA_HORAS
-      ? horasDesdeOnline(esObj(cuenta.onlineFollowers) ? (cuenta.onlineFollowers as Record<string, number>) : undefined, ventana, sep, dias.length ? dias : [1, 2, 3, 4, 5, 6], semana)
+      ? horasDesdeOnline(
+        esObj(cuenta.onlineFollowers) ? (cuenta.onlineFollowers as Record<string, number>) : undefined,
+        ventana, sep, dias.length ? dias : [1, 2, 3, 4, 5, 6], semana, zonaOnlineFollowers(e.config),
+      )
       : undefined;
 
   const publicadas: { piezaId: string; dia: string }[] = [];
   for (const r of Array.isArray(e.registro) ? e.registro : []) {
     if (!esObj(r) || r.tipo !== "publicado" || typeof r.mediaId !== "string" || r.mediaId.startsWith("aviso-") || !texto(r.piezaId)) continue;
     const t = new Date(texto(r.publicadoEn));
-    if (!Number.isNaN(t.getTime())) publicadas.push({ piezaId: texto(r.piezaId), dia: localParts(t).dia });
+    if (Number.isNaN(t.getTime())) continue;
+    const sem = /^\d{4}-\d{2}-\d{2}$/.test(texto(r.semana)) ? texto(r.semana) : weekMonday(t);
+    // Clave "<semana>/<piezaId>" (R20).
+    publicadas.push({ piezaId: clavePieza(sem, texto(r.piezaId)), dia: localParts(t).dia });
   }
 
   const cuentaDiag = cuentaDiagnostico(e.ahora, e.instantaneas, e.cuenta);
@@ -564,9 +619,9 @@ export function construirBucle(e: EntradasBucle): BucleJson {
   }
 
   const variables = [...VARIABLES_FIJAS, ...(esObj(config.puerta) ? Object.keys(config.puerta) : [])];
-  const relPorId = new Map(idx.map(({ m: x, rel }) => [x.piezaId, rel]));
-  const resumen = (xs: string[]): { n: number; media?: number } => {
-    const rels = xs.map((id) => relPorId.get(id)).filter(esNum);
+  const relPorClave = new Map(idx.map(({ m: x, rel }) => [claveDe(x), rel]));
+  const resumen = (semanaExp: string, xs: string[]): { n: number; media?: number } => {
+    const rels = xs.map((id) => relPorClave.get(clavePieza(semanaExp, id))).filter(esNum);
     return rels.length ? { n: rels.length, media: r4(media(rels)) } : { n: 0 };
   };
   const experimentos: Experimento[] = [];
@@ -579,7 +634,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     experimentos.push({
       semana: s.semana, variable: x.variable, variableValida: variables.includes(x.variable), hipotesis: texto(x.hipotesis), piezas,
       evaluarDesde, evaluable: semana >= evaluarDesde,
-      experimento: resumen(piezas), control: resumen(deLaSemana.filter((id) => !piezas.includes(id))),
+      experimento: resumen(s.semana, piezas), control: resumen(s.semana, deLaSemana.filter((id) => !piezas.includes(id))),
     });
   }
 
@@ -587,14 +642,12 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     generado: e.ahora.toISOString(),
     semana,
     umbralAlcanceTasas: umbral,
-    escala: m.some((x) => x.senal !== "retencion" && x.modo === "tasa") ? "tasa" : "absoluto",
+    escala: cruzoUmbral(m) ? "tasa" : "absoluto",
     medidas: m.length,
     pesos: { tema: pesos(m, "tema"), arquetipo: pesos(m, "arquetipo"), hookCategoria: pesos(m, "hookCategoria") },
-    ganadores: ids.map((id) => {
-      const g = porId.get(id)!;
-      return { piezaId: id, senal: g.senal, valor: r4(g.valor), modo: g.modo, semana: g.semana, tema: g.tema };
-    }),
-    derivados: derivadosPendientes(m, planificadas, semana),
+    ganadores: ganadas.map((g) => ({ piezaId: g.piezaId, senal: g.senal, valor: r4(g.valor), modo: g.modo, semana: g.semana, tema: sinCorchetes(g.tema) })),
+    ganadoresVistos,
+    derivados: derivadosPendientes(m, planificadas, semana, ganadoresVistos),
     ...(horas ? { horas } : {}),
     seguidoresPorPieza: seguidoresPorPieza(esObj(cuenta.porDia) ? (cuenta.porDia as Record<string, number>) : {}, publicadas),
     cuenta: cuentaDiag,
@@ -632,7 +685,7 @@ export interface DepsBucle {
 /** Semanas de historia que se leen (4 de experimentos + margen). */
 const SEMANAS_LEIDAS = 12;
 
-async function leerBase(): Promise<Omit<EntradasBucle, "ahora">> {
+async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahora">> {
   // Import dinámico: lectura.ts usa `diagnosticoDeDatos` de este módulo y no debe formar un ciclo estático.
   const { leerCuenta, leerInstantaneas, leerRegistroPublicados } = await import("../insights/lectura.ts");
   const avisos: string[] = [];
@@ -652,18 +705,25 @@ async function leerBase(): Promise<Omit<EntradasBucle, "ahora">> {
       avisos.push(`plan.json de ${s} ilegible, se ignora: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos };
+  let anterior: unknown;
+  try {
+    anterior = JSON.parse(readFileSync(rutaAnterior, "utf8"));
+  } catch (err) {
+    console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
+  }
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior };
 }
 
 /**
  * Lee las entradas, construye el bucle y lo escribe en `_metricas/bucle.json` (archivo
- * temporal + rename: un corte no deja un JSON a medias). Devuelve las rutas escritas,
- * para que el bot las commitee.
+ * temporal + rename: un corte no deja un JSON a medias). Antes de escribir lee el
+ * `bucle.json` anterior para conservar `ganadoresVistos` (R37). Devuelve las rutas
+ * escritas, para que el bot las commitee.
  */
 export async function escribirBucle(now: Date, deps: DepsBucle = {}): Promise<string[]> {
-  const entradas = await (deps.leer ?? leerBase)(now);
-  const bucle = construirBucle({ ...entradas, ahora: now });
   const ruta = deps.ruta ?? join(kbDir(), "_metricas", "bucle.json");
+  const entradas = await (deps.leer ?? (() => leerBase(ruta)))(now);
+  const bucle = construirBucle({ ...entradas, ahora: now });
   mkdirSync(dirname(ruta), { recursive: true });
   const tmp = `${ruta}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(bucle, null, 2) + "\n", "utf8");

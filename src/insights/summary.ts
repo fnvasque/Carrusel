@@ -1,4 +1,4 @@
-import { addDays, localParts } from "../calendario/time.ts";
+import { addDays, horaOnlineALocal, localParts, ZONA_ONLINE_FOLLOWERS } from "../calendario/time.ts";
 import type { Senal } from "../calendario/plan.ts";
 import { escapeHtml } from "../kb/telegram.ts";
 import { shortcodeFromUrl } from "../kb/shortcode.ts";
@@ -87,8 +87,12 @@ function fmtValor(f: FilaPieza): string {
   return String(Math.round(f.valor));
 }
 
-/** Hora con más audiencia de `onlineFollowers` ("0".."23"), o la tabla por defecto si no hay datos útiles. */
-function horaTop(c: Record<string, unknown>): string {
+/**
+ * Hora con más audiencia de `onlineFollowers` ("0".."23" en `zonaOnline`), convertida a
+ * hora de Chile del día `dia` con el mismo helper que usa el bucle; o la tabla por defecto
+ * si no hay datos útiles.
+ */
+function horaTop(c: Record<string, unknown>, dia: string, zonaOnline: string): string {
   const of = c.onlineFollowers;
   if (esObj(of)) {
     let mejor: { h: number; v: number } | undefined;
@@ -97,7 +101,7 @@ function horaTop(c: Record<string, unknown>): string {
       if (!Number.isInteger(h) || h < 0 || h > 23 || !esNum(v) || v <= 0) continue;
       if (!mejor || v > mejor.v) mejor = { h, v };
     }
-    if (mejor) return `${String(mejor.h).padStart(2, "0")}:00`;
+    if (mejor) return horaOnlineALocal(mejor.h, dia, zonaOnline);
   }
   return TABLA_POR_DEFECTO;
 }
@@ -109,7 +113,9 @@ function horaTop(c: Record<string, unknown>): string {
  * señal se compara contra su propio grupo (nunca retención contra guardados, ni
  * conteos contra tasas): se ordena por valor relativo a la media del grupo.
  */
-export function resumirSemana(inst: Instantanea[], cuenta: unknown, registro: unknown[], hasta: string, umbral: number): ResumenSemana {
+export function resumirSemana(
+  inst: Instantanea[], cuenta: unknown, registro: unknown[], hasta: string, umbral: number, zonaOnline: string = ZONA_ONLINE_FOLLOWERS,
+): ResumenSemana {
   const desde = addDays(hasta, -6); // primer día incluido: la ventana es desde … hasta (7 días)
   const reg = indexarRegistro(registro);
   const c = esObj(cuenta) ? cuenta : {};
@@ -175,7 +181,7 @@ export function resumirSemana(inst: Instantanea[], cuenta: unknown, registro: un
     mejor: candidatas[0] ? limpiar(candidatas[0]) : undefined,
     peor: candidatas.length > 1 ? limpiar(candidatas[candidatas.length - 1]!) : undefined,
     seguidoresGanados: ganados,
-    horaTop: horaTop(c),
+    horaTop: horaTop(c, hasta, zonaOnline),
     noSeguidores: esNum(c.reachNoSeguidores7d) ? c.reachNoSeguidores7d : undefined,
     avisos,
   };
@@ -209,7 +215,7 @@ function cuerpo(r: ResumenSemana, e: Estilo): string {
   }
   out.push("");
   if (r.seguidoresGanados !== undefined) out.push(`Seguidores ganados: ${r.seguidoresGanados >= 0 ? "+" : ""}${r.seguidoresGanados}`);
-  if (r.horaTop) out.push(`Hora con más audiencia: ${e.esc(r.horaTop)}`);
+  if (r.horaTop) out.push(`Hora con más audiencia: ${e.esc(r.horaTop)}${/^\d{2}:\d{2}$/.test(r.horaTop) ? " (hora de Chile)" : ""}`);
   if (r.noSeguidores !== undefined) out.push(`Alcance a no seguidores (7 d): ${r.noSeguidores}`);
   if (r.diagnostico?.length) out.push("", e.b("Diagnóstico (últimas 4 semanas)"), ...r.diagnostico.map((d) => `• ${e.esc(d)}`));
   if (r.avisos.length) out.push("", ...r.avisos.map((a) => `⚠️ ${e.esc(a)}`));

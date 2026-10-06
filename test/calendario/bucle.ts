@@ -11,7 +11,7 @@ import type { Instantanea } from "../../src/insights/snapshots.ts";
 import { formatResumen, resumirSemana } from "../../src/insights/summary.ts";
 import type { Plan, SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  aplicarSeparacion, compararParametro, construirBucle, debeEscribirBucle, derivadosPendientes, diagnostico, escribirBucle, ganadores,
+  aplicarSeparacion, compararParametro, fusionarGanadoresVistos, construirBucle, debeEscribirBucle, derivadosPendientes, diagnostico, escribirBucle, ganadores,
   horasDesdeOnline, medicionesDe, pesoEncogido, pesos, seguidoresPorPieza, type Medicion,
 } from "../../src/calendario/bucle.ts";
 
@@ -154,10 +154,16 @@ check("ganadores: cada señal compite en su grupo", () => {
 
 // --- derivados ---
 
-check("derivadosPendientes: un ganador de la semana W queda pendiente hasta W + 14 d", () => {
+check("derivadosPendientes (R37): sin historial, la ventana parte en la semana que se planifica; tema sin [[ ]]", () => {
   const m = [1, 2, 3, 4, 5].map((v) => med({ piezaId: `d${v}`, valor: v, tema: "[[Tema X]]", semana: "2026-10-12" }));
-  assert.deepEqual(derivadosPendientes(m, [], "2026-10-19"), [{ de: "d5", tema: "[[Tema X]]", hasta: "2026-10-26" }]);
-  assert.deepEqual(derivadosPendientes(m, [], "2026-10-26").length, 1, "la semana W + 14 todavía cabe");
+  assert.deepEqual(derivadosPendientes(m, [], "2026-10-26"), [{ de: "d5", tema: "Tema X", hasta: "2026-11-09" }]);
+});
+
+check("derivadosPendientes (R37): con historial, la ventana va de la primera vez visto + 14 d", () => {
+  const m = [1, 2, 3, 4, 5].map((v) => med({ piezaId: `d${v}`, valor: v, semana: "2026-10-12" }));
+  const vistos = { "2026-10-12/d5": "2026-10-26" };
+  assert.equal(derivadosPendientes(m, [], "2026-11-02", vistos)[0]?.hasta, "2026-11-09");
+  assert.equal(derivadosPendientes(m, [], "2026-11-09", vistos).length, 1, "la segunda semana todavía cabe");
 });
 
 check("derivadosPendientes: con 1 derivado sigue pendiente; con 2 ya no", () => {
@@ -169,7 +175,34 @@ check("derivadosPendientes: con 1 derivado sigue pendiente; con 2 ya no", () => 
 
 check("derivadosPendientes: vencido → ninguno", () => {
   const m = [1, 2, 3, 4, 5].map((v) => med({ piezaId: `d${v}`, valor: v, semana: "2026-10-12" }));
-  assert.deepEqual(derivadosPendientes(m, [], "2026-11-02"), []);
+  assert.deepEqual(derivadosPendientes(m, [], "2026-11-16", { "2026-10-12/d5": "2026-10-26" }), []);
+});
+
+check("derivadosPendientes (R21, R20): derivados en modo aviso o de semanas anteriores al ganador no cuentan", () => {
+  const m = [1, 2, 3, 4, 5].map((v) => med({ piezaId: `d${v}`, valor: v, semana: "2026-10-12" }));
+  const pubs = [
+    { derivadoDe: "d5", semana: "2026-10-19", mediaId: "aviso-x" },
+    { derivadoDe: "d5", semana: "2026-10-26", mediaId: "aviso-y" },
+    { derivadoDe: "d5", semana: "2026-10-05" }, // otra pieza "d5" anterior, no este ganador
+  ];
+  assert.equal(derivadosPendientes(m, pubs, "2026-10-26").length, 1);
+});
+
+check("fusionarGanadoresVistos (R37): un ganador ya visto conserva su fecha; uno nuevo toma la semana actual; basura fuera", () => {
+  const m = [
+    ...[1, 2, 3, 4, 5].map((v) => med({ piezaId: `a${v}`, valor: v, semana: "2026-10-12" })),
+    ...[1, 2, 3, 4, 5].map((v) => med({ piezaId: `r${v}`, valor: v / 10, senal: "retencion", modo: "tasa", semana: "2026-10-19" })),
+  ];
+  const v = fusionarGanadoresVistos({ "2026-10-12/a5": "2026-10-26", "x/y": 5, "2026-01-05/viejo": "2026-01-12" }, m, "2026-11-02");
+  assert.deepEqual(v, { "2026-01-05/viejo": "2026-01-12", "2026-10-12/a5": "2026-10-26", "2026-10-19/r5": "2026-11-02" });
+  assert.deepEqual(fusionarGanadoresVistos("corrupto", m, "2026-11-02"), { "2026-10-12/a5": "2026-11-02", "2026-10-19/r5": "2026-11-02" });
+});
+
+check("ganadores: el cruce del umbral no borra a un ganador medido en absolutos (cada escala compite sola)", () => {
+  const antes = [1, 2, 3, 4, 5].map((v) => med({ piezaId: `a${v}`, valor: v, modo: "absoluto" }));
+  const tasas = [1, 2, 3, 4, 5].map((v) => med({ piezaId: `t${v}`, valor: v / 100, modo: "tasa", semana: "2026-10-19" }));
+  assert.deepEqual(ganadores([...antes, tasas[0]!]), ["a5"]);
+  assert.deepEqual(ganadores([...antes, ...tasas]).sort(), ["a5", "t5"]);
 });
 
 // --- horas ---
@@ -180,20 +213,36 @@ check("horasDesdeOnline: undefined o vacío → undefined (el agente usa la tabl
   assert.equal(horasDesdeOnline({ "3": 0, "4": 0 }, ["08:00", "23:00"], 20, [1], "2026-10-12"), undefined);
 });
 
-check("horasDesdeOnline: horas UTC → hora de Chile con más seguidores dentro de la ventana", () => {
+check("horasDesdeOnline (R39): por defecto lee las horas en hora del Pacífico", () => {
+  // 2026-10-12: Los Ángeles UTC−7, Chile UTC−3. 16 PDT = 20:00 Chile; 23 PDT = 03:00 Chile (fuera).
+  const h = horasDesdeOnline({ "23": 999, "16": 80, "8": 50 }, ["08:00", "23:00"], 20, [1, 2], "2026-10-12");
+  assert.deepEqual(h, { "1": "20:00", "2": "20:00" });
+});
+
+check("horasDesdeOnline (R39): cambio de hora del Pacífico (2026-11-01) mueve la hora de Chile", () => {
+  assert.deepEqual(horasDesdeOnline({ "10": 5 }, ["08:00", "23:00"], 20, [1], "2026-10-26"), { "1": "14:00" });
+  assert.deepEqual(horasDesdeOnline({ "10": 5 }, ["08:00", "23:00"], 20, [1], "2026-11-02"), { "1": "15:00" });
+});
+
+check("horasDesdeOnline (R39): cambio de hora de Chile (2027-04-04) mueve la hora de Chile", () => {
+  assert.deepEqual(horasDesdeOnline({ "10": 5 }, ["08:00", "23:00"], 20, [1], "2027-03-29"), { "1": "14:00" });
+  assert.deepEqual(horasDesdeOnline({ "10": 5 }, ["08:00", "23:00"], 20, [1], "2027-04-05"), { "1": "13:00" });
+});
+
+check("horasDesdeOnline: con zonaOrigen UTC convierte desde UTC", () => {
   // Octubre: Chile en UTC-3. 23 UTC = 20:00 Chile; 4 UTC = 01:00 Chile (fuera de la ventana).
-  const h = horasDesdeOnline({ "4": 999, "23": 80, "15": 50 }, ["08:00", "23:00"], 20, [1, 2, 3, 4, 5, 6], "2026-10-12");
+  const h = horasDesdeOnline({ "4": 999, "23": 80, "15": 50 }, ["08:00", "23:00"], 20, [1, 2, 3, 4, 5, 6], "2026-10-12", "UTC");
   assert.deepEqual(h, { "1": "20:00", "2": "20:00", "3": "20:00", "4": "20:00", "5": "20:00", "6": "20:00" });
 });
 
 check("horasDesdeOnline: horas faltantes o basura se ignoran", () => {
-  const h = horasDesdeOnline({ "17": 30, "x": 500, "25": 900, "18": NaN as unknown as number }, ["08:00", "23:00"], 20, [1], "2026-10-12");
+  const h = horasDesdeOnline({ "17": 30, "x": 500, "25": 900, "18": NaN as unknown as number }, ["08:00", "23:00"], 20, [1], "2026-10-12", "UTC");
   assert.deepEqual(h, { "1": "14:00" });
 });
 
 check("horasDesdeOnline: el cambio de hora de Chile mueve la hora local del día", () => {
   // 2027-04-04 (domingo 00:00) Chile vuelve a UTC-4: 17 UTC pasa de 14:00 a 13:00.
-  const h = horasDesdeOnline({ "17": 30 }, ["08:00", "23:00"], 20, [5, 6, 1], "2027-04-05");
+  const h = horasDesdeOnline({ "17": 30 }, ["08:00", "23:00"], 20, [5, 6, 1], "2027-04-05", "UTC");
   assert.equal(h?.["1"], "13:00");
 });
 
@@ -272,6 +321,11 @@ check("diagnostico: alcance 0 o ausente no divide por cero", () => {
   assert.ok(d.every((x) => !/NaN|Infinity/.test(x)));
 });
 
+check("diagnostico: sin ningún reel con retención medida, la regla 3 no se evalúa", () => {
+  const d = diagnostico(mes(), { seguidoresNuevos28d: 50, alcance28d: 1000 });
+  assert.ok(!d.some((x) => /falta entregable o destinatario|Retención bien/.test(x)), d.join(" | "));
+});
+
 // --- compararParametro ---
 
 const conParam = (valor: unknown, n: number, semanas: string[], v: number): Medicion[] =>
@@ -297,6 +351,14 @@ check("compararParametro: ≥ 4 semanas y ≥ 6 por valor → media relativa por
 check("compararParametro: piezas sin parametros no cuentan", () => {
   const m = [...conParam(true, 6, CUATRO, 4), ...CUATRO.flatMap((s) => [1, 2].map(() => med({ semana: s })))];
   assert.equal(compararParametro(m, "logoEnCuadro0"), undefined, "un solo valor no se compara");
+});
+
+check("compararParametro: tras cruzar el umbral solo compara piezas en tasa", () => {
+  const tasa = (valor: unknown, v: number): Medicion[] => conParam(valor, 6, CUATRO, v).map((x) => ({ ...x, modo: "tasa" as const }));
+  // Absolutos de antes del cruce: 6 piezas "true" con conteos enormes que no deben sumarse.
+  const m = [...conParam(true, 6, CUATRO, 400), ...tasa(true, 0.02), ...tasa(false, 0.04)];
+  const r = compararParametro(m, "logoEnCuadro0")!;
+  assert.deepEqual(r.map((x) => [x.valor, x.n]), [["false", 6], ["true", 6]]);
 });
 
 // --- medicionesDe (instantáneas + registro) ---
@@ -365,11 +427,15 @@ check("construirBucle: una sola pieza no tiene peso ni ganador", () => {
   assert.deepEqual(b.ganadores, []);
 });
 
-check("construirBucle: horas solo con ≥ 100 seguidores; seguidores por pieza desde porDia", () => {
-  const cuenta = { seguidores: 150, onlineFollowers: { "23": 50 }, porDia: { "2026-10-13": 4 } };
+check("construirBucle: horas solo con ≥ 100 seguidores; seguidores por pieza (clave semana/id) desde porDia", () => {
+  // 16:00 del Pacífico (UTC−7) = 20:00 de Chile (UTC−3) en octubre.
+  const cuenta = { seguidores: 150, onlineFollowers: { "16": 50 }, porDia: { "2026-10-13": 4 } };
   const b = construirBucle({ ahora: AHORA, instantaneas: [inst("1")], registro: [regl("1")], semanas: [], cuenta, config: {} });
   assert.equal(b.horas?.["1"], "20:00");
-  assert.deepEqual(b.seguidoresPorPieza, { "pz-1": 4 });
+  assert.deepEqual(b.seguidoresPorPieza, { "2026-10-12/pz-1": 4 });
+  // config.json → zonaOnlineFollowers manda (R39).
+  const utc = construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta, config: { zonaOnlineFollowers: { valor: "UTC", respaldo: "supuesto" } } });
+  assert.equal(utc.horas?.["1"], "13:00");
   const chica = construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: { ...cuenta, seguidores: 4 }, config: {} });
   assert.equal(chica.horas, undefined);
 });
@@ -380,9 +446,37 @@ check("construirBucle: ganadores con derivados pendientes; NaN en el registro no
   const reg = ids.map((id) => regl(id, { tema: id === "6" ? "[[Agentes]]" : "[[IA]]", duracionMs: id === "2" ? NaN : 20000 }));
   const b = construirBucle({ ahora: AHORA, instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {} });
   assert.deepEqual(b.ganadores.map((g) => g.piezaId), ["pz-6"]);
-  assert.deepEqual(b.derivados, [{ de: "pz-6", tema: "[[Agentes]]", hasta: "2026-10-26" }]);
+  assert.equal(b.ganadores[0]!.tema, "Agentes");
+  assert.deepEqual(b.ganadoresVistos, { "2026-10-12/pz-6": "2026-10-19" });
+  assert.deepEqual(b.derivados, [{ de: "pz-6", tema: "Agentes", hasta: "2026-11-02" }]);
   assert.equal(b.pesos.tema.IA?.n, 5);
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});
+
+check("construirBucle (R37): el bucle anterior conserva la fecha del ganador y el derivado vence a su tiempo", () => {
+  const ids = ["1", "2", "3", "4", "5", "6"];
+  const ii = ids.map((id) => inst(id, { saved: Number(id) }));
+  const reg = ids.map((id) => regl(id));
+  const anterior = { ganadoresVistos: { "2026-10-12/pz-6": "2026-10-19" } };
+  const b2 = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {}, anterior });
+  assert.deepEqual(b2.ganadoresVistos, { "2026-10-12/pz-6": "2026-10-19" });
+  assert.equal(b2.derivados[0]?.hasta, "2026-11-02");
+  const b4 = construirBucle({ ahora: new Date("2026-11-08T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {}, anterior });
+  assert.deepEqual(b4.derivados, [], "W + 14 desde la primera vez ya pasó");
+  const corrupto = construirBucle({ ahora: new Date("2026-11-08T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {}, anterior: "{roto" });
+  assert.deepEqual(corrupto.ganadoresVistos, { "2026-10-12/pz-6": "2026-11-09" });
+});
+
+check("medicionesDe (R20): mismo id en dos semanas toma los parametros del plan de su propia semana", () => {
+  const p2 = "2026-10-19T17:00:00.000Z";
+  const plan = (semana: string, logo: boolean): SemanaLeida => ({
+    semana, render: {}, estado: {},
+    plan: { semana, zona: "America/Santiago", experimento: null, piezas: [{ id: "lunes", parametros: { logoEnCuadro0: logo } } as unknown as Plan["piezas"][number]] },
+  });
+  const ii = [inst("1"), inst("2", {}, "2026-10-26T17:05:00.000Z")];
+  const reg = [regl("1", { piezaId: "lunes" }), regl("2", { piezaId: "lunes", semana: "2026-10-19", publicadoEn: p2 })];
+  const m = medicionesDe(ii, reg, [plan("2026-10-12", false), plan("2026-10-19", true)], 50);
+  assert.deepEqual(m.map((x) => [x.semana, x.parametros?.logoEnCuadro0]), [["2026-10-12", false], ["2026-10-19", true]]);
 });
 
 check("construirBucle: experimento declarado con variable válida (R15) y su evaluación a 4 semanas", () => {
@@ -445,6 +539,8 @@ await checkAsync("escribirBucle: lee la base, escribe _metricas/bucle.json y dev
     writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify({ umbralAlcanceTasas: 50 }));
     writeFileSync(join(dir, "_calendario", "registro.jsonl"), [JSON.stringify(regl("1")), "{roto", JSON.stringify({ tipo: "aviso", mediaId: "aviso-1" })].join("\n") + "\n");
     writeFileSync(join(dir, "_calendario", "2026-10-12", "plan.json"), "{no es json");
+    mkdirSync(join(dir, "_metricas"), { recursive: true });
+    writeFileSync(join(dir, "_metricas", "bucle.json"), JSON.stringify({ ganadoresVistos: { "2026-01-05/viejo": "2026-01-12" } }));
     const raiz = fileURLToPath(new URL("../../", import.meta.url));
     const script = `
       const { openDb, closeDb } = await import(${JSON.stringify(join(raiz, "src/kb/db.ts"))});
@@ -466,6 +562,7 @@ await checkAsync("escribirBucle: lee la base, escribe _metricas/bucle.json y dev
     const b = JSON.parse(texto);
     assert.equal(b.medidas, 1);
     assert.equal(b.semana, "2026-10-19");
+    assert.deepEqual(b.ganadoresVistos, { "2026-01-05/viejo": "2026-01-12" }, "el historial del bucle anterior se conserva (R37)");
     assert.ok(b.avisos.some((a: string) => /2026-10-12/.test(a)), "un plan.json roto se avisa y no rompe el bucle");
     sinNumerosRaros(b);
   } finally {
