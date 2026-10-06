@@ -162,4 +162,5 @@ export const HELP = [
   "/tema &lt;nombre&gt; — qué hay en un tema",
   "/ultimos — lo último que guardaste",
   "/costos — cuánto se ha gastado en la API",
+  "/metricas — cómo le fue a tu Instagram esta semana (o <code>/metricas &lt;link|id&gt;</code> para un post)",
 ].join("\n");

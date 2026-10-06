@@ -65,6 +65,12 @@ export interface BaseSlideProps {
   source?: string;
   /** Muestra el logo de marca arriba-izquierda. Por defecto true. */
   showLogo?: boolean;
+  /**
+   * Reel: el wordmark se ve desde el cuadro 0 (por defecto true). Con false
+   * entra a los 3 s (`data-anim="late"`); es un experimento del calendario, no
+   * la regla. En el carrusel no tiene efecto.
+   */
+  logoEnCuadro0?: boolean;
   /** Formato de salida: "post" (4:5, por defecto) o "reel" (9:16). */
   format?: Format;
 }
