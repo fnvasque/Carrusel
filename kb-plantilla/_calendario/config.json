@@ -1,0 +1,34 @@
+{
+  "zona": "America/Santiago",
+  "mix": [
+    { "dia": 1, "formato": "reel", "arquetipo": "tutorial" },
+    { "dia": 2, "formato": "carrusel", "arquetipo": "lista" },
+    { "dia": 3, "formato": "reel", "arquetipo": "compartible" },
+    { "dia": 4, "formato": "reel", "arquetipo": "demo" },
+    { "dia": 5, "formato": "carrusel", "arquetipo": "opinion" },
+    { "dia": 6, "formato": "reel", "arquetipo": "atemporal" }
+  ],
+  "horasPorDefecto": { "1": "14:00", "2": "14:00", "3": "14:00", "4": "14:00", "5": "14:00", "6": "14:00" },
+  "ventanaHoras": ["08:00", "23:00"],
+  "separacionMinHoras": 20,
+  "pilares": ["herramienta", "noticia", "prompt", "curiosidad"],
+  "hashtagsBase": ["#ia", "#inteligenciaartificial", "#herramientasia"],
+  "fondosIAMaxSemana": 3,
+  "scoreMin": 75,
+  "umbralAlcanceTasas": 50,
+  "puerta": {
+    "tituloMaxPalabras": { "valor": 12, "respaldo": "skill" },
+    "bulletMaxPalabras": { "valor": 12, "respaldo": "supuesto" },
+    "cuerpoMaxPalabras": { "valor": 30, "respaldo": "supuesto" },
+    "terminosTecnicosMax": { "valor": 1, "respaldo": "skill" },
+    "siglasPermitidas": { "valor": ["GPT", "PDF", "IA", "DM"], "respaldo": "skill" },
+    "relleno": { "valor": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "respaldo": "skill" },
+    "hookUmbral": { "valor": 8, "respaldo": "skill" },
+    "lecturaPalabrasPorSegundo": { "valor": 2.5, "respaldo": "supuesto" },
+    "lecturaMinSegundos": { "valor": 1.5, "respaldo": "supuesto" },
+    "reescriturasMax": { "valor": 3, "respaldo": "supuesto" },
+    "logoEnCuadro0": { "valor": true, "respaldo": "base" }
+  },
+  "terminosTecnicos": ["api", "llm", "token", "modelo", "prompt engineering", "embedding", "mcp", "agente", "fine-tuning", "rag", "open source"],
+  "audios": []
+}
