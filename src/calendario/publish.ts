@@ -59,8 +59,13 @@ export interface PublishCtx {
   dormir: (ms: number) => Promise<void>;
   ahora: () => Date;
   modo: "auto" | "aviso";
-  /** Después de este instante no se crea ningún contenedor nuevo (R26: post = hora + 15 min). */
+  /** Después de este instante no se crea el PRIMER contenedor (R26: post = hora + 15 min). */
   limite?: Date;
+  /**
+   * Tope para los reintentos de una pieza cuyo primer intento sí empezó a tiempo
+   * (R29: URL caída → hasta hora + 30 min). Sin él, vale `limite`.
+   */
+  limiteReintento?: Date;
   /** Después de este instante no se hace `media_publish` de un contenedor que no se publicó. */
   limitePublicar?: Date;
 }
@@ -339,6 +344,12 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
   const pasado = (d?: Date): boolean => d !== undefined && ctx.ahora().getTime() > d.getTime();
   const salto = (detalle?: string): Fila =>
     guardar({ paso: "fallido", proximo: undefined, error: `${PREFIJO_SALTO}no se publica tarde${detalle ? ` (${detalle})` : ""}` });
+  // R26/R29: el primer contenedor solo dentro de la ventana; los reintentos, hasta `limiteReintento`.
+  const limiteCrear = (): Date | undefined => (f.intentos > 0 ? ctx.limiteReintento ?? ctx.limite : ctx.limite);
+  /** Ya no se puede crear contenedor: sin intentos previos es un salto; con reintentos en curso, `fallido` (R29). */
+  const sinTiempo = (): Fila => f.intentos > 0
+    ? guardar({ paso: "fallido", proximo: undefined, error: `${f.error ?? "no se pudo crear el contenedor"} (sin tiempo para otro reintento)` })
+    : salto();
   // Una fila que llega en `publicando` pudo publicarse antes del reinicio: se verifica primero.
   let verificarPrimero = f.paso === "publicando";
   let fallosPublish = 0;
@@ -350,7 +361,7 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
         case "hijos": {
           if (receta.hijos.length) {
             const children = f.children ?? [];
-            if (!children.length && pasado(ctx.limite)) return salto();
+            if (!children.length && pasado(limiteCrear())) return sinTiempo();
             while (children.length < receta.hijos.length) {
               guardar({ paso: "hijos", children: [...children] });
               const r = await ctx.graph.post(`${ig}/media`, { image_url: receta.hijos[children.length], is_carousel_item: true });
@@ -362,7 +373,7 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
           break;
         }
         case "contenedor": {
-          if (pasado(ctx.limite)) return salto();
+          if (pasado(limiteCrear())) return sinTiempo();
           const r = await ctx.graph.post(`${ig}/media`, receta.contenedor(f.children ?? []));
           guardar({ paso: "esperando", containerId: idDe(r, "el contenedor") });
           break;
@@ -439,10 +450,16 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
         return guardar({ paso: "fallido", intentos, proximo: undefined, error: `${mensaje(e)} (tras ${MAX_REINTENTOS} reintentos)` });
       }
       const muerto = e instanceof ContenedorMuerto;
-      const proximo = new Date(ctx.ahora().getTime() + (muerto ? ESPERA_REINTENTO_MS : ESPERA_RED_MS));
-      // R26: si el reintento cae después del límite, no habrá contenedor nuevo: se cierra ya.
-      if (ctx.limite && proximo.getTime() > ctx.limite.getTime()) {
-        return guardar({ paso: "fallido", intentos, proximo: undefined, error: `${PREFIJO_SALTO}no se publica tarde (${mensaje(e)})` });
+      const ahora = ctx.ahora().getTime();
+      let proximo = new Date(ahora + (muerto ? ESPERA_REINTENTO_MS : ESPERA_RED_MS));
+      // R29: este intento empezó a tiempo, así que los reintentos valen hasta `limiteReintento`
+      // (se adelantan para caber). Si ya no queda tiempo: `fallido` con el motivo, no salto.
+      const tope = ctx.limiteReintento ?? ctx.limite;
+      if (tope && proximo.getTime() > tope.getTime()) {
+        if (ahora >= tope.getTime()) {
+          return guardar({ paso: "fallido", intentos, proximo: undefined, error: `${mensaje(e)} (sin tiempo para otro reintento)` });
+        }
+        proximo = tope;
       }
       // Contenedor muerto → uno nuevo desde cero (el viejo queda huérfano y Meta lo expira).
       const reinicio: Partial<Fila> = muerto

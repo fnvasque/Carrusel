@@ -510,6 +510,48 @@ await checkAsync("tick: un error de avisar no imprime su mensaje (puede llevar e
   assert.ok(vistos.every((v) => !v.includes("SECRETO")));
 });
 
+await checkAsync("tick: R29 — URL caída ERROR ×4 → 3 reintentos a ~10 min, nunca después de hora + 30 min, fallido; la pieza vecina sale a su hora", async () => {
+  const vecina = piezaDe({ id: "lun-reel-vecina", hora: "19:50", caption: "Otra pieza\n\n#ia" }); // 22:50Z
+  const s = semanaDe([lunes, vecina], { [lunes.id]: render(), [vecina.id]: render({ ...mediosReel, urls: ["https://media.ejemplo.cl/media/tok/2026-10-12/lun-reel-vecina/reel.mp4"] }) },
+    { [lunes.id]: { estado: "programado" }, [vecina.id]: { estado: "programado" } });
+  const w = mundo([s]);
+  const hora = Date.parse("2026-10-12T22:30:00Z");
+  const creados: { pieza: string; en: number }[] = [];
+  const post = w.deps.graph.post;
+  w.deps.graph = { ...w.deps.graph, post: async (p, q) => {
+    const r = await post(p, q);
+    if (p.endsWith("/media")) {
+      const esVecina = String(q.video_url).includes(vecina.id);
+      creados.push({ pieza: esVecina ? vecina.id : lunes.id, en: w.reloj.t });
+      const c = w.meta.contenedores.get(String(r.id))!;
+      if (esVecina) { c.cola = []; c.status = "FINISHED"; } else { c.cola = ["ERROR"]; c.status = "IN_PROGRESS"; }
+    }
+    return r;
+  } };
+  const publicadosEn: number[] = [];
+  const pub = w.deps.graph.post;
+  w.deps.graph = { ...w.deps.graph, post: async (p, q) => {
+    const r = await pub(p, q);
+    if (p.endsWith("/media_publish")) publicadosEn.push(w.reloj.t);
+    return r;
+  } };
+  for (w.reloj.t = hora; w.reloj.t <= hora + 60 * 60_000; w.reloj.t += 60_000) await tick(w.deps);
+
+  const intentos = creados.filter((c) => c.pieza === lunes.id).map((c) => (c.en - hora) / 60_000);
+  assert.deepEqual(intentos, [0, 10, 20, 30], "1 intento + 3 reintentos espaciados 10 min");
+  assert.ok(intentos.every((m) => m <= 30), "nunca después de hora + 30 min");
+  const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
+  assert.equal(f.paso, "fallido");
+  assert.equal(f.intentos, 4);
+  const est = w.estados.filter((e) => e.id === lunes.id).at(-1)!;
+  assert.equal(est.e.estado, "fallido", "fallido, no saltado (R29)");
+  assert.match(est.e.motivo ?? "", /URL de medios/);
+  // La vecina (22:50Z) se crea y publica en el mismo minuto de su hora.
+  assert.deepEqual(creados.filter((c) => c.pieza === vecina.id).map((c) => (c.en - hora) / 60_000), [20]);
+  assert.deepEqual(publicadosEn.map((t) => (t - hora) / 60_000), [20]);
+  assert.equal(w.meta.publicaciones, 1);
+});
+
 // --- registro.ts y filas en SQLite (con KB_DIR temporal) ---
 
 const tmp = mkdtempSync(join(tmpdir(), "kb-sched-"));

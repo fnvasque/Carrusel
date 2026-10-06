@@ -42,8 +42,10 @@ export interface Salto {
 
 /** Ventana de publicación: hasta 15 min después de la hora. Después no se crea ningún contenedor (R26). */
 export const VENTANA_MS = 15 * 60_000;
-/** Un contenedor creado dentro de la ventana se termina hasta 25 min después de la hora (ventana + sondeo de 10 min). */
-export const REANUDAR_MS = VENTANA_MS + 10 * 60_000;
+/** R29: los reintentos por URL caída de un post que empezó a tiempo crean contenedor hasta hora + 30 min. */
+export const REINTENTO_MS = 30 * 60_000;
+/** Un contenedor creado a tiempo (o en un reintento) se termina hasta hora + 40 min (+ 10 min de sondeo). */
+export const REANUDAR_MS = REINTENTO_MS + 10 * 60_000;
 /** La story sale 60 min después del post, y se descarta si pasaron 6 h (R24, también en `esperando`). */
 export const STORY_TRAS_MS = 60 * 60_000;
 export const STORY_TOPE_MS = 6 * 3_600_000;
@@ -72,7 +74,7 @@ const esSalto = (f: Fila): boolean => f.paso === "fallido" && (f.error ?? "").st
  * - Post sin contenedor: debido si `ahora ∈ [hora, hora + 15 min)` y `programado`/
  *   `renderizado` con medios; después, `saltado` ("no se publica tarde" o "pausado").
  *   Sin render a la hora → "falta el render"; render fallido → "render fallido: …".
- * - Post en `esperando` (contenedor creado): se termina hasta hora + 25 min, salvo
+ * - Post en `esperando` (contenedor creado): se termina hasta hora + 40 min, salvo
  *   pausa; con pausa y la ventana pasada → "pausado" (R24).
  * - `publicando`: siempre se retoma para verificar (salvo pausa), cada 15 min, y
  *   se deja de consultar cuando la fila está `rendida`.
@@ -117,6 +119,15 @@ export function tareasDebidas(
       } else if (fp?.paso === "publicando") {
         // Pudo publicarse: jamás se salta, solo se verifica.
         if (!pausado && listo(fp)) reanudar.push({ semana: s.semana, pieza: p, tipo: "post", hora });
+      } else if (fp && fp.intentos > 0) {
+        // Reintento en curso (URL caída o red; R29): empezó a tiempo, `publicar` decide si aún cabe.
+        if (pausado) {
+          if (t >= h + VENTANA_MS) salta("pausado");
+        } else if (t >= h + REANUDAR_MS && fp.paso === "esperando") {
+          salta("no se publica tarde");
+        } else if (listo(fp)) {
+          reanudar.push({ semana: s.semana, pieza: p, tipo: "post", hora });
+        }
       } else if (fp?.paso === "esperando") {
         if (pausado) {
           if (t >= h + VENTANA_MS) salta("pausado");
@@ -312,7 +323,7 @@ async function procesar(deps: SchedulerDeps, t: Tarea, semanas: SemanaLeida[], a
   }
   const s = semanas.find((x) => x.semana === t.semana)!;
   const medios = s.render[id]?.medios ?? { urls: [] };
-  // Post: contenedores nuevos solo hasta hora + 15 min (R26); publicar uno listo, hasta + 25 min.
+  // Post: primer contenedor hasta hora + 15 min (R26), reintentos hasta + 30 (R29), publicar uno listo hasta + 40.
   // Story: todo hasta publicadoEn + 6 h (t.hora = publicadoEn + 60 min).
   const base = t.hora.getTime();
   const ctx: PublishCtx = {
@@ -323,6 +334,7 @@ async function procesar(deps: SchedulerDeps, t: Tarea, semanas: SemanaLeida[], a
     ahora: deps.ahora,
     modo: deps.modo,
     limite: new Date(base + (t.tipo === "post" ? VENTANA_MS : STORY_TOPE_MS - STORY_TRAS_MS)),
+    limiteReintento: new Date(base + (t.tipo === "post" ? REINTENTO_MS : STORY_TOPE_MS - STORY_TRAS_MS)),
     limitePublicar: new Date(base + (t.tipo === "post" ? REANUDAR_MS : STORY_TOPE_MS - STORY_TRAS_MS)),
   };
 

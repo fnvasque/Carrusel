@@ -300,13 +300,29 @@ await checkAsync("publish: status ERROR 3 veces y luego FINISHED → publica una
   assert.deepEqual(m.violaciones, []);
 });
 
-await checkAsync("publish: status ERROR cuando el reintento caería después del límite → salto 'no se publica tarde' (R26)", async () => {
+await checkAsync("publish: R29 — primer intento a tiempo y status ERROR: los reintentos se adelantan para caber en limiteReintento y luego fallido (no salto)", async () => {
   const m = new MetaFalso();
-  m.colaStatus = [["ERROR"]];
-  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx({ limite: new Date(T0 + 5 * 60_000) }));
+  m.colaStatus = [["ERROR"], ["ERROR"], ["ERROR"]];
+  const ctx = (): PublishCtx => m.ctx({ limite: new Date(T0 + 5 * 60_000), limiteReintento: new Date(T0 + 12 * 60_000) });
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, ctx());
+  assert.equal(Date.parse(primera.proximo!), T0 + 10 * 60_000);
+  const segunda = await publicar({ ...primera }, piezaDe(), mediosReel, m.ctx({ ...ctx(), ahora: () => new Date(T0 + 10 * 60_000) }));
+  assert.equal(Date.parse(segunda.proximo!), T0 + 12 * 60_000, "se adelanta al tope");
+  m.reloj = T0 + 12 * 60_000;
+  const final = await publicar(segunda, piezaDe(), mediosReel, ctx());
+  assert.equal(final.paso, "fallido");
+  assert.doesNotMatch(final.error ?? "", /^saltado/);
+  assert.match(final.error ?? "", /URL de medios/);
+  assert.equal(m.postsA("/media").length, 3);
+  assert.equal(m.publicaciones, 0);
+});
+
+await checkAsync("publish: R26 — sin intentos previos y pasado el límite → salto 'no se publica tarde' sin llamar a Meta", async () => {
+  const m = new MetaFalso();
+  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx({ limite: new Date(T0 - 1), limiteReintento: new Date(T0 + 30 * 60_000) }));
   assert.equal(r.paso, "fallido");
   assert.match(r.error ?? "", /^saltado: no se publica tarde/);
-  assert.equal(m.publicaciones, 0);
+  assert.equal(m.llamadas, 0);
 });
 
 // --- reanudar ---
