@@ -1,0 +1,377 @@
+# Calendario automático, métricas de Instagram y bucle de feedback — diseño
+
+Fecha: 2026-10-06 · Estado: borrador para revisión
+
+## Objetivo
+
+Tres mejoras encadenadas sobre lo que ya existe (motor de carruseles y reels, base
+de conocimiento `ia-es-kb`, bot always-on en el servidor, agente de investigación
+semanal en la nube):
+
+1. **Calendario semanal automático.** Cada domingo un planificador decide qué
+   publicar la semana siguiente (tema, formato, arquetipo, señal objetivo, día y
+   hora), produce las piezas y **las publica solas** en @ia.punto.es a la hora
+   fijada. Mix elegido: **2 carruseles + 4 reels** por semana.
+2. **Métricas de los posts.** Leer de la API de Meta las métricas propias de cada
+   post (alcance, guardados, compartidos, vistas, tiempo de visualización) y de la
+   cuenta (seguidores, horas en que la audiencia está en línea), guardarlas con
+   ventanas comparables y verlas desde Telegram.
+3. **Bucle de feedback.** Que las métricas cambien lo que se publica: pesos por
+   tema y arquetipo, derivados de los ganadores, un experimento por semana y
+   calibración del indicador de viralidad con datos reales.
+
+Decisiones del usuario (2026-10-06): publicación 100 % automática; 2 carruseles +
+4 reels; temáticas desde la base ponderadas por métricas.
+
+## Qué dice la base y qué no (auditoría previa al diseño)
+
+Se revisó `ia-es-kb` completa (152 fichas, 64 referencias, 19 temas) y el código.
+Lo que la base **sí** aporta y este diseño adopta como reglas:
+
+| Regla | Origen en la base |
+|---|---|
+| Formatos atemporales y repetibles en vez de tendencias; duplicar los formatos que ganan ("double down on winning formats") | `fuentes/2026-10-01-dm-18070999682775971.md`, `fuentes/2026-10-01-dm-18111230237595831.md` |
+| Un hook con estructura probada; sin hook no importa el resto | `fuentes/2026-10-05-dm-18190607413395702.md` (10 plantillas), `fuentes/2026-10-04-dm-18093109817320486.md` (5 categorías: storytelling, controversia, curiosidad, identificación, autoridad) |
+| Propuesta en los primeros 3 s; algo nuevo cada 2-3 s; hablarle a una persona | `referencias/hook-de-video.md`, `fuentes/2026-10-04-dm-17952300600275624.md` |
+| Sin recompensa no hay post; un solo núcleo por pieza; concreto, mostrar no decir | `fuentes/2026-10-05-dm-18035497727845829.md`, `referencias/made-to-stick.md`, `referencias/mostrar-no-decir.md` |
+| Bucle: cada cambio se mide y solo se queda si mejora una métrica fija; evaluador fuera del alcance del agente; tope de vueltas | `referencias/ingenieria-de-bucles.md` |
+| 1 vez = ruido, 10 = señal débil, 30 = patrón; comparar contra una línea base | `temas/Psicología del comportamiento y toma de decisiones.md` |
+| Criterios K1–K14 y su solidez | `docs/auditoria/2026-10-05-auditoria-carruseles.md` |
+
+Lo que la base **no** tiene (y por eso este diseño lo toma del skill
+`instagram-growth-strategy`, fechado julio 2026, o de la documentación de Meta):
+
+- Días, horas y frecuencia de publicación. Nada sobre el algoritmo de Instagram.
+- Métricas de Insights, umbrales, ventanas de evaluación, normalización.
+- Experimentos de contenido (A/B, trial reels).
+- Datos de la propia cuenta: la base son posts **ajenos** guardados. `metrics/`
+  en el repo de código está vacío: nunca se registró un post real.
+
+Consecuencia: la mejora 2 va **primero**. Cada semana sin medir es historia que el
+bucle no recupera, y hoy el indicador de viralidad (`src/score/virality.ts`) se
+apoya en supuestos sin respaldo ("6-8 slides", "la portada es el 80 % del
+alcance") que solo las métricas reales pueden confirmar o tumbar.
+
+## Restricciones de la API de Meta (verificadas 2026-10-06)
+
+| Tema | Dato | Efecto en el diseño |
+|---|---|---|
+| Insights por post | `reach`, `saved`, `shares`, `likes`, `comments`, `views`, `total_interactions`; reels además `ig_reels_avg_watch_time` (ms) y `ig_reels_video_view_total_time`. `impressions`, `plays`, `video_views` y `profile_views` (por post) ya no existen. | Se piden en lista y, ante error de métrica inválida, se reintenta sin ella: la lista de Meta cambia cada pocos meses. |
+| Insights de cuenta | `online_followers` (lifetime; exige ≥ 100 seguidores), `follower_count` (day), `reach`, `accounts_engaged` (`metric_type=total_value`). | Las horas del calendario salen de `online_followers`; con < 100 seguidores se usa una tabla por defecto editable. |
+| Publicación | Permiso `instagram_content_publish`. Imagen, carrusel (**máx. 10 ítems por API**) y reel. Las imágenes deben ser **JPEG en URL pública**; el reel, MP4 en URL pública. Flujo: crear contenedor → esperar `status_code=FINISHED` → `media_publish`. Tope 100 posts por 24 h. **No acepta hora futura**: alguien debe disparar `media_publish` a la hora exacta. | Carruseles ≤ 10 slides (validar). El servidor sirve los archivos y dispara la publicación. |
+| Token | El token actual no pide `instagram_content_publish`; `deploy/README.md` recomienda token de System User (no vence). | Regenerar token con el permiso nuevo; `meta:check` lo exige. |
+
+## Decisiones tomadas
+
+| Decisión | Elección | Motivo |
+|---|---|---|
+| Quién planifica y escribe el contenido | Agente de Claude en la nube, tarea programada **domingo 06:00 America/Santiago** (2 h después de la investigación de la kb), siguiendo `_calendario/INSTRUCCIONES.md` | Mismo patrón que la investigación semanal: costo extra 0, juicio sobre una base de cualquier tema, lee las referencias recién investigadas |
+| Quién renderiza, publica y mide | El bot del servidor (`src/kb/bot.ts`), que ya corre 24/7 y ya hace pull de `ia-es-kb` cada hora | Solo él está encendido a la hora de publicar; ya tiene git, ffmpeg, Telegram y el token de Meta |
+| Dónde viven calendario, borradores y métricas | Repo privado `ia-es-kb`, carpetas nuevas `_calendario/` y `_metricas/` | Es la memoria estratégica de la cuenta (ritual del skill, punto 5); el agente de la nube la lee; Obsidian la muestra; el bot ya la sincroniza |
+| Formato de los borradores | JSON con el `VariationDraft` del remix (`name, angle, pillar, slides: LogicalSlide[]`) + metadatos de planificación | Es lo que `emitCarouselFile` ya convierte a `carousels/*.ts`; no obliga al agente a escribir TSX |
+| URL pública de los medios | El servidor sirve `GET /media/<token>/<archivo>` por el ngrok con dominio fijo que ya existe (mismo proceso que el webhook de DMs) | Cero servicios nuevos; Meta descarga cada archivo una vez. Alternativa documentada: Cloudflare R2 |
+| Render en el servidor | Agregar Chromium (Playwright) a la imagen Docker | Ya estaba previsto para `/remix` por Telegram (`202609301500`, fase 6) |
+| Modo de publicación | Variable `CALENDARIO_MODO=aviso\|auto`. Semanas 1-2 en `aviso` (genera, programa y avisa; no publica) para cazar errores con la cuenta real a salvo; luego `auto` | Decisión final: automático. La ventana de prueba es ingeniería, no una re-decisión |
+| Freno de emergencia | `/pausar` y `/reanudar` en Telegram; botón **Saltar** en el aviso de cada pieza (vale hasta la hora de publicación) | Un post equivocado sale a la cuenta real |
+| Horas | De `online_followers` (semana anterior): para cada día, la hora con más seguidores en línea dentro de 08:00–23:00, redondeada a :00/:30, con separación mínima de 20 h entre piezas | Ventana crítica de 30-60 min (skill); la base no tiene nada mejor |
+| Mix semanal | Lun reel tutorial · Mar carrusel lista/guía · Mié reel compartible · Jue reel demo (resultado + prompt) · Vie carrusel opinión/mito · Sáb reel formato atemporal · Dom descanso | Calendario base del skill, que coincide con 2 carruseles + 4 reels |
+| Señal objetivo por pieza | Declarada antes de producir: guardados, envíos, comentarios o retención. Sin señal, no se produce | Regla "un post = un trabajo" del skill; `ingenieria-de-bucles`: métrica fija y comparable |
+| Puerta de calidad | Score ≥ 75 (`scoreCarousel`) **y** checklist K1–K14 de la auditoría aplicado por el agente. Si una pieza no pasa tras 3 intentos, **se deja el hueco vacío** | "Calidad sobre cantidad"; tope de vueltas (`ingenieria-de-bucles`) |
+| Ventanas de medición | Instantáneas a 24 h, 72 h, 7 d y luego semanal hasta 28 d. La comparación entre piezas usa siempre la de **7 d** | "Mismas ventanas siempre" (skill); patrón vs. señal aislada (base) |
+| Métrica de comparación | Tasas por alcance: `saved/reach`, `shares/reach`, `comments/reach`; reels además `avg_watch_time / duración` (la duración la conocemos: la calcula el motor) | Las señales que más distribuyen (envíos, guardados) pesan por alcance, no por likes |
+| Peso de un tema/arquetipo | Media de la tasa objetivo con encogimiento hacia la media global; un tema pesa solo con ≥ 3 piezas medidas | "1 vez = ruido" (base); evita que un post viral dicte el mes |
+| Experimentos | **Una** variable por semana (tema, arquetipo, hora, duración o tipo de hook), anotada antes de publicar y evaluada a las 4 semanas | Ritual semanal del skill; `ingenieria-de-bucles` |
+| Derivados | Toda pieza en el 20 % superior de su señal objetivo (ventana 7 d) genera 1-2 derivados (mismo tema, otro ángulo) en las 2 semanas siguientes | Fase 2 del skill; "double down on winning formats" (base) |
+
+## Estructura nueva en `ia-es-kb`
+
+```
+ia-es-kb/
+├── _calendario/
+│   ├── INSTRUCCIONES.md           manual del agente planificador (versionado)
+│   ├── config.json                mix, horas por defecto, zona horaria, pilares, hashtags base
+│   ├── validar.mjs                valida plan y borradores (node, sin dependencias)
+│   ├── 2026-10-12/                una carpeta por semana (lunes de la semana)
+│   │   ├── plan.json              6 entradas: día, hora, formato, tema, arquetipo, señal, hook, experimento
+│   │   ├── lun-reel-<slug>.json   borrador (VariationDraft + metadatos)
+│   │   ├── mar-carrusel-<slug>.json
+│   │   └── ...
+│   ├── registro.jsonl             una línea por pieza: plan + estado + media_id + permalink + hora real
+│   ├── experimentos.md            hipótesis → variable → resultado (lo escribe el agente)
+│   └── aprendizajes.md            lo que ya se sabe de la cuenta, en prosa corta (memoria estratégica)
+├── _metricas/
+│   ├── posts.json                 última instantánea por post (lo escribe el bot)
+│   ├── instantaneas/AAAA-MM-DD.jsonl   todas las instantáneas del día (bot)
+│   ├── cuenta.json                seguidores por día, online_followers, reach, accounts_engaged (bot)
+│   └── resumenes/AAAA-MM-DD.md    resumen semanal legible (bot; lo reenvía por Telegram)
+└── CLAUDE.md                      + 4 líneas: qué hay en _calendario y _metricas
+```
+
+Zonas de escritura (regla dura, igual que con la investigación):
+
+- **Agente planificador:** `_calendario/<semana>/`, `experimentos.md`,
+  `aprendizajes.md`. Lee `_metricas/`, `temas/`, `referencias/`, `fuentes/`,
+  `registro.jsonl`. Nunca escribe en `_metricas/` ni en el resto de la base.
+- **Bot:** `_metricas/`, `_calendario/registro.jsonl` y, dentro de la carpeta de
+  la semana, solo el campo `estado` de `plan.json`. Nunca toca borradores.
+- **Usuario:** `config.json`, `## Mis notas` donde exista.
+
+### `plan.json` (una entrada por pieza)
+
+```json
+{
+  "semana": "2026-10-12",
+  "zona": "America/Santiago",
+  "experimento": { "variable": "hora", "hipotesis": "19:30 rinde más que 12:30 en reels", "piezas": ["mie-reel-..."] },
+  "piezas": [
+    {
+      "id": "lun-reel-agentes-claude-code",
+      "dia": "2026-10-12", "hora": "19:30",
+      "formato": "reel", "arquetipo": "tutorial", "senal": "guardados",
+      "tema": "[[Automatización con IA]]", "pilar": "herramienta",
+      "hook": { "categoria": "curiosidad", "texto": "..." },
+      "origen": { "fichas": ["fuentes/2026-10-04-dm-....md"], "referencias": ["referencias/claude-code.md"] },
+      "derivadoDe": null,
+      "caption": "primera línea con la keyword…\n\n#ia #claudecode #automatizacion",
+      "borrador": "lun-reel-agentes-claude-code.json",
+      "estado": "planificado"
+    }
+  ]
+}
+```
+
+`estado` avanza: `planificado → renderizado → programado → publicado | saltado |
+fallido`. Es el único campo que el bot escribe en `plan.json`.
+
+### Borrador (`<id>.json`)
+
+`VariationDraft` tal cual lo produce el remix (`name`, `angle`, `pillar`,
+`slides: LogicalSlide[]`), más `pace` (`ensenar`/`rapido`) y `audio` (nombre de
+una pista de `promo/audio/`). `validar.mjs` comprueba: ≤ 10 slides, plantillas
+del catálogo, `highlight` presente en el hook, caption con keyword en la primera
+línea y 3-5 hashtags, `senal` declarada, score léxico ≥ 75 (el validador importa
+`scoreDraft` vía `npx tsx` si el repo de código está al lado; si no, lo omite y
+lo deja al bot).
+
+## Mejora 2 — Métricas (`src/insights/`)
+
+Módulo nuevo, solo lectura, reutiliza `graphGet` de `src/meta/client.ts`.
+
+- `fetchOwnMedia(since)`: `GET /{ig-user-id}/media?fields=id,caption,media_type,
+  media_product_type,permalink,timestamp,like_count,comments_count`, paginado.
+- `fetchMediaInsights(id, productType)`: lista de métricas por tipo; si Meta
+  devuelve "metric not supported" se quita esa métrica y se reintenta (una vez por
+  métrica). Reels: suma `ig_reels_avg_watch_time` y `ig_reels_video_view_total_time`.
+- `fetchAccountInsights()`: `follower_count` (day, últimos 30 d),
+  `online_followers` (lifetime), `reach` y `accounts_engaged`
+  (`metric_type=total_value`, `period=day`, últimos 7 d). Si la cuenta tiene
+  < 100 seguidores, `online_followers` falla: se registra y se usa la tabla por
+  defecto.
+- `snapshotDue()`: para cada post publicado, decide si toca instantánea (24 h,
+  72 h, 7 d, 14 d, 21 d, 28 d ± 1 h) y la guarda en SQLite (tabla `insights`:
+  `media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views,
+  avg_watch_ms, total_watch_ms`) y en `_metricas/instantaneas/<día>.jsonl`.
+- Derivadas por post (ventana 7 d): `saved_por_alcance`, `shares_por_alcance`,
+  `comments_por_alcance`, `views_por_alcance`, `retencion = avg_watch_ms / duracion_ms`
+  (solo si la pieza salió del motor y conocemos la duración).
+- Vínculo pieza ↔ post: `media_id` lo devuelve `media_publish` y se guarda en
+  `registro.jsonl`. Posts publicados a mano antes del sistema se miden igual pero
+  sin metadatos de pieza (aparecen como `origen: manual`).
+- Puente con la calibración existente: cada instantánea de 7 d de una pieza del
+  motor escribe `metrics/<name>.json` con el formato de `record.ts`
+  (`predictedScore, saves, shares, reach, likes, savesPerK, sharesPerK`) y llama
+  a `refreshCalibration()`. Con 3 piezas medidas la proyección "≈ X saves/1k"
+  empieza a salir en `score`, `generate` y `remix` sin tocar ese código.
+- Timers en el bot (mismo patrón `setInterval`): instantáneas cada hora;
+  cuenta una vez al día; resumen semanal **domingo 05:30** (antes del
+  planificador), escrito en `_metricas/resumenes/` y enviado por Telegram.
+- Telegram: `/metricas` (últimos 7 d: mejor y peor pieza por su señal objetivo,
+  seguidores ganados, hora con más audiencia), `/metricas <id|url>` (todas las
+  instantáneas de un post). Comando CLI espejo: `npm run insights [-- --desde=…]`.
+- Aviso post-publicación: 2 min después de publicar, Telegram manda el permalink
+  con "responde los comentarios en la primera hora" (ventana crítica del skill).
+
+## Mejora 1 — Calendario y publicación
+
+### Agente planificador (nube, domingo 06:00)
+
+Prompt de la tarea: «Sigue `_calendario/INSTRUCCIONES.md` al pie de la letra».
+El manual indica:
+
+1. Clonar `ia-es-kb`. Leer `config.json`, `_metricas/posts.json`,
+   `_metricas/cuenta.json`, `_calendario/registro.jsonl`, `experimentos.md`,
+   `aprendizajes.md` y el resumen de la investigación de esa madrugada.
+2. **Evaluar la semana pasada** (ritual del skill): mejor y peor pieza por señal
+   objetivo con la ventana de 7 d; cerrar los experimentos que cumplen 4 semanas
+   (anotar resultado en `experimentos.md`); actualizar `aprendizajes.md` con a lo
+   más 3 frases nuevas, cada una con el dato que la respalda.
+3. **Elegir temas** con esta prioridad: (a) derivados pendientes de ganadores;
+   (b) temas con fichas nuevas o referencias investigadas esta semana; (c) temas
+   con mejor tasa objetivo histórica (solo si tienen ≥ 3 piezas medidas); (d) el
+   resto por antigüedad de su última pieza. Nunca dos piezas del mismo tema en la
+   misma semana salvo derivados. Sin métricas (primeras semanas), solo (b) y (d).
+4. **Asignar el mix** fijo (lun reel tutorial … sáb reel atemporal) y una señal
+   objetivo por pieza. Horas desde `cuenta.json` (`online_followers`) o la tabla
+   por defecto. Elegir **un** experimento y declararlo.
+5. **Escribir cada borrador** desde la base: núcleo único, hook de una categoría
+   probada, recompensa concreta (prompt copiable, checklist, comando), fuente
+   citada al pie (`source`), caption con keyword en la primera línea y 3-5
+   hashtags. Aplicar K1–K14 como checklist; carrusel ≤ 10 slides; reel con
+   `pace: ensenar` y una pista de `promo/audio/`.
+6. `node _calendario/validar.mjs <semana>` debe terminar con ✓. Lo que falle se
+   corrige (máx. 3 vueltas) o se deja el hueco vacío con motivo en `plan.json`.
+7. Commit `calendario: semana 2026-10-12 (6 piezas)` y push con `pull --rebase`
+   si hace falta. Si no hay nada publicable, igual deja una línea de latido en
+   `registro.jsonl` (alerta de silencio a los 8 días, como la investigación).
+
+### Bot del servidor (`src/calendario/`)
+
+- `syncFromRemote` (ya existe, cada hora) detecta una semana nueva en
+  `_calendario/` y encola `renderizar` para cada pieza `planificada`.
+- `render(pieza)`: `emitCarouselFile` → `renderCarousel` (PNG) → JPEG con ffmpeg
+  (`-q:v 2`, 1080×1350); reel: `renderReel` con `--pace` y `--audio`. Guarda en
+  `/data/media/<semana>/<id>/`. Revalida score ≥ 75; si falla, `estado: fallido`
+  y aviso. Luego `estado: renderizado` y Telegram manda la portada, el caption, la
+  hora y el botón **Saltar**.
+- Servidor estático: `GET /media/<token>/<semana>/<id>/<archivo>` en el mismo
+  `node:http` del inbox (`KB_INBOX_PORT`), con un token largo por despliegue
+  (`MEDIA_PUBLIC_TOKEN`) para que la URL no sea adivinable. Expira a los 7 días
+  del publish.
+- `scheduler`: cada minuto revisa `registro.jsonl`/SQLite por piezas
+  `programadas` cuya hora llegó (zona `America/Santiago`). Idempotente: la tabla
+  `publicaciones` guarda `container_id` y `media_id`; si el proceso se reinicia a
+  mitad, retoma desde el paso guardado y nunca crea un segundo contenedor para la
+  misma pieza.
+- `publish(pieza)`: carrusel = N contenedores `image_url` (`is_carousel_item`) →
+  contenedor `CAROUSEL` con `children` y `caption` → `media_publish`. Reel =
+  contenedor `media_type=REELS` con `video_url`, `cover_url` (primer cuadro),
+  `share_to_feed=true` → sondear `status_code` cada 15 s hasta `FINISHED` (tope
+  10 min) → `media_publish`. `CALENDARIO_MODO=aviso` hace todo menos los POST.
+- Reintentos: error de red o `status_code=IN_PROGRESS` → reintenta; error de
+  Meta (contenido rechazado, permiso, cuota) → `fallido`, aviso con el mensaje
+  traducido por `translateGraphError`, no reintenta.
+- Estado del día siguiente: `GET /{media_id}?fields=permalink` para guardar el
+  link en `registro.jsonl` y arrancar las instantáneas.
+- Telegram: `/calendario` (semana en curso con estados), `/pausar`, `/reanudar`,
+  `/publicar <id>` (fuerza ahora, para probar), `/saltar <id>`.
+
+### Cambios en código, por módulo
+
+| Archivo | Cambio |
+|---|---|
+| `src/meta/check.ts` | `REQUIRED_SCOPES` + `instagram_content_publish` cuando `CALENDARIO_MODO` está definido; muestra `followers_count` y si `online_followers` está disponible |
+| `src/meta/client.ts` | `graphPost` ya existe; agregar `graphPostForm` si Meta exige form-encoded para `media` (verificar en implementación) |
+| `src/insights/*` (nuevo) | `client.ts`, `snapshots.ts`, `derive.ts`, `summary.ts`, `cli.ts` |
+| `src/calendario/*` (nuevo) | `plan.ts` (tipos + lectura), `render.ts`, `publish.ts`, `scheduler.ts`, `media-server.ts`, `telegram.ts` |
+| `src/kb/bot.ts` | registra timers y comandos nuevos; `syncFromRemote` dispara render |
+| `src/kb/db.ts` | tablas `insights`, `publicaciones`, `calendario_estado` |
+| `src/score/calibration.ts` | sin cambios; recibe `metrics/*.json` del puente |
+| `src/remix/emit.ts` | exponer `emitCarouselFile` para borradores JSON (hoy solo lo usa el remix) |
+| `src/reel/*` | `renderReel(spec, {pace, audio, outDir})` como función (hoy solo CLI) |
+| `Dockerfile` | `npx playwright install --with-deps chromium` (arm64); `PLAYWRIGHT_BROWSERS_PATH` |
+| `compose.yaml` | volumen `/data/media`; `MEDIA_PUBLIC_TOKEN`, `CALENDARIO_MODO`, `MEDIA_PUBLIC_BASE` (dominio ngrok) |
+| `kb-plantilla/_calendario/` (nuevo) | `INSTRUCCIONES.md`, `config.json`, `validar.mjs`; `scripts/kb-calendario-install.sh` los copia a la base |
+| `promo/audio/` (nuevo) | 2-3 pistas libres de derechos (el usuario las elige) |
+| `test/insights.ts`, `test/calendario.ts` (nuevos) | pruebas offline: parseo de insights con métricas faltantes, cálculo de ventanas, asignación de horas, máquina de estados idempotente, validación de borradores |
+
+## Mejora 3 — Bucle de feedback
+
+El bucle es la suma de tres entradas que ya quedaron definidas arriba; aquí se
+fija qué cambia con los datos y qué no.
+
+| Entrada | Qué cambia | Cuándo empieza a actuar |
+|---|---|---|
+| Tasas por tema/arquetipo/hook (`posts.json` + `registro.jsonl`) | Prioridad (c) de la elección de temas; elección de categoría de hook por arquetipo | ≥ 3 piezas medidas por tema |
+| Ganadores (20 % superior, 7 d) | Derivados programados en las 2 semanas siguientes | Desde la primera semana medida |
+| Experimento semanal | Una variable del calendario; se consolida o se descarta a las 4 semanas | Semana 1 |
+| `online_followers` | Horas del calendario | ≥ 100 seguidores |
+| `follower_count` diario vs. piezas | Detecta qué piezas traen seguidores (delta del día siguiente) | Semana 1 |
+| Instantánea 7 d → `metrics/*.json` | Calibración del score (`refreshCalibration`); proyección en `score`/`generate`/`remix` | ≥ 3 piezas |
+| `aprendizajes.md` | Contexto del agente la semana siguiente (lo que ya se sabe de la cuenta) | Semana 2 |
+
+Lo que **no** cambia solo: los pesos léxicos de `virality.ts`, el mix semanal, la
+zona horaria y el modo de publicación. Cambiarlos exige editar `config.json` o
+código: el evaluador queda fuera del alcance del agente (`ingenieria-de-bucles`).
+
+Diagnóstico mensual (árbol del skill, con lo que la API sí da):
+
+1. Seguidores nuevos / alcance total < 1 % → problema de perfil (bio, CTA), no de
+   contenido. Aviso en el resumen.
+2. Reels con `retencion` < 0,3 (tiempo medio / duración) → hooks: el agente debe
+   cambiar la categoría de hook de ese arquetipo la semana siguiente.
+3. Retención bien pero `saved/reach` y `shares/reach` planos → falta entregable o
+   destinatario explícito: el agente revisa la recompensa de la pieza.
+4. Todo bien y crecimiento plano → volumen o distribución: considerar 3 carruseles
+   o trial reels (requiere 1.000 seguidores).
+
+El skill evalúa en ciclos de 4 semanas; el resumen semanal muestra la tendencia,
+pero las decisiones del agente sobre temas y hooks se toman con datos de 4
+semanas, no de una.
+
+## Fases de entrega (cada una se puede fusionar sola)
+
+| Fase | Entrega | Tamaño | Valor que deja |
+|---|---|---|---|
+| 0 · Prerrequisitos | Token con `instagram_content_publish` (System User), Chromium en la imagen Docker, `MEDIA_PUBLIC_TOKEN` + ruta `/media`, pistas de audio, `kb-calendario-install.sh` | S | Nada visible; destraba lo demás |
+| 1 · Métricas | `src/insights/`, instantáneas, `/metricas`, resumen semanal, puente a `metrics/*.json` | M | Desde el primer día se mide lo que publiques a mano. Sin riesgo: solo lectura |
+| 2 · Calendario en modo `aviso` | Agente planificador + `_calendario/` + render en servidor + previews por Telegram | L | Cada domingo tienes 6 piezas listas y revisadas; las subes tú 2 semanas |
+| 3 · Publicación `auto` | `publish.ts`, scheduler idempotente, `/pausar`, aviso post-publicación | M | Manos libres |
+| 4 · Bucle | Prioridad por métricas, derivados, experimentos, diagnóstico mensual, `aprendizajes.md` | M | El calendario aprende de la cuenta |
+
+Orden recomendado: 0 → 1 → 2 → 3 → 4. La fase 1 antes que la 2 porque el bucle
+necesita historia y hoy no hay ninguna.
+
+## Manejo de errores
+
+- **Token vencido o sin permiso**: `meta:check` diario ya avisa a 10 días; el
+  scheduler no intenta publicar con un token que `debug_token` marque inválido y
+  avisa por Telegram. Con System User no vence.
+- **Meta rechaza el contenedor** (formato, tamaño, URL inaccesible): `fallido`,
+  mensaje traducido, la pieza no se reintenta; las demás de la semana siguen.
+- **ngrok caído a la hora de publicar**: Meta no puede descargar; el contenedor
+  queda en `ERROR`; se reintenta 3 veces en 30 min y luego `fallido`.
+- **Reinicio del contenedor durante un publish**: la tabla `publicaciones` guarda
+  el último paso; al arrancar se retoma. Nunca se duplica un post.
+- **El agente no corrió** (sin carpeta de semana el domingo 12:00): aviso de
+  silencio; la semana queda sin piezas (no se reciclan las anteriores).
+- **Métrica que Meta deja de soportar**: se descarta esa métrica y se registra;
+  nunca falla la instantánea completa.
+- **Pieza con score < 75 tras render** (el validador en la nube no pudo correr el
+  score): `fallido` con las sugerencias del score; hueco vacío.
+- **Dos bots** (Mac y servidor): ya está resuelto (409 de Telegram); el scheduler
+  además exige `CALENDARIO_MODO` definido, que solo lo tiene el servidor.
+
+## Pruebas
+
+- Offline (`npm test`): parseo de insights con métricas ausentes; cálculo de
+  ventanas (24 h/72 h/7 d) y de tasas; asignación de horas desde
+  `online_followers` y desde la tabla por defecto; prioridad de temas con y sin
+  métricas (encogimiento, mínimo 3); máquina de estados de publicación
+  (reinicio a mitad → sin duplicado); `validar.mjs` con borradores válidos e
+  inválidos (11 slides, sin señal, caption sin hashtags).
+- Con Chromium (`npm run test:reel` ampliado): borrador JSON → JPEG 1080×1350 y
+  MP4 con audio.
+- Manual, una vez: `CALENDARIO_MODO=aviso` una semana completa en el servidor;
+  luego `/publicar <id>` de una pieza de prueba con `auto` y comprobar en
+  Instagram, el `media_id` en `registro.jsonl` y la instantánea de 24 h.
+
+## Puesta en marcha
+
+1. Fase 0 en el servidor (`deploy-to-server.sh` con la imagen nueva).
+2. `scripts/kb-calendario-install.sh` → copia manual, config y validador a
+   `ia-es-kb`; editar `config.json` (horas por defecto, hashtags base).
+3. Crear la tarea programada en claude.ai: domingo 06:00 America/Santiago,
+   repo `ia-es-kb`, prompt «Sigue `_calendario/INSTRUCCIONES.md` al pie de la
+   letra».
+4. Dos domingos en `aviso`; revisar las piezas por Telegram; corregir el manual.
+5. `CALENDARIO_MODO=auto`.
+
+## Fuera de alcance
+
+- Stories (la API de publicación las permite, pero el motor no las produce).
+- Reels con grabación de pantalla o voz (los del motor son de texto animado).
+- Trial reels (exigen 1.000 seguidores) y colaboraciones.
+- Responder comentarios automáticamente (solo el recordatorio por Telegram).
+- Reaprender los pesos de `virality.ts` con los datos (primero hay que tener 30+
+  piezas medidas; se evalúa en 3 meses).
+- Más de una cuenta.
