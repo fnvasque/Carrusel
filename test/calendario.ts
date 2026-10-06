@@ -5,6 +5,8 @@ import "./calendario/media-server.ts";
 import "./calendario/draft.ts";
 import "./calendario/qa.ts";
 import "./calendario/validar.ts";
+import "./calendario/publish.ts";
+import "./calendario/scheduler.ts";
 import "./calendario/bucle.ts";
 
 await done();

@@ -188,3 +188,51 @@ export async function graphPost<T = Record<string, unknown>>(
   }
   return json;
 }
+
+/**
+ * POST a la Graph API con cuerpo `application/x-www-form-urlencoded` (el formato
+ * documentado para `/{ig}/media` y `/{ig}/media_publish`). El token y el proof
+ * van en el cuerpo, no en la URL. Mismas reglas que graphGet (proof, errores
+ * traducidos, el token nunca en mensajes), pero SIN reintento interno: publicar
+ * no es idempotente y el reintento lo decide quien llama (`src/calendario/publish.ts`).
+ * Los parámetros `undefined` se omiten.
+ */
+export async function graphPostForm<T = Record<string, unknown>>(
+  path: string,
+  params: Record<string, string | number | boolean | undefined>,
+  opts: GraphGetOptions = {},
+): Promise<T> {
+  const cfg = opts.config ?? metaConfig();
+  const token = opts.accessToken ?? cfg.accessToken;
+  const url = new URL(`https://graph.facebook.com/${cfg.graphVersion}/${path.replace(/^\//, "")}`);
+  const body = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) body.set(k, String(v));
+  body.set("access_token", token);
+  const useProof = opts.proof ?? opts.accessToken === undefined;
+  if (useProof && cfg.appSecret) body.set("appsecret_proof", appSecretProof(token, cfg.appSecret));
+  const timeoutMs = opts.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    // Nunca el mensaje original (podría arrastrar el cuerpo con el token): solo el código.
+    const e = err as { name?: string; cause?: { code?: string } };
+    const why = e?.name === "TimeoutError" ? `sin respuesta en ${timeoutMs / 1000} s` : (e?.cause?.code ?? e?.name ?? "error de red");
+    throw new GraphError(`No pude conectar con la API de Meta (${why}).`);
+  }
+  const usage = maxUsagePercent(res.headers.get("x-app-usage"), res.headers.get("x-business-use-case-usage"));
+  if (usage !== undefined && usage >= USAGE_WARN_PCT) {
+    console.warn(`⚠️  Uso de la API de Meta al ${usage}% de la cuota: baja el ritmo o Meta empezará a limitar.`);
+  }
+  const json = (await res.json().catch(() => ({}))) as { error?: RawGraphError } & T;
+  if (!res.ok || json.error) {
+    const e = json.error ?? { message: `HTTP ${res.status}` };
+    throw new GraphError(translateGraphError(e), e.code, e.error_subcode);
+  }
+  return json;
+}
