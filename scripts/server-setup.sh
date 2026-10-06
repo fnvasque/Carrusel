@@ -21,7 +21,9 @@ if ! swapon --show | grep -q .; then
   echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null
 fi
 
-mkdir -p data keys
+mkdir -p data keys media
+# Medios del calendario: el Mac los sube con rsync por SSH (dueño: el usuario SSH) y el contenedor los lee.
+chown "$USER" media && chmod 755 media
 if [ ! -f keys/kb_deploy ]; then
   ssh-keygen -q -t ed25519 -N "" -C "ia-es-kb servidor $(hostname)" -f keys/kb_deploy
 fi
@@ -29,5 +31,8 @@ fi
 echo
 echo "✓ Servidor listo. Clave de deploy (el script del Mac la registra en GitHub sola):"
 cat keys/kb_deploy.pub
+echo
+echo "Medios del calendario: ~/carrusel/media (en el contenedor: /data/media)."
+echo "En el .env del Mac, SERVER_MEDIA_DIR=carrusel/media (ruta del HOST, no del contenedor)."
 echo
 echo "Siguiente paso, en el Mac:  scripts/deploy-to-server.sh $USER@<ip-del-servidor>"
