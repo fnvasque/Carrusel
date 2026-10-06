@@ -3,7 +3,7 @@ import { check } from "../_check.ts";
 import type { Instantanea } from "../../src/insights/snapshots.ts";
 import { derivar } from "../../src/insights/derive.ts";
 import {
-  debeCuenta, debeResumir, domingoDeResumen, formatPost, formatResumen, formatResumenTelegram, parsearReferencia, resumirSemana,
+  debeCuenta, debeResumir, domingoDeResumen, hastaDesdeDesde, formatPost, formatResumen, formatResumenTelegram, parsearReferencia, resumirSemana,
 } from "../../src/insights/summary.ts";
 
 // Domingo 2026-10-04 (Chile en UTC-3: 05:30 local = 08:30Z).
@@ -40,7 +40,7 @@ check("resumirSemana: mejor y peor por señal objetivo usando solo 7d", () => {
   assert.equal(r.mejor?.modo, "tasa");
   assert.equal(r.mejor?.valor, 30 / 200);
   assert.equal(r.mejor?.permalink, "https://www.instagram.com/p/a/");
-  assert.equal(r.desde, "2026-09-27");
+  assert.equal(r.desde, "2026-09-28"); // primer día incluido (lun … dom)
   assert.equal(r.hasta, HASTA);
 });
 
@@ -166,4 +166,39 @@ check("parsearReferencia: permalink, media_id y piezaId", () => {
   assert.deepEqual(parsearReferencia("17895695668004550"), { tipo: "id", valor: "17895695668004550" });
   assert.deepEqual(parsearReferencia(" lun-reel-x "), { tipo: "pieza", valor: "lun-reel-x" });
   assert.equal(parsearReferencia("   "), undefined);
+});
+
+check("hastaDesdeDesde: --desde=D cubre D … D+6 (lunes a domingo)", () => {
+  assert.equal(hastaDesdeDesde("2026-09-28"), "2026-10-04");
+  const r = resumirSemana([], undefined, [], hastaDesdeDesde("2026-09-28"), 50);
+  assert.equal(r.desde, "2026-09-28");
+  assert.equal(r.hasta, "2026-10-04");
+  const lunes = { ...inst("l"), tomadaEn: "2026-09-28T15:00:00.000Z" } as Instantanea;
+  const sigLunes = { ...inst("s"), tomadaEn: "2026-10-05T15:00:00.000Z" } as Instantanea;
+  const r2 = resumirSemana([lunes, sigLunes], cuenta, [reg("l", "guardados", { publicadoEn: "2026-09-21T15:00:00.000Z" }), reg("s", "guardados", { publicadoEn: "2026-09-28T15:00:00.000Z" })], hastaDesdeDesde("2026-09-28"), 50);
+  assert.equal(r2.mejor?.mediaId, "l"); // el día D entra; D+7 no
+  assert.equal(r2.peor, undefined);
+});
+
+check("debeResumir sin marca: solo domingo 05:30 a lunes 23:59 local", () => {
+  assert.equal(debeResumir(new Date("2026-10-04T08:30:00Z")), true); // dom 05:30
+  assert.equal(debeResumir(new Date("2026-10-05T12:00:00Z")), true); // lun 09:00
+  assert.equal(debeResumir(new Date("2026-10-06T02:59:00Z")), true); // lun 23:59
+  assert.equal(debeResumir(new Date("2026-10-06T03:00:00Z")), false); // mar 00:00
+  assert.equal(debeResumir(new Date("2026-10-07T12:00:00Z")), false); // mié
+  assert.equal(debeResumir(new Date("2026-10-04T08:29:00Z")), false); // dom 05:29
+  assert.equal(debeResumir(new Date("2026-10-07T12:00:00Z"), "basura"), false);
+  assert.equal(debeResumir(new Date("2026-10-07T12:00:00Z"), "2026-09-27"), true); // con marca vieja, recuperación normal
+});
+
+check("debeResumir en los domingos de cambio de hora (2026-09-06 y 2026-04-05)", () => {
+  // 2026-09-06: Chile pasa a UTC-3 (00:00 → 01:00); 05:30 local = 08:30Z.
+  assert.equal(debeResumir(new Date("2026-09-06T08:29:00Z"), "2026-08-30"), false);
+  assert.equal(debeResumir(new Date("2026-09-06T08:30:00Z"), "2026-08-30"), true);
+  assert.equal(debeResumir(new Date("2026-09-06T08:30:00Z"), "2026-09-06"), false);
+  assert.equal(domingoDeResumen(new Date("2026-09-06T08:30:00Z")), "2026-09-06");
+  // 2026-04-05: Chile vuelve a UTC-4 (24:00 → 23:00 del sábado); 05:30 local = 09:30Z.
+  assert.equal(debeResumir(new Date("2026-04-05T09:29:00Z"), "2026-03-29"), false);
+  assert.equal(debeResumir(new Date("2026-04-05T09:30:00Z"), "2026-03-29"), true);
+  assert.equal(debeResumir(new Date("2026-04-05T09:30:00Z"), "2026-04-05"), false);
 });

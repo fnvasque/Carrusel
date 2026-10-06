@@ -1,8 +1,8 @@
-import { addDays, fechaValida } from "../calendario/time.ts";
+import { fechaValida } from "../calendario/time.ts";
 import { MetaConfigError, metaConfig } from "../meta/env.ts";
 import { guardarCuenta, tomarInstantaneas } from "./snapshots.ts";
 import { resumenDeLaSemana, resumenReciente, textoPost } from "./lectura.ts";
-import { formatResumen } from "./summary.ts";
+import { formatResumen, hastaDesdeDesde } from "./summary.ts";
 
 /**
  * Espejo de `/metricas` en la terminal:
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 
   const desde = arg("desde");
   if (desde !== undefined && !fechaValida(desde)) throw new Error(`--desde debe ser AAAA-MM-DD (recibí "${desde}").`);
-  const r = desde ? resumenDeLaSemana(addDays(desde, 7)) : resumenReciente(now);
+  const r = desde ? resumenDeLaSemana(hastaDesdeDesde(desde)) : resumenReciente(now);
   console.log(formatResumen(r));
 }
 

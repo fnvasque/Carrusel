@@ -749,10 +749,12 @@ async function snapshotTick(): Promise<void> {
   try {
     await serial(async () => {
       const now = new Date();
-      const nuevas = await tomarInstantaneas(now);
-      if (nuevas.length) {
-        console.log(`📈 Instantáneas nuevas: ${nuevas.map((i) => `${i.mediaId} ${i.ventana}`).join(", ")}`);
-        const dia = localParts(now).dia;
+      const dia = localParts(now).dia;
+      try {
+        const nuevas = await tomarInstantaneas(now);
+        if (nuevas.length) console.log(`📈 Instantáneas nuevas: ${nuevas.map((i) => `${i.mediaId} ${i.ventana}`).join(", ")}`);
+      } finally {
+        // Aunque la toma falle a medias, lo que alcanzó a escribirse se guarda (sin cambios, no hace nada).
         await commitMetricas([join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json")], `métricas: instantáneas ${dia}`);
       }
     });
@@ -781,20 +783,22 @@ async function accountTick(): Promise<void> {
 async function summaryTick(): Promise<void> {
   try {
     if (!debeResumir(new Date(), leerEstado("resumen:ultimo"))) return;
-    await serial(async () => {
+    const enviado = await serial(async () => {
       const now = new Date();
       // Otra pasada pudo enviarlo mientras esperaba su turno.
-      if (!debeResumir(now, leerEstado("resumen:ultimo"))) return;
+      if (!debeResumir(now, leerEstado("resumen:ultimo"))) return true;
       const { domingo, md, html } = resumenDelDomingo(now);
       const ruta = join(metricasDir(), "resumenes", `${domingo}.md`);
       await mkdir(dirname(ruta), { recursive: true });
       await writeFile(ruta, md, "utf8");
       await commitMetricas([ruta], `métricas: resumen ${domingo}`);
       // Se marca solo si llegó: si Telegram falla, se reintenta en la próxima pasada.
-      if (await sendToAdmins(html, true)) guardarEstado("resumen:ultimo", domingo);
-      else console.warn(`⚠️  No pude enviar el resumen de métricas ${domingo} por Telegram; reintento en 10 min.`);
+      if (!(await sendToAdmins(html, true))) return false;
+      guardarEstado("resumen:ultimo", domingo);
+      return true;
     });
-    ultimoErrorMetricas.delete("resumen");
+    if (enviado) ultimoErrorMetricas.delete("resumen");
+    else await avisarUnaVez("resumen", new Error("Telegram no aceptó el resumen semanal; sigo reintentando cada 10 min."));
   } catch (err) {
     await avisarUnaVez("resumen", err);
   }

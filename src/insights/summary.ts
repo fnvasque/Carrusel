@@ -101,14 +101,14 @@ function horaTop(c: Record<string, unknown>): string {
 }
 
 /**
- * Resumen de la semana `(hasta − 7 d, hasta]`: mejor y peor pieza del motor por su
+ * Resumen de la semana `[hasta − 6 d, hasta]` (7 días, ambos extremos incluidos): mejor y peor pieza del motor por su
  * señal objetivo con la instantánea de 7 d (solo las tomadas con desvío ≤ 6 h),
  * seguidores ganados, hora con más audiencia y alcance de no seguidores. Cada
  * señal se compara contra su propio grupo (nunca retención contra guardados, ni
  * conteos contra tasas): se ordena por valor relativo a la media del grupo.
  */
 export function resumirSemana(inst: Instantanea[], cuenta: unknown, registro: unknown[], hasta: string, umbral: number): ResumenSemana {
-  const desde = addDays(hasta, -7);
+  const desde = addDays(hasta, -6); // primer día incluido: la ventana es desde … hasta (7 días)
   const reg = indexarRegistro(registro);
   const c = esObj(cuenta) ? cuenta : {};
   const avisos: string[] = [];
@@ -122,7 +122,7 @@ export function resumirSemana(inst: Instantanea[], cuenta: unknown, registro: un
     const t = new Date(i.tomadaEn);
     if (Number.isNaN(t.getTime())) continue;
     const dia = localParts(t).dia;
-    if (dia <= desde || dia > hasta) continue;
+    if (dia < desde || dia > hasta) continue;
     vistas.add(i.mediaId);
 
     const r = reg.get(i.mediaId);
@@ -164,7 +164,7 @@ export function resumirSemana(inst: Instantanea[], cuenta: unknown, registro: un
   let ganados: number | undefined;
   if (porDia) {
     for (const [dia, v] of Object.entries(porDia)) {
-      if (dia > desde && dia <= hasta && esNum(v)) ganados = (ganados ?? 0) + v;
+      if (dia >= desde && dia <= hasta && esNum(v)) ganados = (ganados ?? 0) + v;
     }
   }
 
@@ -258,12 +258,18 @@ export function domingoDeResumen(now: Date): string {
 /**
  * ¿Toca el resumen? Sí si el domingo vigente (≥ 05:30 local) todavía no se hizo;
  * `ultimo` es el domingo del último resumen enviado. Si el bot estuvo caído, el
- * lunes (o cualquier día de esa semana) todavía lo envía. Un `ultimo` ilegible no bloquea.
+ * lunes (o cualquier día de esa semana) todavía lo envía. Sin marca válida (primer
+ * arranque) solo se envía entre el domingo 05:30 y el lunes 23:59 local, para no
+ * mandar un resumen vacío en un día cualquiera justo después del despliegue.
  */
 export function debeResumir(now: Date, ultimo?: string): boolean {
   const domingo = domingoDeResumen(now);
-  return !(typeof ultimo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ultimo) && ultimo >= domingo);
+  if (typeof ultimo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ultimo)) return ultimo < domingo;
+  return localParts(now).dia <= addDays(domingo, 1);
 }
+
+/** Último día (`hasta`) de la ventana de 7 días que empieza en `--desde` (inclusive): D … D+6. */
+export const hastaDesdeDesde = (desde: string): string => addDays(desde, 6);
 
 /** ¿Toca guardar la cuenta? Una vez por día local; `ultimo` es la fecha del último guardado. */
 export function debeCuenta(now: Date, ultimo?: string): boolean {
