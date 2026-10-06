@@ -1,5 +1,6 @@
 import { graphGet, GraphError } from "../meta/client.ts";
 import { metaConfig } from "../meta/env.ts";
+import { localParts, ZONA_ONLINE_FOLLOWERS } from "../calendario/time.ts";
 
 /**
  * Cliente de insights de Instagram (solo lectura, sobre `graphGet`): lista los
@@ -228,7 +229,13 @@ const msgOf = (err: unknown): string => (err instanceof Error ? err.message : St
  * Métricas de la cuenta. Cada consulta va en su propio `try`: si una falla (p. ej.
  * `online_followers` con menos de 100 seguidores) se anota en `errores` y las demás siguen.
  */
-export async function fetchAccountInsights(now: Date, get: GraphGetFn = defaultGet, igUserId: string = defaultIgUserId()): Promise<AccountInsights> {
+export async function fetchAccountInsights(
+  now: Date,
+  get: GraphGetFn = defaultGet,
+  igUserId: string = defaultIgUserId(),
+  /** Zona de los días de Meta (`config.json → zonaOnlineFollowers`, R39). */
+  zona: string = ZONA_ONLINE_FOLLOWERS,
+): Promise<AccountInsights> {
   const res: AccountInsights = { followerCount: [], errores: [] };
   const hasta = Math.floor(now.getTime() / 1000);
   const insights = `${igUserId}/insights`;
@@ -246,7 +253,12 @@ export async function fetchAccountInsights(now: Date, get: GraphGetFn = defaultG
     const entry = isObj(body) && Array.isArray(body.data) ? body.data[0] : undefined;
     const values = isObj(entry) && Array.isArray(entry.values) ? entry.values : [];
     for (const v of values) {
-      if (isObj(v) && isNum(v.value) && typeof v.end_time === "string") res.followerCount.push({ dia: v.end_time.slice(0, 10), valor: v.value });
+      if (!isObj(v) || !isNum(v.value) || typeof v.end_time !== "string") continue;
+      // `end_time` es el FIN del día de Meta (07:00 UTC del día siguiente, hora del Pacífico):
+      // el día real es `end_time − 1 s` en la zona de la cuenta (R39).
+      const fin = Date.parse(v.end_time);
+      const dia = Number.isNaN(fin) ? undefined : localParts(new Date(fin - 1000), zona).dia;
+      if (dia) res.followerCount.push({ dia, valor: v.value });
     }
   } catch (err) {
     res.errores.push(`follower_count: ${msgOf(err)}`);

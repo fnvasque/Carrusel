@@ -801,7 +801,8 @@ async function snapshotTick(): Promise<void> {
         if (nuevas.length) console.log(`📈 Instantáneas nuevas: ${nuevas.map((i) => `${i.mediaId} ${i.ventana}`).join(", ")}`);
       } finally {
         // Aunque la toma falle a medias, lo que alcanzó a escribirse se guarda (sin cambios, no hace nada).
-        await commitMetricas([join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json")], `métricas: instantáneas ${dia}`);
+        // R51: también la calibración (`_metricas/calibracion/`), que el Mac copia a su metrics/.
+        await commitMetricas([join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion")], `métricas: instantáneas ${dia}`);
       }
     });
     ultimoErrorMetricas.delete("instantáneas");
@@ -942,28 +943,34 @@ function depsCalendario(): SchedulerDeps {
   });
   calDeps = {
     ...base,
-    // El commit entra a la cadena serial (nunca a mitad de un guardado o de un pull) pero
-    // sin esperarla: un guardado largo no puede atrasar una publicación.
-    commit: (paths, mensaje) => {
-      // Un fallo no se pierde: se avisa por Telegram (una vez por error distinto). El push
-      // fallido ya lo avisa `setSyncErrorHandler`; lo no commiteado sube con el próximo commit.
-      void serial(() => commitPaths(paths, mensaje)).then(
-        () => { ultimoErrorCommit = undefined; },
-        (e) => {
-          const msg = sinToken(errText(e));
-          if (msg === ultimoErrorCommit) return;
-          ultimoErrorCommit = msg;
-          void notifyAdmin(`⚠️ Calendario: no pude commitear ${paths.length} archivo(s) («${mensaje}»): ${msg}`);
-        },
-      );
-      return Promise.resolve();
+    // R50: estado.json, registro.jsonl y su commit van juntos en la cadena serial: nunca a
+    // la vez que una pull con --autostash (guardados, sincronización). El costo: una
+    // publicación puede esperar a que termine un guardado de ficha.
+    enSerie: serial,
+    // Ya dentro de la cadena (enSerie): no vuelve a entrar a `serial` (se trabaría).
+    commit: async (paths, mensaje) => {
+      try {
+        await commitPaths(paths, mensaje);
+        ultimoErrorCommit = undefined;
+      } catch (e) {
+        // Un fallo no se pierde: se avisa por Telegram (una vez por error distinto). El push
+        // fallido ya lo avisa `setSyncErrorHandler`; lo no commiteado sube con el próximo commit.
+        const msg = sinToken(errText(e));
+        if (msg === ultimoErrorCommit) return;
+        ultimoErrorCommit = msg;
+        void notifyAdmin(`⚠️ Calendario: no pude commitear ${paths.length} archivo(s) («${mensaje}»): ${msg}`);
+      }
     },
   };
   return calDeps;
 }
 
-function commitCalendario(paths: string[], mensaje: string): void {
-  void depsCalendario().commit(paths, mensaje);
+/** `programado` en estado.json + su commit, en la cadena serial (R50). */
+async function programarPieza(semana: string, id: string): Promise<void> {
+  await serial(async () => {
+    await escribirEstado(semana, id, { estado: "programado" });
+    await depsCalendario().commit([estadoPath(semana)], `calendario: programado ${id}`);
+  });
 }
 
 /** `n` semanas desde el lunes `desde`. Un plan.json inválido se informa y se omite. */
@@ -1068,9 +1075,8 @@ async function cmdPublicar(chatId: number, arg: string): Promise<void> {
     const r = s.render[p.id];
     if (!s.estado[p.id] && r?.estado === "renderizado" && r.medios) {
       // Recién renderizada: se programa aquí (su preview sale en la próxima revisión).
-      await escribirEstado(s.semana, p.id, { estado: "programado" });
+      await programarPieza(s.semana, p.id);
       s.estado[p.id] = { estado: "programado" };
-      commitCalendario([estadoPath(s.semana)], `calendario: programado ${p.id}`);
     }
     const ef = estadoEfectivo(p, r, s.estado[p.id]);
     if (ef !== "programado") return say(`Solo publico piezas programadas: ${p.id} está ${ef}.`);
@@ -1188,9 +1194,8 @@ async function revisarCalendario(): Promise<void> {
     for (const x of previewsPendientes(semanas, ahora, (k) => Boolean(leerClaveDb(K_PREVIEW + k)))) {
       const s = semanas.find((y) => y.semana === x.semana)!;
       if (x.nueva) {
-        await escribirEstado(x.semana, x.pieza.id, { estado: "programado" });
+        await programarPieza(x.semana, x.pieza.id);
         s.estado[x.pieza.id] = { estado: "programado" };
-        commitCalendario([estadoPath(x.semana)], `calendario: programado ${x.pieza.id}`);
       }
       if (await enviarPreview(s, x.pieza, x.medios)) guardarClaveDb(K_PREVIEW + claveFila(x.semana, x.pieza.id), ahora.toISOString());
       else console.warn(`⚠️  El preview de ${x.pieza.id} no llegó a ningún chat; lo reintento en la próxima revisión.`);

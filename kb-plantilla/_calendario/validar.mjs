@@ -456,6 +456,37 @@ export function contarFondosIA(borradores) {
   return n;
 }
 
+/**
+ * `parametros` (obligatorio, R52): cada clave de `config.puerta` con el valor que se usó
+ * al producir la pieza, del mismo tipo que su `valor` en config (número, true/false o
+ * lista). Sin esto el bucle no puede comparar parámetros de la puerta. Se permiten
+ * claves extra (la variable del experimento, `tituloPalabras`…).
+ */
+function erroresDeParametros(parametros, config) {
+  if (parametros === undefined || parametros === null) {
+    return ["falta parametros (cada clave de config.puerta con el valor que usaste; ver INSTRUCCIONES.md, \"Fuente y parámetros\")"];
+  }
+  if (!esObj(parametros)) return ["parametros debe ser un objeto"];
+  const claves = esObj(config) && esObj(config.puerta) ? Object.keys(config.puerta) : [];
+  const errs = [];
+  for (const k of claves) {
+    const ref = puerta(config, k);
+    if (!Object.hasOwn(parametros, k)) {
+      errs.push(`falta parametros.${k} (el valor de puerta.${k} que usaste)`);
+      continue;
+    }
+    const v = parametros[k];
+    if (Array.isArray(ref)) {
+      if (!Array.isArray(v)) errs.push(`parametros.${k} debe ser una lista (como puerta.${k})`);
+    } else if (typeof ref === "boolean") {
+      if (typeof v !== "boolean") errs.push(`parametros.${k} debe ser true o false (como puerta.${k})`);
+    } else if (typeof ref === "number") {
+      if (typeof v !== "number" || !Number.isFinite(v)) errs.push(`parametros.${k} debe ser un número (como puerta.${k})`);
+    }
+  }
+  return errs;
+}
+
 /** Errores de los campos de planificación de una pieza (los que exige la puerta). */
 function erroresDePieza(p, config) {
   const errs = [];
@@ -492,7 +523,7 @@ function erroresDePieza(p, config) {
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
-  if (p.parametros !== undefined && !esObj(p.parametros)) errs.push("parametros debe ser un objeto");
+  errs.push(...erroresDeParametros(p.parametros, config));
   errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined));
   return errs;
 }
@@ -860,7 +891,21 @@ export const EJEMPLO = {
           "Automatización para estudiar: 6 PDFs convertidos en un podcast gratis.\n\nGuárdalo para tu próxima semana de lectura y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
         borrador: "lun-reel-pdfs-a-podcast.json",
         estado: "planificado",
-        parametros: { tituloPalabras: 7, terminosTecnicos: 0, logoEnCuadro0: true },
+        parametros: {
+          tituloMaxPalabras: 12,
+          bulletMaxPalabras: 12,
+          cuerpoMaxPalabras: 30,
+          terminosTecnicosMax: 1,
+          siglasPermitidas: ["GPT", "PDF", "IA", "DM"],
+          relleno: ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"],
+          hookUmbral: 8,
+          lecturaPalabrasPorSegundo: 2.5,
+          lecturaMinSegundos: 1.5,
+          reescriturasMax: 3,
+          logoEnCuadro0: true,
+          tituloPalabras: 7,
+          hook: "curiosidad",
+        },
       },
     ],
   },

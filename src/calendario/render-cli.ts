@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { abortStaleRebase, pullKb, setSyncErrorHandler } from "../kb/store.ts";
 import { leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "./plan.ts";
 import {
-  clonKbCalendario, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
+  clonKbCalendario, copiarCalibracion, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
   verificarReal,
   type EnvRender,
 } from "./render.ts";
@@ -113,6 +113,15 @@ try {
   if (await abortStaleRebase()) console.warn("⚠️  Había un rebase a medias en la base; lo aborté.");
   const pull = await pullKb();
   await avisarPullUnaVez(pull.error);
+  // R51: la calibración que escribe el bot llega por la base; se copia a metrics/ de este repo.
+  if (!dryRun) {
+    try {
+      const n = await copiarCalibracion(clon.dir);
+      if (n) console.log(`📐 Calibración: ${n} métrica(s) de la base copiadas a metrics/.`);
+    } catch (e) {
+      console.warn(`⚠️  Calibración: ${ocultarToken(e instanceof Error ? e.message : String(e), token)}`);
+    }
+  }
 
   const nombres = await listarSemanas();
   if (!dryRun) {

@@ -87,6 +87,21 @@ await checkAsync("tomarInstantaneas: escribe fila, jsonl, posts.json y puente a 
     assert.deepEqual(refrescos, [metricsDir]);
   }));
 
+// R51: en el servidor no hay metrics/ persistente; el puente escribe en la base (viaja por git al Mac).
+await checkAsync("tomarInstantaneas (R51): por defecto el puente escribe <KB>/_metricas/calibracion/<nombre>.json (formato record.ts) y no toca metrics/", () =>
+  conBase(async (dir) => {
+    openDb();
+    const cwdMetrics = join(process.cwd(), "metrics", "lun-reel-x-motor.json");
+    const antes = existsSync(cwdMetrics);
+    await tomarInstantaneas(AHORA_7D, { fetch: async () => ins(), posts: [motor()] });
+    const ruta = join(dir, "_metricas", "calibracion", "lun-reel-x-motor.json");
+    const calib = JSON.parse(readFileSync(ruta, "utf8"));
+    assert.deepEqual(Object.keys(calib), ["name", "predictedScore", "recordedAt", "saves", "shares", "reach", "likes", "savesPerK", "sharesPerK"]);
+    assert.equal(calib.predictedScore, 82);
+    assert.ok(!existsSync(join(dir, "_metricas", "calibracion", "calibration.json")), "la calibración la recalcula el Mac");
+    assert.equal(existsSync(cwdMetrics), antes, "no escribe en metrics/ del proceso");
+  }));
+
 await checkAsync("tomarInstantaneas: el jsonl usa el día local de Chile, no el UTC", () =>
   conBase(async (dir) => {
     openDb();

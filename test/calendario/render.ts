@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorContenido, clonKbCalendario, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar,
+  ErrorContenido, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar,
   sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
@@ -553,6 +553,34 @@ await checkAsync("clonKbCalendario (R49): clona de KB_REPO o del origin de knowl
     writeFileSync(join(sucia, "x"), "x");
     const d = await clonKbCalendario({ env: { KB_REPO: bare, CALENDARIO_KB_DIR: sucia }, cwd: raiz, home: raiz });
     assert.ok("error" in d && /no es un clon/.test(d.error), JSON.stringify(d));
+  } finally {
+    rmSync(raiz, { recursive: true, force: true });
+  }
+});
+
+// R51: el Mac trae la calibración de la base (el bot la escribe) y la proyección sale en score/generate/remix.
+await checkAsync("copiarCalibracion (R51): _metricas/calibracion/*.json → metrics/ del repo y refreshCalibration; ignora lo que no es métrica", async () => {
+  const raiz = mkdtempSync(join(tmpdir(), "cal-calib-"));
+  try {
+    const kb = join(raiz, "kb");
+    const origen = join(kb, "_metricas", "calibracion");
+    mkdirSync(origen, { recursive: true });
+    const m = (name: string, score: number, saves: number) => ({
+      name, predictedScore: score, recordedAt: "2026-10-19T22:30:00.000Z", saves, shares: 1, reach: 100, likes: 3, savesPerK: saves * 10, sharesPerK: 10,
+    });
+    writeFileSync(join(origen, "a.json"), JSON.stringify(m("a", 70, 1)));
+    writeFileSync(join(origen, "b.json"), JSON.stringify(m("b", 80, 3)));
+    writeFileSync(join(origen, "c.json"), JSON.stringify(m("c", 90, 5)));
+    writeFileSync(join(origen, "calibration.json"), "{\"no\": \"se copia\"}");
+    writeFileSync(join(origen, "notas.txt"), "x");
+    const metrics = join(raiz, "repo", "metrics");
+    const n = await copiarCalibracion(kb, metrics);
+    assert.equal(n, 3);
+    assert.deepEqual(readdirSync(metrics).sort(), ["a.json", "b.json", "c.json", "calibration.json"]);
+    const modelo = JSON.parse(readFileSync(join(metrics, "calibration.json"), "utf8"));
+    assert.equal(modelo.n, 3, "refreshCalibration corrió con las 3 métricas copiadas");
+    // Sin carpeta en la base: no hace nada.
+    assert.equal(await copiarCalibracion(join(raiz, "vacia"), metrics), 0);
   } finally {
     rmSync(raiz, { recursive: true, force: true });
   }

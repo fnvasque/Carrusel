@@ -125,8 +125,19 @@ check("ganadores: 10 piezas de guardados → las 2 mejores", () => {
   assert.deepEqual(ganadores(m).sort(), ["g10", "g9"]);
 });
 
-check("ganadores: 4 piezas → ninguna (muy pocas)", () => {
-  assert.deepEqual(ganadores([1, 2, 3, 4].map((v) => med({ valor: v }))), []);
+// R53: "ganadores desde la primera semana medida" (spec). Con 2–4 piezas medidas de una
+// señal, la mejor gana; con ≥ 5, el 20 % superior con redondeo hacia arriba.
+check("ganadores (R53): 4 piezas → la mejor; 2 → la mejor; 1 → ninguna", () => {
+  assert.deepEqual(ganadores([1, 2, 3, 4].map((v) => med({ piezaId: `q${v}`, valor: v }))), ["q4"]);
+  assert.deepEqual(ganadores([1, 7].map((v) => med({ piezaId: `q${v}`, valor: v }))), ["q7"]);
+  assert.deepEqual(ganadores([med({ piezaId: "sola", valor: 9 })]), []);
+  // Empate en el corte con pocas piezas: entran todos los empatados (si superan al peor).
+  assert.deepEqual(ganadores([5, 5, 1].map((v, i) => med({ piezaId: `t${i}`, valor: v }))).sort(), ["t0", "t1"]);
+});
+
+check("ganadores (R53): ≥ 5 piezas → 20 % superior redondeado hacia arriba (6 → 2, 11 → 3)", () => {
+  assert.deepEqual(ganadores([1, 2, 3, 4, 5, 6].map((v) => med({ piezaId: `s${v}`, valor: v }))).sort(), ["s5", "s6"]);
+  assert.deepEqual(ganadores(Array.from({ length: 11 }, (_, i) => med({ piezaId: `o${i + 1}`, valor: i + 1 }))).sort(), ["o10", "o11", "o9"]);
 });
 
 check("ganadores: 5 piezas → la mejor (mínimo 1)", () => {
@@ -445,10 +456,11 @@ check("construirBucle: ganadores con derivados pendientes; NaN en el registro no
   const ii = ids.map((id) => inst(id, { saved: Number(id) }));
   const reg = ids.map((id) => regl(id, { tema: id === "6" ? "[[Agentes]]" : "[[IA]]", duracionMs: id === "2" ? NaN : 20000 }));
   const b = construirBucle({ ahora: AHORA, instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {} });
-  assert.deepEqual(b.ganadores.map((g) => g.piezaId), ["pz-6"]);
-  assert.equal(b.ganadores[0]!.tema, "Agentes");
-  assert.deepEqual(b.ganadoresVistos, { "2026-10-12/pz-6": "2026-10-19" });
-  assert.deepEqual(b.derivados, [{ de: "pz-6", tema: "Agentes", hasta: "2026-11-02" }]);
+  // R53: con 6 piezas, el 20 % superior redondeado hacia arriba son 2.
+  assert.deepEqual(b.ganadores.map((g) => g.piezaId), ["pz-5", "pz-6"]);
+  assert.equal(b.ganadores[1]!.tema, "Agentes");
+  assert.deepEqual(b.ganadoresVistos, { "2026-10-12/pz-5": "2026-10-19", "2026-10-12/pz-6": "2026-10-19" });
+  assert.deepEqual(b.derivados, [{ de: "pz-5", tema: "IA", hasta: "2026-11-02" }, { de: "pz-6", tema: "Agentes", hasta: "2026-11-02" }]);
   assert.equal(b.pesos.tema.IA?.n, 5);
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
 });
@@ -457,14 +469,15 @@ check("construirBucle (R37): el bucle anterior conserva la fecha del ganador y e
   const ids = ["1", "2", "3", "4", "5", "6"];
   const ii = ids.map((id) => inst(id, { saved: Number(id) }));
   const reg = ids.map((id) => regl(id));
-  const anterior = { ganadoresVistos: { "2026-10-12/pz-6": "2026-10-19" } };
+  // R53: con 6 piezas ganan pz-5 y pz-6 (20 % hacia arriba).
+  const anterior = { ganadoresVistos: { "2026-10-12/pz-5": "2026-10-19", "2026-10-12/pz-6": "2026-10-19" } };
   const b2 = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {}, anterior });
-  assert.deepEqual(b2.ganadoresVistos, { "2026-10-12/pz-6": "2026-10-19" });
+  assert.deepEqual(b2.ganadoresVistos, { "2026-10-12/pz-5": "2026-10-19", "2026-10-12/pz-6": "2026-10-19" });
   assert.equal(b2.derivados[0]?.hasta, "2026-11-02");
   const b4 = construirBucle({ ahora: new Date("2026-11-08T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {}, anterior });
   assert.deepEqual(b4.derivados, [], "W + 14 desde la primera vez ya pasó");
   const corrupto = construirBucle({ ahora: new Date("2026-11-08T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: {}, anterior: "{roto" });
-  assert.deepEqual(corrupto.ganadoresVistos, { "2026-10-12/pz-6": "2026-11-09" });
+  assert.deepEqual(corrupto.ganadoresVistos, { "2026-10-12/pz-5": "2026-11-09", "2026-10-12/pz-6": "2026-11-09" });
 });
 
 check("medicionesDe (R20): mismo id en dos semanas toma los parametros del plan de su propia semana", () => {

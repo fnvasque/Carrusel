@@ -47,8 +47,10 @@ check("adversario T12: R37 — ganador de la semana W sigue pendiente en W + 21 
 });
 
 check("adversario T12: R37 — un ganador identificado tarde (el grupo llega a 5 piezas semanas después) no nace vencido", () => {
-  // 4 piezas de guardados en W: muy pocas, no hay ganador. La 5.ª llega 4 semanas después y
-  // recién ahí la mejor de W se identifica como ganadora: su ventana empieza ahí (R37).
+  // Antes de R53 4 piezas eran "muy pocas" y la 5.ª identificaba tarde a la mejor de W. Con R53
+  // ("ganadores desde la primera semana medida") w10 ya gana con 4; sigue valiendo que un ganador
+  // sin historial en bucle.json no nace vencido: su ventana empieza en la semana que se planifica (R37).
+  assert.deepEqual(ganadores([1, 2, 3, 10].map((v) => med({ piezaId: `w${v}`, valor: v, semana: "2026-10-12" }))), ["w10"]);
   const m = [
     ...[1, 2, 3, 10].map((v) => med({ piezaId: `w${v}`, valor: v, semana: "2026-10-12" })),
     med({ piezaId: "tarde", valor: 2, semana: "2026-11-09" }),

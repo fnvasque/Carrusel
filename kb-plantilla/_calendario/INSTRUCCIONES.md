@@ -88,7 +88,9 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   `seguidoresPorPieza`.
 - `ganadores`: piezas en el 20 % superior de su señal a 7 días, cada una
   comparada solo con las de su misma escala (`piezaId`, `senal`, `valor`,
-  `modo`, `semana`, `tema`).
+  `modo`, `semana`, `tema`). Hay ganadores desde la primera semana medida: con
+  2 a 4 piezas medidas de una señal gana la mejor; con 5 o más, el 20 %
+  superior redondeado hacia arriba (los empatados en el corte entran todos).
 - `ganadoresVistos`: la primera semana de planificación en que cada ganador
   apareció (lo mantiene el bot de un domingo al siguiente). Solo informativo.
 - `derivados`: lo que debes programar en la prioridad (a) del Paso 3: `de` (id
@@ -334,6 +336,37 @@ presupuesto de tiempo (rigen solo las longitudes de la puerta).
 - Score léxico ≥ `scoreMin` (75): si el repo de código no está al lado, el
   validador lo omite con un aviso y lo revisa el Mac.
 
+### Score léxico (≥ 75): apunta alto desde la nube
+
+**Advertencia.** En la nube el validador casi nunca puede calcular el score
+léxico (el repo de código no está al lado: verás un aviso, no un error). Eso
+**no** significa que la pieza pase: el score ≥ `scoreMin` (75)
+**se revalida en el Mac** antes de renderizar, y una pieza bajo 75 se marca
+fallida y queda como **hueco vacío** ese día (no se reemplaza ni se publica tarde). Escribe cada
+borrador apuntando holgado sobre 75 con estas palancas (pesos de
+`src/score/virality.ts`, sobre 100):
+
+- **Hook (30)**: un **número** en el título (6); tensión o enemigo ("no",
+  "deja de", "gratis", "sin", "nunca", "error") en título o subtítulo (8); un
+  bucle abierto ("por qué", "todavía", "el truco", "#3") (6); `highlight`
+  definido (5); título de 12 a 48 caracteres (5).
+- **Estructura (15)**: **6 a 8 slides** (7; con 5 o 9, solo 3); un `Lead` o
+  `MythReality` que replantee el problema (4); cierre con `Cta` (4).
+- **Accionable (20)**: una **acción** concreta en cada `Step`/`Prompt`/`Stat`
+  ("prueba", "copia", "escribe", "pega", "abre", "usa", "entra a", o el prompt
+  entre comillas) (3 por slide, hasta 8); números en el texto (2 por número,
+  hasta 6); `source` con la **fuente** en alguna slide (2 por slide, hasta 6).
+- **Retención (15)**: pasos numerados (`step` en los `Step`, o un `Stat` con
+  número) (7); el indicador de progreso lo pone el motor.
+- **CTA (10)**: el título del `Cta` pide guardar o compartir ("Guárdalo",
+  "Mándaselo", "Compártelo") (6) y lleva `handle` (4).
+- **Marca (10, resta 3 por cada una)**: sin **hype** ("increíble",
+  "revolucionario", "brutal"…), sin miedo ("te reemplaza"), sin **jerga**
+  ("llm", "token", "embedding", "fine-tuning", "prompt engineering") y sin
+  clickbait ("no vas a creer", "esto lo cambia todo").
+
+Si el repo de código sí está al lado, el validador calcula el score y lo exige.
+
 ### Catálogo de plantillas
 
 Copia de `TEMPLATE_CATALOG` (`src/remix/templates-catalog.ts`). Todas las props
@@ -363,10 +396,14 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 - `source` al pie de alguna slide (normalmente el `Cta`): cita la ficha o
   referencia de origen ("Fuente: notebooklm.google.com"). `origen` en
   `plan.json` lista las rutas de la base que usaste.
-- `parametros` en `plan.json`: los valores con que se produjo la pieza
-  (`tituloPalabras` del Hook, `terminosTecnicos` usados, `logoEnCuadro0`, y el
-  valor de la variable del experimento si la pieza participa). Es lo que el
-  bucle compara a las 4 semanas.
+- `parametros` es obligatorio en cada pieza de `plan.json`: lleva **todas** las
+  claves de `config.json → puerta` con el valor que usaste al producir la pieza,
+  del mismo tipo que en `config.json` (número, `true`/`false` o lista). Si no
+  cambiaste nada, copia los `valor` de `config.json`; si la pieza participa en un
+  experimento sobre un parámetro, pon el valor que probaste. Puedes agregar
+  claves extra (`tituloPalabras` del Hook, el valor de la variable del
+  experimento). Es lo que el bucle compara a las 4 semanas: sin él, el
+  validador rechaza la pieza.
 
 ### Esqueleto de `plan.json`
 
@@ -562,9 +599,31 @@ Una entrada de `plan.json → piezas`:
   "borrador": "lun-reel-pdfs-a-podcast.json",
   "estado": "planificado",
   "parametros": {
+    "tituloMaxPalabras": 12,
+    "bulletMaxPalabras": 12,
+    "cuerpoMaxPalabras": 30,
+    "terminosTecnicosMax": 1,
+    "siglasPermitidas": [
+      "GPT",
+      "PDF",
+      "IA",
+      "DM"
+    ],
+    "relleno": [
+      "increíble",
+      "brutal",
+      "realmente",
+      "básicamente",
+      "la verdad",
+      "muy"
+    ],
+    "hookUmbral": 8,
+    "lecturaPalabrasPorSegundo": 2.5,
+    "lecturaMinSegundos": 1.5,
+    "reescriturasMax": 3,
+    "logoEnCuadro0": true,
     "tituloPalabras": 7,
-    "terminosTecnicos": 0,
-    "logoEnCuadro0": true
+    "hook": "curiosidad"
   }
 }
 ```

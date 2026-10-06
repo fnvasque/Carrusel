@@ -143,6 +143,9 @@ mapeo del score predicho a tus tasas reales (saves/1k, shares/1k) y lo guardan e
 `metrics/calibration.json`. Desde entonces, cada reporte de score (`score`, `generate`, `remix`)
 muestra una **proyección** "≈ X saves/1k · Y shares/1k según tus datos", así el número del
 indicador se traduce a resultados reales esperados (marcada como *preliminar* con pocos datos).
+Con el calendario automático no hace falta `record`: el bot escribe cada instantánea de 7 días de
+una pieza del motor en `_metricas/calibracion/<nombre>.json` de la base, y `calendario:render`
+(en el Mac) las copia a `metrics/` y recalcula `calibration.json` en cada corrida.
 
 Notas: el score está calibrado para carruseles tipo "how-to/herramienta"; los de
 mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan el umbral).

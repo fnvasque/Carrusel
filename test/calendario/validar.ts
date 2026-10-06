@@ -35,6 +35,8 @@ const CONFIG_BASE = JSON.parse(readFileSync(join(DIR, "config.json"), "utf8"));
 const config = { ...CONFIG_BASE, audios: ["lima-01.mp3"] };
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+/** `parametros` completo (R52): cada clave de config.puerta con el valor usado. */
+const PARAMETROS = Object.fromEntries(Object.entries(CONFIG_BASE.puerta).map(([k, v]) => [k, (v as { valor: unknown }).valor]));
 const has = (errs: string[], re: RegExp) => errs.some((e) => re.test(e));
 const assertHas = (errs: string[], re: RegExp) => assert.ok(has(errs, re), `se esperaba un error ${re}; hubo: ${JSON.stringify(errs)}`);
 const assertNone = (errs: string[]) => assert.deepEqual(errs, []);
@@ -59,6 +61,7 @@ function pieza(over: Record<string, unknown> = {}): any {
     caption: "Automatización para estudiar: tus PDFs convertidos en un podcast.\n\nGuárdalo para la próxima.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
     borrador: "lun-reel-resumir-pdfs.json",
     estado: "planificado",
+    parametros: clone(PARAMETROS),
     ...over,
   };
 }
@@ -686,6 +689,37 @@ check("calendario/validar: JSON inválido → mensaje con la línea, sin repetir
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// R52: sin `parametros` el bucle no puede comparar los parámetros de la puerta.
+check("calendario/validar (R52): parametros obligatorio con TODAS las claves de config.puerta y el tipo de su valor", () => {
+  assertNone(validarPieza(pieza(), config));
+  assertHas(validarPieza(pieza({ parametros: undefined }), config), /falta parametros/);
+  const sinClave = clone(PARAMETROS);
+  delete sinClave.hookUmbral;
+  delete sinClave.relleno;
+  const e = validarPieza(pieza({ parametros: sinClave }), config);
+  assertHas(e, /parametros\.hookUmbral/);
+  assertHas(e, /parametros\.relleno/);
+  assertHas(validarPieza(pieza({ parametros: { ...PARAMETROS, tituloMaxPalabras: "12" } }), config), /parametros\.tituloMaxPalabras.*número/);
+  assertHas(validarPieza(pieza({ parametros: { ...PARAMETROS, logoEnCuadro0: "sí" } }), config), /parametros\.logoEnCuadro0.*true o false/);
+  assertHas(validarPieza(pieza({ parametros: { ...PARAMETROS, siglasPermitidas: "GPT" } }), config), /parametros\.siglasPermitidas.*lista/);
+  assertHas(validarPieza(pieza({ parametros: [] }), config), /parametros debe ser un objeto/);
+  // Claves extra (p. ej. la variable del experimento o tituloPalabras) se permiten.
+  assertNone(validarPieza(pieza({ parametros: { ...PARAMETROS, tituloPalabras: 7, hook: "curiosidad" } }), config));
+  // INSTRUCCIONES.md lo explica.
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  assert.match(md, /`parametros` es obligatorio/);
+});
+
+// R47: en la nube el score léxico suele no correr; el Mac lo revalida y bajo 75 la pieza queda en hueco vacío.
+check("calendario/validar (R47): INSTRUCCIONES.md advierte que el score ≥ 75 se revalida en el Mac y lista las palancas de virality.ts", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  const sec = md.slice(md.indexOf("### Score léxico"), md.indexOf("###", md.indexOf("### Score léxico") + 5));
+  assert.ok(sec.length > 100, "falta la sección «Score léxico»");
+  assert.match(sec, /se revalida en el Mac/);
+  assert.match(sec, /hueco vacío/);
+  for (const palanca of [/número/, /CTA/, /acción/, /hype/, /jerga/, /highlight/, /6 a 8 slides/, /fuente/i]) assert.match(sec, palanca);
 });
 
 // R46 + punto 14: lo que el agente copia de INSTRUCCIONES.md pasa validar.mjs Y plan.ts (bot y Mac).

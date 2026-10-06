@@ -215,3 +215,12 @@ check("debeResumir en los domingos de cambio de hora (2026-09-06 y 2026-04-05)",
   assert.equal(debeResumir(new Date("2026-04-05T09:30:00Z"), "2026-03-29"), true);
   assert.equal(debeResumir(new Date("2026-04-05T09:30:00Z"), "2026-04-05"), false);
 });
+
+// Adversario final 3: el scheduler anota el permalink en una línea `tipo: "permalink"` aparte.
+check("resumirSemana: el permalink de una línea `permalink` del registro se asocia por mediaId", () => {
+  const sinLink = reg("a", "guardados", { permalink: undefined });
+  const linea = { tipo: "permalink", piezaId: "pz-a", semana: "2026-09-28", mediaId: "a", permalink: "https://www.instagram.com/reel/AAA/" };
+  const r = resumirSemana([inst("a", { saved: 30 }), inst("b", { saved: 5 })], cuenta, [sinLink, reg("b"), linea], HASTA, 50);
+  assert.equal(r.mejor?.mediaId, "a");
+  assert.equal(r.mejor?.permalink, "https://www.instagram.com/reel/AAA/");
+});

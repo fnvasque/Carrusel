@@ -460,6 +460,68 @@ await checkAsync("tick: caída entre la fila 'publicado' y el registro → el si
   assert.equal(w.meta.publicaciones, 1);
 });
 
+// R50 / I2: una pull con --autostash del bot no puede cruzarse con escrituras del scheduler.
+await checkAsync("tick (R50): estado.json, registro.jsonl y su commit se escriben dentro de enSerie (publicado, story, permalink, salto, reparación)", async () => {
+  const sinRender = piezaDe({ id: "mar-sin-render", dia: "2026-10-13", formato: "carrusel", borrador: "mar-sin-render.json" });
+  const s = semanaDe([lunes, sinRender], { [lunes.id]: render() }, { [lunes.id]: { estado: "programado" } });
+  const w = mundo([s]);
+  let dentro = 0;
+  const fuera: string[] = [];
+  const llamadas: string[] = [];
+  w.deps.enSerie = async (fn) => {
+    dentro++;
+    try {
+      return await fn();
+    } finally {
+      dentro--;
+    }
+  };
+  for (const k of ["escribirEstado", "anotarRegistro", "commit"] as const) {
+    const orig = w.deps[k] as (...a: unknown[]) => Promise<unknown>;
+    (w.deps as unknown as Record<string, unknown>)[k] = async (...a: unknown[]) => {
+      llamadas.push(k);
+      if (!dentro) fuera.push(k);
+      return orig(...a);
+    };
+  }
+  w.deps.leerRegistro = async () => [...w.registro];
+  const get = w.deps.graph.get;
+  w.deps.graph = { ...w.deps.graph, get: async <T>(p: string, q?: Record<string, string | number | undefined>) =>
+    (/^m\d+$/.test(p) ? ({ id: p, permalink: "https://www.instagram.com/reel/R50/" } as T) : get<T>(p, q)) };
+  await tick(w.deps); // publica
+  w.reloj.t += 61 * 60_000;
+  w.meta.reloj = w.reloj.t;
+  await tick(w.deps); // story
+  w.reloj.t = Date.parse("2026-10-13T23:00:00Z");
+  w.meta.reloj = w.reloj.t;
+  await tick(w.deps); // permalink del día siguiente + salto de la pieza sin render
+  // Reparación: estado.json viejo traído por un pull.
+  s.estado[lunes.id] = { estado: "programado" };
+  w.reloj.t += 60_000;
+  await tick(w.deps);
+  assert.ok(llamadas.includes("escribirEstado") && llamadas.includes("anotarRegistro") && llamadas.includes("commit"));
+  assert.ok(w.registro.some((l) => l.tipo === "permalink"), "precondición: hubo permalink");
+  assert.ok(w.registro.some((l) => l.tipo === "saltado"), "precondición: hubo salto");
+  assert.deepEqual(fuera, [], `escrituras fuera de la cadena serial: ${fuera.join(", ")}`);
+});
+
+await checkAsync("tick (R50): una línea `publicado` que se pierde DESPUÉS de anotarla (pull con autostash) se repara sin reiniciar el bot", async () => {
+  const w = mundo([programada()]);
+  w.deps.leerRegistro = async () => [...w.registro];
+  await tick(w.deps);
+  assert.equal(w.registro.filter((l) => l.tipo === "publicado").length, 1);
+  // Un pull con autostash dejó registro.jsonl sin la línea (quedó solo en el stash).
+  w.registro.splice(0, w.registro.length);
+  for (let i = 0; i < 10; i++) {
+    w.reloj.t += 60_000;
+    await tick(w.deps);
+  }
+  assert.equal(w.registro.filter((l) => l.tipo === "publicado").length, 1, "a los 10 min, sin reiniciar, la línea vuelve");
+  w.reloj.t += 60_000;
+  await tick(w.deps);
+  assert.equal(w.registro.filter((l) => l.tipo === "publicado").length, 1, "idempotente");
+});
+
 await checkAsync("tick: render fallido → a su hora saltado 'render fallido: <motivo>' con fila terminal", async () => {
   const w = mundo([semanaDe([lunes], { [lunes.id]: { estado: "fallido", motivo: "score 61 < 75", en: "2026-10-11T10:00:00Z" } })]);
   w.reloj.t -= 60_000;

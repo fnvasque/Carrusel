@@ -54,7 +54,12 @@ export function leerCuenta(): unknown {
   }
 }
 
-/** Líneas `tipo: "publicado"` de `registro.jsonl` (las rotas se ignoran). */
+/**
+ * Líneas `tipo: "publicado"` de `registro.jsonl` (las rotas se ignoran), con el
+ * `permalink` que el scheduler anota al día siguiente en una línea `tipo: "permalink"`
+ * aparte, unido por `mediaId`. Así el resumen lleva links y `/metricas <link>` encuentra
+ * piezas del motor más viejas que el listado de 35 días de Meta.
+ */
 export function leerRegistroPublicados(): Record<string, unknown>[] {
   let t: string;
   try {
@@ -63,16 +68,23 @@ export function leerRegistroPublicados(): Record<string, unknown>[] {
     return [];
   }
   const out: Record<string, unknown>[] = [];
+  const links = new Map<string, string>();
   for (const l of t.split("\n")) {
     if (!l.trim()) continue;
     try {
       const r = JSON.parse(l) as Record<string, unknown>;
       if (r && r.tipo === "publicado") out.push(r);
+      else if (r && r.tipo === "permalink" && typeof r.mediaId === "string" && typeof r.permalink === "string" && r.permalink) {
+        links.set(r.mediaId, r.permalink);
+      }
     } catch {
       // línea corrupta: se ignora.
     }
   }
-  return out;
+  return out.map((r) => {
+    const link = typeof r.mediaId === "string" ? links.get(r.mediaId) : undefined;
+    return link && typeof r.permalink !== "string" ? { ...r, permalink: link } : r;
+  });
 }
 
 const num = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);

@@ -185,11 +185,28 @@ function accountFake(overrides: { online?: () => unknown } = {}) {
     return { data: [{ name: "reach", total_value: { value: 100 } }, { name: "accounts_engaged", total_value: { value: 9 } }] };
   });
 }
+// Adversario final 4 + R39: el día de follower_count es `end_time − 1 s` en la zona de la cuenta.
+await checkAsync("fetchAccountInsights: follower_count → día real = end_time − 1 s en la zona de la cuenta (America/Los_Angeles por defecto)", async () => {
+  const { get } = fake((_path, params) => (String(params.metric) === "follower_count"
+    ? { data: [{ name: "follower_count", values: [
+      { value: 1, end_time: "2026-10-13T07:00:00+0000" }, // fin del lunes 12 (PDT)
+      { value: 5, end_time: "2026-10-14T07:00:00+0000" }, // fin del martes 13
+      { value: 2, end_time: "2026-11-03T08:00:00+0000" }, // fin del lunes 2 de noviembre (PST, tras el cambio de hora)
+    ] }] }
+    : {}));
+  const r = await fetchAccountInsights(NOW, get, "IG");
+  assert.deepEqual(r.followerCount, [{ dia: "2026-10-12", valor: 1 }, { dia: "2026-10-13", valor: 5 }, { dia: "2026-11-02", valor: 2 }]);
+  // Con otra zona configurada (config.json → zonaOnlineFollowers), el día se calcula en esa zona.
+  const utc = await fetchAccountInsights(NOW, get, "IG", "UTC");
+  assert.deepEqual(utc.followerCount.map((f) => f.dia), ["2026-10-13", "2026-10-14", "2026-11-03"]);
+});
+
 await checkAsync("fetchAccountInsights: arma todos los campos", async () => {
   const { get, calls } = accountFake();
   const r = await fetchAccountInsights(NOW, get, "IG");
   assert.equal(r.followers, 42);
-  assert.deepEqual(r.followerCount, [{ dia: "2026-10-04", valor: 1 }, { dia: "2026-10-05", valor: 3 }]);
+  // end_time marca el FIN del día de Meta (07:00 UTC del día siguiente): el día real es el anterior.
+  assert.deepEqual(r.followerCount, [{ dia: "2026-10-03", valor: 1 }, { dia: "2026-10-04", valor: 3 }]);
   assert.deepEqual(r.onlineFollowers, { "0": 1, "14": 20 });
   assert.equal(r.reach7d, 100);
   assert.equal(r.engaged7d, 9);

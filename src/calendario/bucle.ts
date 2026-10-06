@@ -48,7 +48,10 @@ const SENALES: Senal[] = ["guardados", "envios", "comentarios", "retencion"];
 export const VARIABLES_FIJAS = ["tema", "arquetipo", "hora", "duracion", "hook"];
 const K_ENCOGIMIENTO = 3;
 const MIN_PIEZAS_PESO = 3;
-const MIN_PIEZAS_GANADOR = 5;
+/** R53: ganadores desde la primera semana medida: 2 piezas medidas de una señal ya bastan. */
+const MIN_PIEZAS_GANADOR = 2;
+/** Desde cuántas piezas rige el 20 % superior (antes, gana solo la mejor). */
+const GRUPO_20_POR_CIENTO = 5;
 const FRACCION_GANADORES = 0.2;
 const SEMANAS_DERIVADO = 2;
 const MAX_DERIVADOS = 2;
@@ -151,7 +154,8 @@ export function pesos(m: Medicion[], clave: "tema" | "arquetipo" | "hookCategori
 
 /**
  * Ganadores: el 20 % superior dentro de cada señal y escala, con la instantánea de
- * 7 d. Solo con ≥ 5 piezas de ese grupo (mínimo 1 ganador). Los empatados en el corte
+ * 7 d (R53: desde la primera semana medida). Con 2–4 piezas del grupo gana la mejor; con ≥ 5,
+ * el 20 % superior con redondeo hacia arriba. Con 1 sola no hay ganador. Los empatados en el corte
  * entran todos; si el corte no supera al peor del grupo (todos iguales, todos en 0),
  * nadie se distingue y no hay ganador.
  *
@@ -169,7 +173,9 @@ function medicionesGanadoras(m: Medicion[]): Medicion[] {
   for (const xs of grupos.values()) {
     if (xs.length < MIN_PIEZAS_GANADOR) continue;
     const orden = xs.map((x) => x.valor).sort((a, b) => b - a);
-    const corte = orden[Math.max(1, Math.floor(xs.length * FRACCION_GANADORES)) - 1]!;
+    // R53: con pocas piezas (< GRUPO_20_POR_CIENTO) gana la mejor; desde ahí, el 20 % superior hacia arriba.
+    const cuantos = xs.length < GRUPO_20_POR_CIENTO ? 1 : Math.ceil(xs.length * FRACCION_GANADORES);
+    const corte = orden[cuantos - 1]!;
     if (corte <= orden[orden.length - 1]!) continue;
     for (const x of xs) if (x.valor >= corte) out.push(x);
   }

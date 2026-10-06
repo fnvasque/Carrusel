@@ -54,14 +54,25 @@ interface DatosRegistro {
   publicadoEn?: string;
 }
 
-/** Líneas `tipo: "publicado"` del registro, por `mediaId`. Lo que no sea un objeto válido se ignora. */
+/**
+ * Líneas `tipo: "publicado"` del registro, por `mediaId`, con el link de las líneas
+ * `tipo: "permalink"` (el scheduler lo anota aparte al día siguiente). Lo que no sea un
+ * objeto válido se ignora.
+ */
 function indexarRegistro(registro: unknown[]): Map<string, DatosRegistro> {
   const out = new Map<string, DatosRegistro>();
   if (!Array.isArray(registro)) return out;
+  const links = new Map<string, string>();
   for (const r of registro) {
-    if (!esObj(r) || r.tipo !== "publicado") continue;
+    if (!esObj(r)) continue;
     const mediaId = texto(r.mediaId);
     if (!mediaId) continue;
+    if (r.tipo === "permalink") {
+      const link = texto(r.permalink);
+      if (link) links.set(mediaId, link);
+      continue;
+    }
+    if (r.tipo !== "publicado") continue;
     out.set(mediaId, {
       piezaId: texto(r.piezaId),
       permalink: texto(r.permalink),
@@ -69,6 +80,7 @@ function indexarRegistro(registro: unknown[]): Map<string, DatosRegistro> {
       publicadoEn: texto(r.publicadoEn),
     });
   }
+  for (const [mediaId, d] of out) d.permalink ??= links.get(mediaId);
   return out;
 }
 

@@ -271,6 +271,12 @@ export interface SchedulerDeps {
   mediaToken?: string;
   /** MEDIA_PUBLIC_BASE: con el token arma las URLs de los medios al publicar (R48). */
   mediaBase?: string;
+  /**
+   * Cadena serial del bot (R50): `escribirEstado`, `anotarRegistro` y su `commit` corren
+   * dentro, nunca a la vez que una pull con `--autostash`. `commit` NO debe volver a entrar
+   * a la cadena (se llama ya dentro). Sin esto, corren directo (tests, CLI).
+   */
+  enSerie?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 /** Valor de `calendario_estado.pausado` que significa "en pausa". */
@@ -286,9 +292,17 @@ interface Memoria {
   avisadosPendientes: Set<string>;
   /** Último intento de permalink por pieza (reintento cada hora si falla). */
   intentosPermalink: Map<string, number>;
-  /** media_id con su línea `publicado` ya comprobada en registro.jsonl. */
+  /** media_id con su línea `publicado` ya comprobada en registro.jsonl (se vacía cada 10 min). */
   registroVisto: Set<string>;
+  /** Última vez que se vació `registroVisto` (ms). */
+  registroRevisado?: number;
 }
+
+/** Cada cuánto `reparar` vuelve a comprobar registro.jsonl entero (R50). */
+const REVISAR_REGISTRO_MS = 10 * 60_000;
+
+/** Escrituras de estado.json/registro.jsonl y su commit, en la cadena serial del bot (R50). */
+const enSerie = <T>(deps: SchedulerDeps, fn: () => Promise<T>): Promise<T> => (deps.enSerie ? deps.enSerie(fn) : fn());
 const memorias = new WeakMap<SchedulerDeps, Memoria>();
 function memoria(deps: SchedulerDeps): Memoria {
   let m = memorias.get(deps);
@@ -441,48 +455,55 @@ async function cerrar(deps: SchedulerDeps, t: Tarea, s: SemanaLeida, r: Fila, av
   const en = deps.ahora().toISOString();
   const aviso = deps.modo === "aviso";
   const error = r.error ? limpiar(deps, r.error) : undefined;
+  let texto: string;
   try {
-    if (r.paso === "publicado") {
-      if (t.tipo === "post") {
-        await deps.escribirEstado(t.semana, id, {
-          estado: "publicado", containerId: r.containerId, mediaId: r.mediaId, publicadoEn: en,
-          ...(aviso ? { motivo: "modo aviso: no se publicó en Instagram" } : {}),
-        });
-        if (aviso) {
-          await deps.anotarRegistro({ tipo: "aviso", pub: "post", piezaId: id, semana: t.semana, mediaId: r.mediaId, en });
-        } else if (r.mediaId) {
-          await deps.anotarRegistro(await lineaPublicado(deps, t.semana, t.pieza, r.mediaId, en, s.render[id]));
-          memoria(deps).registroVisto.add(r.mediaId);
-        } else {
-          await deps.anotarRegistro({ tipo: "publicado-sin-id", piezaId: id, semana: t.semana, publicadoEn: en, motivo: error });
-        }
-      } else {
-        await deps.escribirEstado(t.semana, id, { story: { estado: "publicado", mediaId: r.mediaId } });
-        await deps.anotarRegistro(aviso
-          ? { tipo: "aviso", pub: "story", piezaId: id, semana: t.semana, mediaId: r.mediaId, en }
-          : { tipo: "story", piezaId: id, semana: t.semana, mediaId: r.mediaId, publicadoEn: en });
-      }
-      await deps.commit([estadoPath(t.semana), registroPath()], `calendario: ${t.tipo === "story" ? "story" : "publicado"} ${id}`);
-      await avisar(aviso
-        ? `🧪 Modo aviso: ${etiqueta(id, t.tipo)} se habría publicado ahora (sin POST a Meta).`
-        : t.tipo === "story"
-          ? `📲 Story publicada de ${id}.`
-          : `✅ Publicado ${id} (${t.pieza.formato})${r.mediaId ? ` · media ${r.mediaId}` : ` · ${error}`}.`);
-    } else if (error?.startsWith(PREFIJO_SALTO)) {
+    if (r.paso !== "publicado" && error?.startsWith(PREFIJO_SALTO)) {
       await cerrarSalto(deps, { semana: t.semana, id, tipo: t.tipo, motivo: error.slice(PREFIJO_SALTO.length) }, avisar);
-    } else {
+      return;
+    }
+    // Escrituras y commit en la cadena serial (R50); el aviso, fuera de ella.
+    texto = await enSerie(deps, async () => {
+      if (r.paso === "publicado") {
+        if (t.tipo === "post") {
+          await deps.escribirEstado(t.semana, id, {
+            estado: "publicado", containerId: r.containerId, mediaId: r.mediaId, publicadoEn: en,
+            ...(aviso ? { motivo: "modo aviso: no se publicó en Instagram" } : {}),
+          });
+          if (aviso) {
+            await deps.anotarRegistro({ tipo: "aviso", pub: "post", piezaId: id, semana: t.semana, mediaId: r.mediaId, en });
+          } else if (r.mediaId) {
+            await deps.anotarRegistro(await lineaPublicado(deps, t.semana, t.pieza, r.mediaId, en, s.render[id]));
+            memoria(deps).registroVisto.add(r.mediaId);
+          } else {
+            await deps.anotarRegistro({ tipo: "publicado-sin-id", piezaId: id, semana: t.semana, publicadoEn: en, motivo: error });
+          }
+        } else {
+          await deps.escribirEstado(t.semana, id, { story: { estado: "publicado", mediaId: r.mediaId } });
+          await deps.anotarRegistro(aviso
+            ? { tipo: "aviso", pub: "story", piezaId: id, semana: t.semana, mediaId: r.mediaId, en }
+            : { tipo: "story", piezaId: id, semana: t.semana, mediaId: r.mediaId, publicadoEn: en });
+        }
+        await deps.commit([estadoPath(t.semana), registroPath()], `calendario: ${t.tipo === "story" ? "story" : "publicado"} ${id}`);
+        return aviso
+          ? `🧪 Modo aviso: ${etiqueta(id, t.tipo)} se habría publicado ahora (sin POST a Meta).`
+          : t.tipo === "story"
+            ? `📲 Story publicada de ${id}.`
+            : `✅ Publicado ${id} (${t.pieza.formato})${r.mediaId ? ` · media ${r.mediaId}` : ` · ${error}`}.`;
+      }
       const motivo = error ?? "error desconocido";
       await deps.escribirEstado(t.semana, id, t.tipo === "post"
         ? { estado: "fallido", motivo }
         : { story: { estado: "fallido", motivo } });
       await deps.anotarRegistro({ tipo: "fallido", pub: t.tipo, piezaId: id, semana: t.semana, motivo, en });
       await deps.commit([estadoPath(t.semana), registroPath()], `calendario: fallido ${etiqueta(id, t.tipo)}`);
-      await avisar(`❌ No se publicó ${etiqueta(id, t.tipo)}: ${motivo}`);
-    }
+      return `❌ No se publicó ${etiqueta(id, t.tipo)}: ${motivo}`;
+    });
   } catch (e) {
     // La fila ya quedó en SQLite (manda); `reparar` completa estado.json y el registro en el próximo tick.
     console.warn(`[calendario] ${id}: no pude escribir estado/registro: ${limpiar(deps, mensaje(e))}`);
+    return;
   }
+  await avisar(texto);
 }
 
 /**
@@ -573,9 +594,11 @@ async function saltarPieza(deps: SchedulerDeps, x: Salto, filas: Fila[], avisar:
 
 async function cerrarSalto(deps: SchedulerDeps, x: Salto, avisar: Avisar): Promise<void> {
   const story = x.tipo === "story";
-  await deps.escribirEstado(x.semana, x.id, story ? { story: { estado: "saltado", motivo: x.motivo } } : { estado: "saltado", motivo: x.motivo });
-  await deps.anotarRegistro({ tipo: "saltado", pub: x.tipo, piezaId: x.id, semana: x.semana, motivo: x.motivo, en: deps.ahora().toISOString() });
-  await deps.commit([estadoPath(x.semana), registroPath()], `calendario: saltado ${etiqueta(x.id, x.tipo)}`);
+  await enSerie(deps, async () => {
+    await deps.escribirEstado(x.semana, x.id, story ? { story: { estado: "saltado", motivo: x.motivo } } : { estado: "saltado", motivo: x.motivo });
+    await deps.anotarRegistro({ tipo: "saltado", pub: x.tipo, piezaId: x.id, semana: x.semana, motivo: x.motivo, en: deps.ahora().toISOString() });
+    await deps.commit([estadoPath(x.semana), registroPath()], `calendario: saltado ${etiqueta(x.id, x.tipo)}`);
+  });
   await avisar(`⏭️ ${etiqueta(x.id, x.tipo)} saltada: ${x.motivo}.`);
 }
 
@@ -586,6 +609,22 @@ async function cerrarSalto(deps: SchedulerDeps, x: Salto, avisar: Avisar): Promi
  * `mediaId`). Actualiza también la copia en memoria para `tareasDebidas`.
  */
 async function reparar(deps: SchedulerDeps, semanas: SemanaLeida[], filas: Fila[]): Promise<void> {
+  // Cada REVISAR_REGISTRO_MS se vuelve a mirar registro.jsonl aunque la línea ya se haya
+  // visto: una pull con autostash puede dejarla solo en el stash (R50), sin reiniciar el bot.
+  const mem = memoria(deps);
+  const t = deps.ahora().getTime();
+  if (mem.registroRevisado === undefined || t - mem.registroRevisado >= REVISAR_REGISTRO_MS || t < mem.registroRevisado) {
+    mem.registroVisto.clear();
+    mem.registroRevisado = t;
+  }
+  try {
+    await enSerie(deps, () => repararEnSerie(deps, semanas, filas));
+  } catch (err) {
+    console.warn(`[calendario] reparar: ${limpiar(deps, mensaje(err))}`);
+  }
+}
+
+async function repararEnSerie(deps: SchedulerDeps, semanas: SemanaLeida[], filas: Fila[]): Promise<void> {
   const tocadas = new Set<string>();
   let registro: Set<string> | undefined;
   const enRegistro = async (mediaId: string): Promise<boolean | undefined> => {
@@ -667,10 +706,14 @@ async function permalinks(deps: SchedulerDeps, semanas: SemanaLeida[], tokenVali
       try {
         const r = await deps.graph.get<{ permalink?: string }>(est.mediaId, { fields: "permalink" });
         if (typeof r?.permalink !== "string" || !r.permalink) continue;
-        await deps.escribirEstado(s.semana, p.id, { permalink: r.permalink });
-        est.permalink = r.permalink;
-        await deps.anotarRegistro({ tipo: "permalink", piezaId: p.id, semana: s.semana, mediaId: est.mediaId, permalink: r.permalink });
-        await deps.commit([estadoPath(s.semana), registroPath()], `calendario: permalink ${p.id}`);
+        const permalink = r.permalink;
+        const mediaId = est.mediaId;
+        await enSerie(deps, async () => {
+          await deps.escribirEstado(s.semana, p.id, { permalink });
+          est.permalink = permalink;
+          await deps.anotarRegistro({ tipo: "permalink", piezaId: p.id, semana: s.semana, mediaId, permalink });
+          await deps.commit([estadoPath(s.semana), registroPath()], `calendario: permalink ${p.id}`);
+        });
       } catch (e) {
         console.warn(`[calendario] permalink de ${p.id}: ${limpiar(deps, mensaje(e))}`);
       }

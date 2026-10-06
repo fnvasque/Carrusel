@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { localParts } from "../calendario/time.ts";
+import { localParts, zonaOnlineFollowers } from "../calendario/time.ts";
 import { calendarioDir } from "../calendario/plan.ts";
 import { openDb } from "../kb/db.ts";
 import { kbDir } from "../kb/store.ts";
@@ -223,9 +223,9 @@ export function metricaCalibracion(i: Instantanea, nombre: string, predictedScor
 export interface DepsInstantaneas {
   fetch?: typeof fetchMediaInsights;
   posts?: PostInfo[];
-  /** Carpeta de `metrics/<nombre>.json` (por defecto la del proyecto). */
+  /** Carpeta de `<nombre>.json` (por defecto `<KB>/_metricas/calibracion`, R51). */
   metricsDir?: string;
-  /** Recalcula la calibración tras escribir métricas nuevas. */
+  /** Recalcula la calibración tras escribir métricas nuevas (por defecto solo con `metricsDir` propio). */
   refresh?: (metricsDir: string) => Promise<unknown>;
   /** Ids del listado reciente de posts (por defecto `fetchOwnMedia`), para distinguir "borrado" de "permisos". */
   listado?: () => Promise<Set<string>>;
@@ -313,7 +313,9 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
   }
 
   if (paraCalibrar.length) {
-    const dir = deps.metricsDir ?? join(process.cwd(), "metrics");
+    // R51: en el servidor `metrics/` no persiste ni llega al Mac; el puente escribe en la base
+    // (`_metricas/calibracion/`, viaja por git) y el Mac la copia a su metrics/ y recalcula.
+    const dir = deps.metricsDir ?? join(metricasDir(), "calibracion");
     let escritas = 0;
     for (const { i, post } of paraCalibrar) {
       const nombre = post.nombreMotor!;
@@ -331,9 +333,11 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
         console.warn(`⚠️  No pude escribir metrics/${nombre}.json: ${msgOf(err)}`);
       }
     }
-    if (escritas) {
+    // En la base no se recalcula (lo hace el Mac al copiarla); con un metricsDir propio, sí.
+    const refresh = deps.refresh ?? (deps.metricsDir ? refreshCalibration : undefined);
+    if (escritas && refresh) {
       try {
-        await (deps.refresh ?? refreshCalibration)(dir);
+        await refresh(dir);
       } catch (err) {
         console.warn(`⚠️  No pude refrescar la calibración: ${msgOf(err)}`);
       }
@@ -348,7 +352,9 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
  * seguidores u horas de audiencia, se conserva lo último conocido.
  */
 export async function guardarCuenta(now: Date, deps: { fetch?: typeof fetchAccountInsights } = {}): Promise<void> {
-  const a: AccountInsights = await (deps.fetch ?? fetchAccountInsights)(now);
+  // Los días de follower_count se leen en la zona de la cuenta (config.json, R39).
+  const zona = zonaOnlineFollowers(leerObjeto(join(calendarioDir(), "config.json")));
+  const a: AccountInsights = deps.fetch ? await deps.fetch(now) : await fetchAccountInsights(now, undefined, undefined, zona);
   const ruta = join(metricasDir(), "cuenta.json");
   const previo = leerObjeto(ruta);
   const porDiaPrevio = typeof previo.porDia === "object" && previo.porDia !== null && !Array.isArray(previo.porDia) ? (previo.porDia as Record<string, number>) : {};

@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { abortStaleRebase, commitPaths, kbDir, pullKb } from "../kb/store.ts";
 import { scoreDraft } from "../remix/registry.ts";
 import { THRESHOLD } from "../score/virality.ts";
+import { refreshCalibration } from "../score/calibration.ts";
 import { renderCarousel } from "../render/renderCarousel.ts";
 import { Renderer } from "../render/renderSlide.ts";
 import { resolveBackground } from "../render/background.ts";
@@ -802,6 +803,40 @@ export async function sincronizarPendiente(semanas: string[]): Promise<string | 
     return undefined;
   }
   return subirRender(new Map());
+}
+
+// --- calibración (R51) ---
+
+const METRICA_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
+
+/**
+ * Copia `<kb>/_metricas/calibracion/*.json` (lo escribe el bot con cada instantánea de 7 d)
+ * a `metrics/` del repo de código y recalcula `metrics/calibration.json`: así la
+ * proyección "≈ X saves/1k" sale en score, generate y remix (R51). Devuelve cuántas copió.
+ */
+export async function copiarCalibracion(kb: string, metricsDir = join(process.cwd(), "metrics")): Promise<number> {
+  const origen = join(kb, "_metricas", "calibracion");
+  let nombres: string[];
+  try {
+    nombres = (await readdir(origen)).filter((f) => METRICA_RE.test(f) && f !== "calibration.json");
+  } catch {
+    return 0;
+  }
+  if (!nombres.length) return 0;
+  await mkdir(metricsDir, { recursive: true });
+  let n = 0;
+  for (const f of nombres) {
+    try {
+      const texto = await readFile(join(origen, f), "utf8");
+      JSON.parse(texto); // una métrica corrupta no se copia
+      await writeFile(join(metricsDir, f), texto, "utf8");
+      n++;
+    } catch (e) {
+      console.warn(`⚠️  Calibración: no copié ${f} (${razon(e)}).`);
+    }
+  }
+  if (n) await refreshCalibration(metricsDir);
+  return n;
 }
 
 // --- clon propio de la base (R49) ---
