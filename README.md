@@ -433,19 +433,25 @@ Instagram.
 Variables de entorno: `.env.example` (sección "Calendario automático"). `MEDIA_PUBLIC_TOKEN` y
 `MEDIA_PUBLIC_BASE` deben ser **iguales** en el Mac y el servidor. `CALENDARIO_MODO` va solo en el
 servidor: `auto` publica; `aviso` hace todo menos los POST a Meta (para depurar); sin la variable
-el scheduler no arranca. `meta:check` (`npm run meta:check`) verifica el token.
+el scheduler no arranca. `npm run meta:check` verifica el token y, con `CALENDARIO_MODO` definido, también exige el permiso
+`instagram_content_publish`.
 
 ### Qué hace el bot en Telegram
 
 | Comando | Qué hace |
 |---|---|
-| `/calendario` | Semana en curso con el estado de cada pieza |
+| `/calendario` | Esta semana y la siguiente, con el estado de cada pieza |
 | `/pausar` | Freno: no se publica nada más hasta `/reanudar` |
 | `/reanudar` | Quita la pausa |
-| `/publicar <id>` | Fuerza una pieza ahora (para probar) |
-| `/saltar <id>` | Descarta una pieza; el botón **Saltar** del preview hace lo mismo |
+| `/publicar <id>` | Fuerza una pieza programada ahora (para probar). Solo la semana en curso. Responde de inmediato y te avisa el resultado cuando termina |
+| `/saltar <id>` | Descarta una pieza (esta semana o la siguiente); el botón **Saltar** del preview hace lo mismo |
 | `/metricas` | Últimos 7 días: mejor y peor pieza, seguidores ganados, hora con más audiencia |
 | `/metricas <id\|url>` | Todas las instantáneas de un post |
+
+Los comandos del calendario (y su ayuda en `/ayuda`) solo aparecen si `CALENDARIO_MODO` está definido;
+`/metricas` está siempre. Una pieza forzada con `/publicar` que falla queda `fallido` o `saltado` y **no**
+vuelve a su hora del plan. Los previews con la portada los sube el bot como archivo local, así que
+la URL con `MEDIA_PUBLIC_TOKEN` nunca sale a Telegram.
 
 En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --desde=AAAA-MM-DD`,
 `-- --post=<id|url|piezaId>` y `-- --ahora` para tomar instantáneas en el acto).
@@ -454,11 +460,12 @@ En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --des
 
 - **Pausar**: `/pausar` (y `/reanudar`). Si una pieza ya tenía su contenedor creado, ese contenedor
   se pierde (Meta lo expira) y la pieza no se publica tarde.
-- **Saltar una pieza**: botón **Saltar** en su preview o `/saltar <id>`, hasta la hora de publicación.
+- **Saltar una pieza**: botón **Saltar** en su preview (vale hasta la hora de publicación) o `/saltar <id>`.
 - **Borrar un post ya publicado**: **desde la app de Instagram**. La API de Meta no borra posts; el
   sistema no lo intenta.
 - **El Mac no se prendió**: una pieza sin render a su hora se marca `saltado` con motivo y avisa; **nunca
-  se publica tarde**. Al volver a encender el Mac, launchd corre el render solo, pero las piezas cuya
+  se publica tarde**. Para evitarlo, el bot avisa «prende el Mac» el domingo a las 18:00 (hora de Chile)
+  si hay piezas sin render, y otra vez 12 h antes de la primera pieza que siga sin render. Al volver a encender el Mac, launchd corre el render solo, pero las piezas cuya
   hora ya pasó no se recuperan. Para no llegar a eso, prende el Mac entre el domingo y el lunes.
 - **Pieza que falla**: si no pasa la puerta (QA, score menor a 75, borrador inválido) queda `fallido`
   con el motivo y se deja el hueco vacío. Si falla el entorno del Mac (Chromium, ffmpeg, disco, red,

@@ -108,8 +108,7 @@ Solo letras, números y `_ . / -`; sin espacios. Después corre `scripts/calenda
 de lectura. Genera un token de **System User** (Business Manager → Usuarios del sistema → Generar
 token) con los permisos que ya usas más `instagram_content_publish`; no vence. Reemplaza
 `META_ACCESS_TOKEN` en `~/carrusel/.env` y aplica con `docker compose up -d`. `npm run meta:check`
-(en el Mac, con el mismo token en su `.env`) muestra su vencimiento y permisos; `instagram_content_publish`
-hay que confirmarlo tú al generarlo. Si el token es inválido o le falta el permiso, el scheduler no
+(córrelo como `CALENDARIO_MODO=aviso npm run meta:check`, sin dejar la variable en el `.env` del Mac) exige `instagram_content_publish` y muestra el vencimiento. Si el token es inválido o le falta el permiso, el scheduler no
 publica y te avisa por Telegram.
 
 **Probar sin publicar.** Pon `CALENDARIO_MODO=aviso` y aplica con `docker compose up -d`: el bot hace todo
