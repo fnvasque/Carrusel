@@ -347,6 +347,14 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
 }
 
 /**
+ * Rutas que el bot commitea tras tomar instantáneas del día `dia` (local): el jsonl del
+ * día, `posts.json` y la calibración (`_metricas/calibracion/`, R51), que el Mac copia.
+ */
+export function rutasCommitInstantaneas(dia: string): string[] {
+  return [join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion")];
+}
+
+/**
  * Guarda `_metricas/cuenta.json`. Meta da solo 30 días de seguidores por día: `porDia`
  * se fusiona con lo anterior para conservar la historia. Si la consulta no trae
  * seguidores u horas de audiencia, se conserva lo último conocido.

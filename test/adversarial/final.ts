@@ -4,17 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkAsync } from "../_check.ts";
 import { escribirBucle } from "../../src/calendario/bucle.ts";
-import { relative, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
 import { leerSemana, listarSemanas, type RenderEntry } from "../../src/calendario/plan.ts";
-import { pendientes, procesar } from "../../src/calendario/render.ts";
+import { copiarCalibracion, pendientes, procesar } from "../../src/calendario/render.ts";
 import { escribirEstado } from "../../src/calendario/registro.ts";
 import { depsReales, tick, type SchedulerDeps } from "../../src/calendario/scheduler.ts";
-import { addDays, zonedToUtc } from "../../src/calendario/time.ts";
+import { addDays, localParts, zonedToUtc } from "../../src/calendario/time.ts";
 import { fetchAccountInsights, fetchMediaInsights } from "../../src/insights/client.ts";
-import { guardarCuenta, postsConocidos, tomarInstantaneas } from "../../src/insights/snapshots.ts";
+import { guardarCuenta, postsConocidos, rutasCommitInstantaneas, tomarInstantaneas } from "../../src/insights/snapshots.ts";
 import { leerRegistroPublicados, resolverPost } from "../../src/insights/lectura.ts";
 import { parsearReferencia } from "../../src/insights/summary.ts";
-import { kbDir } from "../../src/kb/store.ts";
+import { commitPaths } from "../../src/kb/store.ts";
 import { refreshCalibration } from "../../src/score/calibration.ts";
 // @ts-ignore: módulo .mjs sin dependencias (tiene validar.d.mts)
 import { EJEMPLO, validarSemana } from "../../kb-plantilla/_calendario/validar.mjs";
@@ -401,21 +401,68 @@ await checkAsync("adversario final: seguidoresPorPieza toma los seguidores del m
 // Costura instantánea 7 d (bot, servidor) → calibración (score/generate/remix en el Mac). Spec:
 // «cada instantánea de 7 d de una pieza del motor escribe metrics/<name>.json … Con 3 piezas
 // medidas la proyección "≈ X saves/1k" empieza a salir en score, generate y remix sin tocar ese
-// código». El bot corre en Docker (WORKDIR /app) y `tomarInstantaneas` escribe por defecto en
-// `<cwd>/metrics` = /app/metrics: no es un volumen (se pierde con cada `docker compose up --build`)
-// ni está en la base que el Mac sincroniza, así que el predictedScore nunca llega al `score` del Mac.
-await checkAsync("adversario final: metrics/ de la calibración queda dentro del contenedor (ni volumen ni base sincronizada)", async () => {
-  const workdir = /^WORKDIR\s+(\S+)/m.exec(readFileSync("Dockerfile", "utf8"))?.[1] ?? "/";
-  const compose = readFileSync("compose.yaml", "utf8");
-  const volumenes = [...compose.matchAll(/^\s*-\s*[^:\s]+:([^:\s]+)(?::ro)?\s*$/gm)].map((m) => m[1]!);
-  const kbEnServidor = /KB_DIR:\s*(\S+)/.exec(compose)?.[1] ?? "";
-  // Dónde escribe el bot por defecto: `join(process.cwd(), "metrics")` (snapshots.ts / calibration.ts).
-  const destino = resolve(workdir, "metrics");
-  const dentro = (dir: string): boolean => !relative(dir, destino).startsWith("..") && !relative(dir, destino).startsWith("/");
-  assert.ok(
-    volumenes.some(dentro) || (kbEnServidor !== "" && dentro(kbEnServidor)),
-    `${destino} no está en ningún volumen (${volumenes.join(", ")}) ni en KB_DIR (${kbEnServidor}); kbDir local = ${kbDir()}`,
-  );
+// código».
+//
+// R54 (reescrito en la ola de arreglos finales): la versión original exigía que `/app/metrics`
+// del contenedor estuviera en un volumen o en KB_DIR, porque el puente escribía en `<cwd>/metrics`.
+// R51 cambió el camino: el bot escribe en `<KB>/_metricas/calibracion/` (viaja por git) y el Mac,
+// tras su pull, copia esos archivos a su `metrics/` y llama a `refreshCalibration`. La garantía es
+// la misma (los datos no se pierden en el contenedor y llegan al Mac), así que el test comprueba el
+// destino nuevo de punta a punta: (a) archivo con el formato de record.ts y commiteado en la base,
+// (b) copia del Mac a un metrics/ temporal con calibration.json, (c) nada en `<cwd>/metrics` del servidor.
+await checkAsync("adversario final (R54): la calibración de la 7 d llega a la base (commit) y al metrics/ del Mac; nada en <cwd>/metrics del servidor", async () => {
+  const kb = nuevaBase("calibracion");
+  const g = (...a: string[]): string => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: kb, encoding: "utf8" });
+  g("init", "-q", "-b", "main");
+  g("commit", "-q", "--allow-empty", "-m", "base");
+  // El servidor: cwd propio (como /app), sin metricsDir inyectado (valor por defecto del bot).
+  const servidor = mkdtempSync(join(tmpdir(), "adv-final-app-"));
+  const cwdPrevio = process.cwd();
+  const gitPrevio = process.env.KB_GIT;
+  const nombre = "lun-reel-pdfs-a-podcast";
+  const publicado = local("2026-10-12", "14:00");
+  const ahora = new Date(publicado.getTime() + 7 * 24 * HORA);
+  try {
+    process.chdir(servidor);
+    delete process.env.KB_GIT;
+    const meta = new MetaFalso(() => ahora);
+    meta.insights.set("m1", { reach: 120, saved: 6, shares: 2, likes: 9, comments: 1, views: 300, total_interactions: 18 });
+    await tomarInstantaneas(ahora, {
+      posts: [{ mediaId: "m1", publicado, productType: "REELS", piezaId: nombre, origen: "motor", duracionMs: 30_000, nombreMotor: nombre, predictedScore: 81 }],
+      fetch: (id, tipo) => fetchMediaInsights(id, tipo, meta.get),
+      listado: async () => new Set(["m1"]),
+    });
+    await commitPaths(rutasCommitInstantaneas(localParts(ahora).dia), "métricas: instantáneas");
+
+    // (a) formato de record.ts y en un commit de la base.
+    const rel = `_metricas/calibracion/${nombre}.json`;
+    assert.ok(existsSync(join(kb, rel)), `falta ${rel} en la base`);
+    const m = JSON.parse(readFileSync(join(kb, rel), "utf8"));
+    assert.deepEqual(Object.keys(m), ["name", "predictedScore", "recordedAt", "saves", "shares", "reach", "likes", "savesPerK", "sharesPerK"]);
+    assert.equal(m.name, nombre);
+    assert.equal(m.predictedScore, 81);
+    assert.equal(m.savesPerK, 50);
+    assert.ok(g("ls-tree", "-r", "--name-only", "HEAD").split("\n").includes(rel), `${rel} no quedó commiteado`);
+    assert.equal(g("status", "--porcelain", "--", "_metricas/calibracion"), "", "nada de la calibración sin commit");
+
+    // (c) el servidor no escribe en un metrics/ relativo a su cwd (se perdería con el contenedor).
+    assert.ok(!existsSync(join(servidor, "metrics")), "el bot escribió en <cwd>/metrics");
+
+    // (b) el Mac copia la calibración a su metrics/ y la recalcula.
+    process.chdir(cwdPrevio);
+    const mac = mkdtempSync(join(tmpdir(), "adv-final-mac-metrics-"));
+    for (const [n, score, saved] of [["b", 70, 2], ["c", 90, 9]] as const) {
+      writeFileSync(join(kb, "_metricas", "calibracion", `${n}.json`), JSON.stringify({ ...m, name: n, predictedScore: score, saves: saved, savesPerK: saved * 10 }));
+    }
+    assert.equal(await copiarCalibracion(kb, join(mac, "metrics")), 3);
+    assert.deepEqual(JSON.parse(readFileSync(join(mac, "metrics", `${nombre}.json`), "utf8")), m);
+    const modelo = JSON.parse(readFileSync(join(mac, "metrics", "calibration.json"), "utf8"));
+    assert.equal(modelo.n, 3, "refreshCalibration corrió sobre lo copiado");
+  } finally {
+    process.chdir(cwdPrevio);
+    if (gitPrevio === undefined) delete process.env.KB_GIT;
+    else process.env.KB_GIT = gitPrevio;
+  }
 });
 
 for (const [k, v] of Object.entries(ENV_PREVIO)) {

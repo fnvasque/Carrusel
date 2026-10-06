@@ -27,7 +27,7 @@ import {
   TEXTO_RECORDATORIO_LUNES,
 } from "../calendario/telegram.ts";
 import { graphGet } from "../meta/client.ts";
-import { guardarCuenta, tomarInstantaneas } from "../insights/snapshots.ts";
+import { guardarCuenta, rutasCommitInstantaneas, tomarInstantaneas } from "../insights/snapshots.ts";
 import { guardarEstado, leerEstado, resumenDelDomingo, resumenReciente, textoPost } from "../insights/lectura.ts";
 import { debeCuenta, debeResumir, formatResumenTelegram } from "../insights/summary.ts";
 import { debeEscribirBucle, escribirBucle, marcaBucle } from "../calendario/bucle.ts";
@@ -802,7 +802,7 @@ async function snapshotTick(): Promise<void> {
       } finally {
         // Aunque la toma falle a medias, lo que alcanzó a escribirse se guarda (sin cambios, no hace nada).
         // R51: también la calibración (`_metricas/calibracion/`), que el Mac copia a su metrics/.
-        await commitMetricas([join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion")], `métricas: instantáneas ${dia}`);
+        await commitMetricas(rutasCommitInstantaneas(dia), `métricas: instantáneas ${dia}`);
       }
     });
     ultimoErrorMetricas.delete("instantáneas");
