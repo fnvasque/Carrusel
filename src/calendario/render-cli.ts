@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { abortStaleRebase, pullKb, setSyncErrorHandler } from "../kb/store.ts";
 import { leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "./plan.ts";
 import {
-  crearEscritorRender, destinoRemoto, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
+  crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
   verificarReal,
   type EnvRender,
 } from "./render.ts";
@@ -30,6 +30,14 @@ const OBLIGATORIAS = ["SERVER_HOST", "SERVER_MEDIA_DIR", "MEDIA_PUBLIC_BASE", "M
 const faltan = OBLIGATORIAS.filter((k) => !process.env[k]?.trim());
 if (faltan.length) {
   console.error(`✗ Faltan variables en .env: ${faltan.join(", ")}. Ver .env.example (sección "Render del calendario en el Mac").`);
+  process.exit(1);
+}
+
+if (!dirMediosValido(process.env.SERVER_MEDIA_DIR!.trim())) {
+  console.error(
+    "✗ SERVER_MEDIA_DIR inválido: usa solo letras, números y _ . / - (sin espacios, ~, $, comillas ni ..), " +
+      "p. ej. carrusel/media (relativo al home del servidor).",
+  );
   process.exit(1);
 }
 
@@ -100,7 +108,7 @@ try {
     const puerta = await leerPuerta();
     const escritor = crearEscritorRender({ avisar });
     const r = await procesar(pend, outRoot, env, {
-      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta }),
+      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, avisar }),
       rsync: rsyncReal,
       verificar: verificarReal,
       escribirRender: escritor.escribirRender,

@@ -26,6 +26,11 @@ set -a; source ./.env; set +a
 for v in SERVER_HOST SERVER_MEDIA_DIR MEDIA_PUBLIC_BASE MEDIA_PUBLIC_TOKEN; do
   [ -n "${!v:-}" ] || { echo "✗ Falta $v en .env (ver .env.example)." >&2; exit 1; }
 done
+# Mismo criterio que render-cli.ts (R34): la ruta pasa por el shell remoto de ssh.
+if ! printf '%s' "$SERVER_MEDIA_DIR" | grep -Eq '^[A-Za-z0-9_./-]+$' || printf '%s' "/$SERVER_MEDIA_DIR/" | grep -q '/\.\./'; then
+  echo "✗ SERVER_MEDIA_DIR inválido: solo letras, números y _ . / - (sin espacios, ~, \$, comillas ni ..)." >&2
+  exit 1
+fi
 [ -x "$CHROMIUM" ] || echo "⚠️  No encuentro Chromium en $CHROMIUM (define PLAYWRIGHT_CHROMIUM_EXECUTABLE)."
 
 # Muestra un comando con el token oculto; lo ejecuta salvo en --dry-run.
@@ -74,8 +79,13 @@ else
   else
     echo "✗ La URL pública no respondió 200 + image/jpeg. Revisa MEDIA_PUBLIC_BASE, el túnel y SERVER_MEDIA_DIR." >&2
     printf '%s\n' "$HEAD" | head -1 >&2
+    FALLO=1
   fi
 fi
 run ssh -o BatchMode=yes "$SERVER_HOST" "rm -rf '$SERVER_MEDIA_DIR/$SEMANA'"
+if [ "${FALLO:-0}" = 1 ]; then
+  echo "✗ Instalación incompleta: el agente quedó cargado en launchd, pero la subida no se puede verificar. Corrígelo y vuelve a correr este script." >&2
+  exit 1
+fi
 
 echo "Listo. Para correrlo ya: launchctl kickstart gui/$UID/$LABEL  (o npm run calendario:render)."

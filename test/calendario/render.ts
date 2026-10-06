@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorQa, crearEscritorRender, leerBorradorSeguro, leerPuerta, pendientes, procesar, sincronizarPendiente, tomarCandado,
+  ErrorContenido, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar,
+  sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
 import { avisarTelegram } from "../../src/calendario/telegram-directo.ts";
@@ -160,13 +161,13 @@ await checkAsync("procesar: render + rsync + verificar ok → renderizado con me
   }),
 );
 
-await checkAsync("procesar: el render lanza → fallido con motivo y sigue con la siguiente", () =>
+await checkAsync("procesar (R31): error de contenido → fallido con motivo y sigue con la siguiente", () =>
   conOut(async (out) => {
     let n = 0;
     const base = falsos();
     const { deps, reg } = falsos({
       render: async (p, tmp) => {
-        if (n++ === 0) throw new Error("Chromium se cayó");
+        if (n++ === 0) throw new ErrorContenido(["Ruta de borrador inválida: \"../x.json\""]);
         return base.deps.render(p, tmp);
       },
     });
@@ -174,7 +175,7 @@ await checkAsync("procesar: el render lanza → fallido con motivo y sigue con l
     assert.deepEqual(r, { ok: 1, fallidas: 1, pendientes: 0 });
     assert.equal(reg.escritos[0][1], "lun-roto");
     assert.equal(reg.escritos[0][2].estado, "fallido");
-    assert.match(reg.escritos[0][2].motivo ?? "", /Chromium se cayó/);
+    assert.match(reg.escritos[0][2].motivo ?? "", /borrador inválida/);
     assert.equal(reg.escritos[1][2].estado, "renderizado");
     assert.ok(!existsSync(join(out, SEMANA, "lun-roto")), "sin carpeta final");
     assert.deepEqual(readdirSync(join(out, SEMANA)).filter((f) => f.includes(".tmp-")), [], "sin temporales");
@@ -182,11 +183,74 @@ await checkAsync("procesar: el render lanza → fallido con motivo y sigue con l
   }),
 );
 
+await checkAsync("procesar (R31): error del entorno (Chromium, ffmpeg, disco) → sigue planificada, avisa sin token y se reintenta", () =>
+  conOut(async (out) => {
+    const { deps, reg } = falsos({
+      render: async () => {
+        throw new Error(`browserType.launch: Executable doesn't exist (${TOKEN})`);
+      },
+    });
+    const r = await procesar([pend("lun-chromium"), pend("mar-enospc", "carrusel")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 2 });
+    assert.deepEqual(reg.escritos, [], "no se marca fallido");
+    assert.equal(reg.avisos.length, 2);
+    assert.match(reg.avisos[0], /lun-chromium/);
+    assert.ok(!reg.avisos.join(" ").includes(TOKEN));
+    assert.deepEqual(readdirSync(join(out, SEMANA)), [], "sin temporales ni carpeta final");
+    const segunda = falsos();
+    const r2 = await procesar([pend("lun-chromium")], out, ENV, segunda.deps);
+    assert.deepEqual(r2, { ok: 1, fallidas: 0, pendientes: 0 });
+    assert.deepEqual(segunda.reg.render, ["lun-chromium"], "la próxima corrida la renderiza");
+  }),
+);
+
+await checkAsync("procesar: valida semana e id por su cuenta (no llama a render ni rsync)", () =>
+  conOut(async (out) => {
+    const { deps, reg } = falsos();
+    const malo: PiezaPendiente = { ...pend("lun-ok"), semana: "../x" };
+    const otro = pend("lun-ok");
+    const idMalo: PiezaPendiente = { ...otro, pieza: { ...otro.pieza, id: "a;rm -rf" } };
+    const r = await procesar([malo, idMalo], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 0 });
+    assert.deepEqual(reg.render, []);
+    assert.deepEqual(reg.rsync, []);
+    assert.equal(reg.avisos.length, 2);
+  }),
+);
+
+check("dirMediosValido (R34): solo [A-Za-z0-9_./-], sin ..", () => {
+  for (const ok of ["carrusel/media", "/home/u/carrusel/media", "media_1.v2"]) assert.equal(dirMediosValido(ok), true, ok);
+  for (const malo of ["mis medios", "~/media", "$HOME/m", "a'b", 'a"b', "a/../b", "..", "", "m$(x)", "a;b"]) assert.equal(dirMediosValido(malo), false, malo);
+});
+
+await checkAsync("fondosIaQuitados (R35): ai fuera de Hook/Cta y más allá del 3.º en orden de día y hora", () =>
+  conBase(async () => {
+    const sd = semanaDir(SEMANA);
+    mkdirSync(sd, { recursive: true });
+    const plan = { semana: SEMANA, zona: "America/Santiago", experimento: null, piezas: [
+      pieza("vie-tarde", "2026-10-16", "14:00"),
+      pieza("lun-temprano", "2026-10-12", "14:00"),
+      pieza("mie-medio", "2026-10-14", "14:00"),
+    ] };
+    writeFileSync(join(sd, "plan.json"), JSON.stringify(plan));
+    const b = (slides: [string, boolean][]) => JSON.stringify({ name: "x", pillar: "herramienta", slides: slides.map(([template, ai]) => ({ template, props: { title: "t" }, ...(ai ? { background: { ai: "p" } } : {}) })) });
+    writeFileSync(join(sd, "lun-temprano.json"), b([["Hook", true], ["Step", true], ["Cta", true]]));
+    writeFileSync(join(sd, "mie-medio.json"), b([["Hook", true], ["Cta", true]]));
+    writeFileSync(join(sd, "vie-tarde.json"), b([["Hook", true], ["Cta", false]]));
+    const q = await fondosIaQuitados(SEMANA);
+    assert.deepEqual(q.get("lun-temprano")?.map((x) => x.slide), [1], "Step con ai");
+    assert.match(q.get("lun-temprano")![0].motivo, /Hook o Cta/);
+    assert.deepEqual(q.get("mie-medio")?.map((x) => x.slide), [1], "el 4.º ai de la semana");
+    assert.match(q.get("mie-medio")![0].motivo, /tope de 3/);
+    assert.deepEqual(q.get("vie-tarde")?.map((x) => x.slide), [0], "el 5.º");
+  }),
+);
+
 await checkAsync("procesar: QA falla → fallido con los motivos (y el token nunca en el motivo)", () =>
   conOut(async (out) => {
     const { deps, reg } = falsos({
       render: async () => {
-        throw new ErrorQa(["El reel está sin audio.", `Score 60 < 75: añade un número (${TOKEN})`]);
+        throw new ErrorContenido(["El reel está sin audio.", `Score 60 < 75: añade un número (${TOKEN})`]);
       },
     });
     const r = await procesar([pend("lun-qa")], out, ENV, deps);
