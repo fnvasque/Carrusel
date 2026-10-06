@@ -11,10 +11,15 @@ services:
       KB_DIR: /data/knowledge
       KB_REPO: ${KB_REPO:-git@github.com:fnvasque/ia-es-kb.git}
       KB_GIT_PUSH: "1"
+      MEDIA_PUBLIC_TOKEN: ${MEDIA_PUBLIC_TOKEN:-}
+      MEDIA_PUBLIC_BASE: ${MEDIA_PUBLIC_BASE:-}
+      CALENDARIO_MODO: ${CALENDARIO_MODO:-}
       GIT_SSH_COMMAND: ssh -i /keys/kb_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/data/known_hosts
     volumes:
       - ./data:/data
       - ./keys:/keys:ro
+      # Medios del calendario (JPEG/MP4) que Meta descarga al publicar; el Mac los sube con rsync.
+      - ./media:/data/media
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:' + (process.env.KB_INBOX_PORT || 8787) + '/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 1m

@@ -849,6 +849,60 @@ checkAsync("pullKb: trae cambios del remoto; sin cambios → changed false; conf
   }
 });
 
+// I1 / R49: `pull --rebase --autostash` sale 0 aunque el autostash choque (índice UU, nota con
+// marcas y un stash nuevo). pullKb debe devolver error y no tocar nada más.
+checkAsync("pullKb (R49): autostash que choca (UU) → error claro con el archivo; la nota y el stash quedan; la siguiente pull no toca nada", async () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-pull-autostash-"));
+  const g = (cwd: string, ...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd, stdio: "pipe" }).toString();
+  const prev = process.env.KB_DIR;
+  const prevGit = process.env.KB_GIT;
+  try {
+    g(root, "init", "-q", "--bare", "-b", "main", "remote.git");
+    g(root, "clone", "-q", "remote.git", "mac");
+    g(root, "clone", "-q", "remote.git", "bot");
+    const mac = joinPath(root, "mac");
+    const bot = joinPath(root, "bot");
+    mkdirSync(joinPath(bot, "temas"), { recursive: true });
+    writeFileSync(joinPath(bot, "temas", "x.md"), "uno\ndos\n");
+    g(bot, "add", ".");
+    g(bot, "commit", "-q", "-m", "1");
+    g(bot, "push", "-q", "origin", "main");
+    g(mac, "pull", "-q", "origin", "main");
+    g(mac, "branch", "-q", "--set-upstream-to=origin/main", "main");
+    // El servidor re-sintetiza el tema y lo sube; el usuario edita la misma línea sin commit.
+    writeFileSync(joinPath(bot, "temas", "x.md"), "servidor\ndos\n");
+    g(bot, "commit", "-q", "-am", "kb: tema");
+    g(bot, "push", "-q", "origin", "main");
+    writeFileSync(joinPath(mac, "temas", "x.md"), "usuario\ndos\n");
+    process.env.KB_DIR = mac;
+    delete process.env.KB_GIT;
+
+    const r = await pullKb();
+    assert.ok(r.error, "debe devolver error");
+    assert.match(r.error!, /conflicto al reaplicar cambios locales en temas\/x\.md/);
+    assert.match(r.error!, /git stash/);
+    // Los cambios del usuario no se pierden: en el archivo (con marcas) y en el stash.
+    assert.match(readFileSync(joinPath(mac, "temas", "x.md"), "utf8"), /usuario/);
+    assert.match(g(mac, "stash", "list"), /autostash/);
+    const head = g(mac, "rev-parse", "HEAD");
+    const stash = g(mac, "stash", "list");
+
+    // La pull siguiente no toca nada (ni HEAD, ni el stash, ni el archivo) y repite el error.
+    const r2 = await pullKb();
+    assert.match(r2.error ?? "", /conflicto al reaplicar cambios locales en temas\/x\.md/);
+    assert.equal(r2.changed, false);
+    assert.equal(g(mac, "rev-parse", "HEAD"), head);
+    assert.equal(g(mac, "stash", "list"), stash);
+  } finally {
+    if (prev === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prev;
+    if (prevGit === undefined) delete process.env.KB_GIT;
+    else process.env.KB_GIT = prevGit;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // --- validador del agente de investigación ---
 const REF_OK =
   "---\ntipo: software\nnombre: n8n\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io\ntags: [kb/referencia]\n---\n\n## Qué es\nAutomatiza flujos [1].\n\n## Datos clave\n- Tiene API REST [2].\n\n## Mis notas\n";

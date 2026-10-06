@@ -162,4 +162,14 @@ export const HELP = [
   "/tema &lt;nombre&gt; — qué hay en un tema",
   "/ultimos — lo último que guardaste",
   "/costos — cuánto se ha gastado en la API",
+  "/metricas — cómo le fue a tu Instagram esta semana (o <code>/metricas &lt;link|id&gt;</code> para un post)",
+].join("\n");
+
+/** Ayuda del calendario: el bot la agrega a HELP solo si CALENDARIO_MODO está definido. */
+export const HELP_CALENDARIO = [
+  "📅 <b>Calendario</b>:",
+  "/calendario — piezas de esta semana y la siguiente, con su estado",
+  "/pausar · /reanudar — detiene o retoma las publicaciones (en pausa, lo que se pase de hora se salta)",
+  "/publicar &lt;id&gt; — publica ya una pieza programada de esta semana (para probar)",
+  "/saltar &lt;id&gt; — no publica esa pieza",
 ].join("\n");
