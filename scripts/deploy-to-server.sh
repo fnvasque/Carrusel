@@ -4,6 +4,7 @@
 #
 #   scripts/deploy-to-server.sh ubuntu@<ip>          # primera vez: migra todo y arranca
 #   scripts/deploy-to-server.sh ubuntu@<ip> --update # después: solo actualiza el código
+#                                                    # (y crea ~/carrusel/media si falta)
 #
 # Pasos (primera vez): registra la clave de deploy en GitHub → apaga el bot y ngrok del
 # Mac → sube lo último de la base → copia .env e índice → arranca los contenedores.
@@ -18,8 +19,15 @@ SSH=(ssh -o StrictHostKeyChecking=accept-new "$HOST")
 
 "${SSH[@]}" "test -d $REMOTE_DIR/keys" || { echo "✗ Corre primero scripts/server-setup.sh en el servidor." >&2; exit 1; }
 
+# Carpeta de medios del calendario (volumen ./media -> /data/media). La crea el usuario SSH: si la crea
+# Docker al arrancar queda de root y el rsync del Mac no puede escribir en ella.
 if [ "$MODE" = "--update" ]; then
-  "${SSH[@]}" "cd $REMOTE_DIR && git pull -q && docker compose up -d --build && docker compose ps"
+  "${SSH[@]}" "cd $REMOTE_DIR && mkdir -p media && git pull -q && docker compose up -d --build && docker compose ps"
+  # Avisa (sin imprimir valores) si al .env del servidor le faltan las variables del calendario.
+  for v in MEDIA_PUBLIC_TOKEN MEDIA_PUBLIC_BASE CALENDARIO_MODO; do
+    "${SSH[@]}" "grep -q '^$v=.' $REMOTE_DIR/.env" 2>/dev/null \
+      || echo "⚠️  Falta $v en ~/$REMOTE_DIR/.env del servidor (ver deploy/README.md, sección del calendario)." >&2
+  done
   exit 0
 fi
 
@@ -51,7 +59,7 @@ if ! grep -q '^NGROK_AUTHTOKEN=' "$ENV_TMP"; then
 fi
 scp -q "$ENV_TMP" "$HOST:$REMOTE_DIR/.env"
 rm -f "$ENV_TMP"
-"${SSH[@]}" "chmod 600 $REMOTE_DIR/.env && mkdir -p $REMOTE_DIR/data/knowledge/.index"
+"${SSH[@]}" "chmod 600 $REMOTE_DIR/.env && mkdir -p $REMOTE_DIR/media $REMOTE_DIR/data/knowledge/.index"
 # El índice guarda estado que no se reconstruye: cola, DMs vistos, cupo semanal de hashtags, caché de embeddings.
 if [ -f knowledge/.index/kb.sqlite ] && ! "${SSH[@]}" "test -f $REMOTE_DIR/data/knowledge/.index/kb.sqlite"; then
   sqlite3 knowledge/.index/kb.sqlite ".backup '/tmp/kb-deploy.sqlite'"

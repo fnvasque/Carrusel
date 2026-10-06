@@ -62,7 +62,7 @@ export default carousel;
 `ai` se **cachean** en `.cache/ai/` por prompt: repetir no vuelve a llamar a la API.
 
 A cada fondo `ai` se le **anexa automáticamente el estilo visual de la marca**
-(navy + cyan rim light, editorial), para que todos los fondos generados sean
+(casi negro `#06060A` con luz de acento lima `#C6FF3D`, editorial), para que todos los fondos generados sean
 consistentes. Para desactivarlo en un fondo concreto: `{ ai: "...", brandStyle: false }`.
 
 ### Plantillas
@@ -74,9 +74,10 @@ Plantillas de marca (sistema visual **ia.es**, ver más abajo), una por rol de s
 - **Step** — paso del desarrollo: `step`, `heading`, `highlight`, `body`, `bullets[]`
 - **Prompt** — prompt copiable (mono): `heading`, `prompt`, `note`
 - **MythReality** — mito vs realidad: `myth`, `reality`, `mythLabel`, `realityLabel`
+- **Stat** — dato grande con contexto: `value`, `label`, `context` (el número cuenta desde 0 en el reel)
 - **Cta** — funnel al newsletter: `title`, `highlight`, `reason`, `handle`, `cta`
 
-`highlight` resalta esa palabra del titular en cian (la "palabra clave" de la marca).
+`highlight` resalta esa palabra del titular en lima (la "palabra clave" de la marca).
 Plantillas originales **Cover** / **Bullet** / **Quote** siguen disponibles.
 
 Props comunes a todas (en `src/templates/types.ts`): `background`, `fontFamily`,
@@ -87,11 +88,14 @@ color), `index`/`total` (progreso `NN/MM`), `source` (fuente al pie), `showLogo`
 
 Definido en `src/theme.ts` y `.context/design-brand.md`:
 
-- **Color**: fondo navy `#0B1020`, acento cian `#22D3EE` (regla 60-30-10: la palabra
-  clave del titular siempre en cian). Chips por pilar: violeta (Noticia), rosa (Curiosidad).
+- **Look lima**: fondo casi negro `#06060A`, acento **lima `#C6FF3D`**, violeta `#7C5CFF` y rosa
+  `#FF3D7F`; texto `#F4F4F6` y apagado `#8A8A99`; tarjetas `#13131A` con línea `#23232E`.
+  Encima va una **grilla lima** al 7 % (líneas de 2 px, celda de 120 px) y una viñeta radial.
+  Regla 60-30-10: la palabra clave del titular siempre en lima. Chips por pilar: herramienta y
+  prompt en lima, noticia en violeta, curiosidad en rosa. En el reel la grilla deriva despacio.
 - **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
   Archivos en `src/fonts/`; logos en `src/assets/`.
-- **Pilares** (`pillar`): `herramienta` · `noticia` · `prompt` · `curiosidad`.
+- **Pilares** (`pillar`; el color del chip sale del pilar): `herramienta` · `noticia` · `prompt` · `curiosidad`.
 
 Para añadir una plantilla nueva, crea `src/templates/MiPlantilla.tsx`, envuelve el
 contenido en `<Frame>` y expórtala en `src/templates/index.ts`.
@@ -199,7 +203,7 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
 - **Binarios opcionales**: `ffmpeg` (frames de reels) y `yt-dlp` (solo para `--scrape`) se
   detectan en runtime; sin ellos, el remix sigue funcionando con menos alcance.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
-  del original re-skineados al look navy + cian de la marca (se renderizan con `generate`/`reel`).
+  del original re-skineados al look lima de la marca (se renderizan con `generate`/`reel`).
 - **Loop de calidad**: cada variación se puntúa con el indicador de viralidad y, si está
   bajo el umbral (75), se **re-genera con el feedback del score** hasta pasarlo o agotar los
   intentos (`--max-tries`, default 3); se emite siempre el mejor resultado. Ajusta el objetivo
@@ -356,6 +360,142 @@ npm run meta:check      # verifica la conexión con la API de Meta
 
 En Obsidian: *Open folder as vault* → `knowledge/`.
 
+## Calendario y métricas
+
+Sistema encima del generador: cada domingo un agente planifica la semana, el Mac renderiza las
+piezas, el servidor las **publica solo** en @ia.punto.es y el bot mide cómo les fue y se lo cuenta
+al planificador de la semana siguiente. Diseño completo en
+`docs/superpowers/specs/2026-10-06-calendario-metricas-feedback-design.md`.
+
+Mix fijo de la semana: **lun** reel tutorial · **mar** carrusel lista/guía · **mié** reel compartible
+· **jue** reel demo · **vie** carrusel opinión/mito · **sáb** reel atemporal · **dom** descanso
+(2 carruseles + 4 reels). Zona del calendario: `America/Santiago`; la hora por defecto es 14:00
+(lun-sáb) hasta tener 100 seguidores. Audiencia: español neutro.
+
+### Qué corre dónde
+
+| Máquina | Qué hace | Cuándo | Qué escribe en `ia-es-kb` |
+|---|---|---|---|
+| **Nube** (tarea programada de claude.ai) | Planifica la semana, escribe los borradores y los valida (`validar.mjs`, lector frío) | Domingo 06:00 Chile | `_calendario/<semana>/plan.json` y borradores, `experimentos.md`, `aprendizajes.md` |
+| **Mac** (launchd) | `npm run calendario:render`: renderiza con Chromium/ffmpeg, pasa el QA, sube los medios con `rsync` y verifica la URL pública | Cada hora mientras esté encendido | `_calendario/<semana>/render.json` |
+| **Servidor** (Docker, el bot `kb`) | Sirve los medios, publica a la hora, publica la story 60 min después, toma instantáneas y manda resúmenes | 24/7 (scheduler cada minuto) | `_metricas/**`, `_calendario/registro.jsonl`, `_calendario/<semana>/estado.json` |
+
+Cada archivo tiene **un solo escritor**, así nunca chocan dos `git pull --rebase`. Tú solo editas
+`_calendario/config.json`. El estado de una pieza (`planificado` → `renderizado` → `programado` →
+`publicado`, o `saltado` / `fallido`) sale de combinar los tres archivos.
+
+### Puesta en marcha (una vez)
+
+**1. Servidor y Mac.** Servidor: volumen de medios, token público y modo. El detalle (variables,
+token de System User con `instagram_content_publish`) está en `deploy/README.md`, sección
+"Calendario automático". Resumen:
+
+```bash
+scripts/deploy-to-server.sh ubuntu@<ip> --update
+```
+
+Después, en el Mac, con `SERVER_HOST`, `SERVER_MEDIA_DIR`, `MEDIA_PUBLIC_BASE` y `MEDIA_PUBLIC_TOKEN`
+ya en `.env` (ver `.env.example`), instala el agente de launchd y prueba la subida:
+
+```bash
+scripts/calendario-install-mac.sh
+```
+
+Para ver qué haría sin tocar nada: `scripts/calendario-install-mac.sh --dry-run`. El script prueba
+ssh con clave, sube un JPEG de prueba, pide su URL pública (espera 200 e `image/jpeg`) y lo borra.
+Deja el render corriendo cada hora (log en `output/calendario/render.log`).
+
+**2. Plantilla del planificador en la base.** Copia el manual, el validador y el `config.json` a
+`ia-es-kb`:
+
+```bash
+scripts/kb-calendario-install.sh
+```
+
+Luego edita `_calendario/config.json` en la base: horas por defecto, `hashtagsBase` y, **sin falta**,
+`audios` (ver más abajo). El script no pisa tu `config.json` si ya existe: te muestra la diferencia.
+
+**3. Tarea programada en claude.ai.** Domingo 06:00 (America/Santiago), repo `ia-es-kb`, prompt:
+`Sigue _calendario/INSTRUCCIONES.md al pie de la letra`.
+
+**4. Primer domingo, a mano.** Con las piezas ya planificadas, renderiza tú mismo para ver el proceso:
+
+```bash
+npm run calendario:render
+```
+
+(`npm run calendario:render -- --dry-run` muestra lo pendiente sin renderizar.) Cuando el servidor las
+reciba, el bot te manda el preview de cada pieza; prueba una sola con `/publicar <id>` y revisa en
+Instagram.
+
+**5. Deja correr la primera semana completa con launchd.**
+
+Variables de entorno: `.env.example` (sección "Calendario automático"). `MEDIA_PUBLIC_TOKEN` y
+`MEDIA_PUBLIC_BASE` deben ser **iguales** en el Mac y el servidor. `CALENDARIO_MODO` va solo en el
+servidor: `auto` publica; `aviso` hace todo menos los POST a Meta (para depurar); sin la variable
+el scheduler no arranca. `meta:check` (`npm run meta:check`) verifica el token.
+
+### Qué hace el bot en Telegram
+
+| Comando | Qué hace |
+|---|---|
+| `/calendario` | Semana en curso con el estado de cada pieza |
+| `/pausar` | Freno: no se publica nada más hasta `/reanudar` |
+| `/reanudar` | Quita la pausa |
+| `/publicar <id>` | Fuerza una pieza ahora (para probar) |
+| `/saltar <id>` | Descarta una pieza; el botón **Saltar** del preview hace lo mismo |
+| `/metricas` | Últimos 7 días: mejor y peor pieza, seguidores ganados, hora con más audiencia |
+| `/metricas <id\|url>` | Todas las instantáneas de un post |
+
+En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --desde=AAAA-MM-DD`,
+`-- --post=<id|url|piezaId>` y `-- --ahora` para tomar instantáneas en el acto).
+
+### Operación del día a día
+
+- **Pausar**: `/pausar` (y `/reanudar`). Si una pieza ya tenía su contenedor creado, ese contenedor
+  se pierde (Meta lo expira) y la pieza no se publica tarde.
+- **Saltar una pieza**: botón **Saltar** en su preview o `/saltar <id>`, hasta la hora de publicación.
+- **Borrar un post ya publicado**: **desde la app de Instagram**. La API de Meta no borra posts; el
+  sistema no lo intenta.
+- **El Mac no se prendió**: una pieza sin render a su hora se marca `saltado` con motivo y avisa; **nunca
+  se publica tarde**. Al volver a encender el Mac, launchd corre el render solo, pero las piezas cuya
+  hora ya pasó no se recuperan. Para no llegar a eso, prende el Mac entre el domingo y el lunes.
+- **Pieza que falla**: si no pasa la puerta (QA, score menor a 75, borrador inválido) queda `fallido`
+  con el motivo y se deja el hueco vacío. Si falla el entorno del Mac (Chromium, ffmpeg, disco, red,
+  `rsync`), **no** se marca fallida: avisa por Telegram y la pieza sigue `planificado`, así la corrida
+  de la hora siguiente reintenta sin volver a renderizar.
+
+### Reglas del sistema que conviene saber
+
+- **QA de luminancia**: el cuadro 0 de un reel/story no puede ser casi negro. Pasa si la luminancia
+  media es mayor a 3 % y al menos 0,5 % de los píxeles es claro. El fondo de marca `#06060A` ronda el
+  2,4 %, así que "mayor a 12 %" de la spec original no se puede exigir; un MP4 negro sigue fallando.
+- **URL caída**: si ngrok cae a la hora de publicar, el reintento llega hasta 30 minutos después de la
+  hora. Pasado eso, `fallido`. Un post puede salir hasta 30 min tarde por esa causa, nunca más.
+- **Fondos con IA**: máximo 3 por semana, solo en Hook o Cta. El Mac quita los que sobran o están en otra
+  plantilla (usa el fondo por defecto y avisa); no marca la pieza como fallida.
+- **`render.json`**: lo escribe solo el Mac. Si lo editas a mano, tu cambio se respeta y el del Mac se
+  vuelve a aplicar encima.
+- **`SERVER_MEDIA_DIR` sin espacios**: solo letras, números y `_ . / -`. Es una ruta del servidor
+  (`carrusel/media`, relativa a su home), no `/data/media`.
+- **Audios**: `config.audios` arranca vacío. Pon tus pistas en `promo/audio/` (o en
+  `CALENDARIO_AUDIO_DIR`) y escribe sus nombres de archivo en `audios` de `_calendario/config.json`. Mientras
+  esté vacío el validador rechaza **todos los reels** y el mensaje de error nombra `config.audios`.
+- **Horas de la audiencia**: `online_followers` solo existe desde 100 seguidores. Meta no dice en qué zona
+  entrega las horas; se leen como `America/Los_Angeles` (por defecto; se cambia con la clave opcional
+  `zonaOnlineFollowers` de `_calendario/config.json`, p. ej. `{ "valor": "America/Santiago" }`). **Al cruzar los 100 seguidores, compara las horas con tu app de Instagram**; si salen
+  corridas 4-5 h, corrige `zonaOnlineFollowers`.
+- **Comparar piezas**: siempre con la instantánea de 7 días (también hay 24 h, 72 h, 14 d, 21 d y 28 d).
+  Con alcance menor a 50 se comparan conteos absolutos; desde 50, tasas.
+
+### Bucle de feedback
+
+El bot escribe `_metricas/bucle.json` con pesos por tema y arquetipo (solo con 3 o más piezas medidas),
+ganadores (20 % superior), derivados pendientes y un diagnóstico mensual. El planificador lo **lee** y
+decide; no cambia solo los pesos de `virality.ts`, el mix, la zona ni los parámetros de la puerta: si
+propone un cambio, lo anota en `aprendizajes.md` y lo aplicas tú en `config.json`. Cada semana declara
+**un** experimento (tema, arquetipo, hora, duración o tipo de hook) que se evalúa a las 4 semanas.
+
 ## Tests
 
 ```bash
@@ -371,7 +511,7 @@ sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el ga
 
 Convierte cualquier carrusel en un Reel vertical (1080×1920, 30 fps) **animado** con GSAP:
 los títulos entran palabra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
-y las escenas se cruzan con un empuje vertical. Una barra de progreso cian crece en el borde
+y las escenas se cruzan con un empuje vertical. Una barra de progreso lima crece en el borde
 superior durante todo el reel y el primer cuadro (miniatura) ya muestra el hook entrando.
 Reutiliza las mismas plantillas del carrusel.
 
