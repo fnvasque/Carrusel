@@ -3,5 +3,6 @@ import "./calendario/time.ts";
 import "./calendario/plan.ts";
 import "./calendario/media-server.ts";
 import "./calendario/draft.ts";
+import "./calendario/qa.ts";
 
 await done();
