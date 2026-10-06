@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt } from "../src/templates/index.ts";
+import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
 import { theme } from "../src/theme.ts";
@@ -614,6 +614,33 @@ check("plantillas: formato post sin capa bg ni strike", () => {
   assert.doesNotMatch(hook, /data-anim="bg"/);
   assert.doesNotMatch(myth, /data-anim="strike"/);
   assert.match(myth, /text-decoration-line:line-through/, "en post, tachado rosa estático");
+});
+
+// --- StoryCover y logo tardío ---
+check("StoryCover: rótulo \"Nuevo en el feed\", wordmark y titular con palabra clave", () => {
+  const h = renderToStaticMarkup(createElement(StoryCover, { title: "3 IAs gratis", highlight: "gratis", format: "reel" }));
+  assert.match(h, /Nuevo en el feed ↑/);
+  assert.match(h, /data-brand="logo"/, "lleva el wordmark");
+  assert.match(h, /<h1[^>]*>.*data-anim="pop"[^>]*>gratis<\/span>/);
+  assert.match(h, /width:1080px;height:1920px/, "lienzo 9:16");
+  const otro = renderToStaticMarkup(createElement(StoryCover, { title: "Hola", rotulo: "Ya en el feed", format: "reel" }));
+  assert.match(otro, /Ya en el feed/);
+  assert.doesNotMatch(otro, /Nuevo en el feed/);
+});
+
+check("Frame: logoEnCuadro0 por defecto no cambia el markup; false marca el wordmark como late (solo reel)", () => {
+  for (const format of ["post", "reel"] as const) {
+    const props = { title: "La IA cambió todo", highlight: "cambió", format };
+    const def = renderToStaticMarkup(createElement(Hook, props));
+    assert.equal(renderToStaticMarkup(createElement(Hook, { ...props, logoEnCuadro0: true })), def, `${format}: true = por defecto`);
+    assert.doesNotMatch(def, /data-anim="late"/);
+    assert.doesNotMatch(def, /logoEnCuadro0/i);
+  }
+  const reel = renderToStaticMarkup(createElement(Hook, { title: "T", format: "reel", logoEnCuadro0: false }));
+  assert.match(reel, /data-brand="logo" data-anim="late"|data-anim="late" data-brand="logo"/);
+  // En el carrusel no hay tiempo: el logo queda estático.
+  const post = renderToStaticMarkup(createElement(Hook, { title: "T", logoEnCuadro0: false }));
+  assert.doesNotMatch(post, /data-anim="late"/);
 });
 
 // --- reel: página única ---

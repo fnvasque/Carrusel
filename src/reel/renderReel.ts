@@ -19,6 +19,18 @@ export interface RenderReelOptions {
   audio?: string;
   /** Solo exportar un PNG por escena (estado final), sin componer el video. */
   framesOnly?: boolean;
+  /**
+   * Wordmark desde el cuadro 0 (por defecto true). Con false, el logo de cada
+   * escena entra a los 3 s (experimento del calendario, `data-anim="late"`).
+   */
+  logoEnCuadro0?: boolean;
+}
+
+/** Resultado del render: ruta del MP4 (o del directorio de escenas) y duración del reel. */
+export interface RenderReelResult {
+  path: string;
+  /** Duración del reel en ms (la de los tiempos usados para componerlo). */
+  durationMs: number;
 }
 
 /**
@@ -27,6 +39,14 @@ export interface RenderReelOptions {
  * Devuelve la ruta del MP4 (o del directorio de escenas si `framesOnly`).
  */
 export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {}): Promise<string> {
+  return (await renderReelResult(spec, opts)).path;
+}
+
+/**
+ * Igual que `renderReel`, pero devuelve también la duración del reel (ms), que
+ * el calendario registra y usa en el QA del archivo final.
+ */
+export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptions = {}): Promise<RenderReelResult> {
   const base = join(process.cwd(), opts.outDir ?? "output", spec.name);
   const timing = specTiming(spec, { seconds: opts.seconds, fade: opts.fade, pace: opts.pace });
   if (!opts.framesOnly) assertFfmpeg();
@@ -37,17 +57,19 @@ export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {
     slides: await Promise.all(
       spec.slides.map(async (s) => {
         const props = { ...spec.defaults, ...s.props };
-        return { ...s, props: { ...s.props, background: await resolveBackground(props.background) } };
+        const logo = opts.logoEnCuadro0 === false ? { logoEnCuadro0: false } : {};
+        return { ...s, props: { ...s.props, ...logo, background: await resolveBackground(props.background) } };
       }),
     ),
   };
   const html = await buildReelPage(resolved, timing);
+  const durationMs = Math.round(timing.total * 1000);
 
   if (opts.framesOnly) {
     const dir = join(base, "reel");
     const paths = await captureStills(html, timing, dir);
     console.log(`\n✓ ${paths.length} escenas de "${spec.name}" en ${dir}`);
-    return dir;
+    return { path: dir, durationMs };
   }
 
   await mkdir(base, { recursive: true });
@@ -56,5 +78,5 @@ export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {
   await captureReel(html, timing, mp4, { audio: opts.audio });
   console.log(`✓ Reel "${spec.name}" → ${mp4}  (${timing.total}s, 1080×1920${opts.audio ? "" : ", sin audio"})`);
   if (!opts.audio) console.log("  Súbelo y añádele un audio en tendencia dentro de la app.");
-  return mp4;
+  return { path: mp4, durationMs };
 }
