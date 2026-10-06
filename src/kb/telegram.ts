@@ -163,4 +163,10 @@ export const HELP = [
   "/ultimos — lo último que guardaste",
   "/costos — cuánto se ha gastado en la API",
   "/metricas — cómo le fue a tu Instagram esta semana (o <code>/metricas &lt;link|id&gt;</code> para un post)",
+  "",
+  "📅 <b>Calendario</b> (si está activo en el servidor):",
+  "/calendario — piezas de esta semana y la siguiente, con su estado",
+  "/pausar · /reanudar — detiene o retoma las publicaciones (en pausa, lo que se pase de hora se salta)",
+  "/publicar &lt;id&gt; — publica ya una pieza programada (para probar)",
+  "/saltar &lt;id&gt; — no publica esa pieza",
 ].join("\n");

@@ -14,14 +14,25 @@ import {
   abortStaleRebase, commitPaths, findFichaById, findLastSave, kbDir, kbHead, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave,
   setSyncErrorHandler, temasDir,
 } from "./store.ts";
-import { localParts } from "../calendario/time.ts";
+import { addDays, localParts, weekMonday, zonedToUtc } from "../calendario/time.ts";
+import { limpiarMedios, manejarMedio } from "../calendario/media-server.ts";
+import { estadoEfectivo, leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "../calendario/plan.ts";
+import { escribirEstado, estadoPath } from "../calendario/registro.ts";
+import {
+  cargarFilasDb, claveFila, depsReales, esPausado, guardarClaveDb, leerClaveDb, ORDEN_PUBLICAR, ORDEN_SALTAR, tick, type SchedulerDeps,
+} from "../calendario/scheduler.ts";
+import {
+  avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
+  modoCalendario, porProgramar, publicadas, recordatorioLunes, silencioCalendario, TEXTO_POST_PUBLICACION, TEXTO_RECORDATORIO_LUNES,
+} from "../calendario/telegram.ts";
+import { graphGet } from "../meta/client.ts";
 import { guardarCuenta, tomarInstantaneas } from "../insights/snapshots.ts";
 import { guardarEstado, leerEstado, resumenDelDomingo, resumenReciente, textoPost } from "../insights/lectura.ts";
 import { debeCuenta, debeResumir, formatResumenTelegram } from "../insights/summary.ts";
 import { markSummaryNotified, newSummaries, registroPath, silenceAlert } from "./research.ts";
 import { sendDm } from "../meta/messages.ts";
 import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
-import { dmAction, startInbox, type DmEvent } from "./inbox.ts";
+import { dmAction, startHttp, webhookRoute, type DmEvent, type HttpRoute } from "./inbox.ts";
 import { recoverMissedDms } from "./recover.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatFichaList, formatSaved, formatSavedText, handleInText, handleReply, HELP,
@@ -53,6 +64,8 @@ const allowed = new Set(
 );
 if (!token) throw new Error("Falta TELEGRAM_BOT_TOKEN en .env.");
 if (!allowed.size) throw new Error("Falta TELEGRAM_ALLOWED_CHAT_IDS en .env (sin él, cualquiera podría usar el bot).");
+/** `auto` | `aviso` | undefined (calendario apagado). Un valor inválido lanza aquí: el bot no arranca. */
+const calendarioModo = modoCalendario(process.env.CALENDARIO_MODO);
 
 /** Ventana en que unas capturas se asocian al último link compartido. */
 const LINK_WINDOW_MS = 30 * 60_000;
@@ -275,6 +288,20 @@ bot.command("ultimos", async (ctx) => {
   const fichas = (await listFichas()).slice(-10).reverse();
   if (!fichas.length) return void (await ctx.reply("Todavía no guardaste nada."));
   await sendLong(ctx.api, ctx.chat.id, `🕘 <b>Lo último que guardaste</b>\n\n${formatFichaList(fichas)}`);
+});
+
+// Calendario (la lógica está en la sección "calendario", más abajo). Van antes del
+// manejador de texto, que responde "No conozco ese comando" a todo lo demás.
+bot.command("calendario", (ctx) => cmdCalendario(ctx.chat.id));
+bot.command("pausar", (ctx) => cmdPausa(ctx.chat.id, true));
+bot.command("reanudar", (ctx) => cmdPausa(ctx.chat.id, false));
+bot.command("publicar", (ctx) => cmdPublicar(ctx.chat.id, ctx.match));
+bot.command("saltar", (ctx) => cmdSaltar(ctx.chat.id, ctx.match));
+bot.callbackQuery(/^cal-saltar:/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+  await botonSaltar(chatId, ctx.callbackQuery.data, () => ctx.editMessageReplyMarkup({ reply_markup: undefined }).then(() => undefined));
 });
 
 // --- links y preguntas ---
@@ -602,23 +629,38 @@ async function onEcho(ev: DmEvent): Promise<void> {
   void work();
 }
 
-function startInstagramInbox(): void {
+/**
+ * Servidor HTTP (`KB_INBOX_PORT`): el webhook de Instagram si hay META_WEBHOOK_VERIFY_TOKEN
+ * y los medios del calendario (`/media/<token>/…`) si hay MEDIA_PUBLIC_TOKEN. Sin
+ * ninguno de los dos, no se abre ningún puerto.
+ */
+function startHttpServer(): void {
+  const port = Number(process.env.KB_INBOX_PORT) || 8787;
+  const rutas: HttpRoute[] = [];
   const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN?.trim();
-  if (!verifyToken) return;
-  const appSecret = process.env.META_APP_SECRET?.trim();
-  if (!appSecret) throw new Error("El webhook de Instagram necesita META_APP_SECRET para validar la firma de Meta.");
-  if (!igAllowed.size) {
-    console.warn("⚠️  INBOX_ALLOWED_SENDERS está vacío: ignoraré todos los DMs y registraré el IGSID de quien escriba.");
+  if (verifyToken) {
+    const appSecret = process.env.META_APP_SECRET?.trim();
+    if (!appSecret) throw new Error("El webhook de Instagram necesita META_APP_SECRET para validar la firma de Meta.");
+    if (!igAllowed.size) {
+      console.warn("⚠️  INBOX_ALLOWED_SENDERS está vacío: ignoraré todos los DMs y registraré el IGSID de quien escriba.");
+    }
+    rutas.push(webhookRoute({
+      port,
+      verifyToken,
+      appSecret,
+      debugPayload: process.argv.includes("--debug-payload"),
+      onEvent: (ev) => void onDm(ev),
+    }));
+    console.log(`📬 Webhook de Instagram en http://localhost:${port}/webhook`);
+    // Lo que llegó con el bot caído. Se espera un poco: los reintentos de Meta llegan primero por el webhook.
+    setTimeout(() => void recoverDms(), RECOVER_DELAY_MS);
   }
-  startInbox({
-    port: Number(process.env.KB_INBOX_PORT) || 8787,
-    verifyToken,
-    appSecret,
-    debugPayload: process.argv.includes("--debug-payload"),
-    onEvent: (ev) => void onDm(ev),
-  });
-  // Lo que llegó con el bot caído. Se espera un poco: los reintentos de Meta llegan primero por el webhook.
-  setTimeout(() => void recoverDms(), RECOVER_DELAY_MS);
+  if (mediaToken) {
+    const token = mediaToken;
+    rutas.push((req, res) => manejarMedio(req, res, { token, root: MEDIA_ROOT }));
+    console.log(`🖼  Medios del calendario en http://localhost:${port}/media/***/… (desde ${MEDIA_ROOT})`);
+  }
+  if (rutas.length) startHttp(port, rutas);
 }
 
 const RECOVER_DELAY_MS = 90_000;
@@ -684,6 +726,8 @@ async function syncFromRemote(): Promise<void> {
         console.log(`↓ Base actualizada desde GitHub: ${s.indexed} documento(s) reindexado(s), ${s.removed} quitado(s).`);
       }
     });
+    // Piezas recién renderizadas (previews), render pendiente y silencio del planificador.
+    if (calendarioModo) await revisarCalendario();
     for (const s of await newSummaries()) {
       // Se marca solo si llegó: si Telegram falla, se reintenta en la próxima sincronización.
       if (await sendToAdmins(`🔎 Investigación semanal\n\n${s.text}`)) markSummaryNotified(s.name);
@@ -829,6 +873,317 @@ function iniciarMetricas(): void {
   setInterval(() => void summaryTick(), RESUMEN_CADA_MS);
 }
 
+// --- calendario ---
+// El scheduler (`tick`, cada minuto, con su propio candado) es el único que publica o
+// salta: `/publicar` y `/saltar` solo dejan una orden en `calendario_estado` y llaman al
+// tick. El bot escribe solo `estado.json` y `registro.jsonl` (vía el scheduler), nunca el
+// plan ni el render. Ningún texto lleva el token de medios (`sinToken`).
+
+const mediaToken = process.env.MEDIA_PUBLIC_TOKEN?.trim() || undefined;
+const MEDIA_ROOT = process.env.MEDIA_DIR?.trim() || "/data/media";
+const CALENDARIO_CADA_MS = 60_000;
+const LIMPIEZA_MEDIOS_MS = 24 * 3_600_000;
+/** Claves de `calendario_estado` de los avisos del bot (una vez cada uno). */
+const K_RENDER = "aviso_render:";
+const K_SILENCIO = "aviso_silencio:";
+const K_POST = "aviso_post:";
+const K_LUNES = "recordatorio_lunes";
+
+type PiezaCal = SemanaLeida["plan"]["piezas"][number];
+
+const sinToken = (t: string): string => (mediaToken ? ocultarToken(t, mediaToken) : t);
+
+/** Dependencias del scheduler, una sola vez (su memoria de proceso va atada a este objeto). */
+let calDeps: SchedulerDeps | undefined;
+function depsCalendario(): SchedulerDeps {
+  if (calDeps) return calDeps;
+  const base = depsReales({
+    modo: calendarioModo!,
+    avisar: async (texto) => {
+      if (!(await sendToAdmins(sinToken(texto)))) throw new Error("Telegram no aceptó el aviso");
+    },
+  });
+  calDeps = {
+    ...base,
+    // El commit entra a la cadena serial (nunca a mitad de un guardado o de un pull) pero
+    // sin esperarla: un guardado largo no puede atrasar una publicación.
+    commit: (paths, mensaje) => {
+      void serial(() => commitPaths(paths, mensaje)).catch((e) => console.warn(`⚠️  Calendario, commit: ${sinToken(errText(e))}`));
+      return Promise.resolve();
+    },
+  };
+  return calDeps;
+}
+
+function commitCalendario(paths: string[], mensaje: string): void {
+  void depsCalendario().commit(paths, mensaje);
+}
+
+/** `n` semanas desde el lunes `desde`. Un plan.json inválido se informa y se omite. */
+async function semanasCalendario(desde: string, n: number): Promise<{ semanas: SemanaLeida[]; errores: string[] }> {
+  const hay = new Set(await listarSemanas());
+  const semanas: SemanaLeida[] = [];
+  const errores: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const lunes = addDays(desde, 7 * i);
+    if (!hay.has(lunes)) continue;
+    try {
+      const s = await leerSemana(lunes);
+      if (s) semanas.push(s);
+    } catch (e) {
+      errores.push(`⚠️ Semana ${lunes}: ${sinToken(errText(e))}`);
+    }
+  }
+  return { semanas, errores };
+}
+
+/** Semana en curso y la siguiente: lo único que aceptan /publicar, /saltar y el botón. */
+const semanasActivas = () => semanasCalendario(weekMonday(new Date()), 2);
+
+async function calendarioApagado(chatId: number): Promise<void> {
+  await bot.api.sendMessage(chatId, "El calendario está apagado en este bot (CALENDARIO_MODO no está definido).");
+}
+
+async function cmdCalendario(chatId: number): Promise<void> {
+  try {
+    const ahora = new Date();
+    const { semanas, errores } = await semanasActivas();
+    const cab = !calendarioModo
+      ? "Calendario apagado (sin CALENDARIO_MODO): solo muestro el plan."
+      : `Modo ${calendarioModo}${esPausado(leerClaveDb("pausado")) ? " · ⏸ en pausa (/reanudar)" : ""}`;
+    const cuerpo = semanas.map((s) => formatSemana(s, ahora));
+    if (!cuerpo.length && !errores.length) cuerpo.push(`No hay plan para la semana del ${weekMonday(ahora)}.`);
+    await sendLong(bot.api, chatId, escapeHtml(sinToken([cab, ...cuerpo, ...errores].join("\n\n"))));
+  } catch (err) {
+    await bot.api.sendMessage(chatId, `⚠️ No pude leer el calendario: ${sinToken(errText(err))}`).catch(() => {});
+  }
+}
+
+async function cmdPausa(chatId: number, pausar: boolean): Promise<void> {
+  if (!calendarioModo) return calendarioApagado(chatId);
+  guardarClaveDb("pausado", pausar ? "1" : "0");
+  await bot.api.sendMessage(chatId, pausar
+    ? "⏸ Calendario en pausa: no publico nada hasta /reanudar. Una pieza cuya hora pase en pausa se salta (no se publica tarde)."
+    : "▶️ Calendario reanudado: publico a la hora del plan.");
+}
+
+interface PiezaRef { s: SemanaLeida; p: PiezaCal; clave: string }
+
+/** Pieza del argumento, solo de la semana en curso o la siguiente. Si no la encuentra, responde y devuelve undefined. */
+async function piezaDelComando(chatId: number, arg: string, uso: string): Promise<PiezaRef | undefined> {
+  const { semanas } = await semanasActivas();
+  const ref = idDesdeArgumento(arg, semanas);
+  if (!ref) {
+    const ids = semanas.flatMap((s) => s.plan.piezas.map((p) => p.id));
+    await bot.api.sendMessage(chatId, `Uso: ${uso} <id>.` + (arg.trim()
+      ? " No encontré esa pieza (o hay más de una que empieza así) en esta semana ni en la siguiente."
+      : "") + (ids.length ? `\nPiezas: ${ids.join(", ")}` : "\nNo hay piezas esta semana ni la siguiente."));
+    return undefined;
+  }
+  const s = semanas.find((x) => x.semana === ref.semana)!;
+  return { s, p: s.plan.piezas.find((x) => x.id === ref.id)!, clave: claveFila(ref.semana, ref.id) };
+}
+
+const filaPost = (clave: string) => cargarFilasDb().find((f) => f.piezaId === clave && f.tipo === "post");
+
+/** `/publicar <id>`: deja la orden y corre un tick. Solo piezas `programadas` cuya hora no llegó. */
+async function cmdPublicar(chatId: number, arg: string): Promise<void> {
+  if (!calendarioModo) return calendarioApagado(chatId);
+  const say = async (t: string): Promise<void> => void (await bot.api.sendMessage(chatId, sinToken(t)));
+  try {
+    const x = await piezaDelComando(chatId, arg, "/publicar");
+    if (!x) return;
+    const { s, p, clave } = x;
+    if (esPausado(leerClaveDb("pausado"))) return say("⏸ El calendario está en pausa: /reanudar primero.");
+    if (zonedToUtc(p.dia, p.hora).getTime() <= Date.now()) {
+      return say(`La hora de ${p.id} ya llegó (${p.dia} ${p.hora}): la maneja el scheduler. Mira /calendario.`);
+    }
+    const f = filaPost(clave);
+    if (f) return say(`${p.id} ya está en curso (${f.paso}).`);
+    const r = s.render[p.id];
+    if (!s.estado[p.id] && r?.estado === "renderizado" && r.medios) {
+      // Recién renderizada y aún sin preview: se programa aquí, igual que en la sincronización.
+      await escribirEstado(s.semana, p.id, { estado: "programado" });
+      s.estado[p.id] = { estado: "programado" };
+      commitCalendario([estadoPath(s.semana)], `calendario: programado ${p.id}`);
+    }
+    const ef = estadoEfectivo(p, r, s.estado[p.id]);
+    if (ef !== "programado") return say(`Solo publico piezas programadas: ${p.id} está ${ef}.`);
+    guardarClaveDb(ORDEN_PUBLICAR + clave, new Date().toISOString());
+    await say(`▶️ Publicando ${p.id} ahora${calendarioModo === "aviso" ? " (modo aviso: sin POST a Meta)" : ""}…`);
+    await tick(depsCalendario());
+    const fin = filaPost(clave);
+    if (!fin) await say("Quedó en cola: sale en el próximo minuto (te aviso).");
+    else if (fin.paso === "publicado") await say(`Resultado: ${p.id} publicado${fin.mediaId ? ` (media ${fin.mediaId})` : ""}.`);
+    else if (fin.paso === "fallido") await say(`Resultado: ${p.id} no se publicó: ${fin.error ?? "error desconocido"}`);
+    else await say(`Resultado: ${p.id} va en «${fin.paso}» (Meta procesando o reintento programado). Te aviso cuando termine.`);
+  } catch (err) {
+    await say(`❌ /publicar: ${errText(err)}`).catch(() => {});
+  }
+}
+
+/** Salto pedido por Telegram: orden + tick. `soloAntesDeLaHora` para el botón del preview. Dice si quedó pedido. */
+async function saltar(chatId: number, x: PiezaRef, soloAntesDeLaHora: boolean): Promise<boolean> {
+  const { s, p, clave } = x;
+  const say = async (t: string): Promise<void> => void (await bot.api.sendMessage(chatId, sinToken(t)));
+  const ef = estadoEfectivo(p, s.render[p.id], s.estado[p.id]);
+  if (ef === "publicado" || ef === "saltado" || ef === "fallido") {
+    await say(`${p.id} ya está ${ef}.`);
+    return false;
+  }
+  if (soloAntesDeLaHora && zonedToUtc(p.dia, p.hora).getTime() <= Date.now()) {
+    await say(`Ya pasó la hora de ${p.id}: el botón Saltar ya no vale. Usa /saltar ${p.id} si aún no sale.`);
+    return false;
+  }
+  if (filaPost(clave)?.paso === "publicando") {
+    await say(`${p.id} se está publicando: ya no se puede saltar.`);
+    return false;
+  }
+  guardarClaveDb(ORDEN_SALTAR + clave, new Date().toISOString());
+  await tick(depsCalendario()); // el aviso "⏭️ … saltada" lo manda el scheduler
+  const ahora = (await leerSemana(s.semana).catch(() => undefined))?.estado[p.id]?.estado;
+  if (ahora !== "saltado") await say(`Anotado: salto ${p.id} en el próximo minuto.`);
+  return true;
+}
+
+async function cmdSaltar(chatId: number, arg: string): Promise<void> {
+  if (!calendarioModo) return calendarioApagado(chatId);
+  try {
+    const x = await piezaDelComando(chatId, arg, "/saltar");
+    if (x) await saltar(chatId, x, false);
+  } catch (err) {
+    await bot.api.sendMessage(chatId, `❌ /saltar: ${sinToken(errText(err))}`).catch(() => {});
+  }
+}
+
+/** Botón Saltar del preview: vale solo hasta la hora de la pieza. */
+async function botonSaltar(chatId: number, data: string, quitarBoton: () => Promise<unknown>): Promise<void> {
+  if (!calendarioModo) return calendarioApagado(chatId);
+  try {
+    const { semanas } = await semanasActivas();
+    const ref = leerCallbackSaltar(data, semanas);
+    if (!ref) {
+      await bot.api.sendMessage(chatId, "Ese botón ya no vale (la pieza no está en esta semana ni en la siguiente).");
+      return;
+    }
+    const s = semanas.find((y) => y.semana === ref.semana)!;
+    const x: PiezaRef = { s, p: s.plan.piezas.find((y) => y.id === ref.id)!, clave: claveFila(ref.semana, ref.id) };
+    if (await saltar(chatId, x, true)) await quitarBoton().catch(() => {});
+  } catch (err) {
+    await bot.api.sendMessage(chatId, `❌ Saltar: ${sinToken(errText(err))}`).catch(() => {});
+  }
+}
+
+/** Preview de una pieza programada: portada + caption + botón Saltar. Sin foto (o si falla), solo texto. */
+async function enviarPreview(s: SemanaLeida, p: PiezaCal, medios: Parameters<typeof formatPreview>[1]): Promise<void> {
+  const { caption, foto } = formatPreview(p, medios);
+  const reply_markup = new InlineKeyboard().text("⏭️ Saltar", callbackSaltar(s.semana, p.id, s));
+  for (const chatId of allowed) {
+    try {
+      if (!foto) throw new Error("sin portada");
+      await bot.api.sendPhoto(chatId, foto, { caption, reply_markup });
+    } catch (err) {
+      // El error de Telegram puede citar la URL de la foto (con el token de medios).
+      console.warn(`⚠️  Preview de ${p.id} sin foto: ${sinToken(errText(err))}`);
+      await bot.api.sendMessage(chatId, caption, { reply_markup }).catch(() => {});
+    }
+  }
+}
+
+/**
+ * Tras cada sincronización (o cada hora si no hay sincronización): renderizadas →
+ * `programado` + preview; aviso de render pendiente; silencio del planificador.
+ */
+async function revisarCalendario(): Promise<void> {
+  try {
+    const ahora = new Date();
+    const { semanas } = await semanasActivas();
+    for (const x of porProgramar(semanas, ahora)) {
+      const s = semanas.find((y) => y.semana === x.semana)!;
+      await escribirEstado(x.semana, x.pieza.id, { estado: "programado" });
+      s.estado[x.pieza.id] = { estado: "programado" };
+      commitCalendario([estadoPath(x.semana)], `calendario: programado ${x.pieza.id}`);
+      await enviarPreview(s, x.pieza, x.medios);
+    }
+    const ya = semanas.flatMap((s) => ["sabado", "12h"].map((e) => `${s.semana}:${e}`)).filter((k) => leerClaveDb(K_RENDER + k));
+    const render = avisoRenderPendiente(semanas, ahora, ya);
+    if (render && (await sendToAdmins(render.texto))) guardarClaveDb(K_RENDER + render.clave, ahora.toISOString());
+    const silencio = silencioCalendario(await listarSemanas(), ahora);
+    const kSilencio = K_SILENCIO + addDays(weekMonday(ahora), 7);
+    if (silencio && !leerClaveDb(kSilencio) && (await sendToAdmins(silencio))) guardarClaveDb(kSilencio, ahora.toISOString());
+  } catch (err) {
+    console.warn(`⚠️  Calendario (revisión): ${sinToken(errText(err))}`);
+  }
+}
+
+/** Avisos de cada minuto: post-publicación (a los 2 min, con permalink si ya está) y recordatorio del lunes. */
+async function avisosDelMinuto(): Promise<void> {
+  const ahora = new Date();
+  const { semanas } = await semanasCalendario(addDays(weekMonday(ahora), -7), 2);
+  for (const a of avisosPostPublicacion(semanas, ahora, []).filter((x) => !leerClaveDb(K_POST + x.clave))) {
+    let permalink: string | undefined;
+    if (calendarioModo === "auto") {
+      permalink = await graphGet<{ permalink?: string }>(a.mediaId, { fields: "permalink" })
+        .then((r) => (typeof r?.permalink === "string" ? r.permalink : undefined))
+        .catch(() => undefined);
+    }
+    if (await sendToAdmins(`📣 ${a.id} ya está en Instagram${permalink ? `: ${permalink}` : ""}. ${TEXTO_POST_PUBLICACION}`)) {
+      guardarClaveDb(K_POST + a.clave, ahora.toISOString());
+    }
+  }
+  if (recordatorioLunes(ahora, leerClaveDb(K_LUNES)) && (await sendToAdmins(TEXTO_RECORDATORIO_LUNES))) {
+    guardarClaveDb(K_LUNES, localParts(ahora).dia);
+  }
+}
+
+let minutoEnCurso = false;
+async function minutoCalendario(): Promise<void> {
+  if (minutoEnCurso) return;
+  minutoEnCurso = true;
+  try {
+    await tick(depsCalendario()); // nunca lanza; tiene su propio candado
+    await avisosDelMinuto();
+  } catch (err) {
+    console.warn(`⚠️  Calendario: ${sinToken(errText(err))}`);
+  } finally {
+    minutoEnCurso = false;
+  }
+}
+
+/** Borra de MEDIA_ROOT los medios publicados hace más de 7 días (Meta ya los copió). */
+async function limpiarMediosViejos(): Promise<void> {
+  try {
+    const ahora = new Date();
+    const { semanas } = await semanasCalendario(addDays(weekMonday(ahora), -35), 6);
+    const borradas = await limpiarMedios(MEDIA_ROOT, publicadas(semanas), ahora);
+    if (borradas.length) console.log(`🧹 Medios borrados (7 días tras publicar): ${borradas.join(", ")}`);
+  } catch (err) {
+    console.warn(`⚠️  Limpieza de medios: ${sinToken(errText(err))}`);
+  }
+}
+
+function iniciarCalendario(): void {
+  if (!calendarioModo) {
+    console.log("📅 Calendario apagado (sin CALENDARIO_MODO): no publico ni aviso nada del calendario.");
+    return;
+  }
+  try {
+    depsCalendario();
+  } catch (err) {
+    throw new Error(`CALENDARIO_MODO=${calendarioModo} necesita la configuración de Meta: ${errText(err)}`);
+  }
+  if (!mediaToken) console.warn("⚠️  Calendario sin MEDIA_PUBLIC_TOKEN: no sirvo medios y Meta no podrá descargar las piezas.");
+  console.log(`📅 Calendario en modo ${calendarioModo}: scheduler cada minuto.`);
+  setInterval(() => void minutoCalendario(), CALENDARIO_CADA_MS);
+  setTimeout(() => void limpiarMediosViejos(), 5 * 60_000);
+  setInterval(() => void limpiarMediosViejos(), LIMPIEZA_MEDIOS_MS);
+  // Sin sincronización con GitHub (base local), la revisión corre sola cada hora.
+  if (process.env.KB_GIT_PUSH !== "1") {
+    setTimeout(() => void revisarCalendario(), SYNC_FIRST_DELAY_MS);
+    setInterval(() => void revisarCalendario(), SYNC_INTERVAL_MS);
+  }
+}
+
 // --- arranque ---
 
 setSyncErrorHandler((m) => void notifyAdmin(`⚠️ ${m}`));
@@ -845,11 +1200,17 @@ await bot.api.setMyCommands([
   { command: "ultimos", description: "Lo último que guardaste" },
   { command: "costos", description: "Cuánto se ha gastado en la API" },
   { command: "metricas", description: "Cómo le fue a tu Instagram esta semana" },
+  { command: "calendario", description: "Piezas de la semana y su estado" },
+  { command: "pausar", description: "Pausar el calendario" },
+  { command: "reanudar", description: "Reanudar el calendario" },
+  { command: "publicar", description: "Publicar ahora una pieza programada" },
+  { command: "saltar", description: "Saltar una pieza" },
   { command: "ayuda", description: "Cómo usarme" },
 ]);
 console.log(`🤖 Bot en marcha (chats autorizados: ${[...allowed].join(", ")}). Base: ${temasDir().replace(/\/temas$/, "")}`);
 if (resumed) console.log(`↻ Retomo ${resumed} guardado(s) que quedaron a medias.`);
-startInstagramInbox();
+iniciarCalendario();
+startHttpServer();
 void checkMetaToken();
 setInterval(() => void checkMetaToken(), 24 * 3_600_000);
 if (process.env.KB_GIT_PUSH === "1") {

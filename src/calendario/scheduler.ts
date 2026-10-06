@@ -88,6 +88,7 @@ export function tareasDebidas(
   filas: Fila[],
   ahora: Date,
   pausado: boolean,
+  ordenes: Ordenes = SIN_ORDENES,
 ): { publicar: Tarea[]; saltar: Salto[] } {
   const nuevas: Tarea[] = [];
   const reanudar: Tarea[] = [];
@@ -98,23 +99,31 @@ export function tareasDebidas(
 
   for (const s of semanas) {
     for (const p of s.plan.piezas) {
-      let hora: Date;
+      let horaPlan: Date;
       try {
-        hora = zonedToUtc(p.dia, p.hora);
+        horaPlan = zonedToUtc(p.dia, p.hora);
       } catch {
         continue; // el plan ya viene validado; por si acaso, no se adivina la hora.
       }
-      const h = hora.getTime();
       const clave = claveFila(s.semana, p.id);
       const est = s.estado[p.id];
       const r: RenderEntry | undefined = s.render[p.id];
       const salta = (motivo: string, tipo: "post" | "story" = "post"): void => {
         saltar.push({ semana: s.semana, id: p.id, motivo, tipo });
       };
+      const fp = porClave.get(`${clave}|post`);
+      // `/publicar`: la orden vale como hora de la pieza mientras la orden no venza o
+      // el post ya haya empezado (contenedor creado con esa hora).
+      const forzada = ordenes.forzar[clave];
+      const empezado = fp !== undefined && (fp.intentos > 0 || fp.paso === "esperando" || fp.paso === "publicando");
+      const hora = forzada && forzada.getTime() < horaPlan.getTime() && empezado ? forzada : horaPlan;
+      const h = hora.getTime();
 
       // --- post ---
-      const fp = porClave.get(`${clave}|post`);
-      if (terminal(fp) || fp?.rendida) {
+      if (ordenes.saltar.has(clave) && !terminal(fp) && !fp?.rendida && fp?.paso !== "publicando" && !cerrado(est?.estado)) {
+        // `/saltar` o el botón Saltar: algo que pudo publicarse ("publicando") nunca se salta.
+        salta(MOTIVO_A_MANO);
+      } else if (terminal(fp) || fp?.rendida) {
         // cerrado o abandonado: nunca más.
       } else if (fp?.paso === "publicando") {
         // Pudo publicarse: jamás se salta, solo se verifica.
@@ -145,6 +154,14 @@ export function tareasDebidas(
           else if (!conRender) salta("falta el render");
           else if (t >= h + VENTANA_MS) salta(pausado ? "pausado" : "no se publica tarde");
           else if (!pausado && listo(fp)) (fp ? reanudar : nuevas).push({ semana: s.semana, pieza: p, tipo: "post", hora });
+        } else if (
+          abierto && forzada && !pausado && listo(fp) && est?.estado === "programado" &&
+          r?.estado === "renderizado" && r.medios !== undefined &&
+          t >= forzada.getTime() && t < forzada.getTime() + VENTANA_MS && forzada.getTime() < h
+        ) {
+          // Orden de `/publicar` antes de la hora: se publica ya, con la orden como hora.
+          // Vencida la orden, la pieza vuelve a esperar su hora (no se salta).
+          nuevas.push({ semana: s.semana, pieza: p, tipo: "post", hora: forzada });
         }
       }
 
@@ -171,6 +188,53 @@ export function tareasDebidas(
   }
   const porHora = (a: Tarea, b: Tarea): number => a.hora.getTime() - b.hora.getTime();
   return { publicar: [...nuevas.sort(porHora), ...reanudar.sort(porHora)], saltar };
+}
+
+/** Motivo del salto pedido por Telegram (`/saltar` o el botón Saltar). */
+export const MOTIVO_A_MANO = "saltada a mano";
+
+/** Prefijos de las órdenes de Telegram en `calendario_estado` (clave + `"<semana>/<id>"`). */
+export const ORDEN_PUBLICAR = "publicar:";
+export const ORDEN_SALTAR = "saltar:";
+
+/**
+ * Órdenes de Telegram que consume el tick: `/publicar` (clave → instante de la
+ * orden) y `/saltar` (claves). Ningún comando publica directo: todo pasa por aquí.
+ */
+export interface Ordenes {
+  forzar: Record<string, Date>;
+  saltar: Set<string>;
+}
+const SIN_ORDENES: Ordenes = { forzar: {}, saltar: new Set() };
+
+/** Lee las órdenes de las piezas de `semanas` desde `calendario_estado`. Función pura sobre `leerClave`. */
+export function ordenesDesde(semanas: SemanaLeida[], leerClave: (clave: string) => string | undefined): Ordenes {
+  const out: Ordenes = { forzar: {}, saltar: new Set() };
+  for (const s of semanas) {
+    for (const p of s.plan.piezas) {
+      const clave = claveFila(s.semana, p.id);
+      const f = leerClave(ORDEN_PUBLICAR + clave);
+      const t = f ? Date.parse(f) : NaN;
+      if (!Number.isNaN(t)) out.forzar[clave] = new Date(t);
+      if (leerClave(ORDEN_SALTAR + clave)) out.saltar.add(clave);
+    }
+  }
+  return out;
+}
+
+/**
+ * Órdenes de `/publicar` que vencieron sin que el post empezara: se borran para que,
+ * llegada la hora del plan, la pieza use su propia hora y no la de una orden vieja.
+ */
+export function ordenesVencidas(ordenes: Ordenes, filas: Fila[], ahora: Date): string[] {
+  const out: string[] = [];
+  for (const [clave, f] of Object.entries(ordenes.forzar)) {
+    if (ahora.getTime() < f.getTime() + VENTANA_MS) continue;
+    const fp = filas.find((x) => x.piezaId === clave && x.tipo === "post");
+    const empezado = fp !== undefined && (fp.intentos > 0 || fp.paso !== "inicio");
+    if (!empezado) out.push(clave);
+  }
+  return out;
 }
 
 /** Todo el I/O de `tick` (Ruling 4). `depsReales` arma el del servidor. */
@@ -280,7 +344,12 @@ async function pasada(deps: SchedulerDeps): Promise<void> {
   const filas = deps.cargarFilas();
   await reparar(deps, semanas, filas);
   const pausado = esPausado(deps.leerClave("pausado"));
-  const { publicar: tareas, saltar } = tareasDebidas(semanas, filas, ahora, pausado);
+  const ordenes = ordenesDesde(semanas, deps.leerClave);
+  for (const clave of ordenesVencidas(ordenes, filas, ahora)) {
+    deps.guardarClave(ORDEN_PUBLICAR + clave, "");
+    delete ordenes.forzar[clave];
+  }
+  const { publicar: tareas, saltar } = tareasDebidas(semanas, filas, ahora, pausado, ordenes);
 
   for (const x of saltar) await saltarPieza(deps, x, filas, avisar);
 
