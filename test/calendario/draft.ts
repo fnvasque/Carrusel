@@ -40,13 +40,27 @@ check("borradorASpec conserva el fondo ai del Hook (draftToSpec lo perdía)", ()
   assert.deepEqual(borradorASpec(b).slides[0].props.background, { ai: "x", overlay: 0.5 });
 });
 
-check("borradorASpec conserva brandStyle, gradiente y color", () => {
+check("borradorASpec fuerza el estilo de marca en fondos ai (nunca brandStyle: false)", () => {
+  for (const brandStyle of [false, true]) {
+    const b = base() as any;
+    b.slides[0].background = { ai: "x", overlay: 0.4, brandStyle };
+    const bg = borradorASpec(b).slides[0].props.background;
+    assert.deepEqual(bg, { ai: "x", overlay: 0.4 }, `brandStyle: ${brandStyle} → se omite y resolveBackground anexa la marca`);
+    assert.notEqual((bg as { brandStyle?: boolean }).brandStyle, false);
+  }
+  // También si llega por parseBorrador (que no es el validador editorial).
   const b = base() as any;
-  b.slides[0].background = { ai: "x", overlay: 0.4, brandStyle: true };
+  b.slides[0].background = { ai: "x", brandStyle: false };
+  assert.equal("brandStyle" in borradorASpec(parseBorrador(JSON.stringify(b))).slides[0].props.background, false);
+});
+
+check("borradorASpec conserva gradiente y color", () => {
+  const b = base() as any;
+  b.slides[0].background = { ai: "x", overlay: 0.4 };
   b.slides[1].background = { gradient: "linear-gradient(#000,#111)" };
   b.slides[2].background = { color: "#101010" };
   const spec = borradorASpec(b);
-  assert.deepEqual(spec.slides[0].props.background, { ai: "x", overlay: 0.4, brandStyle: true });
+  assert.deepEqual(spec.slides[0].props.background, { ai: "x", overlay: 0.4 });
   assert.deepEqual(spec.slides[1].props.background, { gradient: "linear-gradient(#000,#111)", overlay: 0.5 });
   assert.deepEqual(spec.slides[2].props.background, { color: "#101010" });
   assert.equal("background" in spec.slides[3].props, false, "sin fondo declarado no se inventa uno");
@@ -83,9 +97,23 @@ check("storySpec: 1 slide StoryCover 9:16 con el título y highlight del Hook", 
   assert.equal(story.slides[0].props.format, "reel");
   assert.equal(story.slides[0].props.title, "3 IAs gratis para estudiar");
   assert.equal(story.slides[0].props.highlight, "gratis");
-  assert.deepEqual(story.slides[0].props.background, { ai: "estudiante con laptop de noche", overlay: 0.55 }, "la story reusa el fondo de la portada");
+  assert.equal("background" in story.slides[0].props, false, "la story no hereda el fondo ai del Hook (sería otra imagen IA)");
+  assert.equal(story.defaults && "background" in story.defaults, false);
   assert.equal(story.name, "agentes-de-claude-code-story");
   assert.equal(story.defaults?.pillar, "herramienta");
+});
+
+check("storySpec nunca usa un fondo ai: ni del Hook ni de otro slide", () => {
+  const b = base() as any;
+  b.slides[0].background = { ai: "a", brandStyle: true };
+  b.slides[1].background = { ai: "b" };
+  b.slides[3].background = { ai: "c" };
+  const story = storySpec(b);
+  const all = JSON.stringify(story.slides.map((s) => s.props)) + JSON.stringify(story.defaults);
+  assert.doesNotMatch(all, /"ai"/);
+  // Con un fondo de color o gradiente en el Hook tampoco hereda nada: look lima por defecto.
+  b.slides[0].background = { gradient: "linear-gradient(#000,#111)" };
+  assert.equal("background" in storySpec(b).slides[0].props, false);
 });
 
 check("storySpec: sin Hook usa el que garantiza validateDraft", () => {

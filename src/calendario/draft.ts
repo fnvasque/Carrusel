@@ -94,12 +94,13 @@ export function parseBorrador(text: string): Borrador {
 /**
  * Fondo del borrador → `Background` del motor, con el mismo overlay por defecto
  * (0.5 en ai/gradient) que el .ts que emite el remix (`serializeBackground`).
- * `brandStyle` se conserva solo si viene declarado.
+ * Un fondo `ai` siempre lleva el estilo de marca: `brandStyle` se descarta
+ * (aunque venga `false`) y `resolveBackground` lo anexa por defecto.
  */
 function toBackground(bg?: BorradorBackground): Background | undefined {
   if (!bg) return undefined;
   const overlay = typeof bg.overlay === "number" ? bg.overlay : 0.5;
-  if (bg.ai) return { ai: bg.ai, overlay, ...(typeof bg.brandStyle === "boolean" ? { brandStyle: bg.brandStyle } : {}) };
+  if (bg.ai) return { ai: bg.ai, overlay };
   if (bg.gradient) return { gradient: bg.gradient, overlay };
   if (bg.color) return { color: bg.color };
   return undefined;
@@ -109,8 +110,8 @@ function toBackground(bg?: BorradorBackground): Background | undefined {
  * Borrador → CarouselSpec del carrusel (o del reel, con `format: "reel"`).
  * Pasa por `validateDraft` (descarta plantillas desconocidas, garantiza Hook y
  * Cta, fija index/total) y por `draftToSpec` (el mismo que puntúa `scoreDraft`),
- * y además conserva lo que `draftToSpec` pierde: los fondos (ai + brandStyle) y
- * el ritmo. El nombre (carpeta de salida) va en slug: nunca una ruta.
+ * y además conserva lo que `draftToSpec` pierde: los fondos (los `ai`, siempre
+ * con estilo de marca) y el ritmo. El nombre (carpeta de salida) va en slug: nunca una ruta.
  */
 export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): CarouselSpec {
   const validated = validateDraft(b) as Borrador;
@@ -128,15 +129,16 @@ export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): Caro
 }
 
 /**
- * Spec de la story de la pieza: un solo slide `StoryCover` 9:16 con el titular,
- * la palabra clave y el fondo del Hook (el que garantiza `validateDraft`).
+ * Spec de la story de la pieza: un solo slide `StoryCover` 9:16 con el titular
+ * y la palabra clave del Hook (el que garantiza `validateDraft`). No hereda el
+ * fondo del Hook: uno `ai` sería otra generación en 9:16 y rompería el tope de
+ * imágenes IA por semana; la story va con el fondo por defecto del look lima.
  */
 export function storySpec(b: Borrador): CarouselSpec {
   const validated = validateDraft(b) as Borrador;
   const hook = validated.slides.find((s) => s.template === "Hook") ?? validated.slides[0];
   const title = String(hook.props.title ?? validated.name);
   const highlight = typeof hook.props.highlight === "string" ? hook.props.highlight : undefined;
-  const background = toBackground(hook.background);
   return {
     name: `${slugify(validated.name)}-story`,
     defaults: { pillar: validated.pillar },
@@ -147,7 +149,6 @@ export function storySpec(b: Borrador): CarouselSpec {
           title,
           ...(highlight ? { highlight } : {}),
           ...(hook.pillar ? { pillar: hook.pillar } : {}),
-          ...(background ? { background } : {}),
           format: "reel",
         },
       },
