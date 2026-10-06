@@ -20,8 +20,22 @@ semanal en la nube):
    tema y arquetipo, derivados de los ganadores, un experimento por semana y
    calibración del indicador de viralidad con datos reales.
 
-Decisiones del usuario (2026-10-06): publicación 100 % automática; 2 carruseles +
-4 reels; temáticas desde la base ponderadas por métricas.
+Decisiones del usuario (2026-10-06): publicación 100 % automática desde el
+primer día; 2 carruseles + 4 reels; temáticas desde la base ponderadas por
+métricas.
+
+Punto de partida: la cuenta tiene **4 seguidores** (fase "desierto" del skill:
+el alcance bajo inicial es normal, no una señal de fracaso). Dos consecuencias
+que atraviesan el diseño:
+
+- **Publicar automático no arriesga nada**: nadie ve un post fallido y se borra
+  desde la app. No hay periodo de prueba; el sistema arranca en `auto`.
+- **Los números serán chicos durante meses**: las tasas por alcance con
+  `reach < 50` son ruido. El bucle compara conteos absolutos y solo pasa a tasas
+  cuando el alcance lo permite; `online_followers` (horas de la audiencia) no
+  existe hasta los 100 seguidores, así que las horas salen de una tabla fija
+  hasta entonces. Lo que sí mide bien desde el día 1: el alcance a **no
+  seguidores**, que es justo lo que decide si el contenido sale del círculo.
 
 ## Qué dice la base y qué no (auditoría previa al diseño)
 
@@ -71,14 +85,15 @@ alcance") que solo las métricas reales pueden confirmar o tumbar.
 | Formato de los borradores | JSON con el `VariationDraft` del remix (`name, angle, pillar, slides: LogicalSlide[]`) + metadatos de planificación | Es lo que `emitCarouselFile` ya convierte a `carousels/*.ts`; no obliga al agente a escribir TSX |
 | URL pública de los medios | El servidor sirve `GET /media/<token>/<archivo>` por el ngrok con dominio fijo que ya existe (mismo proceso que el webhook de DMs) | Cero servicios nuevos; Meta descarga cada archivo una vez. Alternativa documentada: Cloudflare R2 |
 | Render en el servidor | Agregar Chromium (Playwright) a la imagen Docker | Ya estaba previsto para `/remix` por Telegram (`202609301500`, fase 6) |
-| Modo de publicación | Variable `CALENDARIO_MODO=aviso\|auto`. Semanas 1-2 en `aviso` (genera, programa y avisa; no publica) para cazar errores con la cuenta real a salvo; luego `auto` | Decisión final: automático. La ventana de prueba es ingeniería, no una re-decisión |
-| Freno de emergencia | `/pausar` y `/reanudar` en Telegram; botón **Saltar** en el aviso de cada pieza (vale hasta la hora de publicación) | Un post equivocado sale a la cuenta real |
-| Horas | De `online_followers` (semana anterior): para cada día, la hora con más seguidores en línea dentro de 08:00–23:00, redondeada a :00/:30, con separación mínima de 20 h entre piezas | Ventana crítica de 30-60 min (skill); la base no tiene nada mejor |
+| Modo de publicación | `auto` desde el primer domingo. `CALENDARIO_MODO=aviso` existe solo como herramienta de depuración (hace todo menos los POST) | Con 4 seguidores el riesgo de un post fallido es cero y se borra desde la app |
+| Freno | `/pausar` y `/reanudar` en Telegram; botón **Saltar** en el aviso de cada pieza (vale hasta la hora de publicación). La API no borra posts: se borra desde la app de Instagram | Barato, y será útil cuando la cuenta crezca |
+| Horas | Hasta 100 seguidores: tabla fija en `config.json` (una hora por día de la semana, editable). Desde 100: `online_followers` de la semana anterior, hora con más seguidores en línea dentro de 08:00–23:00, redondeada a :00/:30, con separación mínima de 20 h entre piezas | Ventana crítica de 30-60 min (skill); `online_followers` no existe bajo 100 seguidores |
 | Mix semanal | Lun reel tutorial · Mar carrusel lista/guía · Mié reel compartible · Jue reel demo (resultado + prompt) · Vie carrusel opinión/mito · Sáb reel formato atemporal · Dom descanso | Calendario base del skill, que coincide con 2 carruseles + 4 reels |
 | Señal objetivo por pieza | Declarada antes de producir: guardados, envíos, comentarios o retención. Sin señal, no se produce | Regla "un post = un trabajo" del skill; `ingenieria-de-bucles`: métrica fija y comparable |
 | Puerta de calidad | Score ≥ 75 (`scoreCarousel`) **y** checklist K1–K14 de la auditoría aplicado por el agente. Si una pieza no pasa tras 3 intentos, **se deja el hueco vacío** | "Calidad sobre cantidad"; tope de vueltas (`ingenieria-de-bucles`) |
 | Ventanas de medición | Instantáneas a 24 h, 72 h, 7 d y luego semanal hasta 28 d. La comparación entre piezas usa siempre la de **7 d** | "Mismas ventanas siempre" (skill); patrón vs. señal aislada (base) |
-| Métrica de comparación | Tasas por alcance: `saved/reach`, `shares/reach`, `comments/reach`; reels además `avg_watch_time / duración` (la duración la conocemos: la calcula el motor) | Las señales que más distribuyen (envíos, guardados) pesan por alcance, no por likes |
+| Métrica de comparación | Con `reach < 50`: conteos absolutos (`reach`, `saved`, `shares`, `views`) y, en reels, `avg_watch_time / duración`. Con `reach ≥ 50`: tasas por alcance (`saved/reach`, `shares/reach`, `comments/reach`). El umbral vive en `config.json` | Con 4 seguidores una tasa sobre 12 de alcance es ruido; la retención por reel sí es comparable desde el primer post |
+| Alcance a no seguidores | `reach` de cuenta con `breakdown=follow_type` (diario) y, por pieza, `reach` − seguidores del día como aproximación | Es la métrica que importa en la fase "desierto": si el contenido no sale del círculo, nada más cuenta |
 | Peso de un tema/arquetipo | Media de la tasa objetivo con encogimiento hacia la media global; un tema pesa solo con ≥ 3 piezas medidas | "1 vez = ruido" (base); evita que un post viral dicte el mes |
 | Experimentos | **Una** variable por semana (tema, arquetipo, hora, duración o tipo de hook), anotada antes de publicar y evaluada a las 4 semanas | Ritual semanal del skill; `ingenieria-de-bucles` |
 | Derivados | Toda pieza en el 20 % superior de su señal objetivo (ventana 7 d) genera 1-2 derivados (mismo tema, otro ángulo) en las 2 semanas siguientes | Fase 2 del skill; "double down on winning formats" (base) |
@@ -314,12 +329,13 @@ semanas, no de una.
 |---|---|---|---|
 | 0 · Prerrequisitos | Token con `instagram_content_publish` (System User), Chromium en la imagen Docker, `MEDIA_PUBLIC_TOKEN` + ruta `/media`, pistas de audio, `kb-calendario-install.sh` | S | Nada visible; destraba lo demás |
 | 1 · Métricas | `src/insights/`, instantáneas, `/metricas`, resumen semanal, puente a `metrics/*.json` | M | Desde el primer día se mide lo que publiques a mano. Sin riesgo: solo lectura |
-| 2 · Calendario en modo `aviso` | Agente planificador + `_calendario/` + render en servidor + previews por Telegram | L | Cada domingo tienes 6 piezas listas y revisadas; las subes tú 2 semanas |
-| 3 · Publicación `auto` | `publish.ts`, scheduler idempotente, `/pausar`, aviso post-publicación | M | Manos libres |
-| 4 · Bucle | Prioridad por métricas, derivados, experimentos, diagnóstico mensual, `aprendizajes.md` | M | El calendario aprende de la cuenta |
+| 2 · Calendario y publicación | Agente planificador + `_calendario/` + render en servidor + `publish.ts` + scheduler idempotente + `/pausar` + previews y aviso post-publicación por Telegram | L | Manos libres desde el primer domingo |
+| 3 · Bucle | Prioridad por métricas, derivados, experimentos, diagnóstico mensual, `aprendizajes.md` | M | El calendario aprende de la cuenta |
 
-Orden recomendado: 0 → 1 → 2 → 3 → 4. La fase 1 antes que la 2 porque el bucle
-necesita historia y hoy no hay ninguna.
+Orden recomendado: 0 → 1 → 2 → 3. La fase 1 antes que la 2 porque el bucle
+necesita historia y hoy no hay ninguna; además la fase 1 mide desde ya lo que
+publiques a mano. La primera corrida real de la fase 2 se prueba con
+`/publicar <id>` de una sola pieza antes de dejar el domingo entero al scheduler.
 
 ## Manejo de errores
 
@@ -351,9 +367,9 @@ necesita historia y hoy no hay ninguna.
   inválidos (11 slides, sin señal, caption sin hashtags).
 - Con Chromium (`npm run test:reel` ampliado): borrador JSON → JPEG 1080×1350 y
   MP4 con audio.
-- Manual, una vez: `CALENDARIO_MODO=aviso` una semana completa en el servidor;
-  luego `/publicar <id>` de una pieza de prueba con `auto` y comprobar en
-  Instagram, el `media_id` en `registro.jsonl` y la instantánea de 24 h.
+- Manual, una vez: `/publicar <id>` de una pieza de prueba y comprobar en
+  Instagram, el `media_id` en `registro.jsonl` y la instantánea de 24 h. Si algo
+  sale mal, se borra desde la app.
 
 ## Puesta en marcha
 
@@ -363,8 +379,8 @@ necesita historia y hoy no hay ninguna.
 3. Crear la tarea programada en claude.ai: domingo 06:00 America/Santiago,
    repo `ia-es-kb`, prompt «Sigue `_calendario/INSTRUCCIONES.md` al pie de la
    letra».
-4. Dos domingos en `aviso`; revisar las piezas por Telegram; corregir el manual.
-5. `CALENDARIO_MODO=auto`.
+4. `/publicar <id>` con una pieza de prueba; corregir el manual con lo que se vea.
+5. Dejar correr el primer domingo completo.
 
 ## Fuera de alcance
 
