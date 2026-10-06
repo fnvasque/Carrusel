@@ -88,8 +88,15 @@ alcance") que solo las métricas reales pueden confirmar o tumbar.
 | Chromium en Docker | **No.** La imagen del servidor sigue como está (`node:24-bookworm-slim` + ffmpeg + git) | El render no corre allá |
 | Modo de publicación | `auto` desde el primer domingo. `CALENDARIO_MODO=aviso` existe solo como herramienta de depuración (hace todo menos los POST) | Con 4 seguidores el riesgo de un post fallido es cero y se borra desde la app |
 | Freno | `/pausar` y `/reanudar` en Telegram; botón **Saltar** en el aviso de cada pieza (vale hasta la hora de publicación). La API no borra posts: se borra desde la app de Instagram | Barato, y será útil cuando la cuenta crezca |
-| Horas | Hasta 100 seguidores: tabla fija en `config.json` (una hora por día de la semana, editable). Desde 100: `online_followers` de la semana anterior, hora con más seguidores en línea dentro de 08:00–23:00, redondeada a :00/:30, con separación mínima de 20 h entre piezas | Ventana crítica de 30-60 min (skill); `online_followers` no existe bajo 100 seguidores |
+| Audiencia | **Hispanohablante global** (Chile/Latinoamérica y España a la vez). Copy en español neutro (sin `--es=cl`). Zona del calendario: `America/Santiago`; las horas por defecto se eligen en la franja que sirve a ambos lados | Decisión del usuario 2026-10-06 |
+| Horas | Hasta 100 seguidores: tabla fija en `config.json`, por defecto **14:00 Chile** (19:00 Madrid en invierno chileno, 20:00 en verano) lunes a sábado, editable por día. Desde 100: `online_followers` de la semana anterior, hora con más seguidores en línea dentro de 08:00–23:00 Chile, redondeada a :00/:30, con separación mínima de 20 h entre piezas | Ventana crítica de 30-60 min (skill); `online_followers` no existe bajo 100 seguidores; 14:00 Chile es la única franja en que ambos continentes están despiertos y activos |
 | Mix semanal | Lun reel tutorial · Mar carrusel lista/guía · Mié reel compartible · Jue reel demo (resultado + prompt) · Vie carrusel opinión/mito · Sáb reel formato atemporal · Dom descanso | Calendario base del skill, que coincide con 2 carruseles + 4 reels |
+| Stories | **1 story automática por pieza**, 1 h después del post: imagen 9:16 con la portada (hook) de la pieza en look lima más el texto "Nuevo en el feed ↑"; el motor ya exporta 9:16 (`reel --frames-only`, cuadro 0). Encuestas, preguntas y detrás de escena quedan manuales: la API no publica stickers | Recomendación del skill ("repost del post del día"); las stories no traen seguidores nuevos, solo retención, así que no vale más esfuerzo |
+| Fondos con IA | A criterio del planificador, **tope 3 imágenes IA por semana**, solo en Hook o Cta, con el estilo de marca anexado (`brandStyle`). Se generan en el Mac (gpt-image-1, caché en `.cache/ai/`); el costo entra al registro de costos de la kb | La auditoría marcó que las piezas son solo texto ("mostrar, no decir"); el tope acota costo (~0,05-0,20 USD por imagen) y mantiene uniformidad |
+| Estilo visual | **Siempre el look lima** (`src/theme.ts`, plantillas de `main` desde PR #22). El agente solo escribe textos por plantilla; los píxeles salen del motor del Mac. El catálogo de plantillas (Hook, Lead, Step, Prompt, MythReality, Stat, Cta) y sus campos van en `INSTRUCCIONES.md`; `validar.mjs` rechaza cualquier otra. El README se corrige (hoy describe navy + cian) | No hay camino por el que salga el estilo viejo sin cambiar código |
+| Caption | Lo escribe el planificador: primera línea con la keyword del tema (SEO de Instagram), 3-5 hashtags de `config.json` + 0-2 del tema, sin "primer comentario". Pie `source` en la pieza cita la referencia o ficha de origen | Reglas del skill (SEO > hashtags) y K10 de la auditoría |
+| Posts previos al sistema | Se miden igual (`origen: manual`) pero no entran en el bucle (sin tema, arquetipo ni señal declarados) | Historia útil; no contamina los pesos |
+| Rituales manuales | El sistema **no** responde comentarios, no comenta en otras cuentas ni gestiona colaboraciones: manda recordatorios por Telegram (post-publicación: "responde comentarios en la primera hora"; lunes: "30-60 min de interacción en el nicho esta semana") | El skill los exige en fase 1; automatizarlos es lo que hace que Instagram marque la cuenta |
 | Señal objetivo por pieza | Declarada antes de producir: guardados, envíos, comentarios o retención. Sin señal, no se produce | Regla "un post = un trabajo" del skill; `ingenieria-de-bucles`: métrica fija y comparable |
 | Puerta de calidad | Score ≥ 75 (`scoreCarousel`) **y** checklist K1–K14 de la auditoría aplicado por el agente. Si una pieza no pasa tras 3 intentos, **se deja el hueco vacío** | "Calidad sobre cantidad"; tope de vueltas (`ingenieria-de-bucles`) |
 | Ventanas de medición | Instantáneas a 24 h, 72 h, 7 d y luego semanal hasta 28 d. La comparación entre piezas usa siempre la de **7 d** | "Mismas ventanas siempre" (skill); patrón vs. señal aislada (base) |
@@ -233,7 +240,8 @@ El manual indica:
    probada, recompensa concreta (prompt copiable, checklist, comando), fuente
    citada al pie (`source`), caption con keyword en la primera línea y 3-5
    hashtags. Aplicar K1–K14 como checklist; carrusel ≤ 10 slides; reel con
-   `pace: ensenar` y una pista de `promo/audio/`.
+   `pace: ensenar` y una pista de `promo/audio/`. Puede pedir fondo `ai` en Hook
+   o Cta (tope 3 por semana, lo cuenta el validador). Copy en español neutro.
 6. `node _calendario/validar.mjs <semana>` debe terminar con ✓. Lo que falle se
    corrige (máx. 3 vueltas) o se deja el hueco vacío con motivo en `plan.json`.
 7. Commit `calendario: semana 2026-10-12 (6 piezas)` y push con `pull --rebase`
@@ -250,7 +258,10 @@ al despertar). También se puede correr a mano.
    Mac). Si no hay piezas `planificadas`, termina en silencio.
 2. Por cada pieza: `emitCarouselFile` → `renderCarousel` (PNG) → JPEG con ffmpeg
    (`-q:v 2`, 1080×1350); reel: `renderReel` con `pace` y `audio` (MP4 h264,
-   1080×1920, 30 fps) + `cover.jpg` (cuadro 0). Revalida score ≥ 75; si falla,
+   1080×1920, 30 fps) + `cover.jpg` (cuadro 0). Para toda pieza, además
+   `story.jpg` (1080×1920: la portada en 9:16 con el rótulo "Nuevo en el feed ↑",
+   plantilla `StoryCover`). Fondos `ai` se generan aquí con `OPENAI_API_KEY` del
+   Mac y caché. Revalida score ≥ 75; si falla,
    `estado: fallido` con las sugerencias y sigue con la siguiente.
 3. `rsync -az output/calendario/<semana>/<id>/ servidor:/data/media/<semana>/<id>/`
    con la clave SSH que ya registra `deploy-to-server.sh` (`SERVER_HOST` en `.env`).
@@ -285,7 +296,10 @@ al despertar). También se puede correr a mano.
   contenedor `CAROUSEL` con `children` y `caption` → `media_publish`. Reel =
   contenedor `media_type=REELS` con `video_url`, `cover_url` (primer cuadro),
   `share_to_feed=true` → sondear `status_code` cada 15 s hasta `FINISHED` (tope
-  10 min) → `media_publish`. `CALENDARIO_MODO=aviso` hace todo menos los POST.
+  10 min) → `media_publish`. Story = contenedor `media_type=STORIES` con
+  `image_url` (la portada 9:16), programada 60 min después del publish de su
+  pieza y solo si la pieza se publicó (una pieza `saltada` o `fallida` no tiene
+  story). `CALENDARIO_MODO=aviso` hace todo menos los POST.
 - Reintentos: error de red o `status_code=IN_PROGRESS` → reintenta; error de
   Meta (contenido rechazado, permiso, cuota) → `fallido`, aviso con el mensaje
   traducido por `translateGraphError`, no reintenta.
@@ -315,7 +329,9 @@ al despertar). También se puede correr a mano.
 | `scripts/server-setup.sh` | crea `/data/media` con permisos para el usuario de `rsync` |
 | `kb-plantilla/_calendario/` (nuevo) | `INSTRUCCIONES.md`, `config.json`, `validar.mjs`; `scripts/kb-calendario-install.sh` los copia a la base |
 | `promo/audio/` (nuevo) | 2-3 pistas libres de derechos (el usuario las elige) |
-| `test/insights.ts`, `test/calendario.ts` (nuevos) | pruebas offline: parseo de insights con métricas faltantes, cálculo de ventanas, asignación de horas, máquina de estados idempotente, validación de borradores |
+| `src/templates/StoryCover.tsx` (nuevo) | portada 9:16 para la story: hook + rótulo, look lima, registrada en el catálogo |
+| `README.md` | sección "Marca" con el look lima (hoy navy + cian); sección nueva "Calendario y métricas" |
+| `test/insights.ts`, `test/calendario.ts` (nuevos) | pruebas offline: parseo de insights con métricas faltantes, cálculo de ventanas, asignación de horas, máquina de estados idempotente (pieza y su story), validación de borradores (catálogo, tope de fondos IA, caption) |
 
 ## Mejora 3 — Bucle de feedback
 
@@ -355,7 +371,7 @@ semanas, no de una.
 
 | Fase | Entrega | Tamaño | Valor que deja |
 |---|---|---|---|
-| 0 · Prerrequisitos | Token con `instagram_content_publish` (System User), `/data/media` + ruta `/media` + `MEDIA_PUBLIC_TOKEN` en el servidor, `rsync` por SSH desde el Mac probado, pistas de audio, `kb-calendario-install.sh` | S | Nada visible; destraba lo demás |
+| 0 · Prerrequisitos | Token con `instagram_content_publish` (System User), `/data/media` + ruta `/media` + `MEDIA_PUBLIC_TOKEN` en el servidor, `rsync` por SSH desde el Mac probado (`SERVER_HOST` apuntando a la máquina de Google, no a Oracle), pistas de audio, `kb-calendario-install.sh`, README con el look lima, **perfil listo** (nombre con keyword, bio de una frase con CTA, foto, destacadas: fase 0 del skill, lo haces tú) | S | Nada visible; destraba lo demás |
 | 1 · Métricas | `src/insights/`, instantáneas, `/metricas`, resumen semanal, puente a `metrics/*.json` | M | Desde el primer día se mide lo que publiques a mano. Sin riesgo: solo lectura |
 | 2 · Calendario y publicación | Agente planificador + `_calendario/` + `calendario:render` en el Mac (launchd) + `publish.ts` + scheduler idempotente + `/pausar` + previews, aviso de render pendiente y aviso post-publicación por Telegram | L | Manos libres salvo tener el Mac encendido un rato entre el domingo y el lunes |
 | 3 · Bucle | Prioridad por métricas, derivados, experimentos, diagnóstico mensual, `aprendizajes.md` | M | El calendario aprende de la cuenta |
@@ -428,7 +444,7 @@ publiques a mano. La primera corrida real de la fase 2 se prueba con
 
 ## Fuera de alcance
 
-- Stories (la API de publicación las permite, pero el motor no las produce).
+- Stories interactivas (encuestas, preguntas, stickers): la API no las publica.
 - Reels con grabación de pantalla o voz (los del motor son de texto animado).
 - Trial reels (exigen 1.000 seguidores) y colaboraciones.
 - Responder comentarios automáticamente (solo el recordatorio por Telegram).
