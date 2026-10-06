@@ -48,7 +48,7 @@ check("metricaCalibracion: reach 0 o ausente no produce métrica; likes ausente 
   const base = { mediaId: "m1", ventana: "7d", tomadaEn: "t", origen: "motor", derivadas: {}, descartadas: [] as string[] } as const;
   assert.equal(metricaCalibracion({ ...base, reach: 0, saved: 1 } as Instantanea, "x", 80), undefined);
   assert.equal(metricaCalibracion({ ...base, saved: 1 } as Instantanea, "x", 80), undefined);
-  assert.equal(metricaCalibracion({ ...base, reach: 10 } as Instantanea, "x", 80)!.likes, null);
+  assert.equal(metricaCalibracion({ ...base, reach: 100, saved: 1, shares: 1 } as Instantanea, "x", 80)!.likes, null);
 });
 
 await checkAsync("tomarInstantaneas: escribe fila, jsonl, posts.json y puente a calibración (7d); idempotente", () =>
@@ -113,11 +113,11 @@ await checkAsync("tomarInstantaneas: post borrado en Instagram deja de pedirse t
     openDb();
     let n = 0;
     const fetch = async (): Promise<MediaInsights> => { n++; throw new GraphError("(#100) Object with ID 'm1' does not exist", 100); };
-    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m") };
-    for (let k = 0; k < 6; k++) await tomarInstantaneas(new Date(AHORA_24H.getTime() + k * 60_000), deps);
+    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m"), listado: async () => new Set<string>() };
+    for (let k = 0; k < 6; k++) await tomarInstantaneas(new Date(AHORA_24H.getTime() + k * 25 * 3_600_000), deps);
     assert.equal(n, 3);
     const fila = openDb().prepare("SELECT valor FROM calendario_estado WHERE clave = ?").get("insights_fallos:m1") as { valor: string };
-    assert.equal(fila.valor, "3");
+    assert.equal(JSON.parse(fila.valor).n, 3);
     assert.equal(count("SELECT COUNT(*) AS c FROM insights"), 0);
   }));
 
@@ -126,11 +126,12 @@ await checkAsync("tomarInstantaneas: un éxito reinicia la cuenta de fallos", ()
     openDb();
     let falla = true;
     const fetch = async (): Promise<MediaInsights> => { if (falla) throw new GraphError("does not exist", 100); return ins(); };
-    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m") };
+    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m"), listado: async () => new Set<string>() };
     await tomarInstantaneas(AHORA_24H, deps);
-    await tomarInstantaneas(AHORA_24H, deps);
+    await tomarInstantaneas(new Date(AHORA_24H.getTime() + 25 * 3_600_000), deps);
+    assert.equal(openDb().prepare("SELECT valor FROM calendario_estado WHERE clave = ?").get("insights_fallos:m1") !== undefined, true);
     falla = false;
-    assert.equal((await tomarInstantaneas(AHORA_24H, deps)).length, 1);
+    assert.equal((await tomarInstantaneas(new Date(AHORA_24H.getTime() + 26 * 3_600_000), deps)).length, 1);
     assert.equal(openDb().prepare("SELECT valor FROM calendario_estado WHERE clave = ?").get("insights_fallos:m1"), undefined);
   }));
 
@@ -232,3 +233,64 @@ await checkAsync("guardarCuenta: fusiona porDia con lo anterior y anota errores"
     await guardarCuenta(ahora, { fetch });
     assert.equal(JSON.parse(readFileSync(f, "utf8")).seguidores, 4);
   }));
+
+await checkAsync("tomarInstantaneas: un 100 por permisos con el post en el listado no apaga la medición", () =>
+  conBase(async (dir) => {
+    openDb();
+    let n = 0;
+    const fetch = async (): Promise<MediaInsights> => { n++; throw new GraphError("(#100) Object with ID 'm1' does not exist, cannot be loaded due to missing permissions", 100); };
+    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m"), listado: async () => new Set(["m1"]) };
+    for (let k = 0; k < 6; k++) await tomarInstantaneas(new Date(AHORA_24H.getTime() + k * 25 * 3_600_000), deps);
+    assert.equal(n, 6, "sigue pidiendo en cada pasada");
+    assert.equal(openDb().prepare("SELECT valor FROM calendario_estado WHERE clave = ?").get("insights_fallos:m1"), undefined);
+  }));
+
+await checkAsync("tomarInstantaneas: los fallos de 'borrado' deben estar separados por 24 h para sumar", () =>
+  conBase(async (dir) => {
+    openDb();
+    let n = 0;
+    const fetch = async (): Promise<MediaInsights> => { n++; throw new GraphError("does not exist", 100); };
+    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m"), listado: async () => new Set<string>() };
+    for (let k = 0; k < 10; k++) await tomarInstantaneas(new Date(AHORA_24H.getTime() + k * 3_600_000), deps);
+    assert.equal(n, 10, "10 pasadas en 10 h son un solo fallo");
+    const v = JSON.parse((openDb().prepare("SELECT valor FROM calendario_estado WHERE clave = ?").get("insights_fallos:m1") as { valor: string }).valor);
+    assert.equal(v.n, 1);
+  }));
+
+await checkAsync("tomarInstantaneas: una 7d tomada el día 12 no alimenta la calibración (pero sí se guarda)", () =>
+  conBase(async (dir) => {
+    openDb();
+    const metricsDir = join(dir, "m");
+    let refrescos = 0;
+    const r = await tomarInstantaneas(new Date(PUB.getTime() + 12 * 86_400_000), { fetch: async () => ins(), posts: [motor()], metricsDir, refresh: async () => { refrescos++; return null; } });
+    assert.equal(r[0].ventana, "7d");
+    assert.ok(!existsSync(metricsDir));
+    assert.equal(refrescos, 0);
+    assert.equal(count("SELECT COUNT(*) AS c FROM insights"), 1);
+    // con 6 h de desvío todavía entra
+    await tomarInstantaneas(new Date(PUB.getTime() + 168 * 3_600_000 + 6 * 3_600_000), { fetch: async () => ins(), posts: [motor({ mediaId: "m2" })], metricsDir, refresh: async () => null });
+    assert.ok(existsSync(join(metricsDir, "lun-reel-x-motor.json")));
+  }));
+
+await checkAsync("tomarInstantaneas: posts.json corrupto se reconstruye desde la tabla insights con los demás posts", () =>
+  conBase(async (dir) => {
+    openDb();
+    const deps = { fetch: async () => ins(), metricsDir: join(dir, "m"), refresh: async () => null };
+    const p1 = motor({ mediaId: "m1" });
+    const p2 = motor({ mediaId: "m2", publicado: new Date(PUB.getTime() + 20 * 3_600_000) });
+    await tomarInstantaneas(AHORA_24H, { ...deps, posts: [p1, p2] });
+    writeFileSync(join(dir, "_metricas", "posts.json"), "{ trunc", "utf8");
+    await tomarInstantaneas(new Date(PUB.getTime() + 44 * 3_600_000), { ...deps, posts: [p1, p2] });
+    const posts = JSON.parse(readFileSync(join(dir, "_metricas", "posts.json"), "utf8"));
+    assert.deepEqual(Object.keys(posts).sort(), ["m1", "m2"]);
+    assert.equal(posts.m1.reach, 200);
+  }));
+
+check("metricaCalibracion: reach < 50 no se calibra; con saved o shares ausentes tampoco", () => {
+  const base = { mediaId: "m1", ventana: "7d", tomadaEn: "t", origen: "motor", derivadas: {}, descartadas: [] as string[] } as const;
+  assert.equal(metricaCalibracion({ ...base, reach: 49, saved: 5, shares: 1 } as Instantanea, "x", 80), undefined);
+  assert.ok(metricaCalibracion({ ...base, reach: 50, saved: 5, shares: 1 } as Instantanea, "x", 80));
+  assert.equal(metricaCalibracion({ ...base, reach: 200, shares: 1 } as Instantanea, "x", 80), undefined);
+  assert.equal(metricaCalibracion({ ...base, reach: 200, saved: 1 } as Instantanea, "x", 80), undefined);
+  assert.ok(metricaCalibracion({ ...base, reach: 200, saved: 0, shares: 0 } as Instantanea, "x", 80), "0 real sí vale");
+});

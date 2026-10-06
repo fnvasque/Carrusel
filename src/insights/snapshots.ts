@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { localParts } from "../calendario/time.ts";
 import { calendarioDir } from "../calendario/plan.ts";
@@ -9,7 +9,7 @@ import { refreshCalibration, type Metric } from "../score/calibration.ts";
 import {
   fetchAccountInsights, fetchMediaInsights, fetchOwnMedia, type AccountInsights, type GraphGetFn, type MediaInsights,
 } from "./client.ts";
-import { derivar, ventanaDebida, type Derivadas, type Ventana } from "./derive.ts";
+import { DESVIO_COMPARABLE_7D_MS, derivar, desvioVentana, ventanaDebida, type Derivadas, type Ventana } from "./derive.ts";
 
 /**
  * Instantáneas de métricas por post en ventanas fijas, y su puente a la
@@ -42,6 +42,7 @@ export interface Instantanea extends MediaInsights {
 /** Fallos seguidos de "este post ya no existe" tras los que se deja de pedir. */
 const MAX_FALLOS = 3;
 const DIA_MS = 86_400_000;
+const ALCANCE_MINIMO_CALIBRACION = 50;
 
 const metricasDir = (): string => join(kbDir(), "_metricas");
 const claveFallos = (mediaId: string): string => `insights_fallos:${mediaId}`;
@@ -63,6 +64,39 @@ function leerObjeto(ruta: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/**
+ * `posts.json` (última instantánea por post). Si no se puede leer, se reconstruye desde
+ * la tabla `insights` (la última por `media_id`) y se avisa; si no existe, parte vacío.
+ */
+function leerPostsJson(ruta: string, conocidos: Map<string, PostInfo>): Record<string, unknown> {
+  if (!existsSync(ruta)) return {};
+  try {
+    const v: unknown = JSON.parse(readFileSync(ruta, "utf8"));
+    if (typeof v === "object" && v !== null && !Array.isArray(v)) return v as Record<string, unknown>;
+  } catch {
+    // cae a la reconstrucción.
+  }
+  console.warn("⚠️  posts.json ilegible: lo reconstruyo desde la tabla insights.");
+  const out: Record<string, unknown> = {};
+  const filas = openDb().prepare(
+    "SELECT media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms FROM insights ORDER BY tomada_en ASC",
+  ).all() as Record<string, string | number | null>[];
+  for (const f of filas) {
+    const p = conocidos.get(String(f.media_id));
+    const num = (k: string): number | undefined => (typeof f[k] === "number" ? (f[k] as number) : undefined);
+    const m: MediaInsights = {
+      reach: num("reach"), saved: num("saved"), shares: num("shares"), likes: num("likes"), comments: num("comments"),
+      views: num("views"), avg_watch_ms: num("avg_watch_ms"), total_watch_ms: num("total_watch_ms"), descartadas: [],
+    };
+    out[String(f.media_id)] = {
+      ...m, mediaId: f.media_id, ventana: f.ventana, tomadaEn: f.tomada_en,
+      piezaId: p?.piezaId, origen: p?.origen ?? "manual", derivadas: derivar(m, p?.duracionMs),
+      publicado: p?.publicado.toISOString(), productType: p?.productType,
+    };
+  }
+  return out;
 }
 
 interface RegistroPublicado {
@@ -132,16 +166,26 @@ function postInexistente(err: unknown): boolean {
   return /does not exist|no existe|cannot be loaded/i.test(msgOf(err));
 }
 
-function fallosSeguidos(mediaId: string): number {
+/** Estado de fallos de un post: `valor` es JSON `{ n, ultimo }`; un valor ilegible cuenta como sin fallos. */
+function leerFallos(mediaId: string): { n: number; ultimo: number } {
   const fila = openDb().prepare("SELECT valor FROM calendario_estado WHERE clave = ?").get(claveFallos(mediaId)) as { valor: string } | undefined;
-  const n = fila ? Number(fila.valor) : 0;
-  return Number.isFinite(n) ? n : 0;
+  try {
+    const v = JSON.parse(fila?.valor ?? "null") as { n?: unknown; ultimo?: unknown } | null;
+    if (v && typeof v.n === "number" && typeof v.ultimo === "number") return { n: v.n, ultimo: v.ultimo };
+  } catch {
+    // valor corrupto: se ignora.
+  }
+  return { n: 0, ultimo: 0 };
 }
+const fallosSeguidos = (mediaId: string): number => leerFallos(mediaId).n;
 
-function anotarFallo(mediaId: string): number {
-  const n = fallosSeguidos(mediaId) + 1;
-  openDb().prepare("INSERT OR REPLACE INTO calendario_estado (clave, valor) VALUES (?, ?)").run(claveFallos(mediaId), String(n));
-  return n;
+/** Suma un fallo solo si el anterior fue hace ≥ 24 h (pasadas cada hora no deben agotar el cupo). */
+function anotarFallo(mediaId: string, now: Date): number {
+  const { n, ultimo } = leerFallos(mediaId);
+  if (n > 0 && now.getTime() - ultimo < DIA_MS) return n;
+  const nuevo = n + 1;
+  openDb().prepare("INSERT OR REPLACE INTO calendario_estado (clave, valor) VALUES (?, ?)").run(claveFallos(mediaId), JSON.stringify({ n: nuevo, ultimo: now.getTime() }));
+  return nuevo;
 }
 
 function limpiarFallos(mediaId: string): void {
@@ -153,13 +197,16 @@ const nombreSeguro = (n: string): boolean => /^[\w][\w.-]*$/.test(n) && !n.inclu
 
 /**
  * Formato exacto de `src/score/record.ts` (tasas por 1.000 de alcance con 1 decimal).
- * Con alcance 0 o ausente no hay tasa que calcular: devuelve `undefined` y no se escribe archivo.
+ * Con alcance < 50, o sin saved/shares, no hay tasa fiable: devuelve `undefined` y no se escribe archivo.
  */
 export function metricaCalibracion(i: Instantanea, nombre: string, predictedScore: number): (Metric & { recordedAt: string; likes: number | null }) | undefined {
   const reach = i.reach;
-  if (typeof reach !== "number" || !Number.isFinite(reach) || reach <= 0) return undefined;
-  const saves = i.saved ?? 0;
-  const shares = i.shares ?? 0;
+  // Con poco alcance las tasas por 1.000 son ruido. 50 = `umbralAlcanceTasas` de config.json.
+  if (typeof reach !== "number" || !Number.isFinite(reach) || reach < ALCANCE_MINIMO_CALIBRACION) return undefined;
+  // Como record.ts, que exige saves y shares: una métrica descartada no se inventa como 0.
+  const saves = i.saved;
+  const shares = i.shares;
+  if (typeof saves !== "number" || typeof shares !== "number") return undefined;
   return {
     name: nombre,
     predictedScore,
@@ -180,6 +227,8 @@ export interface DepsInstantaneas {
   metricsDir?: string;
   /** Recalcula la calibración tras escribir métricas nuevas. */
   refresh?: (metricsDir: string) => Promise<unknown>;
+  /** Ids del listado reciente de posts (por defecto `fetchOwnMedia`), para distinguir "borrado" de "permisos". */
+  listado?: () => Promise<Set<string>>;
 }
 
 /**
@@ -194,6 +243,14 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
   const posts = deps.posts ?? (await postsConocidos(now));
   const db = openDb();
   const nuevas: Instantanea[] = [];
+  let listado: Promise<Set<string> | undefined> | undefined;
+  /** ¿Seguro que el post ya no está en el listado reciente? Sin poder listar, no se sabe: no se cuenta. */
+  const ausenteDelListado = async (mediaId: string): Promise<boolean> => {
+    listado ??= (deps.listado ?? (async () => new Set((await fetchOwnMedia(new Date(now.getTime() - 35 * DIA_MS))).map((m) => m.id))))().catch(() => undefined);
+    const ids = await listado;
+    return ids !== undefined && !ids.has(mediaId);
+  };
+  const conocidos = new Map(posts.map((p) => [p.mediaId, p]));
   const paraCalibrar: { i: Instantanea; post: PostInfo }[] = [];
 
   for (const post of posts) {
@@ -209,8 +266,9 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
     try {
       m = await pedir(post.mediaId, post.productType);
     } catch (err) {
-      if (postInexistente(err)) {
-        const n = anotarFallo(post.mediaId);
+      // Un 100 con el post presente en el listado reciente es otro problema (permisos…): no es "borrado".
+      if (postInexistente(err) && (await ausenteDelListado(post.mediaId))) {
+        const n = anotarFallo(post.mediaId, now);
         console.warn(`⚠️  Insights de ${post.mediaId} (${ventana}): ${msgOf(err)} [fallo ${n}/${MAX_FALLOS}${n >= MAX_FALLOS ? ": dejo de pedirlo" : ""}]`);
       } else {
         console.warn(`⚠️  Insights de ${post.mediaId} (${ventana}): ${msgOf(err)} (se reintenta en la próxima pasada).`);
@@ -243,13 +301,13 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
     }
     try {
       const ruta = join(metricasDir(), "posts.json");
-      const posts = leerObjeto(ruta); // corrupto → se reconstruye desde esta instantánea
+      const posts = leerPostsJson(ruta, conocidos);
       posts[i.mediaId] = { ...i, publicado: post.publicado.toISOString(), productType: post.productType };
       escribirAtomico(ruta, JSON.stringify(posts, null, 2) + "\n");
     } catch (err) {
       console.warn(`⚠️  No pude actualizar posts.json: ${msgOf(err)}`);
     }
-    if (ventana === "7d" && post.origen === "motor" && post.nombreMotor && typeof post.predictedScore === "number") {
+    if (ventana === "7d" && Math.abs(desvioVentana(post.publicado, ventana, now)) <= DESVIO_COMPARABLE_7D_MS && post.origen === "motor" && post.nombreMotor && typeof post.predictedScore === "number") {
       paraCalibrar.push({ i, post });
     }
   }
