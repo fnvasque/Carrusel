@@ -23,7 +23,8 @@ fi
 
 mkdir -p data keys media
 # Medios del calendario: el Mac los sube con rsync por SSH (dueño: el usuario SSH) y el contenedor los lee.
-chown "$USER" media && chmod 755 media
+# sudo: si Docker ya creó ./media como root (re-ejecución), un chown sin sudo abortaría bajo `set -e`.
+sudo chown "$USER":"$(id -gn)" media && chmod 755 media
 if [ ! -f keys/kb_deploy ]; then
   ssh-keygen -q -t ed25519 -N "" -C "ia-es-kb servidor $(hostname)" -f keys/kb_deploy
 fi

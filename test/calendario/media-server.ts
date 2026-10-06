@@ -7,7 +7,8 @@ import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { check, checkAsync } from "../_check.ts";
 import { CONTENT_TYPES, limpiarMedios, manejarMedio, resolverMedio } from "../../src/calendario/media-server.ts";
-import { startHttp } from "../../src/kb/inbox.ts";
+import { startHttp, webhookRoute } from "../../src/kb/inbox.ts";
+import { createHmac } from "node:crypto";
 
 const TOKEN = "t0ken-largo-de-prueba-0123456789abcdef";
 const base = mkdtempSync(join(tmpdir(), "media-"));
@@ -247,4 +248,57 @@ await checkAsync("limpiarMedios: no sigue symlinks que salen del root", async ()
   const borradas = await limpiarMedios(r3, [{ semana: "2026-09-28", id: "ln-externo", publicadoEn: "2020-01-01T00:00:00Z" }], new Date());
   assert.deepEqual(borradas, []);
   assert.ok(existsSync(join(base, "afuera", "x.jpg")));
+});
+
+// --- /webhook y /health a través de startHttp, junto con manejarMedio ---
+await checkAsync("startHttp: webhook, /health y 404 siguen igual con manejarMedio en las rutas", async () => {
+  const prevDir = process.env.KB_DIR;
+  process.env.KB_DIR = mkdtempSync(join(tmpdir(), "kb-http-"));
+  const SECRET = "app-secret-de-prueba";
+  const eventos: string[] = [];
+  const s = startHttp(0, [
+    (req, rs) => manejarMedio(req, rs, { token: TOKEN, root }),
+    webhookRoute({ port: 0, verifyToken: "verif", appSecret: SECRET, onEvent: (ev) => eventos.push(ev.mid) }),
+  ]);
+  await new Promise((r) => s.once("listening", r));
+  const port = (s.address() as AddressInfo).port;
+  const enviar = (path: string, method: string, body?: string, headers: Record<string, string> = {}) =>
+    new Promise<Resp>((resolve, reject) => {
+      const r = request({ host: "127.0.0.1", port, path, method, headers, agent: false }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+      });
+      r.on("error", reject);
+      r.end(body);
+    });
+  try {
+    const v = await enviar("/webhook?hub.mode=subscribe&hub.verify_token=verif&hub.challenge=abc123", "GET");
+    assert.equal(v.status, 200);
+    assert.equal(v.body.toString(), "abc123");
+    assert.equal((await enviar("/webhook?hub.mode=subscribe&hub.verify_token=malo&hub.challenge=abc123", "GET")).status, 403);
+
+    const cuerpo = JSON.stringify({
+      object: "instagram",
+      entry: [{ messaging: [{ sender: { id: "1" }, recipient: { id: "2" }, timestamp: 1, message: { mid: "mid-http-1", text: "hola" } }] }],
+    });
+    assert.equal((await enviar("/webhook", "POST", cuerpo)).status, 401);
+    assert.equal((await enviar("/webhook", "POST", cuerpo, { "X-Hub-Signature-256": "sha256=" + "0".repeat(64) })).status, 401);
+    assert.equal(eventos.length, 0);
+    const firma = "sha256=" + createHmac("sha256", SECRET).update(cuerpo).digest("hex");
+    assert.equal((await enviar("/webhook", "POST", cuerpo, { "X-Hub-Signature-256": firma })).status, 200);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.deepEqual(eventos, ["mid-http-1"]);
+
+    assert.equal((await enviar("/webhook", "PUT")).status, 405);
+    const h = await enviar("/health", "GET");
+    assert.equal(h.status, 200);
+    assert.equal(h.body.toString(), "ok");
+    assert.equal((await enviar("/desconocida", "GET")).status, 404);
+    assert.equal((await enviar(ok, "GET")).status, 200);
+  } finally {
+    await cerrar(s);
+    if (prevDir === undefined) delete process.env.KB_DIR;
+    else process.env.KB_DIR = prevDir;
+  }
 });

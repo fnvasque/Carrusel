@@ -4,6 +4,7 @@ import { realpathSync, statSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
+import { ocultarToken } from "./plan.ts";
 
 /**
  * Servidor de medios: sirve los JPEG/MP4 de `<root>/<semana>/<id>/` para que Meta los
@@ -28,12 +29,8 @@ const RE_ID = /^[a-z0-9-]{3,80}$/;
 /** Nombre de archivo: sin `..`, sin separadores ni caracteres raros; la extensión se valida aparte. */
 const RE_ARCHIVO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
 const DIAS_RETENCION = 7;
-
-// TODO(integración): usar ocultarToken de plan.ts
-/** Reemplaza el token por `***` (para logs). */
-function ocultarToken(s: string, token: string): string {
-  return token ? s.split(token).join("***") : s;
-}
+/** ISO 8601 completo con zona (`Z` u offset): Date.parse solo es permisivo con basura como "1" o "2026". */
+const RE_ISO_ZONA = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/;
 
 /** ¿Es una fecha de calendario real (AAAA-MM-DD)? */
 function fechaValida(s: string): boolean {
@@ -182,9 +179,12 @@ export async function limpiarMedios(
   } catch {
     return borradas;
   }
+  // Reloj ilegible: no hay forma de saber qué pasó de 7 d, así que no se borra nada.
+  if (!Number.isFinite(ahora.getTime())) return borradas;
   const limite = ahora.getTime() - DIAS_RETENCION * 24 * 3_600_000;
   for (const p of publicados) {
     if (!fechaValida(p.semana) || !RE_ID.test(p.id)) continue;
+    if (!RE_ISO_ZONA.test(p.publicadoEn)) continue;
     const t = Date.parse(p.publicadoEn);
     if (Number.isNaN(t) || t >= limite) continue;
     const carpeta = join(rootReal, p.semana, p.id);
