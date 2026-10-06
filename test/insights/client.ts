@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { check, checkAsync } from "../_check.ts";
 import { GraphError } from "../../src/meta/client.ts";
 import {
-  parseInsights, unsupportedMetric, fetchOwnMedia, fetchMediaInsights, fetchAccountInsights,
+  parseInsights, unsupportedMetric, invalidMetrics, fetchOwnMedia, fetchMediaInsights, fetchAccountInsights,
   POST_METRICS, REEL_METRICS, type GraphGetFn,
 } from "../../src/insights/client.ts";
 
@@ -221,4 +221,39 @@ await checkAsync("fetchAccountInsights: respuestas raras (data vacío, value nul
   assert.equal(r.reach7d, undefined);
   assert.equal(r.reachNoSeguidores7d, undefined);
   assert.deepEqual(r.followerCount, []);
+});
+
+// --- ronda de fix 1 ---
+check("invalidMetrics: deprecación nombra la muerta antes de la palabra clave y su reemplazo después", () => {
+  const e = new GraphError("the views metric is no longer supported. Please use the reach metric instead", 100);
+  assert.deepEqual(invalidMetrics(e, ["reach", "views"]), ["views"]);
+});
+check("invalidMetrics: lista de válidas sin índice descarta todas las no listadas de una vez", () => {
+  const e = new GraphError("Param metric must be one of the following values: reach, saved", 100);
+  assert.deepEqual(invalidMetrics(e, ["reach", "saved", "views", "shares"]), ["views", "shares"]);
+});
+check("invalidMetrics: lista que no incluye ninguna pedida no es confiable", () => {
+  const e = new GraphError("metric must be one of the following values: foo, bar", 100);
+  assert.deepEqual(invalidMetrics(e, ["reach", "saved"]), []);
+});
+check("invalidMetrics: español", () => {
+  assert.deepEqual(invalidMetrics(new GraphError("La métrica views ya no es compatible", 100), ["reach", "views"]), ["views"]);
+  assert.deepEqual(invalidMetrics(new GraphError("La API no admite la métrica views", 100), ["reach", "views"]), ["views"]);
+});
+check("invalidMetrics: cuota y permisos nunca cuentan, ni en español", () => {
+  assert.deepEqual(invalidMetrics(new GraphError("views ya no disponible", 4), ["views"]), []);
+  assert.deepEqual(invalidMetrics(new GraphError("views no admite permiso", 10), ["views"]), []);
+});
+await checkAsync("con igUserId explícito no se lee metaConfig() (sin .env)", async () => {
+  const guardado = { t: process.env.META_ACCESS_TOKEN, i: process.env.META_IG_USER_ID };
+  delete process.env.META_ACCESS_TOKEN;
+  delete process.env.META_IG_USER_ID;
+  try {
+    const { get } = fake(() => ({ data: [] }));
+    assert.deepEqual(await fetchOwnMedia(new Date(0), get, "IG"), []);
+    assert.deepEqual((await fetchAccountInsights(NOW, get, "IG")).followerCount, []);
+  } finally {
+    if (guardado.t !== undefined) process.env.META_ACCESS_TOKEN = guardado.t;
+    if (guardado.i !== undefined) process.env.META_IG_USER_ID = guardado.i;
+  }
 });

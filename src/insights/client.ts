@@ -83,18 +83,58 @@ export function parseInsights(body: unknown): Partial<Record<string, number>> {
   return out;
 }
 
-/** Métrica que Meta dice no soportar en este error, si es una de las pedidas. Función pura. */
-export function unsupportedMetric(err: unknown, pedidas: string[]): string | undefined {
-  // Cuota, token o permisos: reintentar con menos métricas no arregla nada.
+/** Palabras que marcan "esta métrica no sirve" (inglés y la traducción que Meta manda en `error_user_msg`). */
+const KEYWORDS = /not support|no longer supported|invalid|deprecated|must be one of|no admite|no es compatible|ya no|inválid|no válid|obsolet|debe ser uno de/i;
+/** Introduce la lista de métricas válidas. */
+const LIST_INTRO = /(?:must be one of(?: the following values)?|debe ser uno de(?: los siguientes valores)?)\s*:?\s*(.*)$/is;
+
+/**
+ * Métricas pedidas que Meta rechaza en este error (puede ser más de una). Función pura.
+ * Orden de las pistas: posición `metric[N]`; lista de válidas ("must be one of": se
+ * descarta lo pedido que no está en ella); y la frase de "no soportada", que apunta a
+ * la métrica nombrada justo antes de la palabra clave (o, si no hay, la primera después).
+ * Cuota, token y permisos nunca cuentan.
+ */
+export function invalidMetrics(err: unknown, pedidas: string[]): string[] {
   const code = err instanceof GraphError ? err.code : undefined;
-  if (code !== undefined && NOT_A_METRIC_ERROR.has(code)) return undefined;
+  if (code !== undefined && NOT_A_METRIC_ERROR.has(code)) return [];
   const msg = err instanceof Error ? err.message : String(err);
-  // La posición `metric[N]` manda: el mismo mensaje lista las métricas válidas y
-  // no debe confundirse con la inválida.
   const idx = msg.match(/metric\[(\d+)\]/)?.[1];
-  if (idx !== undefined) return pedidas[Number(idx)];
-  const named = pedidas.find((m) => new RegExp(`\\b${escapeRe(m)}\\b`).test(msg));
-  return named && /not support|no longer supported|invalid|must be one of|deprecated/i.test(msg) ? named : undefined;
+  if (idx !== undefined) {
+    const m = pedidas[Number(idx)];
+    return m ? [m] : [];
+  }
+  const lista = msg.match(LIST_INTRO)?.[1];
+  if (lista !== undefined) {
+    const validas = new Set(lista.match(/[a-z_]+/gi) ?? []);
+    // Una lista que no contiene ninguna de las pedidas no es confiable: se descartaría todo.
+    if (pedidas.some((m) => validas.has(m))) {
+      const malas = pedidas.filter((m) => !validas.has(m));
+      if (malas.length) return malas;
+    }
+  }
+  const kw = KEYWORDS.exec(msg);
+  if (!kw) return [];
+  const pos = (m: string, desde: number, hasta: number): number[] => {
+    const out: number[] = [];
+    for (const x of msg.matchAll(new RegExp(`\\b${escapeRe(m)}\\b`, "g"))) if (x.index >= desde && x.index < hasta) out.push(x.index);
+    return out;
+  };
+  let antes: { m: string; i: number } | undefined;
+  let despues: { m: string; i: number } | undefined;
+  for (const m of pedidas) {
+    const a = pos(m, 0, kw.index);
+    if (a.length && (!antes || a[a.length - 1]! > antes.i)) antes = { m, i: a[a.length - 1]! };
+    const d = pos(m, kw.index, msg.length);
+    if (d.length && (!despues || d[0]! < despues.i)) despues = { m, i: d[0]! };
+  }
+  const elegida = antes ?? despues;
+  return elegida ? [elegida.m] : [];
+}
+
+/** Primera métrica que Meta dice no soportar en este error, si es una de las pedidas. Función pura. */
+export function unsupportedMetric(err: unknown, pedidas: string[]): string | undefined {
+  return invalidMetrics(err, pedidas)[0];
 }
 
 /**
@@ -156,11 +196,12 @@ export async function fetchMediaInsights(id: string, productType: string, get: G
         avg_watch_ms: raw.ig_reels_avg_watch_time, total_watch_ms: raw.ig_reels_video_view_total_time, descartadas,
       };
     } catch (err) {
-      const bad = unsupportedMetric(err, metrics);
-      if (!bad || metrics.length === 1) throw err;
-      descartadas.push(bad);
-      metrics = metrics.filter((m) => m !== bad);
-      console.warn(`⚠️  Meta ya no da la métrica ${bad} para ${productType}: la descarto.`);
+      const malas = invalidMetrics(err, metrics);
+      // Si Meta rechazara todas no queda nada que pedir: se relanza el error.
+      if (!malas.length || malas.length >= metrics.length) throw err;
+      descartadas.push(...malas);
+      metrics = metrics.filter((m) => !malas.includes(m));
+      console.warn(`⚠️  Meta ya no da la métrica ${malas.join(", ")} para ${productType}: la descarto.`);
     }
   }
 }
