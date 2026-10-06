@@ -333,6 +333,7 @@ async function procesar(deps: SchedulerDeps, t: Tarea, semanas: SemanaLeida[], a
     dormir: deps.dormir,
     ahora: deps.ahora,
     modo: deps.modo,
+    diferido: true,
     limite: new Date(base + (t.tipo === "post" ? VENTANA_MS : STORY_TOPE_MS - STORY_TRAS_MS)),
     limiteReintento: new Date(base + (t.tipo === "post" ? REINTENTO_MS : STORY_TOPE_MS - STORY_TRAS_MS)),
     limitePublicar: new Date(base + (t.tipo === "post" ? REANUDAR_MS : STORY_TOPE_MS - STORY_TRAS_MS)),
@@ -597,10 +598,10 @@ interface FilaDb {
 
 /**
  * La columna `children` guarda JSON: un arreglo (solo hijos) o un objeto
- * `{ children?, inicio?, proximo?, rendida? }` con los datos de control de la fila
+ * `{ children?, inicio?, proximo?, rendida?, resondeos?, urlCaida? }` con los datos de control de la fila
  * (sin cambiar el esquema de db.ts). `actualizado` es siempre la última escritura.
  */
-interface Extra { children?: string[]; inicio?: string; proximo?: string; rendida?: boolean }
+interface Extra { children?: string[]; inicio?: string; proximo?: string; rendida?: boolean; resondeos?: number; urlCaida?: boolean }
 
 /** Filas de `publicaciones` (clave `"<semana>/<id>"`). */
 export function cargarFilasDb(): Fila[] {
@@ -626,6 +627,8 @@ export function cargarFilasDb(): Fila[] {
       ...(typeof extra.inicio === "string" ? { inicio: extra.inicio } : {}),
       ...(typeof extra.proximo === "string" ? { proximo: extra.proximo } : {}),
       ...(extra.rendida === true ? { rendida: true } : {}),
+      ...(typeof extra.resondeos === "number" ? { resondeos: extra.resondeos } : {}),
+      ...(extra.urlCaida === true ? { urlCaida: true } : {}),
     });
   }
   return out;
@@ -638,6 +641,8 @@ export function guardarFilaDb(f: Fila, ahora: Date): void {
   if (f.inicio) extra.inicio = f.inicio;
   if (f.proximo) extra.proximo = f.proximo;
   if (f.rendida) extra.rendida = true;
+  if (f.resondeos !== undefined) extra.resondeos = f.resondeos;
+  if (f.urlCaida) extra.urlCaida = true;
   const children = Object.keys(extra).length ? JSON.stringify(extra) : null;
   openDb().prepare(
     `INSERT INTO publicaciones (pieza_id, tipo, paso, container_id, children, media_id, intentos, actualizado, error)

@@ -45,6 +45,10 @@ export interface Fila {
   proximo?: string;
   /** `publicando` sin confirmar tras 2 h: se avisó al admin y no se vuelve a consultar. */
   rendida?: boolean;
+  /** R32: sondeos de `status_code` que dieron FINISHED tras un `media_publish` ambiguo. */
+  resondeos?: number;
+  /** R29: los reintentos son por URL caída (contenedor en ERROR/EXPIRED): valen hasta `limiteReintento`. */
+  urlCaida?: boolean;
 }
 
 export interface Graph {
@@ -68,6 +72,12 @@ export interface PublishCtx {
   limiteReintento?: Date;
   /** Después de este instante no se hace `media_publish` de un contenedor que no se publicó. */
   limitePublicar?: Date;
+  /**
+   * `true` (el scheduler): nunca espera minutos; los reintentos y re-sondeos quedan en
+   * la fila como `proximo` y los retoma un tick posterior (R25, R32). Sin él (llamada
+   * directa), espera dentro de la llamada con `dormir` y termina la secuencia.
+   */
+  diferido?: boolean;
 }
 
 /** Error de Meta (contenido, permiso, token, cuota): no se reintenta. */
@@ -102,8 +112,9 @@ export const ESPERA_REINTENTO_MS = 10 * 60_000;
 /** Error de red al crear un contenedor: se reintenta en el tick siguiente. */
 export const ESPERA_RED_MS = 60_000;
 export const MAX_REINTENTOS = 3;
-/** Pausa antes de verificar un `media_publish` que falló por red (Meta puede seguir procesándolo). */
-export const ESPERA_VERIFICAR_MS = 30_000;
+/** R32: tras un `media_publish` ambiguo, sondeos en FINISHED (≥ 1 min entre sí) antes de mirar candidatos. */
+export const RESONDEOS = 3;
+export const ESPERA_RESONDEO_MS = 60_000;
 /** Candidatos válidos al verificar: `timestamp ≥ inicio − 30 s` (R28). */
 export const MARGEN_INICIO_MS = 30_000;
 /** Límites de Instagram (se validan antes de llamar a Meta). */
@@ -281,11 +292,10 @@ async function sondear(id: string, ctx: PublishCtx): Promise<Estado | "TOPE"> {
 const tsDe = (s: unknown): number => (typeof s === "string" ? Date.parse(s.replace(/([+-]\d{2})(\d{2})$/, "$1:$2")) : NaN);
 
 /**
- * Busca el post propio de un contenedor PUBLISHED (R28): caption idéntico (stories:
- * cualquiera) y `timestamp ≥ inicio − 30 s`. Un candidato → su id; ninguno →
- * undefined; más de uno → `ErrorAmbiguo` (no se adivina).
+ * Posts (o stories) que podrían ser el nuestro: caption idéntico (stories: cualquiera)
+ * y `timestamp ≥ inicio − 30 s` (R28). Ids sin repetir.
  */
-async function buscarPublicado(f: Fila, receta: Receta, ctx: PublishCtx): Promise<string | undefined> {
+async function candidatos(f: Fila, receta: Receta, ctx: PublishCtx): Promise<string[]> {
   const inicio = Date.parse(f.inicio ?? "");
   const desde = Number.isNaN(inicio) ? ctx.ahora().getTime() - 86_400_000 : inicio - MARGEN_INICIO_MS;
   const r = receta.tipo === "story"
@@ -294,18 +304,25 @@ async function buscarPublicado(f: Fila, receta: Receta, ctx: PublishCtx): Promis
       `${ctx.igUserId}/media`, { fields: "id,caption,timestamp", limit: 10 },
     );
   const caption = receta.caption !== undefined ? normalizarCaption(receta.caption) : undefined;
-  const candidatos = (r?.data ?? [])
+  const ids = (r?.data ?? [])
     .filter((m): m is { id: string; caption?: string; timestamp?: string } => typeof m?.id === "string")
     .filter((m) => receta.tipo === "story" || (typeof m.caption === "string" && normalizarCaption(m.caption) === caption))
     .filter((m) => {
       const ts = tsDe(m.timestamp);
       return !Number.isNaN(ts) && ts >= desde;
-    });
-  const ids = [...new Set(candidatos.map((m) => m.id))];
-  if (ids.length > 1) {
-    throw new ErrorAmbiguo(`Instagram confirmó la publicación de ${receta.queProcesa}, pero hay ${ids.length} ` +
-      `${receta.tipo === "story" ? "stories" : "posts con el mismo caption"} en ese rango; no adivino cuál es. Revisa en la app.`);
-  }
+    })
+    .map((m) => m.id);
+  return [...new Set(ids)];
+}
+
+const ambiguo = (receta: Receta, n: number, porque: string): ErrorAmbiguo =>
+  new ErrorAmbiguo(`${porque}, pero hay ${n} ${receta.tipo === "story" ? "stories" : "posts con el mismo caption"} ` +
+    "en ese rango; no adivino cuál es ni vuelvo a publicar. Revisa en la app.");
+
+/** Post propio de un contenedor PUBLISHED: uno → su id; ninguno → undefined; más → `ErrorAmbiguo`. */
+async function buscarPublicado(f: Fila, receta: Receta, ctx: PublishCtx): Promise<string | undefined> {
+  const ids = await candidatos(f, receta, ctx);
+  if (ids.length > 1) throw ambiguo(receta, ids.length, `Instagram confirmó la publicación de ${receta.queProcesa}`);
   return ids[0];
 }
 
@@ -345,7 +362,7 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
   const salto = (detalle?: string): Fila =>
     guardar({ paso: "fallido", proximo: undefined, error: `${PREFIJO_SALTO}no se publica tarde${detalle ? ` (${detalle})` : ""}` });
   // R26/R29: el primer contenedor solo dentro de la ventana; los reintentos, hasta `limiteReintento`.
-  const limiteCrear = (): Date | undefined => (f.intentos > 0 ? ctx.limiteReintento ?? ctx.limite : ctx.limite);
+  const limiteCrear = (): Date | undefined => (f.urlCaida ? ctx.limiteReintento ?? ctx.limite : ctx.limite);
   /** Ya no se puede crear contenedor: sin intentos previos es un salto; con reintentos en curso, `fallido` (R29). */
   const sinTiempo = (): Fila => f.intentos > 0
     ? guardar({ paso: "fallido", proximo: undefined, error: `${f.error ?? "no se pudo crear el contenedor"} (sin tiempo para otro reintento)` })
@@ -402,16 +419,37 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
             const v = await verificar(f, receta, ctx);
             if (v.publicado) {
               return guardar({
-                paso: "publicado", mediaId: v.mediaId,
+                paso: "publicado", mediaId: v.mediaId, resondeos: undefined,
                 error: v.mediaId ? undefined : "Instagram confirmó la publicación, pero no encontré su media_id.",
               });
             }
             verificarPrimero = false;
             if (v.status !== "FINISHED") {
               // No publicado y no listo: se vuelve a esperar (IN_PROGRESS) o se recrea (ERROR/EXPIRED).
-              guardar({ paso: "esperando" });
+              guardar({ paso: "esperando", resondeos: undefined });
               break;
             }
+            // R32: FINISHED tras un publish ambiguo puede ser un status atrasado. No se republica
+            // hasta ver FINISHED en 3 sondeos separados por ≥ 1 min…
+            const n = (f.resondeos ?? 0) + 1;
+            if (n < RESONDEOS) {
+              if (ctx.diferido) {
+                return guardar({ resondeos: n, proximo: new Date(ctx.ahora().getTime() + ESPERA_RESONDEO_MS).toISOString() });
+              }
+              guardar({ resondeos: n });
+              await ctx.dormir(ESPERA_RESONDEO_MS);
+              verificarPrimero = true;
+              break;
+            }
+            // …y sin ningún candidato en la cuenta. Con uno o más, no se adopta ni se republica.
+            let ids: string[];
+            try {
+              ids = await candidatos(f, receta, ctx);
+            } catch (e) {
+              throw new ErrorTransitorio(`No pude revisar los posts recientes: ${mensaje(e)}`);
+            }
+            if (ids.length) throw ambiguo(receta, ids.length, `Según Meta, ${receta.queProcesa} sigue sin publicarse`);
+            guardar({ resondeos: undefined });
           }
           // Contenedor listo y NO publicado: si ya es tarde, no se publica (el contenedor expira solo).
           if (pasado(ctx.limitePublicar)) return salto("el contenedor estaba listo, pero pasó la hora");
@@ -429,11 +467,16 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
               if (v.publicado) return guardar({ paso: "publicado", mediaId: v.mediaId, error: undefined });
               return guardar({ paso: "fallido", error: mensaje(e) });
             }
-            // Red caída o respuesta sin id: quizás SÍ se publicó. Se espera y se verifica.
+            // Red caída o respuesta sin id: quizás SÍ se publicó. Nunca se republica en esta
+            // pasada: se re-sondea el contenedor (R32).
             if (++fallosPublish >= MAX_REINTENTOS) {
               throw new ErrorTransitorio(`No pude confirmar si se publicó ${receta.queProcesa}: ${mensaje(e)}`);
             }
-            await ctx.dormir(ESPERA_VERIFICAR_MS);
+            if (ctx.diferido) {
+              return guardar({ resondeos: 0, error: mensaje(e), proximo: new Date(ctx.ahora().getTime() + ESPERA_RESONDEO_MS).toISOString() });
+            }
+            guardar({ resondeos: 0, error: mensaje(e) });
+            await ctx.dormir(ESPERA_RESONDEO_MS);
             verificarPrimero = true;
           }
           break;
@@ -454,7 +497,9 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
       let proximo = new Date(ahora + (muerto ? ESPERA_REINTENTO_MS : ESPERA_RED_MS));
       // R29: este intento empezó a tiempo, así que los reintentos valen hasta `limiteReintento`
       // (se adelantan para caber). Si ya no queda tiempo: `fallido` con el motivo, no salto.
-      const tope = ctx.limiteReintento ?? ctx.limite;
+      // La ventana extendida (R29) es solo para URL caída; un error de red al crear se queda en `limite`.
+      const urlCaida = muerto || f.urlCaida === true;
+      const tope = urlCaida ? ctx.limiteReintento ?? ctx.limite : ctx.limite;
       if (tope && proximo.getTime() > tope.getTime()) {
         if (ahora >= tope.getTime()) {
           return guardar({ paso: "fallido", intentos, proximo: undefined, error: `${mensaje(e)} (sin tiempo para otro reintento)` });
@@ -465,8 +510,11 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
       const reinicio: Partial<Fila> = muerto
         ? { paso: "inicio", children: undefined, containerId: undefined, inicio: undefined }
         : {};
-      // R25: no se duerme aquí; el tick que llegue después de `proximo` retoma la fila.
-      return guardar({ ...reinicio, intentos, error: mensaje(e), proximo: proximo.toISOString() });
+      // R25: con `diferido` no se duerme; el tick que llegue después de `proximo` retoma la fila.
+      guardar({ ...reinicio, intentos, error: mensaje(e), ...(urlCaida ? { urlCaida: true } : {}), proximo: proximo.toISOString() });
+      if (ctx.diferido) return f;
+      await ctx.dormir(Math.max(0, proximo.getTime() - ctx.ahora().getTime()));
+      f = { ...f, proximo: undefined };
     }
   }
 }

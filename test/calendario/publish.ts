@@ -35,6 +35,8 @@ export class MetaFalso {
   violaciones: string[] = [];
   /** Cola de `status_code` para cada contenedor principal nuevo, en orden de creación. */
   colaStatus: Status[][] = [];
+  /** Sondeos en que un contenedor ya PUBLISHED todavía responde FINISHED (status atrasado). */
+  atraso = new Map<string, number>();
   /** Error a inyectar en una llamada; `despues` = la llamada surte efecto y luego falla (red). */
   fallar: (c: Llamada) => { error: Error; despues?: boolean } | undefined = () => undefined;
 
@@ -68,7 +70,13 @@ export class MetaFalso {
       const c = this.contenedores.get(path);
       if (!c) throw new GraphError("Consulta inválida: el objeto no existe.", 100);
       if (c.status !== "PUBLISHED" && c.cola.length) c.status = c.cola.shift()!;
-      out = { id: c.id, status_code: c.status };
+      const atraso = this.atraso.get(c.id) ?? 0;
+      if (c.status === "PUBLISHED" && atraso > 0) {
+        this.atraso.set(c.id, atraso - 1);
+        out = { id: c.id, status_code: "FINISHED" };
+      } else {
+        out = { id: c.id, status_code: c.status };
+      }
     }
     if (f) throw f.error;
     return out;
@@ -273,13 +281,13 @@ async function hastaCerrar(m: MetaFalso, fila: Fila, fn: (f: Fila) => Promise<Fi
 await checkAsync("publish: status ERROR → no duerme (R25): deja proximo a +10 min; 3 reintentos con contenedor nuevo y al 4.º fallido", async () => {
   const m = new MetaFalso();
   m.colaStatus = [["ERROR"], ["ERROR"], ["ERROR"], ["ERROR"]];
-  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx({ diferido: true }));
   assert.equal(primera.paso, "inicio");
   assert.equal(primera.intentos, 1);
   assert.equal(Date.parse(primera.proximo!), T0 + 10 * 60_000);
   assert.equal(primera.containerId, undefined);
   assert.deepEqual(m.dormidas, [], "no duerme dentro de la llamada");
-  const { final, llamadas } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, m.ctx()));
+  const { final, llamadas } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, m.ctx({ diferido: true })));
   assert.equal(llamadas, 3);
   assert.equal(final.paso, "fallido");
   assert.equal(final.intentos, 4);
@@ -303,7 +311,7 @@ await checkAsync("publish: status ERROR 3 veces y luego FINISHED → publica una
 await checkAsync("publish: R29 — primer intento a tiempo y status ERROR: los reintentos se adelantan para caber en limiteReintento y luego fallido (no salto)", async () => {
   const m = new MetaFalso();
   m.colaStatus = [["ERROR"], ["ERROR"], ["ERROR"]];
-  const ctx = (): PublishCtx => m.ctx({ limite: new Date(T0 + 5 * 60_000), limiteReintento: new Date(T0 + 12 * 60_000) });
+  const ctx = (): PublishCtx => m.ctx({ diferido: true, limite: new Date(T0 + 5 * 60_000), limiteReintento: new Date(T0 + 12 * 60_000) });
   const primera = await publicar(filaNueva(), piezaDe(), mediosReel, ctx());
   assert.equal(Date.parse(primera.proximo!), T0 + 10 * 60_000);
   const segunda = await publicar({ ...primera }, piezaDe(), mediosReel, m.ctx({ ...ctx(), ahora: () => new Date(T0 + 10 * 60_000) }));
@@ -315,6 +323,21 @@ await checkAsync("publish: R29 — primer intento a tiempo y status ERROR: los r
   assert.match(final.error ?? "", /URL de medios/);
   assert.equal(m.postsA("/media").length, 3);
   assert.equal(m.publicaciones, 0);
+});
+
+await checkAsync("publish: un error de red al crear usa `limite`, no `limiteReintento` (R29 es solo URL caída)", async () => {
+  const m = new MetaFalso();
+  m.fallar = (c) => c.metodo === "post" ? { error: new GraphError("No pude conectar con la API de Meta") } : undefined;
+  const ctx = (): PublishCtx => m.ctx({ diferido: true, limite: new Date(T0 + 30_000), limiteReintento: new Date(T0 + 30 * 60_000) });
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, ctx());
+  assert.equal(Date.parse(primera.proximo!), T0 + 30_000, "se adelanta a `limite`, no a `limiteReintento`");
+  assert.equal(primera.urlCaida, undefined);
+  const { final } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, ctx()));
+  assert.equal(final.paso, "fallido");
+  assert.match(final.error ?? "", /sin tiempo/);
+  assert.doesNotMatch(final.error ?? "", /^saltado/);
+  assert.equal(m.llamadas, 2);
+  assert.ok(m.reloj <= T0 + 30_000, "ningún intento después de limite");
 });
 
 await checkAsync("publish: R26 — sin intentos previos y pasado el límite → salto 'no se publica tarde' sin llamar a Meta", async () => {
@@ -431,9 +454,9 @@ await checkAsync("publish: error de Meta en media_publish (respuesta limpia) →
 await checkAsync("publish: red caída al crear el contenedor → reintento al minuto siguiente (máx. 3) y luego fallido", async () => {
   const m = new MetaFalso();
   m.fallar = (c) => c.metodo === "post" ? { error: new GraphError("No pude conectar con la API de Meta") } : undefined;
-  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx({ diferido: true }));
   assert.equal(Date.parse(primera.proximo!), T0 + 60_000);
-  const { final } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, m.ctx()));
+  const { final } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, m.ctx({ diferido: true })));
   assert.equal(final.paso, "fallido");
   assert.match(final.error ?? "", /3 reintentos/);
   assert.equal(m.llamadas, 4);
@@ -466,18 +489,77 @@ await checkAsync("publish: un post con caption idéntico anterior a inicio − 3
   assert.equal(m.posts.length, 0);
 });
 
-await checkAsync("publish: con el contenedor FINISHED no se busca en la lista (R28): se publica aunque haya un post manual igual", async () => {
+await checkAsync("publish: sin `diferido` (llamada directa) termina en la misma llamada; un ERROR espera 10 min con dormir", async () => {
   const m = new MetaFalso();
-  const pieza = piezaDe();
-  m.crear("c1", "FINISHED", { caption: pieza.caption });
-  m.publicado("m-manual", "c9", pieza.caption, T0 + 1_000);
-  const fila: Fila = { ...filaNueva(), paso: "publicando", containerId: "c1", inicio: new Date(T0).toISOString() };
-  const r = await publicar(fila, pieza, mediosReel, m.ctx());
+  m.colaStatus = [["ERROR"], ["FINISHED"]];
+  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
   assert.equal(r.paso, "publicado");
-  assert.notEqual(r.mediaId, "m-manual");
+  assert.deepEqual(m.dormidas, [10 * 60_000]);
   assert.equal(m.publicaciones, 1);
-  assert.equal(m.gets.some((g) => g.path === `${IG}/media`), false);
+});
+
+// --- R32: FINISHED tras un media_publish ambiguo ---
+
+const conRedCaidaTrasPublish = (m: MetaFalso): void => {
+  let primero = true;
+  m.fallar = (c) => {
+    if (c.metodo !== "post" || !c.path.endsWith("media_publish") || !primero) return undefined;
+    primero = false;
+    return { error: new GraphError("No pude conectar con la API de Meta (ECONNRESET)."), despues: true };
+  };
+};
+
+await checkAsync("R32: publish exitoso con red caída y status atrasado (FINISHED ×2 → PUBLISHED) → un solo media_publish y adopta el post propio", async () => {
+  const m = new MetaFalso();
+  conRedCaidaTrasPublish(m);
+  m.atraso.set("c1", 2);
+  const ctx = (): PublishCtx => m.ctx({ diferido: true });
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, ctx());
+  assert.equal(primera.paso, "publicando", "no republica en la misma pasada");
+  assert.equal(primera.resondeos, 0);
+  assert.equal(Date.parse(primera.proximo!), T0 + 60_000);
+  const { final, llamadas } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, ctx()));
+  assert.equal(llamadas, 3, "FINISHED, FINISHED, PUBLISHED");
+  assert.equal(final.paso, "publicado");
+  assert.equal(final.mediaId, m.medios[0].id);
+  assert.equal(m.postsA("/media_publish").length, 1);
+  assert.equal(m.publicaciones, 1);
+  assert.deepEqual(m.dormidas, []);
   assert.deepEqual(m.violaciones, []);
+});
+
+await checkAsync("R32: status siempre FINISHED y sin candidatos → se republica una sola vez tras los 3 sondeos", async () => {
+  const m = new MetaFalso();
+  // El primer media_publish se pierde por la red antes de llegar a Meta.
+  let primero = true;
+  m.fallar = (c) => {
+    if (c.metodo !== "post" || !c.path.endsWith("media_publish") || !primero) return undefined;
+    primero = false;
+    return { error: new GraphError("No pude conectar con la API de Meta (ETIMEDOUT).") };
+  };
+  let sondeos = 0;
+  const get = m.get.bind(m);
+  m.get = async (p, q) => { if (p === "c1") sondeos++; return get(p, q); };
+  const ctx = (): PublishCtx => m.ctx({ diferido: true });
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, ctx());
+  const antes = sondeos;
+  const { final } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, ctx()));
+  assert.equal(final.paso, "publicado");
+  assert.equal(sondeos - antes, 3, "3 sondeos antes de republicar");
+  assert.equal(m.publicaciones, 1);
+  assert.equal(m.postsA("/media_publish").length, 1, "un solo POST que llegó a Meta");
+  assert.ok(m.gets.some((g) => g.path === `${IG}/media`), "miró los candidatos antes de republicar");
+  assert.deepEqual(m.violaciones, []);
+});
+
+await checkAsync("R32: sin `diferido`, los 3 re-sondeos esperan ≥ 1 min cada uno dentro de la llamada", async () => {
+  const m = new MetaFalso();
+  conRedCaidaTrasPublish(m);
+  m.atraso.set("c1", 2);
+  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
+  assert.equal(r.paso, "publicado");
+  assert.equal(m.publicaciones, 1);
+  assert.ok(m.dormidas.filter((d) => d >= 60_000).length >= 2);
 });
 
 await checkAsync("publish: contenedor listo y no publicado pasado limitePublicar → salto, sin media_publish", async () => {

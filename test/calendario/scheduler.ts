@@ -102,7 +102,7 @@ check("scheduler: estado.json publicado sin fila (base perdida) → no se public
   assert.equal(tareasDebidas(s, [], Z("2026-10-12T22:31:00Z"), false).publicar.length, 0);
 });
 
-check("scheduler: fila en esperando → se termina hasta hora + 25 min; publicando → siempre se verifica", () => {
+check("scheduler: fila en esperando → se termina hasta hora + 40 min (REANUDAR_MS); publicando → siempre se verifica", () => {
   const s = [programada()];
   for (const paso of ["esperando", "publicando"] as const) {
     const r = tareasDebidas(s, [fila(paso, "post", { containerId: "c1" })], Z("2026-10-12T22:50:00Z"), false);
@@ -170,6 +170,17 @@ check("scheduler: pausado → publicar vacío; si la ventana pasa en pausa → s
 check("scheduler: reloj que salta hacia atrás (NTP) no publica antes de la hora", () => {
   const s = [programada()];
   assert.equal(tareasDebidas(s, [], Z("2026-10-12T21:30:00Z"), false).publicar.length, 0);
+});
+
+check("scheduler: borde de REANUDAR_MS — esperando sin pausa a hora + 39:59 se retoma; a hora + 40:00 se salta", () => {
+  const s = [programada()];
+  const f = [fila("esperando", "post", { containerId: "c1" })];
+  const antes = tareasDebidas(s, f, Z("2026-10-12T23:09:59Z"), false);
+  assert.equal(antes.publicar.length, 1);
+  assert.equal(antes.saltar.length, 0);
+  const borde = tareasDebidas(s, f, Z("2026-10-12T23:10:00Z"), false);
+  assert.equal(borde.publicar.length, 0);
+  assert.deepEqual(borde.saltar.map((x) => x.motivo), ["no se publica tarde"]);
 });
 
 // --- tick (con I/O falso) ---
@@ -550,6 +561,41 @@ await checkAsync("tick: R29 — URL caída ERROR ×4 → 3 reintentos a ~10 min,
   assert.deepEqual(creados.filter((c) => c.pieza === vecina.id).map((c) => (c.en - hora) / 60_000), [20]);
   assert.deepEqual(publicadosEn.map((t) => (t - hora) / 60_000), [20]);
   assert.equal(w.meta.publicaciones, 1);
+});
+
+await checkAsync("tick: R32 — status siempre FINISHED con un post manual de caption idéntico tras el inicio → no republica, queda publicando y avisa", async () => {
+  const w = mundo([programada()]);
+  const inicio = w.reloj.t;
+  w.meta.crear("c1", "FINISHED", { caption: lunes.caption });
+  w.meta.publicado("m-manual", "c9", lunes.caption, inicio + 20_000);
+  w.filas.set(`2026-10-12/${lunes.id}|post`, {
+    piezaId: `2026-10-12/${lunes.id}`, tipo: "post", paso: "publicando", containerId: "c1", intentos: 0,
+    inicio: new Date(inicio).toISOString(),
+  });
+  for (let i = 0; i < 20; i++) { await tick(w.deps); w.reloj.t += 60_000; }
+  assert.equal(w.meta.posts.length, 0, "ni adopta ni republica");
+  assert.equal(w.meta.publicaciones, 0);
+  const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
+  assert.equal(f.paso, "publicando");
+  assert.equal(w.estados.some((e) => e.e.estado === "publicado"), false);
+  const avisos = w.avisos.filter((a) => a.includes("no adivino"));
+  assert.equal(avisos.length, 1, "avisa una vez");
+});
+
+await checkAsync("tick: un error de red al crear el contenedor no gana la ventana de +30 min de R29 (solo URL caída)", async () => {
+  const w = mundo([programada()]);
+  const { GraphError } = await import("../../src/meta/client.ts");
+  w.meta.fallar = (c) => c.metodo === "post" ? { error: new GraphError("No pude conectar con la API de Meta (ECONNRESET).") } : undefined;
+  const hora = w.reloj.t;
+  for (w.reloj.t = hora + 13 * 60_000; w.reloj.t <= hora + 35 * 60_000; w.reloj.t += 60_000) await tick(w.deps);
+  const intentos = w.meta.llamadas;
+  assert.ok(intentos >= 1 && intentos <= 3, `intentos ${intentos}`);
+  const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
+  assert.equal(f.paso, "fallido");
+  assert.match(f.error ?? "", /sin tiempo|reintentos/);
+  // Ningún intento pasada la ventana de 15 min.
+  assert.ok(w.reloj.t > hora + 15 * 60_000);
+  assert.equal(f.urlCaida, undefined);
 });
 
 // --- registro.ts y filas en SQLite (con KB_DIR temporal) ---
