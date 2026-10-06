@@ -115,8 +115,7 @@ export function tareasDebidas(
       // `/publicar`: la orden vale como hora de la pieza mientras la orden no venza o
       // el post ya haya empezado (contenedor creado con esa hora).
       const forzada = ordenes.forzar[clave];
-      const empezado = fp !== undefined && (fp.intentos > 0 || fp.paso === "esperando" || fp.paso === "publicando");
-      const hora = forzada && forzada.getTime() < horaPlan.getTime() && empezado ? forzada : horaPlan;
+      const hora = forzada && forzada.getTime() < horaPlan.getTime() && empezado(fp) ? forzada : horaPlan;
       const h = hora.getTime();
 
       // --- post ---
@@ -190,6 +189,13 @@ export function tareasDebidas(
   return { publicar: [...nuevas.sort(porHora), ...reanudar.sort(porHora)], saltar };
 }
 
+/**
+ * ¿El post ya empezó (algún paso después de `inicio`, o un reintento)? Única definición
+ * para `tareasDebidas` y `ordenesVencidas`: un post empezado por `/publicar` conserva la
+ * hora de la orden (se termina o se salta en su ventana), nunca se retoma a la hora del plan.
+ */
+export const empezado = (fp?: Fila): boolean => fp !== undefined && (fp.intentos > 0 || fp.paso !== "inicio");
+
 /** Motivo del salto pedido por Telegram (`/saltar` o el botón Saltar). */
 export const MOTIVO_A_MANO = "saltada a mano";
 
@@ -230,9 +236,7 @@ export function ordenesVencidas(ordenes: Ordenes, filas: Fila[], ahora: Date): s
   const out: string[] = [];
   for (const [clave, f] of Object.entries(ordenes.forzar)) {
     if (ahora.getTime() < f.getTime() + VENTANA_MS) continue;
-    const fp = filas.find((x) => x.piezaId === clave && x.tipo === "post");
-    const empezado = fp !== undefined && (fp.intentos > 0 || fp.paso !== "inicio");
-    if (!empezado) out.push(clave);
+    if (!empezado(filas.find((x) => x.piezaId === clave && x.tipo === "post"))) out.push(clave);
   }
   return out;
 }

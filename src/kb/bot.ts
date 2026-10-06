@@ -1,7 +1,7 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { Bot, GrammyError, InlineKeyboard, type Api } from "grammy";
+import { dirname, join, sep } from "node:path";
+import { Bot, GrammyError, InlineKeyboard, InputFile, type Api } from "grammy";
 import { ask } from "./ask.ts";
 import { indexedHead, reindex, setIndexedHead } from "./indexer.ts";
 import { topicKey } from "./markdown.ts";
@@ -16,14 +16,15 @@ import {
 } from "./store.ts";
 import { addDays, localParts, weekMonday, zonedToUtc } from "../calendario/time.ts";
 import { limpiarMedios, manejarMedio } from "../calendario/media-server.ts";
-import { estadoEfectivo, leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "../calendario/plan.ts";
+import { estadoEfectivo, leerSemana, listarSemanas, ocultarToken, type Medios, type SemanaLeida } from "../calendario/plan.ts";
 import { escribirEstado, estadoPath } from "../calendario/registro.ts";
 import {
   cargarFilasDb, claveFila, depsReales, esPausado, guardarClaveDb, leerClaveDb, ORDEN_PUBLICAR, ORDEN_SALTAR, tick, type SchedulerDeps,
 } from "../calendario/scheduler.ts";
 import {
-  avisoRenderPendiente, avisosPostPublicacion, ETAPAS_RENDER, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
-  modoCalendario, porProgramar, publicadas, recordatorioLunes, silencioCalendario, TEXTO_POST_PUBLICACION, TEXTO_RECORDATORIO_LUNES,
+  argsPreview, avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, ETAPAS_RENDER, formatSemana, idDesdeArgumento, leerCallbackSaltar,
+  modoCalendario, previewsPendientes, publicadas, recordatorioLunes, semanasConPlan, silencioCalendario, TEXTO_POST_PUBLICACION,
+  TEXTO_RECORDATORIO_LUNES,
 } from "../calendario/telegram.ts";
 import { graphGet } from "../meta/client.ts";
 import { guardarCuenta, tomarInstantaneas } from "../insights/snapshots.ts";
@@ -36,7 +37,7 @@ import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
 import { dmAction, startHttp, webhookRoute, type DmEvent, type HttpRoute } from "./inbox.ts";
 import { recoverMissedDms } from "./recover.ts";
 import {
-  escapeHtml, formatAnswer, formatAnswerText, formatFichaList, formatSaved, formatSavedText, handleInText, handleReply, HELP,
+  escapeHtml, formatAnswer, formatAnswerText, formatFichaList, formatSaved, formatSavedText, handleInText, handleReply, HELP, HELP_CALENDARIO,
   noteFromMessage, splitMessage,
 } from "./telegram.ts";
 import { STAGE_LABEL } from "./types.ts";
@@ -248,7 +249,7 @@ bot.use(async (ctx, next) => {
 
 // --- comandos ---
 
-bot.command(["start", "ayuda", "help"], (ctx) => ctx.reply(HELP, { parse_mode: "HTML" }));
+bot.command(["start", "ayuda", "help"], (ctx) => ctx.reply(calendarioModo ? `${HELP}\n\n${HELP_CALENDARIO}` : HELP, { parse_mode: "HTML" }));
 
 bot.command("temas", async (ctx) => {
   const topics = await listTopics();
@@ -904,9 +905,12 @@ function iniciarMetricas(): void {
 
 // --- calendario ---
 // El scheduler (`tick`, cada minuto, con su propio candado) es el único que publica o
-// salta: `/publicar` y `/saltar` solo dejan una orden en `calendario_estado` y llaman al
-// tick. El bot escribe solo `estado.json` y `registro.jsonl` (vía el scheduler), nunca el
-// plan ni el render. Ningún texto lleva el token de medios (`sinToken`).
+// salta: `/publicar` y `/saltar` solo dejan una orden en `calendario_estado`, responden
+// de inmediato y adelantan una pasada sin esperarla (grammY procesa los updates en serie:
+// esperar el tick congelaría el bot). El resultado lo avisa el scheduler. El bot escribe
+// solo `estado.json` y `registro.jsonl` (vía el scheduler), nunca el plan ni el render.
+// Ningún texto lleva el token de medios (`sinToken`) y los previews suben el archivo
+// local (R44): la URL pública nunca va a Telegram.
 
 const mediaToken = process.env.MEDIA_PUBLIC_TOKEN?.trim() || undefined;
 const MEDIA_ROOT = process.env.MEDIA_DIR?.trim() || "/data/media";
@@ -917,6 +921,8 @@ const K_RENDER = "aviso_render:";
 const K_SILENCIO = "aviso_silencio:";
 const K_POST = "aviso_post:";
 const K_LUNES = "recordatorio_lunes";
+/** Preview entregado (a lo menos a un chat): sin la marca, se reintenta en la próxima revisión. */
+const K_PREVIEW = "preview:";
 
 type PiezaCal = SemanaLeida["plan"]["piezas"][number];
 
@@ -978,8 +984,10 @@ async function semanasCalendario(desde: string, n: number): Promise<{ semanas: S
   return { semanas, errores };
 }
 
-/** Semana en curso y la siguiente: lo único que aceptan /publicar, /saltar y el botón. */
+/** Semana en curso y la siguiente: /calendario, /saltar y el botón (R43). */
 const semanasActivas = () => semanasCalendario(weekMonday(new Date()), 2);
+/** Solo la semana en curso: /publicar (R43). */
+const semanaEnCurso = () => semanasCalendario(weekMonday(new Date()), 1);
 
 async function calendarioApagado(chatId: number): Promise<void> {
   await bot.api.sendMessage(chatId, "El calendario está apagado en este bot (CALENDARIO_MODO no está definido).");
@@ -1010,15 +1018,23 @@ async function cmdPausa(chatId: number, pausar: boolean): Promise<void> {
 
 interface PiezaRef { s: SemanaLeida; p: PiezaCal; clave: string }
 
-/** Pieza del argumento, solo de la semana en curso o la siguiente. Si no la encuentra, responde y devuelve undefined. */
-async function piezaDelComando(chatId: number, arg: string, uso: string): Promise<PiezaRef | undefined> {
-  const { semanas } = await semanasActivas();
+/**
+ * Pieza del argumento entre las semanas dadas. Si no la encuentra, responde (con los
+ * plan.json rotos, si los hay, porque explican el "no encontré") y devuelve undefined.
+ */
+async function piezaDelComando(
+  chatId: number, arg: string, uso: string, cargar: () => Promise<{ semanas: SemanaLeida[]; errores: string[] }>, alcance: string,
+): Promise<PiezaRef | undefined> {
+  const { semanas, errores } = await cargar();
   const ref = idDesdeArgumento(arg, semanas);
   if (!ref) {
     const ids = semanas.flatMap((s) => s.plan.piezas.map((p) => p.id));
-    await bot.api.sendMessage(chatId, `Uso: ${uso} <id>.` + (arg.trim()
-      ? " No encontré esa pieza (o hay más de una que empieza así) en esta semana ni en la siguiente."
-      : "") + (ids.length ? `\nPiezas: ${ids.join(", ")}` : "\nNo hay piezas esta semana ni la siguiente."));
+    const texto = [
+      `Uso: ${uso} <id> (${alcance}).` + (arg.trim() ? " No encontré esa pieza (o hay más de una que empieza así)." : ""),
+      ids.length ? `Piezas: ${ids.join(", ")}` : "No hay piezas.",
+      ...(errores.length ? ["Puede faltar por un plan.json roto:", ...errores] : []),
+    ].join("\n");
+    await bot.api.sendMessage(chatId, sinToken(texto));
     return undefined;
   }
   const s = semanas.find((x) => x.semana === ref.semana)!;
@@ -1027,12 +1043,20 @@ async function piezaDelComando(chatId: number, arg: string, uso: string): Promis
 
 const filaPost = (clave: string) => cargarFilasDb().find((f) => f.piezaId === clave && f.tipo === "post");
 
-/** `/publicar <id>`: deja la orden y corre un tick. Solo piezas `programadas` cuya hora no llegó. */
+/** Adelanta una pasada del scheduler sin esperarla (el handler responde antes). */
+function adelantarTick(): void {
+  void minutoCalendario();
+}
+
+/**
+ * `/publicar <id>` (solo la semana en curso, R43): deja la orden, responde al tiro y
+ * adelanta una pasada. Solo piezas `programadas` cuya hora no llegó.
+ */
 async function cmdPublicar(chatId: number, arg: string): Promise<void> {
   if (!calendarioModo) return calendarioApagado(chatId);
   const say = async (t: string): Promise<void> => void (await bot.api.sendMessage(chatId, sinToken(t)));
   try {
-    const x = await piezaDelComando(chatId, arg, "/publicar");
+    const x = await piezaDelComando(chatId, arg, "/publicar", semanaEnCurso, "solo piezas de esta semana");
     if (!x) return;
     const { s, p, clave } = x;
     if (esPausado(leerClaveDb("pausado"))) return say("⏸ El calendario está en pausa: /reanudar primero.");
@@ -1043,7 +1067,7 @@ async function cmdPublicar(chatId: number, arg: string): Promise<void> {
     if (f) return say(`${p.id} ya está en curso (${f.paso}).`);
     const r = s.render[p.id];
     if (!s.estado[p.id] && r?.estado === "renderizado" && r.medios) {
-      // Recién renderizada y aún sin preview: se programa aquí, igual que en la sincronización.
+      // Recién renderizada: se programa aquí (su preview sale en la próxima revisión).
       await escribirEstado(s.semana, p.id, { estado: "programado" });
       s.estado[p.id] = { estado: "programado" };
       commitCalendario([estadoPath(s.semana)], `calendario: programado ${p.id}`);
@@ -1051,20 +1075,18 @@ async function cmdPublicar(chatId: number, arg: string): Promise<void> {
     const ef = estadoEfectivo(p, r, s.estado[p.id]);
     if (ef !== "programado") return say(`Solo publico piezas programadas: ${p.id} está ${ef}.`);
     guardarClaveDb(ORDEN_PUBLICAR + clave, new Date().toISOString());
-    await say(`▶️ Publicando ${p.id} ahora${calendarioModo === "aviso" ? " (modo aviso: sin POST a Meta)" : ""}… ` +
-      `Ojo: si falla, la pieza queda fallida o saltada y no vuelve a su hora del plan (${p.dia} ${p.hora}).`);
-    await tick(depsCalendario());
-    const fin = filaPost(clave);
-    if (!fin) await say("Quedó en cola: sale en el próximo minuto (te aviso).");
-    else if (fin.paso === "publicado") await say(`Resultado: ${p.id} publicado${fin.mediaId ? ` (media ${fin.mediaId})` : ""}.`);
-    else if (fin.paso === "fallido") await say(`Resultado: ${p.id} no se publicó: ${fin.error ?? "error desconocido"}`);
-    else await say(`Resultado: ${p.id} va en «${fin.paso}» (Meta procesando o reintento programado). Te aviso cuando termine.`);
+    await say(
+      `▶️ Publico ${p.id} en el próximo minuto${calendarioModo === "aviso" ? " (modo aviso: sin POST a Meta)" : ""}; te aviso el resultado.\n` +
+      `Si empieza y falla, queda fallida o saltada y ya no sale a su hora del plan (${p.dia} ${p.hora}). ` +
+      "Si no alcanza a empezar en 15 min (p. ej. token inválido), la orden vence y la pieza sigue a su hora.",
+    );
+    adelantarTick();
   } catch (err) {
     await say(`❌ /publicar: ${errText(err)}`).catch(() => {});
   }
 }
 
-/** Salto pedido por Telegram: orden + tick. `soloAntesDeLaHora` para el botón del preview. Dice si quedó pedido. */
+/** Salto pedido por Telegram: deja la orden y adelanta una pasada. `soloAntesDeLaHora` para el botón. */
 async function saltar(chatId: number, x: PiezaRef, soloAntesDeLaHora: boolean): Promise<boolean> {
   const { s, p, clave } = x;
   const say = async (t: string): Promise<void> => void (await bot.api.sendMessage(chatId, sinToken(t)));
@@ -1082,30 +1104,30 @@ async function saltar(chatId: number, x: PiezaRef, soloAntesDeLaHora: boolean): 
     return false;
   }
   guardarClaveDb(ORDEN_SALTAR + clave, new Date().toISOString());
-  await tick(depsCalendario()); // el aviso "⏭️ … saltada" lo manda el scheduler
-  const ahora = (await leerSemana(s.semana).catch(() => undefined))?.estado[p.id]?.estado;
-  if (ahora !== "saltado") await say(`Anotado: salto ${p.id} en el próximo minuto.`);
+  await say(`⏭️ Salto ${p.id} en el próximo minuto; te aviso.`);
+  adelantarTick();
   return true;
 }
 
 async function cmdSaltar(chatId: number, arg: string): Promise<void> {
   if (!calendarioModo) return calendarioApagado(chatId);
   try {
-    const x = await piezaDelComando(chatId, arg, "/saltar");
+    const x = await piezaDelComando(chatId, arg, "/saltar", semanasActivas, "esta semana o la siguiente");
     if (x) await saltar(chatId, x, false);
   } catch (err) {
     await bot.api.sendMessage(chatId, `❌ /saltar: ${sinToken(errText(err))}`).catch(() => {});
   }
 }
 
-/** Botón Saltar del preview: vale solo hasta la hora de la pieza. */
+/** Botón Saltar del preview: vale solo hasta la hora de la pieza y si el plan no cambió. */
 async function botonSaltar(chatId: number, data: string, quitarBoton: () => Promise<unknown>): Promise<void> {
   if (!calendarioModo) return calendarioApagado(chatId);
   try {
     const { semanas } = await semanasActivas();
     const ref = leerCallbackSaltar(data, semanas);
     if (!ref) {
-      await bot.api.sendMessage(chatId, "Ese botón ya no vale (la pieza no está en esta semana ni en la siguiente).");
+      await bot.api.sendMessage(chatId,
+        "Ese botón ya no vale: la pieza no está en esta semana ni en la siguiente, o el plan cambió. No salté nada; usa /saltar <id>.");
       return;
     }
     const s = semanas.find((y) => y.semana === ref.semana)!;
@@ -1116,42 +1138,69 @@ async function botonSaltar(chatId: number, data: string, quitarBoton: () => Prom
   }
 }
 
-/** Preview de una pieza programada: portada + caption + botón Saltar. Sin foto (o si falla), solo texto. */
-async function enviarPreview(s: SemanaLeida, p: PiezaCal, medios: Parameters<typeof formatPreview>[1]): Promise<void> {
-  const { caption, foto } = formatPreview(p, medios);
-  const reply_markup = new InlineKeyboard().text("⏭️ Saltar", callbackSaltar(s.semana, p.id, s));
-  for (const chatId of allowed) {
-    try {
-      if (!foto) throw new Error("sin portada");
-      await bot.api.sendPhoto(chatId, foto, { caption, reply_markup });
-    } catch (err) {
-      // El error de Telegram puede citar la URL de la foto (con el token de medios).
-      console.warn(`⚠️  Preview de ${p.id} sin foto: ${sinToken(errText(err))}`);
-      await bot.api.sendMessage(chatId, caption, { reply_markup }).catch(() => {});
-    }
+/** Archivo local del preview si existe y su ruta real queda dentro de la raíz de medios (sin symlinks hacia fuera). */
+async function archivoLocalSeguro(ruta: string | undefined): Promise<string | undefined> {
+  if (!ruta) return undefined;
+  try {
+    const raiz = await realpath(MEDIA_ROOT);
+    const real = await realpath(ruta);
+    return real.startsWith(raiz + sep) && (await stat(real)).isFile() ? real : undefined;
+  } catch {
+    return undefined;
   }
 }
 
 /**
+ * Preview de una pieza programada: portada SUBIDA desde la raíz de medios (R44) + caption
+ * + botón Saltar. Sin archivo local (o si falla la foto), solo texto. Dice si llegó a algún chat.
+ */
+async function enviarPreview(s: SemanaLeida, p: PiezaCal, medios: Medios): Promise<boolean> {
+  const { caption, ruta } = argsPreview(MEDIA_ROOT, s.semana, p, medios);
+  const local = await archivoLocalSeguro(ruta);
+  const reply_markup = new InlineKeyboard().text("⏭️ Saltar", callbackSaltar(s.semana, p.id));
+  let llego = false;
+  for (const chatId of allowed) {
+    try {
+      if (!local) throw new Error("sin portada local");
+      await bot.api.sendPhoto(chatId, new InputFile(local), { caption, reply_markup });
+      llego = true;
+    } catch (err) {
+      console.warn(`⚠️  Preview de ${p.id} sin foto: ${sinToken(errText(err))}`);
+      try {
+        await bot.api.sendMessage(chatId, caption, { reply_markup });
+        llego = true;
+      } catch (e2) {
+        console.warn(`⚠️  Preview de ${p.id} no llegó a ${chatId}: ${sinToken(errText(e2))}`);
+      }
+    }
+  }
+  return llego;
+}
+
+/**
  * Tras cada sincronización (o cada hora si no hay sincronización): renderizadas →
- * `programado` + preview; aviso de render pendiente; silencio del planificador.
+ * `programado` + preview (reintento si no llegó); render pendiente; silencio del planificador.
  */
 async function revisarCalendario(): Promise<void> {
   try {
     const ahora = new Date();
     const { semanas } = await semanasActivas();
-    for (const x of porProgramar(semanas, ahora)) {
+    for (const x of previewsPendientes(semanas, ahora, (k) => Boolean(leerClaveDb(K_PREVIEW + k)))) {
       const s = semanas.find((y) => y.semana === x.semana)!;
-      await escribirEstado(x.semana, x.pieza.id, { estado: "programado" });
-      s.estado[x.pieza.id] = { estado: "programado" };
-      commitCalendario([estadoPath(x.semana)], `calendario: programado ${x.pieza.id}`);
-      await enviarPreview(s, x.pieza, x.medios);
+      if (x.nueva) {
+        await escribirEstado(x.semana, x.pieza.id, { estado: "programado" });
+        s.estado[x.pieza.id] = { estado: "programado" };
+        commitCalendario([estadoPath(x.semana)], `calendario: programado ${x.pieza.id}`);
+      }
+      if (await enviarPreview(s, x.pieza, x.medios)) guardarClaveDb(K_PREVIEW + claveFila(x.semana, x.pieza.id), ahora.toISOString());
+      else console.warn(`⚠️  El preview de ${x.pieza.id} no llegó a ningún chat; lo reintento en la próxima revisión.`);
     }
     const ya = semanas.flatMap((s) => ETAPAS_RENDER.map((e) => `${s.semana}:${e}`)).filter((k) => leerClaveDb(K_RENDER + k));
     const render = avisoRenderPendiente(semanas, ahora, ya);
     if (render && (await sendToAdmins(render.texto))) guardarClaveDb(K_RENDER + render.clave, ahora.toISOString());
-    const silencio = silencioCalendario(await listarSemanas(), ahora);
-    const kSilencio = K_SILENCIO + addDays(weekMonday(ahora), 7);
+    const siguiente = addDays(weekMonday(ahora), 7);
+    const silencio = silencioCalendario(await semanasConPlan([siguiente], leerSemana), ahora);
+    const kSilencio = K_SILENCIO + siguiente;
     if (silencio && !leerClaveDb(kSilencio) && (await sendToAdmins(silencio))) guardarClaveDb(kSilencio, ahora.toISOString());
   } catch (err) {
     console.warn(`⚠️  Calendario (revisión): ${sinToken(errText(err))}`);
@@ -1161,7 +1210,8 @@ async function revisarCalendario(): Promise<void> {
 /** Avisos de cada minuto: post-publicación (a los 2 min, con permalink si ya está) y recordatorio del lunes. */
 async function avisosDelMinuto(): Promise<void> {
   const ahora = new Date();
-  const { semanas } = await semanasCalendario(addDays(weekMonday(ahora), -7), 2);
+  // Anterior, en curso y siguiente: una pieza forzada de la semana siguiente también avisa.
+  const { semanas } = await semanasCalendario(addDays(weekMonday(ahora), -7), 3);
   for (const a of avisosPostPublicacion(semanas, ahora, []).filter((x) => !leerClaveDb(K_POST + x.clave))) {
     let permalink: string | undefined;
     if (calendarioModo === "auto") {
@@ -1242,11 +1292,16 @@ await bot.api.setMyCommands([
   { command: "ultimos", description: "Lo último que guardaste" },
   { command: "costos", description: "Cuánto se ha gastado en la API" },
   { command: "metricas", description: "Cómo le fue a tu Instagram esta semana" },
-  { command: "calendario", description: "Piezas de la semana y su estado" },
-  { command: "pausar", description: "Pausar el calendario" },
-  { command: "reanudar", description: "Reanudar el calendario" },
-  { command: "publicar", description: "Publicar ahora una pieza programada" },
-  { command: "saltar", description: "Saltar una pieza" },
+  // Los del calendario, solo si está activo (sin CALENDARIO_MODO el menú queda como antes).
+  ...(calendarioModo
+    ? [
+      { command: "calendario", description: "Piezas de la semana y su estado" },
+      { command: "pausar", description: "Pausar el calendario" },
+      { command: "reanudar", description: "Reanudar el calendario" },
+      { command: "publicar", description: "Publicar ahora una pieza programada de esta semana" },
+      { command: "saltar", description: "Saltar una pieza" },
+    ]
+    : []),
   { command: "ayuda", description: "Cómo usarme" },
 ]);
 console.log(`🤖 Bot en marcha (chats autorizados: ${[...allowed].join(", ")}). Base: ${temasDir().replace(/\/temas$/, "")}`);

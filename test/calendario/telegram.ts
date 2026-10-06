@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { check, checkAsync } from "../_check.ts";
 import {
   avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
-  modoCalendario, ordenesDesde, porProgramar, publicadas, recordatorioLunes, silencioCalendario, TELEGRAM_CAPTION_MAX,
+  archivoDeUrl, argsPreview, modoCalendario, ordenesDesde, previewsPendientes, publicadas, recordatorioLunes, rutaMedioLocal, semanasConPlan,
+  silencioCalendario, TELEGRAM_CAPTION_MAX, truncar,
 } from "../../src/calendario/telegram.ts";
-import { ORDEN_PUBLICAR, ORDEN_SALTAR, ordenesVencidas, tareasDebidas, tick, type SchedulerDeps } from "../../src/calendario/scheduler.ts";
+import { empezado, ORDEN_PUBLICAR, ORDEN_SALTAR, ordenesVencidas, tareasDebidas, tick, type SchedulerDeps } from "../../src/calendario/scheduler.ts";
 import type { Fila } from "../../src/calendario/publish.ts";
 import type { EstadoEntry, Medios, Pieza, RenderEntry, SemanaLeida } from "../../src/calendario/plan.ts";
-import { onlineFollowersDisponible, PUBLISH_SCOPES, scopesRequeridos, REQUIRED_SCOPES, DM_SCOPES } from "../../src/meta/check.ts";
+import { mensajeOnlineFollowers, onlineFollowersDisponible, PUBLISH_SCOPES, scopesRequeridos, REQUIRED_SCOPES, DM_SCOPES } from "../../src/meta/check.ts";
 
 const Z = (s: string): Date => new Date(s);
 
@@ -32,20 +33,61 @@ function semana(piezas: Pieza[], render: Record<string, RenderEntry> = {}, estad
 
 // --- formatPreview ---
 
-check("telegram: preview con portada, hora y caption; foto = cover del reel", () => {
+check("telegram: preview con caption (día, hora, formato) y el NOMBRE del archivo de la portada del reel", () => {
   const p = formatPreview(pieza(), medios);
-  assert.equal(p.foto, `${BASE}/cover.jpg`);
+  assert.equal(p.archivo, "cover.jpg");
   assert.match(p.caption, /lun 12\/10 08:00/i);
   assert.match(p.caption, /reel/);
   assert.match(p.caption, /Primera línea con la keyword/);
-  assert.ok(!p.caption.includes("SECRETO"));
 });
 
-check("telegram: preview de carrusel usa la primera imagen; reel sin cover usa la story", () => {
+check("telegram: preview de carrusel usa la primera imagen; reel sin cover usa la story; sin nada, ''", () => {
   const c = formatPreview(pieza({ formato: "carrusel" }), { urls: [`${BASE}/01.jpg`, `${BASE}/02.jpg`] });
-  assert.equal(c.foto, `${BASE}/01.jpg`);
-  assert.equal(formatPreview(pieza(), { urls: [`${BASE}/reel.mp4`], story: `${BASE}/story.jpg` }).foto, `${BASE}/story.jpg`);
-  assert.equal(formatPreview(pieza(), { urls: [`${BASE}/reel.mp4`] }).foto, "");
+  assert.equal(c.archivo, "01.jpg");
+  assert.equal(formatPreview(pieza(), { urls: [`${BASE}/reel.mp4`], story: `${BASE}/story.jpg` }).archivo, "story.jpg");
+  assert.equal(formatPreview(pieza(), { urls: [`${BASE}/reel.mp4`] }).archivo, "");
+});
+
+check("telegram (R44): nada de formatPreview ni de lo que va a sendPhoto contiene el token de medios", () => {
+  for (const m of [medios, { urls: [`${BASE}/01.jpg`] }, { urls: [`${BASE}/reel.mp4`], story: `${BASE}/story.jpg` }]) {
+    for (const f of ["reel", "carrusel"] as const) {
+      assert.ok(!JSON.stringify(formatPreview(pieza({ formato: f }), m)).includes("SECRETO"));
+      const a = argsPreview("/data/media", "2026-10-12", pieza({ formato: f }), m);
+      assert.ok(!JSON.stringify(a).includes("SECRETO"));
+    }
+  }
+  // Ruta local bajo la raíz de medios, no la URL.
+  assert.deepEqual(argsPreview("/data/media", "2026-10-12", pieza(), medios).ruta, "/data/media/2026-10-12/lun-reel-agentes/cover.jpg");
+});
+
+check("telegram (R44): nombre de archivo validado y ruta dentro de la raíz", () => {
+  assert.equal(archivoDeUrl(`${BASE}/cover.jpg`), "cover.jpg");
+  assert.equal(archivoDeUrl(`${BASE}/%2e%2e`), "");
+  assert.equal(archivoDeUrl(`${BASE}/..%2fsecreto.jpg`), "");
+  assert.equal(archivoDeUrl(`${BASE}/con espacio.jpg`), "");
+  assert.equal(archivoDeUrl(`${BASE}/.oculto`), "");
+  assert.equal(archivoDeUrl("no es url"), "");
+  assert.equal(archivoDeUrl(undefined), "");
+  assert.equal(rutaMedioLocal("/data/media", "2026-10-12", "lun-reel-agentes", "cover.jpg"), "/data/media/2026-10-12/lun-reel-agentes/cover.jpg");
+  assert.equal(rutaMedioLocal("/data/media", "../x", "lun-reel-agentes", "cover.jpg"), undefined);
+  assert.equal(rutaMedioLocal("/data/media", "2026-10-12", "../../etc", "cover.jpg"), undefined);
+  assert.equal(rutaMedioLocal("/data/media", "2026-10-12", "lun-reel-agentes", ".."), undefined);
+  // Sin archivo válido: solo texto.
+  assert.equal(argsPreview("/data/media", "2026-10-12", pieza(), { urls: [`${BASE}/reel.mp4`] }).ruta, undefined);
+});
+
+check("telegram: truncar corta entre grafemas (emojis, banderas, familias) y mide en UTF-16", () => {
+  const suelto = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+  for (const e of ["🚀", "🇨🇱", "👨‍👩‍👧", "é"]) {
+    for (let off = 0; off < 12; off++) {
+      const t = truncar("x".repeat(off) + e.repeat(1200), 1024);
+      assert.ok(t.length <= 1024);
+      assert.ok(t.endsWith("…"));
+      assert.ok(!suelto.test(t));
+      assert.ok(t.slice(off, -1).split(e).every((x) => x === ""), `grafema partido (${e}, ${off})`);
+    }
+  }
+  assert.equal(truncar("corto", 1024), "corto");
 });
 
 check("telegram: preview truncado con … a 1024 caracteres", () => {
@@ -119,6 +161,17 @@ check("telegram: recordatorio del lunes ≥ 09:00 local, una vez por semana", ()
 
 // --- silencioCalendario ---
 
+await checkAsync("telegram: semanasConPlan — carpeta sin plan.json o con plan ilegible cuenta como ausente", async () => {
+  const leer = async (x: string): Promise<SemanaLeida | undefined> => {
+    if (x === "2026-10-12") return semana([]);
+    if (x === "2026-10-19") throw new Error("plan.json inválido");
+    return undefined; // carpeta sin plan.json
+  };
+  assert.deepEqual(await semanasConPlan(["2026-10-05", "2026-10-12", "2026-10-19"], leer), ["2026-10-12"]);
+  const sin = await semanasConPlan(["2026-10-12".replace("12", "19")], leer);
+  assert.ok(silencioCalendario(sin, Z("2026-10-18T15:00:00Z")));
+});
+
 check("telegram: silencio — domingo 12:00 sin carpeta del lunes siguiente → texto; con carpeta → nada", () => {
   assert.equal(silencioCalendario([], Z("2026-10-11T14:59:00Z")), undefined); // dom 11:59
   const t = silencioCalendario(["2026-10-05"], Z("2026-10-11T15:00:00Z"));
@@ -151,16 +204,24 @@ check("telegram: idDesdeArgumento con el mismo id en dos semanas exige semana/id
 
 // --- callback Saltar ---
 
-check("telegram: callback cal-saltar cabe en 64 bytes y se lee de vuelta", () => {
-  const s = semana([pieza(), pieza({ id: "x".repeat(70) })]);
-  const corto = callbackSaltar("2026-10-12", "lun-reel-agentes", s);
+check("telegram: callback cal-saltar cabe en 64 bytes y se lee de vuelta (huella estable, no posición)", () => {
+  const largoId = "x".repeat(70);
+  const s = semana([pieza(), pieza({ id: largoId })]);
+  const corto = callbackSaltar("2026-10-12", "lun-reel-agentes");
   assert.equal(corto, "cal-saltar:2026-10-12:lun-reel-agentes");
-  const largo = callbackSaltar("2026-10-12", "x".repeat(70), s);
+  const largo = callbackSaltar("2026-10-12", largoId);
   assert.ok(Buffer.byteLength(largo) <= 64);
+  assert.ok(!largo.includes("#"));
   assert.deepEqual(leerCallbackSaltar(corto, [s]), { semana: "2026-10-12", id: "lun-reel-agentes" });
-  assert.deepEqual(leerCallbackSaltar(largo, [s]), { semana: "2026-10-12", id: "x".repeat(70) });
+  assert.deepEqual(leerCallbackSaltar(largo, [s]), { semana: "2026-10-12", id: largoId });
+  // El plan cambió de orden: la huella sigue apuntando al mismo id.
+  const reordenada = semana([pieza({ id: largoId }), pieza()]);
+  assert.deepEqual(leerCallbackSaltar(largo, [reordenada]), { semana: "2026-10-12", id: largoId });
+  // El id ya no está (plan cambió): nada.
+  assert.equal(leerCallbackSaltar(largo, [semana([pieza(), pieza({ id: "y".repeat(70) })])]), undefined);
   assert.equal(leerCallbackSaltar("cal-saltar:2026-10-12:otra", [s]), undefined);
-  assert.equal(leerCallbackSaltar("cal-saltar:2026-10-12:#9", [s]), undefined);
+  assert.equal(leerCallbackSaltar("cal-saltar:2026-10-12:#1", [s]), undefined);
+  assert.equal(leerCallbackSaltar("cal-saltar:2026-10-12:~zz", [s]), undefined);
   assert.equal(leerCallbackSaltar("cal-saltar:../x:lun-reel-agentes", [s]), undefined);
 });
 
@@ -313,14 +374,17 @@ check("scheduler: sin orden, el post que empezó a su hora usa la hora del plan"
   assert.equal(r.publicar[0].hora.toISOString(), "2026-10-12T22:30:00.000Z");
 });
 
-check("telegram: porProgramar — renderizadas sin estado y con hora futura; nada más", () => {
+check("telegram: previewsPendientes — render con medios, sin estado o programado, hora futura y sin preview entregado", () => {
   const s = semana(
-    [pieza({ hora: "20:00" }), pieza({ id: "ya-programada", hora: "20:00" }), pieza({ id: "ya-paso", hora: "07:00" }), pieza({ id: "sin-render", hora: "20:00" })],
-    { "lun-reel-agentes": rend(), "ya-programada": rend(), "ya-paso": rend() },
-    { "ya-programada": { estado: "programado" } },
+    [
+      pieza({ hora: "20:00" }), pieza({ id: "ya-programada", hora: "20:00" }), pieza({ id: "ya-paso", hora: "07:00" }),
+      pieza({ id: "sin-render", hora: "20:00" }), pieza({ id: "con-preview", hora: "20:00" }), pieza({ id: "saltada", hora: "20:00" }),
+    ],
+    { "lun-reel-agentes": rend(), "ya-programada": rend(), "ya-paso": rend(), "con-preview": rend(), saltada: rend() },
+    { "ya-programada": { estado: "programado" }, "con-preview": { estado: "programado" }, saltada: { estado: "saltado" } },
   );
-  const r = porProgramar([s], Z("2026-10-12T15:00:00Z"));
-  assert.deepEqual(r.map((x) => x.pieza.id), ["lun-reel-agentes"]);
+  const r = previewsPendientes([s], Z("2026-10-12T15:00:00Z"), (k) => k === "2026-10-12/con-preview");
+  assert.deepEqual(r.map((x) => [x.pieza.id, x.nueva]), [["lun-reel-agentes", true], ["ya-programada", false]]);
   assert.equal(r[0].medios.cover, medios.cover);
 });
 
@@ -376,4 +440,28 @@ await checkAsync("tick: orden de /saltar deja la fila terminal y el estado salta
   assert.equal(w.filas.get(`${CL}|post`)?.paso, "fallido");
   assert.equal(s.estado["lun-reel-agentes"].estado, "saltado");
   assert.equal(s.estado["lun-reel-agentes"].motivo, "saltada a mano");
+});
+
+check("scheduler: un /publicar interrumpido en 'contenedor' no se retoma a la hora del plan (empezado único)", () => {
+  const o = { forzar: { [CL]: Z("2026-10-11T12:00:00Z") }, saltar: new Set<string>() };
+  const cont: Fila = { piezaId: CL, tipo: "post", paso: "contenedor", intentos: 0 };
+  assert.equal(empezado(cont), true);
+  assert.equal(empezado({ piezaId: CL, tipo: "post", paso: "inicio", intentos: 0 }), false);
+  assert.equal(empezado(undefined), false);
+  assert.deepEqual(ordenesVencidas(o, [cont], Z("2026-10-12T22:30:00Z")), []);
+  // Dentro de la ventana de la orden: se retoma con la hora de la orden.
+  const dentro = tareasDebidas([prog()], [cont], Z("2026-10-11T12:05:00Z"), false, o);
+  assert.equal(dentro.publicar[0]?.hora.toISOString(), "2026-10-11T12:00:00.000Z");
+  // A la hora del plan: no se publica; se salta.
+  const plan = tareasDebidas([prog()], [cont], Z("2026-10-12T22:30:00Z"), false, o);
+  assert.equal(plan.publicar.length, 0);
+  assert.deepEqual(plan.saltar.map((x) => x.motivo), ["no se publica tarde"]);
+});
+
+check("meta:check: 'requiere 100 seguidores' solo si el error lo indica", () => {
+  assert.match(mensajeOnlineFollowers("(#100) Not enough followers: the account needs 100 followers"), /requiere 100 seguidores/);
+  const otro = mensajeOnlineFollowers("Falta el permiso instagram_manage_insights");
+  assert.doesNotMatch(otro, /100 seguidores/);
+  assert.match(otro, /instagram_manage_insights/);
+  assert.doesNotMatch(mensajeOnlineFollowers("(#100) Invalid parameter"), /100 seguidores/);
 });

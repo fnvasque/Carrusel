@@ -42,6 +42,17 @@ export function onlineFollowersDisponible(r: InsightsResp | undefined): boolean 
   return v.some((x) => x.value !== null && typeof x.value === "object" && Object.keys(x.value as object).length > 0);
 }
 
+/**
+ * Texto para un error al pedir `online_followers`: "requiere 100 seguidores" solo si el
+ * error lo indica; si no, el mensaje (ya traducido por `graphGet`). Función pura.
+ */
+export function mensajeOnlineFollowers(error: string): string {
+  if (/100\s*(followers|seguidores)|not enough followers|menos de 100|seguidores/i.test(error)) {
+    return "online_followers no responde (requiere 100 seguidores); el calendario usa la hora por defecto.";
+  }
+  return `online_followers no responde: ${error}`;
+}
+
 /** Días de margen antes del vencimiento a partir de los cuales se avisa. */
 const EXPIRY_WARN_DAYS = 10;
 
@@ -85,9 +96,9 @@ async function main(): Promise<void> {
   try {
     const of = await graphGet<InsightsResp>(`${cfg.igUserId}/insights`, { metric: "online_followers", period: "lifetime" });
     if (onlineFollowersDisponible(of)) console.log("✓ online_followers responde (el calendario puede usar tus horas).");
-    else console.log("⚠️  online_followers no trae datos (requiere 100 seguidores); el calendario usa la hora por defecto.");
-  } catch {
-    console.log("⚠️  online_followers no responde (requiere 100 seguidores); el calendario usa la hora por defecto.");
+    else console.log("⚠️  online_followers no trae datos (Meta lo deja vacío bajo 100 seguidores); el calendario usa la hora por defecto.");
+  } catch (err) {
+    console.log(`⚠️  ${mensajeOnlineFollowers(err instanceof Error ? err.message : String(err))}`);
   }
 
   // 2) Token: vencimiento y permisos. Se consulta con el token de app (APP_ID|APP_SECRET);

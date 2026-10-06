@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { resolve, sep } from "node:path";
 import { estadoEfectivo, type Estado, type Medios, type Pieza, type SemanaLeida } from "./plan.ts";
 import { claveFila } from "./scheduler.ts";
 import { addDays, localParts, weekMonday, zonedToUtc } from "./time.ts";
@@ -45,7 +47,21 @@ function horaDe(p: Pieza): number | undefined {
   }
 }
 
-const truncar = (s: string, max: number): string => (s.length <= max ? s : `${s.slice(0, max - 1)}…`);
+const segmentador = new Intl.Segmenter("es", { granularity: "grapheme" });
+
+/**
+ * Trunca a `max` unidades UTF-16 (como mide Telegram) con "…" al final, cortando solo
+ * entre grafemas: nunca deja un surrogate suelto ni parte un emoji compuesto.
+ */
+export function truncar(s: string, max: number): string {
+  if (s.length <= max) return s;
+  let out = "";
+  for (const { segment } of segmentador.segment(s)) {
+    if (out.length + segment.length + 1 > max) break;
+    out += segment;
+  }
+  return `${out}…`;
+}
 
 /** `/calendario`: una línea por pieza con emoji, día, hora, formato, id y estado; marca la próxima. */
 export function formatSemana(s: SemanaLeida, ahora: Date): string {
@@ -71,20 +87,50 @@ export function formatSemana(s: SemanaLeida, ahora: Date): string {
   return [cab, ...lineas].join("\n");
 }
 
+const ARCHIVO_RE = /^[A-Za-z0-9._-]+$/;
+
 /**
- * Preview de una pieza recién renderizada: foto (portada del reel, primera imagen del
- * carrusel; si no hay, la story; si nada, "") y caption con día, hora, formato, hook y
- * el caption de Instagram, truncado a 1024 con "…".
+ * Nombre del archivo de una URL de medios (último segmento), o "" si no es una URL o el
+ * nombre no es seguro (`^[A-Za-z0-9._-]+$`, sin `..`). Nunca devuelve la URL (lleva el token).
  */
-export function formatPreview(p: Pieza, medios: Medios): { caption: string; foto: string } {
-  const foto = p.formato === "carrusel" ? (medios.urls[0] ?? medios.story ?? "") : (medios.cover ?? medios.story ?? "");
+export function archivoDeUrl(u: string | undefined): string {
+  if (!u) return "";
+  let nombre: string;
+  try {
+    nombre = decodeURIComponent(new URL(u).pathname.split("/").pop() ?? "");
+  } catch {
+    return "";
+  }
+  return ARCHIVO_RE.test(nombre) && !nombre.includes("..") && !nombre.startsWith(".") ? nombre : "";
+}
+
+/**
+ * Preview de una pieza recién renderizada (R44): nombre del archivo de la portada (del
+ * reel), la primera imagen (del carrusel) o la story; "" si no hay. El bot lo sube desde
+ * la raíz de medios: la URL pública, con `MEDIA_PUBLIC_TOKEN`, nunca va a Telegram.
+ * Caption con día, hora, formato, hook y el caption de Instagram, truncado a 1024 con "…".
+ */
+export function formatPreview(p: Pieza, medios: Medios): { caption: string; archivo: string } {
+  const candidatos = p.formato === "carrusel" ? [medios.urls[0], medios.story] : [medios.cover, medios.story];
+  const archivo = candidatos.map(archivoDeUrl).find((a) => a !== "") ?? "";
   const texto = [
     `🗓 ${diaCorto(p.dia)} ${p.hora} · ${p.formato} · ${p.id}`,
     `🪝 ${p.hook.texto}`,
     "",
     p.caption,
   ].join("\n");
-  return { caption: truncar(texto, TELEGRAM_CAPTION_MAX), foto };
+  return { caption: truncar(texto, TELEGRAM_CAPTION_MAX), archivo };
+}
+
+/**
+ * Ruta local de un medio: `<root>/<semana>/<id>/<archivo>`, o undefined si algún segmento
+ * no es válido o la ruta resuelta sale de la raíz. (El bot además compara con `realpath`.)
+ */
+export function rutaMedioLocal(root: string, semana: string, id: string, archivo: string): string | undefined {
+  if (!SEMANA_RE.test(semana) || !ID_RE.test(id) || !ARCHIVO_RE.test(archivo) || archivo.includes("..")) return undefined;
+  const base = resolve(root);
+  const ruta = resolve(base, semana, id, archivo);
+  return ruta.startsWith(base + sep) ? ruta : undefined;
 }
 
 /** ¿Pieza `planificada` (sin render ni estado del bot) cuya hora aún no llega? */
@@ -149,16 +195,34 @@ export const TEXTO_RECORDATORIO_LUNES = "💬 Esta semana: 30-60 min de interacc
 export const TEXTO_POST_PUBLICACION = "Responde los comentarios en la primera hora.";
 
 /**
- * Silencio del planificador: el domingo desde las 12:00 (Chile), si no existe la carpeta
- * `_calendario/<lunes siguiente>/` (aunque traiga `piezas: []`, existir basta).
+ * Silencio del planificador: el domingo desde las 12:00 (Chile), si la semana que empieza
+ * el lunes siguiente no tiene `plan.json` legible. `semanasConPlan` son las semanas con
+ * plan legible (ver `semanasConPlan`): una carpeta vacía o con un plan roto cuenta como
+ * ausente; un plan con `piezas: []` (latido del agente) cuenta como presente.
  */
-export function silencioCalendario(semanas: string[], ahora: Date): string | undefined {
+export function silencioCalendario(semanasConPlan: string[], ahora: Date): string | undefined {
   const l = localParts(ahora);
   if (l.weekday !== 0 || l.hora < "12:00") return undefined;
   const siguiente = addDays(weekMonday(ahora), 7);
-  if (semanas.includes(siguiente)) return undefined;
-  return `⚠️ El planificador no corrió: no hay _calendario/${siguiente}/ y ya es domingo 12:00. ` +
+  if (semanasConPlan.includes(siguiente)) return undefined;
+  return `⚠️ El planificador no corrió: no hay _calendario/${siguiente}/plan.json legible y ya es domingo 12:00. ` +
     "La semana queda sin piezas hasta que el agente la escriba (no reciclo las anteriores).";
+}
+
+/** De `semanas`, las que tienen `plan.json` legible (`leer` devuelve algo y no lanza). */
+export async function semanasConPlan(
+  semanas: string[],
+  leer: (semana: string) => Promise<SemanaLeida | undefined>,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (const s of semanas) {
+    try {
+      if (await leer(s)) out.push(s);
+    } catch {
+      // plan.json ilegible: como si no existiera.
+    }
+  }
+  return out;
 }
 
 /**
@@ -181,23 +245,28 @@ export function idDesdeArgumento(arg: string, semanas: SemanaLeida[]): { semana:
   return prefijo.length === 1 ? prefijo[0] : undefined;
 }
 
-/** `callback_data` del botón Saltar: `cal-saltar:<semana>:<id>`; si no cabe en 64 bytes, `#<índice en el plan>`. */
-export function callbackSaltar(semana: string, id: string, s: SemanaLeida): string {
+/** Huella corta y estable de un id (no depende de su posición en el plan). */
+const huella = (id: string): string => createHash("sha256").update(id).digest("hex").slice(0, 12);
+
+/** `callback_data` del botón Saltar: `cal-saltar:<semana>:<id>`; si no cabe en 64 bytes, `~<huella del id>`. */
+export function callbackSaltar(semana: string, id: string): string {
   const largo = `${PREFIJO_SALTAR}:${semana}:${id}`;
-  if (Buffer.byteLength(largo) <= CALLBACK_MAX) return largo;
-  return `${PREFIJO_SALTAR}:${semana}:#${s.plan.piezas.findIndex((p) => p.id === id)}`;
+  return Buffer.byteLength(largo) <= CALLBACK_MAX ? largo : `${PREFIJO_SALTAR}:${semana}:~${huella(id)}`;
 }
 
-/** Lee un `callback_data` de Saltar y lo resuelve contra las semanas cargadas. */
+/**
+ * Lee un `callback_data` de Saltar y lo resuelve contra las semanas cargadas. Con huella,
+ * exige exactamente un id de la semana que coincida; si el plan cambió, undefined.
+ */
 export function leerCallbackSaltar(data: string, semanas: SemanaLeida[]): { semana: string; id: string } | undefined {
   const [pref, semana, ref, ...resto] = data.split(":");
   if (pref !== PREFIJO_SALTAR || resto.length || !semana || !ref || !SEMANA_RE.test(semana)) return undefined;
   const s = semanas.find((x) => x.semana === semana);
   if (!s) return undefined;
-  if (ref.startsWith("#")) {
-    if (!/^#\d{1,3}$/.test(ref)) return undefined;
-    const p = s.plan.piezas[Number(ref.slice(1))];
-    return p ? { semana, id: p.id } : undefined;
+  if (ref.startsWith("~")) {
+    if (!/^~[0-9a-f]{12}$/.test(ref)) return undefined;
+    const ids = s.plan.piezas.filter((p) => huella(p.id) === ref.slice(1));
+    return ids.length === 1 ? { semana, id: ids[0].id } : undefined;
   }
   return s.plan.piezas.some((p) => p.id === ref) ? { semana, id: ref } : undefined;
 }
@@ -242,16 +311,27 @@ export function modoCalendario(v: string | undefined): "auto" | "aviso" | undefi
   throw new Error(`CALENDARIO_MODO="${m}" no es válido: usa "auto" (publica) o "aviso" (todo menos publicar), o quítala para apagar el calendario.`);
 }
 
-/** Piezas `renderizadas` sin estado del bot cuya hora no llegó: el bot las pasa a `programado` y manda el preview. */
-export function porProgramar(semanas: SemanaLeida[], ahora: Date): { semana: string; pieza: Pieza; medios: Medios }[] {
+/**
+ * Piezas cuyo preview falta: render con medios, sin estado del bot o `programado`, hora
+ * futura y sin la marca de preview entregado (`enviado(clave)`). `nueva` = aún sin
+ * estado (el bot la pasa a `programado`). Un preview que no llegó se reintenta.
+ */
+export function previewsPendientes(
+  semanas: SemanaLeida[],
+  ahora: Date,
+  enviado: (clave: string) => boolean,
+): { semana: string; pieza: Pieza; medios: Medios; nueva: boolean }[] {
   const t = ahora.getTime();
-  const out: { semana: string; pieza: Pieza; medios: Medios }[] = [];
+  const out: { semana: string; pieza: Pieza; medios: Medios; nueva: boolean }[] = [];
   for (const s of semanas) {
     for (const p of s.plan.piezas) {
       const r = s.render[p.id];
+      const est = s.estado[p.id];
       const h = horaDe(p);
-      if (s.estado[p.id] || r?.estado !== "renderizado" || !r.medios || h === undefined || h <= t) continue;
-      out.push({ semana: s.semana, pieza: p, medios: r.medios });
+      if (r?.estado !== "renderizado" || !r.medios || h === undefined || h <= t) continue;
+      if (est && est.estado !== "programado") continue;
+      if (enviado(claveFila(s.semana, p.id))) continue;
+      out.push({ semana: s.semana, pieza: p, medios: r.medios, nueva: !est });
     }
   }
   return out;
@@ -264,4 +344,15 @@ export function publicadas(semanas: SemanaLeida[]): { semana: string; id: string
       .filter(([, e]) => e.estado === "publicado" && typeof e.publicadoEn === "string")
       .map(([id, e]) => ({ semana: s.semana, id, publicadoEn: e.publicadoEn! })),
   );
+}
+
+/**
+ * Lo que el bot le pasa a `sendPhoto` (R44): el caption y la ruta LOCAL del archivo
+ * (bajo `root`), nunca la URL pública. Sin archivo válido, `ruta` queda undefined
+ * (el bot manda solo el texto).
+ */
+export function argsPreview(root: string, semana: string, p: Pieza, medios: Medios): { caption: string; ruta?: string } {
+  const { caption, archivo } = formatPreview(p, medios);
+  const ruta = archivo ? rutaMedioLocal(root, semana, p.id, archivo) : undefined;
+  return ruta ? { caption, ruta } : { caption };
 }
