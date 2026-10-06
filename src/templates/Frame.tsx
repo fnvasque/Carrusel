@@ -18,6 +18,9 @@ export { REEL_SAFE_BOTTOM, HEADER_HEIGHT };
  * En Reel, el fondo opcional va en una capa `data-anim="bg"` y la grilla en una
  * capa propia `data-grid` (más grande que el lienzo, para poder derivar); en
  * post, todo es estático. Las plantillas envuelven su contenido en <Frame>.
+ * Con `logoEnCuadro0={false}` (solo reel, experimento del calendario) el
+ * wordmark lleva `data-anim="late"` y el runtime lo hace entrar a los 3 s; por
+ * defecto el markup no cambia.
  *
  * El área de contenido va entre la cabecera y la fuente al pie (se reserva el
  * alto real de la fuente, según su nº de líneas) y deja abajo un alza óptica,
@@ -33,6 +36,7 @@ export function Frame({
   index,
   source,
   showLogo = true,
+  logoEnCuadro0 = true,
   format = "post",
   style,
   children,
@@ -45,6 +49,7 @@ export function Frame({
   total?: number;
   source?: string;
   showLogo?: boolean;
+  logoEnCuadro0?: boolean;
   format?: Format;
   style?: CSSProperties;
   children: ReactNode;
@@ -117,6 +122,8 @@ export function Frame({
           {showLogo && (
             <div
               data-brand="logo"
+              // Logo tardío (solo reel): el runtime lo deja oculto hasta los 3 s.
+              {...(reel && !logoEnCuadro0 ? { "data-anim": "late" } : {})}
               style={{
                 width: 110,
                 height: 44,

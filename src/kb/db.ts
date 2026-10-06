@@ -47,6 +47,23 @@ CREATE TABLE IF NOT EXISTS embedding_cache (
   key TEXT PRIMARY KEY,
   vector BLOB NOT NULL
 );
+-- Tablas del calendario: NO son derivables del Markdown, por eso no dependen de
+-- SCHEMA_VERSION (subirla borra tablas) y solo se crean si faltan.
+CREATE TABLE IF NOT EXISTS insights (
+  media_id TEXT NOT NULL, ventana TEXT NOT NULL, tomada_en TEXT NOT NULL,
+  reach INTEGER, saved INTEGER, shares INTEGER, likes INTEGER, comments INTEGER, views INTEGER,
+  avg_watch_ms INTEGER, total_watch_ms INTEGER,
+  PRIMARY KEY (media_id, ventana)
+);
+CREATE TABLE IF NOT EXISTS publicaciones (
+  pieza_id TEXT NOT NULL, tipo TEXT NOT NULL, -- 'post' | 'story'
+  paso TEXT NOT NULL, container_id TEXT, children TEXT, media_id TEXT,
+  intentos INTEGER NOT NULL DEFAULT 0, actualizado TEXT NOT NULL, error TEXT,
+  PRIMARY KEY (pieza_id, tipo)
+);
+CREATE TABLE IF NOT EXISTS calendario_estado (
+  clave TEXT PRIMARY KEY, valor TEXT NOT NULL
+);
 `;
 
 /** Abre (o crea) el índice de la base actual (KB_DIR). */

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { openDb } from "./db.ts";
 import { findInstagramUrls } from "./shortcode.ts";
@@ -168,29 +169,57 @@ export interface InboxOptions {
   onEvent: (ev: DmEvent) => void;
 }
 
-/** Levanta el servidor HTTP del webhook (node:http, sin dependencias). */
-export function startInbox(opts: InboxOptions): Server {
+/** Ruta del servidor HTTP compartido: devuelve `true` si atendió la petición. */
+export interface HttpRoute {
+  (req: IncomingMessage, res: ServerResponse, url: URL): boolean;
+}
+
+/**
+ * Servidor HTTP único (node:http, sin dependencias): `/health` siempre, luego cada ruta en
+ * orden; si ninguna atiende → 404. Lo usan el webhook de DMs y el servidor de medios.
+ */
+export function startHttp(port: number, routes: HttpRoute[]): Server {
   const server = createServer((req, res) => {
-    const url = new URL(req.url ?? "/", "http://localhost");
+    let url: URL;
+    try {
+      url = new URL(req.url ?? "/", "http://localhost");
+    } catch {
+      res.writeHead(404).end();
+      return;
+    }
     if (url.pathname === "/health" && req.method === "GET") {
       // Para el healthcheck del contenedor (no expone datos).
       res.writeHead(200, { "Content-Type": "text/plain" }).end("ok");
       return;
     }
-    if (url.pathname !== "/webhook") {
-      res.writeHead(404).end();
+    try {
+      for (const route of routes) if (route(req, res, url)) return;
+    } catch (err) {
+      console.warn(`⚠️  Error en una ruta HTTP: ${err instanceof Error ? err.message : err}`);
+      if (!res.headersSent) res.writeHead(500).end();
+      else res.destroy();
       return;
     }
+    res.writeHead(404).end();
+  });
+  server.listen(port, () => console.log(`🌐 Servidor HTTP escuchando en el puerto ${(server.address() as AddressInfo).port}`));
+  return server;
+}
+
+/** Ruta `/webhook` de Meta (verificación GET + eventos POST firmados). */
+export function webhookRoute(opts: InboxOptions): HttpRoute {
+  return (req, res, url) => {
+    if (url.pathname !== "/webhook") return false;
     if (req.method === "GET") {
       // Verificación al suscribir el webhook en el panel de Meta.
       const ok = url.searchParams.get("hub.mode") === "subscribe" && url.searchParams.get("hub.verify_token") === opts.verifyToken;
       if (ok) console.log("✓ Webhook verificado por Meta.");
       res.writeHead(ok ? 200 : 403, { "Content-Type": "text/plain" }).end(ok ? (url.searchParams.get("hub.challenge") ?? "") : "");
-      return;
+      return true;
     }
     if (req.method !== "POST") {
       res.writeHead(405).end();
-      return;
+      return true;
     }
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
@@ -212,7 +241,13 @@ export function startInbox(opts: InboxOptions): Server {
         console.warn(`⚠️  Webhook ilegible: ${err instanceof Error ? err.message : err}`);
       }
     });
-  });
-  server.listen(opts.port, () => console.log(`📬 Webhook de Instagram escuchando en http://localhost:${opts.port}/webhook`));
+    return true;
+  };
+}
+
+/** Levanta el servidor HTTP con solo el webhook (envoltorio de `startHttp`). */
+export function startInbox(opts: InboxOptions): Server {
+  const server = startHttp(opts.port, [webhookRoute(opts)]);
+  console.log(`📬 Webhook de Instagram escuchando en http://localhost:${opts.port}/webhook`);
   return server;
 }

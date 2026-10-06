@@ -1,5 +1,8 @@
-// Runner de los tests del calendario: cada módulo registra sus casos al importarse.
 import { done } from "./_check.ts";
+import "./calendario/time.ts";
+import "./calendario/plan.ts";
+import "./calendario/media-server.ts";
+import "./calendario/draft.ts";
 import "./calendario/validar.ts";
 
-done();
+await done();
