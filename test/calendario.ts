@@ -9,5 +9,6 @@ import "./calendario/publish.ts";
 import "./calendario/scheduler.ts";
 import "./calendario/render.ts";
 import "./calendario/bucle.ts";
+import "./calendario/telegram.ts";
 
 await done();

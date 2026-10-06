@@ -20,6 +20,39 @@ export const REQUIRED_SCOPES = [
 /** Permisos extra para recibir y responder DMs (solo si el webhook está configurado). */
 export const DM_SCOPES = ["instagram_manage_messages", "pages_manage_metadata"];
 
+/** Permiso para publicar (solo si el calendario está activo: `CALENDARIO_MODO` definido). */
+export const PUBLISH_SCOPES = ["instagram_content_publish"];
+
+/** Permisos requeridos según el entorno: DMs si hay webhook, publicación si hay calendario. Función pura. */
+export function scopesRequeridos(env: Record<string, string | undefined>): string[] {
+  return [
+    ...REQUIRED_SCOPES,
+    ...(env.META_WEBHOOK_VERIFY_TOKEN?.trim() ? DM_SCOPES : []),
+    ...(env.CALENDARIO_MODO?.trim() ? PUBLISH_SCOPES : []),
+  ];
+}
+
+interface InsightsResp {
+  data?: { values?: { value?: unknown }[] }[];
+}
+
+/** ¿`online_followers` trae datos? Meta lo deja vacío bajo 100 seguidores. Función pura. */
+export function onlineFollowersDisponible(r: InsightsResp | undefined): boolean {
+  const v = r?.data?.[0]?.values ?? [];
+  return v.some((x) => x.value !== null && typeof x.value === "object" && Object.keys(x.value as object).length > 0);
+}
+
+/**
+ * Texto para un error al pedir `online_followers`: "requiere 100 seguidores" solo si el
+ * error lo indica; si no, el mensaje (ya traducido por `graphGet`). Función pura.
+ */
+export function mensajeOnlineFollowers(error: string): string {
+  if (/100\s*(followers|seguidores)|not enough followers|menos de 100|seguidores/i.test(error)) {
+    return "online_followers no responde (requiere 100 seguidores); el calendario usa la hora por defecto.";
+  }
+  return `online_followers no responde: ${error}`;
+}
+
 /** Días de margen antes del vencimiento a partir de los cuales se avisa. */
 const EXPIRY_WARN_DAYS = 10;
 
@@ -59,6 +92,15 @@ async function main(): Promise<void> {
   });
   console.log(`✓ Cuenta: @${me.username} · ${me.followers_count ?? "?"} seguidores · ${me.media_count ?? "?"} posts`);
 
+  // 1b) online_followers (horas del calendario): no falla el check, solo informa.
+  try {
+    const of = await graphGet<InsightsResp>(`${cfg.igUserId}/insights`, { metric: "online_followers", period: "lifetime" });
+    if (onlineFollowersDisponible(of)) console.log("✓ online_followers responde (el calendario puede usar tus horas).");
+    else console.log("⚠️  online_followers no trae datos (Meta lo deja vacío bajo 100 seguidores); el calendario usa la hora por defecto.");
+  } catch (err) {
+    console.log(`⚠️  ${mensajeOnlineFollowers(err instanceof Error ? err.message : String(err))}`);
+  }
+
   // 2) Token: vencimiento y permisos. Se consulta con el token de app (APP_ID|APP_SECRET);
   // si no hay secret o no sirve, el propio token puede consultarse a sí mismo.
   {
@@ -95,7 +137,7 @@ async function main(): Promise<void> {
     }
     const scopes = d.scopes ?? [];
     console.log(`  Permisos: ${scopes.join(", ") || "(ninguno)"}`);
-    const needed = process.env.META_WEBHOOK_VERIFY_TOKEN?.trim() ? [...REQUIRED_SCOPES, ...DM_SCOPES] : REQUIRED_SCOPES;
+    const needed = scopesRequeridos(process.env);
     const missing = needed.filter((s) => !scopes.includes(s));
     if (missing.length) {
       console.error(`✗ Faltan permisos: ${missing.join(", ")}. Vuelve a generar el token marcándolos.`);
