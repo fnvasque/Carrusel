@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { check, checkAsync } from "../_check.ts";
 import { GraphError, graphPostForm } from "../../src/meta/client.ts";
 import {
-  clasificar, ErrorDeMeta, ErrorTransitorio, publicar, publicarStory,
+  clasificar, ErrorAmbiguo, ErrorDeMeta, ErrorTransitorio, publicar, publicarStory,
   type Fila, type PublishCtx,
 } from "../../src/calendario/publish.ts";
 import type { Medios, Pieza } from "../../src/calendario/plan.ts";
@@ -255,15 +255,36 @@ await checkAsync("publish: reel que no termina en 10 min (40 sondeos) → fallid
   assert.equal(m.publicaciones, 0);
 });
 
-await checkAsync("publish: status ERROR 3 veces → reintenta con dormir(10 min) y contenedor nuevo; al 4.º fallido", async () => {
+/** Simula los ticks: llama a `fn` hasta que la fila cierre, avanzando el reloj hasta `proximo`. */
+async function hastaCerrar(m: MetaFalso, fila: Fila, fn: (f: Fila) => Promise<Fila>): Promise<{ final: Fila; llamadas: number }> {
+  let f = fila;
+  let n = 0;
+  while (n < 10 && f.paso !== "publicado" && f.paso !== "fallido") {
+    if (f.proximo) {
+      assert.ok(Date.parse(f.proximo) > m.reloj, "proximo en el futuro");
+      m.reloj = Date.parse(f.proximo);
+    }
+    f = await fn(f);
+    n++;
+  }
+  return { final: f, llamadas: n };
+}
+
+await checkAsync("publish: status ERROR → no duerme (R25): deja proximo a +10 min; 3 reintentos con contenedor nuevo y al 4.º fallido", async () => {
   const m = new MetaFalso();
   m.colaStatus = [["ERROR"], ["ERROR"], ["ERROR"], ["ERROR"]];
-  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
-  assert.equal(r.paso, "fallido");
-  assert.equal(r.intentos, 4);
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
+  assert.equal(primera.paso, "inicio");
+  assert.equal(primera.intentos, 1);
+  assert.equal(Date.parse(primera.proximo!), T0 + 10 * 60_000);
+  assert.equal(primera.containerId, undefined);
+  assert.deepEqual(m.dormidas, [], "no duerme dentro de la llamada");
+  const { final, llamadas } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, m.ctx()));
+  assert.equal(llamadas, 3);
+  assert.equal(final.paso, "fallido");
+  assert.equal(final.intentos, 4);
   assert.equal(m.postsA("/media").length, 4, "cada reintento crea un contenedor nuevo");
-  assert.equal(new Set(m.postsA("/media").map((_, i) => i)).size, 4);
-  assert.deepEqual(m.dormidas.filter((d) => d === 10 * 60_000).length, 3);
+  assert.ok(m.dormidas.every((d) => d < 60_000), "ningún dormir de minutos");
   assert.equal(m.publicaciones, 0);
   assert.deepEqual(m.violaciones, []);
 });
@@ -271,10 +292,21 @@ await checkAsync("publish: status ERROR 3 veces → reintenta con dormir(10 min)
 await checkAsync("publish: status ERROR 3 veces y luego FINISHED → publica una vez", async () => {
   const m = new MetaFalso();
   m.colaStatus = [["ERROR"], ["ERROR"], ["ERROR"], ["FINISHED"]];
-  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
-  assert.equal(r.paso, "publicado");
+  const { final } = await hastaCerrar(m, filaNueva(), (f) => publicar(f, piezaDe(), mediosReel, m.ctx()));
+  assert.equal(final.paso, "publicado");
+  assert.equal(final.proximo, undefined);
   assert.equal(m.postsA("/media_publish")[0].params.creation_id, "c4");
   assert.equal(m.publicaciones, 1);
+  assert.deepEqual(m.violaciones, []);
+});
+
+await checkAsync("publish: status ERROR cuando el reintento caería después del límite → salto 'no se publica tarde' (R26)", async () => {
+  const m = new MetaFalso();
+  m.colaStatus = [["ERROR"]];
+  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx({ limite: new Date(T0 + 5 * 60_000) }));
+  assert.equal(r.paso, "fallido");
+  assert.match(r.error ?? "", /^saltado: no se publica tarde/);
+  assert.equal(m.publicaciones, 0);
 });
 
 // --- reanudar ---
@@ -287,6 +319,7 @@ await checkAsync("publish: reanudar {paso: esperando, containerId: c1} no crea c
   assert.equal(m.postsA("/media").length, 0);
   assert.equal(m.postsA("/media_publish")[0].params.creation_id, "c1");
   assert.equal(m.publicaciones, 1);
+  assert.deepEqual(m.violaciones, []);
 });
 
 await checkAsync("publish: fallo de red tras media_publish no duplica", async () => {
@@ -304,6 +337,7 @@ await checkAsync("publish: fallo de red tras media_publish no duplica", async ()
   const lista = m.gets.find((g) => g.path === `${IG}/media`);
   assert.equal(lista?.params.fields, "id,caption,timestamp");
   assert.equal(lista?.params.limit, 10);
+  assert.deepEqual(m.violaciones, []);
 });
 
 await checkAsync("publish: reanudar {paso: publicando} con el contenedor PUBLISHED busca el media_id sin publicar", async () => {
@@ -320,6 +354,7 @@ await checkAsync("publish: reanudar {paso: publicando} con el contenedor PUBLISH
   assert.equal(r.mediaId, "m1");
   assert.equal(m.posts.length, 0);
   assert.equal(m.publicaciones, 0);
+  assert.deepEqual(m.violaciones, []);
 });
 
 await checkAsync("publish: reanudar {paso: publicando} con el contenedor aún FINISHED (el POST no llegó) publica una vez", async () => {
@@ -329,6 +364,7 @@ await checkAsync("publish: reanudar {paso: publicando} con el contenedor aún FI
   const r = await publicar(fila, piezaDe(), mediosReel, m.ctx());
   assert.equal(r.paso, "publicado");
   assert.equal(m.publicaciones, 1);
+  assert.deepEqual(m.violaciones, []);
 });
 
 await checkAsync("publish: reanudar {paso: publicando} sin red para verificar → lanza ErrorTransitorio y no publica", async () => {
@@ -376,13 +412,76 @@ await checkAsync("publish: error de Meta en media_publish (respuesta limpia) →
   assert.equal(intentosPublish, 1);
   assert.equal(m.publicaciones, 0);
 });
-await checkAsync("publish: red caída al crear el contenedor → reintenta (máx. 3) y luego fallido", async () => {
+await checkAsync("publish: red caída al crear el contenedor → reintento al minuto siguiente (máx. 3) y luego fallido", async () => {
   const m = new MetaFalso();
   m.fallar = (c) => c.metodo === "post" ? { error: new GraphError("No pude conectar con la API de Meta") } : undefined;
-  const r = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
-  assert.equal(r.paso, "fallido");
+  const primera = await publicar(filaNueva(), piezaDe(), mediosReel, m.ctx());
+  assert.equal(Date.parse(primera.proximo!), T0 + 60_000);
+  const { final } = await hastaCerrar(m, primera, (f) => publicar(f, piezaDe(), mediosReel, m.ctx()));
+  assert.equal(final.paso, "fallido");
+  assert.match(final.error ?? "", /3 reintentos/);
   assert.equal(m.llamadas, 4);
-  assert.equal(m.dormidas.filter((d) => d === 10 * 60_000).length, 3);
+  assert.deepEqual(m.dormidas, []);
+});
+
+// --- R28: verificación tras un fallo ambiguo ---
+
+await checkAsync("publish: verificación con contenedor PUBLISHED y dos posts candidatos → no adivina: ErrorAmbiguo y la fila sigue en publicando", async () => {
+  const m = new MetaFalso();
+  const pieza = piezaDe();
+  m.crear("c1", "PUBLISHED", { caption: pieza.caption });
+  m.publicado("m1", "c1", pieza.caption, T0 + 500);
+  m.publicado("m-manual", "c9", pieza.caption, T0 + 900);
+  const fila: Fila = { ...filaNueva(), paso: "publicando", containerId: "c1", inicio: new Date(T0).toISOString() };
+  await assert.rejects(publicar(fila, pieza, mediosReel, m.ctx()), (e: unknown) => e instanceof ErrorAmbiguo && /no adivino/.test(e.message));
+  assert.equal(m.posts.length, 0);
+  assert.equal(m.guardadas.length, 0, "la fila no cambia: sigue en publicando");
+});
+
+await checkAsync("publish: un post con caption idéntico anterior a inicio − 30 s no es candidato (R28)", async () => {
+  const m = new MetaFalso();
+  const pieza = piezaDe();
+  m.crear("c1", "PUBLISHED", { caption: pieza.caption });
+  m.publicado("m-manual", "c9", pieza.caption, T0 - 31_000);
+  m.publicado("m1", "c1", `${pieza.caption}  \r\n`, T0 + 2_000); // Instagram puede normalizar espacios y saltos
+  const fila: Fila = { ...filaNueva(), paso: "publicando", containerId: "c1", inicio: new Date(T0).toISOString() };
+  const r = await publicar(fila, pieza, mediosReel, m.ctx());
+  assert.equal(r.mediaId, "m1");
+  assert.equal(m.posts.length, 0);
+});
+
+await checkAsync("publish: con el contenedor FINISHED no se busca en la lista (R28): se publica aunque haya un post manual igual", async () => {
+  const m = new MetaFalso();
+  const pieza = piezaDe();
+  m.crear("c1", "FINISHED", { caption: pieza.caption });
+  m.publicado("m-manual", "c9", pieza.caption, T0 + 1_000);
+  const fila: Fila = { ...filaNueva(), paso: "publicando", containerId: "c1", inicio: new Date(T0).toISOString() };
+  const r = await publicar(fila, pieza, mediosReel, m.ctx());
+  assert.equal(r.paso, "publicado");
+  assert.notEqual(r.mediaId, "m-manual");
+  assert.equal(m.publicaciones, 1);
+  assert.equal(m.gets.some((g) => g.path === `${IG}/media`), false);
+  assert.deepEqual(m.violaciones, []);
+});
+
+await checkAsync("publish: contenedor listo y no publicado pasado limitePublicar → salto, sin media_publish", async () => {
+  const m = new MetaFalso();
+  m.crear("c1", "FINISHED");
+  const fila: Fila = { ...filaNueva(), paso: "esperando", containerId: "c1" };
+  const r = await publicar(fila, piezaDe(), mediosReel, m.ctx({ limitePublicar: new Date(T0 - 1) }));
+  assert.equal(r.paso, "fallido");
+  assert.match(r.error ?? "", /^saltado: no se publica tarde/);
+  assert.equal(m.publicaciones, 0);
+});
+
+await checkAsync("publish: story con dos stories en el rango del intento → no adivina (R28)", async () => {
+  const m = new MetaFalso();
+  m.crear("c1", "PUBLISHED");
+  m.publicado("s1", "c1", undefined, T0 + 500, true);
+  m.publicado("s-manual", "c9", undefined, T0 + 800, true);
+  const fila: Fila = { ...filaNueva("x", "story"), paso: "publicando", containerId: "c1", inicio: new Date(T0).toISOString() };
+  await assert.rejects(publicarStory(fila, mediosReel, m.ctx()), ErrorAmbiguo);
+  assert.equal(m.posts.length, 0);
 });
 
 // --- límites de Instagram: fallido sin llamar a Meta ---
@@ -545,6 +644,7 @@ await checkAsync("publish: reinicio en cada await posible (carrusel y reel, ante
         assert.equal(final.paso, "publicado", `k=${k} despues=${despues} carrusel=${esCarrusel}: termina en ${final.paso} (${final.error})`);
         assert.equal(m.publicaciones, 1);
         assert.ok(final.mediaId, `k=${k}: sin mediaId`);
+        assert.deepEqual(m.violaciones, [], `k=${k} despues=${despues} carrusel=${esCarrusel}`);
       }
     }
   }

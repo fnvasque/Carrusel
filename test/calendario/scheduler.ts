@@ -28,7 +28,7 @@ function semanaDe(piezas: Pieza[], rend: Record<string, RenderEntry> = {}, est: 
 const lunes = piezaDe(); // 2026-10-12 19:30 Chile = 22:30Z
 const programada = (): SemanaLeida => semanaDe([lunes], { [lunes.id]: render() }, { [lunes.id]: { estado: "programado" } });
 const fila = (paso: Fila["paso"], tipo: "post" | "story" = "post", extra: Partial<Fila> = {}): Fila =>
-  ({ piezaId: lunes.id, tipo, paso, intentos: 0, ...extra });
+  ({ piezaId: `2026-10-12/${lunes.id}`, tipo, paso, intentos: 0, ...extra });
 
 // --- tareasDebidas (puro) ---
 
@@ -71,7 +71,7 @@ check("scheduler: 00:30 del domingo 2026-09-06 (hora inexistente) → debida a l
   const r = tareasDebidas(s, [], Z("2026-09-06T04:30:00Z"), false);
   assert.equal(r.publicar.length, 1);
   assert.equal(r.publicar[0].hora.toISOString(), "2026-09-06T04:30:00.000Z");
-  const pub: Fila = { piezaId: p.id, tipo: "post", paso: "publicado", mediaId: "m1", intentos: 0 };
+  const pub: Fila = { piezaId: `2026-08-31/${p.id}`, tipo: "post", paso: "publicado", mediaId: "m1", intentos: 0 };
   assert.equal(tareasDebidas(s, [pub], Z("2026-09-06T04:31:00Z"), false).publicar.length, 0);
 });
 
@@ -80,7 +80,7 @@ check("scheduler: fin del horario de verano (sábado 2026-04-04 23:30 se repite)
   const s = [semanaDe([p], { [p.id]: render() }, {}, "2026-03-30")];
   const r = tareasDebidas(s, [], Z("2026-04-05T02:30:00Z"), false);
   assert.equal(r.publicar.length, 1);
-  const pub: Fila = { piezaId: p.id, tipo: "post", paso: "publicado", mediaId: "m1", intentos: 0 };
+  const pub: Fila = { piezaId: `2026-03-30/${p.id}`, tipo: "post", paso: "publicado", mediaId: "m1", intentos: 0 };
   // La segunda vez que el reloj marca 23:30 (03:30Z) ya está publicada.
   const r2 = tareasDebidas(s, [pub], Z("2026-04-05T03:30:00Z"), false);
   assert.equal(r2.publicar.length + r2.saltar.length, 0);
@@ -102,13 +102,21 @@ check("scheduler: estado.json publicado sin fila (base perdida) → no se public
   assert.equal(tareasDebidas(s, [], Z("2026-10-12T22:31:00Z"), false).publicar.length, 0);
 });
 
-check("scheduler: fila en esperando o publicando → aparece aunque ya pasaron 15 min (se termina)", () => {
+check("scheduler: fila en esperando → se termina hasta hora + 25 min; publicando → siempre se verifica", () => {
   const s = [programada()];
   for (const paso of ["esperando", "publicando"] as const) {
-    const r = tareasDebidas(s, [fila(paso, "post", { containerId: "c1" })], Z("2026-10-12T23:30:00Z"), false);
+    const r = tareasDebidas(s, [fila(paso, "post", { containerId: "c1" })], Z("2026-10-12T22:50:00Z"), false);
     assert.equal(r.publicar.length, 1, paso);
     assert.equal(r.saltar.length, 0, paso);
   }
+  // Contenedor creado pero el bot estuvo caído una hora: no se publica tarde.
+  const tarde = tareasDebidas(s, [fila("esperando", "post", { containerId: "c1" })], Z("2026-10-12T23:30:00Z"), false);
+  assert.equal(tarde.publicar.length, 0);
+  assert.deepEqual(tarde.saltar.map((x) => x.motivo), ["no se publica tarde"]);
+  // publicando nunca se salta (pudo publicarse): se verifica.
+  const ver = tareasDebidas(s, [fila("publicando", "post", { containerId: "c1" })], Z("2026-10-13T03:30:00Z"), false);
+  assert.equal(ver.publicar.length, 1);
+  assert.equal(ver.saltar.length, 0);
   // Fila que no llegó a crear el contenedor principal, fuera de la ventana → se salta.
   const h = tareasDebidas(s, [fila("hijos", "post", { children: ["a"] })], Z("2026-10-12T23:30:00Z"), false);
   assert.equal(h.publicar.length, 0);
@@ -231,14 +239,21 @@ await checkAsync("tick: publica la pieza debida, persiste la fila antes del comm
   const w = mundo([programada()]);
   await tick(w.deps);
   assert.equal(w.meta.publicaciones, 1);
-  const f = w.filas.get(`${lunes.id}|post`)!;
+  const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
   assert.equal(f.paso, "publicado");
   const pub = w.estados.find((e) => e.e.estado === "publicado")!;
   assert.equal(pub.e.mediaId, f.mediaId);
   assert.ok(pub.e.publicadoEn);
   const linea = w.registro.find((l) => l.tipo === "publicado")!;
   assert.deepEqual(Object.keys(linea).sort(),
-    ["duracionMs", "mediaId", "nombreMotor", "piezaId", "predictedScore", "publicadoEn", "semana", "tipo"].sort());
+    ["duracionMs", "mediaId", "nombreMotor", "piezaId", "predictedScore", "publicadoEn", "semana", "tipo",
+      "senal", "tema", "arquetipo", "hookCategoria", "formato"].sort());
+  assert.equal(linea.senal, lunes.senal);
+  assert.equal(linea.tema, lunes.tema);
+  assert.equal(linea.arquetipo, lunes.arquetipo);
+  assert.equal(linea.hookCategoria, lunes.hook.categoria);
+  assert.equal(linea.formato, "reel");
+  assert.equal(f.piezaId, `2026-10-12/${lunes.id}`, "R20: la clave incluye la semana");
   assert.equal(linea.piezaId, lunes.id);
   assert.equal(linea.mediaId, f.mediaId);
   assert.equal(linea.semana, "2026-10-12");
@@ -356,7 +371,7 @@ await checkAsync("tick: story 60 min después y estado.story publicado", async (
   assert.equal(w.meta.publicaciones, 2);
   const st = w.estados.find((e) => e.e.story)!;
   assert.equal(st.e.story?.estado, "publicado");
-  assert.equal(w.filas.get(`${lunes.id}|story`)?.paso, "publicado");
+  assert.equal(w.filas.get(`2026-10-12/${lunes.id}|story`)?.paso, "publicado");
   await tick(w.deps);
   assert.equal(w.meta.publicaciones, 2);
 });
@@ -375,7 +390,7 @@ await checkAsync("tick: estado.json viejo tras un git pull → la fila manda y s
 await checkAsync("tick: al día siguiente (≥ 20 h) pide el permalink una vez y lo anota", async () => {
   const w = mundo([programada()]);
   await tick(w.deps);
-  const mediaId = w.filas.get(`${lunes.id}|post`)!.mediaId!;
+  const mediaId = w.filas.get(`2026-10-12/${lunes.id}|post`)!.mediaId!;
   const get = w.deps.graph.get;
   let pedidos = 0;
   w.deps.graph = { ...w.deps.graph, get: async <T>(p: string, q?: Record<string, string | number | undefined>) => {
@@ -392,6 +407,107 @@ await checkAsync("tick: al día siguiente (≥ 20 h) pide el permalink una vez y
   assert.ok(w.registro.some((l) => l.tipo === "permalink" && l.mediaId === mediaId));
   await tick(w.deps);
   assert.equal(pedidos, 1);
+});
+
+await checkAsync("tick: caída entre la fila 'publicado' y el registro → el siguiente tick anota la línea una sola vez", async () => {
+  const w = mundo([programada()]);
+  let falla = true;
+  const anotar = w.deps.anotarRegistro;
+  w.deps.anotarRegistro = async (l) => {
+    if (falla && l.tipo === "publicado") { falla = false; throw new Error("ENOSPC"); }
+    await anotar(l);
+  };
+  w.deps.leerRegistro = async () => [...w.registro];
+  await tick(w.deps);
+  assert.equal(w.registro.filter((l) => l.tipo === "publicado").length, 0);
+  w.reloj.t += 60_000;
+  await tick(w.deps);
+  const lineas = w.registro.filter((l) => l.tipo === "publicado");
+  assert.equal(lineas.length, 1);
+  assert.equal(lineas[0].mediaId, w.filas.get(`2026-10-12/${lunes.id}|post`)!.mediaId);
+  assert.equal(lineas[0].hookCategoria, lunes.hook.categoria);
+  w.reloj.t += 60_000;
+  await tick(w.deps);
+  assert.equal(w.registro.filter((l) => l.tipo === "publicado").length, 1, "idempotente");
+  assert.equal(w.meta.publicaciones, 1);
+});
+
+await checkAsync("tick: render fallido → a su hora saltado 'render fallido: <motivo>' con fila terminal", async () => {
+  const w = mundo([semanaDe([lunes], { [lunes.id]: { estado: "fallido", motivo: "score 61 < 75", en: "2026-10-11T10:00:00Z" } })]);
+  w.reloj.t -= 60_000;
+  await tick(w.deps);
+  assert.equal(w.estados.length, 0, "antes de la hora no se marca");
+  w.reloj.t += 60_000;
+  await tick(w.deps);
+  assert.deepEqual(w.estados.map((e) => [e.e.estado, e.e.motivo]), [["saltado", "render fallido: score 61 < 75"]]);
+  assert.equal(w.filas.get(`2026-10-12/${lunes.id}|post`)?.paso, "fallido");
+});
+
+await checkAsync("tick: R27 — saltado deja fila terminal antes de estado.json; un estado.json viejo no la revive", async () => {
+  const w = mundo([semanaDe([lunes], {}, { [lunes.id]: { estado: "programado" } })]);
+  await tick(w.deps);
+  assert.ok(w.orden.indexOf("fila:fallido") < w.orden.indexOf("estado:saltado"));
+  const s = (await w.deps.leerSemana("2026-10-12"))!;
+  s.estado[lunes.id] = { estado: "programado" };
+  s.render[lunes.id] = render();
+  w.reloj.t += 5 * 60_000;
+  await tick(w.deps);
+  assert.equal(w.meta.publicaciones, 0);
+  assert.equal(s.estado[lunes.id].estado, "saltado", "reparar restaura el salto");
+});
+
+await checkAsync("tick: publicando sin confirmar → reconsulta cada 15 min y a las 2 h avisa una vez y deja de consultar", async () => {
+  const w = mundo([programada()]);
+  w.meta.crear("c1", "PUBLISHED");
+  w.filas.set(`2026-10-12/${lunes.id}|post`, { piezaId: `2026-10-12/${lunes.id}`, tipo: "post", paso: "publicando", containerId: "c1", intentos: 0, inicio: new Date(w.reloj.t).toISOString() });
+  w.meta.fallar = (c) => c.metodo === "get" ? { error: new (class extends Error {})("ECONNRESET") } : undefined;
+  let consultas = 0;
+  const get = w.deps.graph.get;
+  w.deps.graph = { ...w.deps.graph, get: async <T>(p: string, q?: Record<string, string | number | undefined>) => { consultas++; return get<T>(p, q); } };
+  await tick(w.deps);
+  assert.equal(consultas, 1);
+  assert.equal(w.avisos.filter((a) => a.includes("no pude confirmar")).length, 1);
+  w.reloj.t += 60_000;
+  await tick(w.deps);
+  assert.equal(consultas, 1, "no reconsulta antes de 15 min");
+  for (let i = 0; i < 9; i++) { w.reloj.t += 15 * 60_000; await tick(w.deps); }
+  const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
+  assert.equal(f.paso, "publicando");
+  assert.equal(f.rendida, true);
+  assert.equal(w.avisos.filter((a) => a.includes("Revisa en la app")).length, 1);
+  const antes = consultas;
+  w.reloj.t += 60 * 60_000;
+  await tick(w.deps);
+  assert.equal(consultas, antes, "no sigue consultando");
+  assert.equal(w.meta.posts.length, 0);
+  assert.equal(w.avisos.filter((a) => a.includes("no pude confirmar")).length, 1);
+});
+
+await checkAsync("tick: R20 — el mismo id en dos semanas se publica en ambas", async () => {
+  const otra = piezaDe({ dia: "2026-10-19" });
+  const s1 = programada();
+  const s2 = semanaDe([otra], { [otra.id]: render() }, { [otra.id]: { estado: "programado" } }, "2026-10-19");
+  const w = mundo([s1, s2]);
+  await tick(w.deps);
+  w.reloj.t = Date.parse("2026-10-19T22:30:00Z");
+  await tick(w.deps);
+  assert.equal(w.meta.postsA("/media_publish").length, 2);
+  assert.ok(w.filas.has(`2026-10-12/${lunes.id}|post`) && w.filas.has(`2026-10-19/${lunes.id}|post`));
+});
+
+await checkAsync("tick: un error de avisar no imprime su mensaje (puede llevar el token del bot)", async () => {
+  const w = mundo([programada()], { avisar: async () => { throw new Error("https://api.telegram.org/bot123:SECRETO/sendMessage"); } });
+  const warn = console.warn;
+  const vistos: string[] = [];
+  console.warn = (...a: unknown[]) => { vistos.push(a.join(" ")); };
+  try {
+    await tick(w.deps);
+  } finally {
+    console.warn = warn;
+  }
+  assert.equal(w.meta.publicaciones, 1);
+  assert.ok(vistos.length > 0);
+  assert.ok(vistos.every((v) => !v.includes("SECRETO")));
 });
 
 // --- registro.ts y filas en SQLite (con KB_DIR temporal) ---

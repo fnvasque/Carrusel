@@ -15,8 +15,12 @@ import type { Medios, Pieza } from "./plan.ts";
  *   que la fila guardada nunca va adelante del trabajo hecho;
  * - una fila que llega en `publicando` (reinicio entre el POST y su respuesta) o un
  *   `media_publish` que falla por red NUNCA se reintentan a ciegas: primero se
- *   pregunta a Meta por el contenedor (`status_code`) y se busca el post publicado.
- *   Solo si el contenedor sigue `FINISHED` y no hay post se vuelve a publicar.
+ *   pregunta a Meta por el contenedor (`status_code`). Solo si está `PUBLISHED` se
+ *   busca el post propio (R28); si sigue `FINISHED`, no se publicó y se publica.
+ *
+ * Nunca duerme minutos (R25): un reintento por URL caída se anota en la fila como
+ * `proximo` y lo retoma el tick siguiente. Solo el sondeo de `status_code` (15 s)
+ * y la pausa antes de verificar (30 s) ocurren dentro de la llamada.
  *
  * Todo el I/O entra por `ctx` (graph, reloj, dormir, guardar): se prueba con un
  * Meta falso, sin red.
@@ -25,6 +29,7 @@ import type { Medios, Pieza } from "./plan.ts";
 export type Paso = "inicio" | "hijos" | "contenedor" | "esperando" | "publicando" | "publicado" | "fallido";
 
 export interface Fila {
+  /** Clave de la fila: `"<semana>/<id>"` (R20). Los tests de `publish` pueden usar el id solo. */
   piezaId: string;
   tipo: "post" | "story";
   paso: Paso;
@@ -32,13 +37,14 @@ export interface Fila {
   children?: string[];
   mediaId?: string;
   intentos: number;
+  /** Último error. Un `fallido` cuyo error empieza con `"saltado: "` es un salto (no se publica tarde). */
   error?: string;
-  /**
-   * Instante (ISO) en que se guardó `publicando`, justo antes del primer
-   * `media_publish`. Cota inferior para reconocer el post al verificar. En
-   * SQLite vive en la columna `actualizado` mientras la fila está `publicando`.
-   */
+  /** Instante (ISO) en que se guardó `publicando`, justo antes del primer `media_publish`. */
   inicio?: string;
+  /** No retomar antes de este instante (ISO): reintento programado (R25). */
+  proximo?: string;
+  /** `publicando` sin confirmar tras 2 h: se avisó al admin y no se vuelve a consultar. */
+  rendida?: boolean;
 }
 
 export interface Graph {
@@ -53,11 +59,10 @@ export interface PublishCtx {
   dormir: (ms: number) => Promise<void>;
   ahora: () => Date;
   modo: "auto" | "aviso";
-  /**
-   * Después de este instante no se crea ningún contenedor nuevo (la pieza no se
-   * publica tarde). Un contenedor ya creado sí se termina. Opcional.
-   */
+  /** Después de este instante no se crea ningún contenedor nuevo (R26: post = hora + 15 min). */
   limite?: Date;
+  /** Después de este instante no se hace `media_publish` de un contenedor que no se publicó. */
+  limitePublicar?: Date;
 }
 
 /** Error de Meta (contenido, permiso, token, cuota): no se reintenta. */
@@ -76,21 +81,33 @@ export class ErrorTransitorio extends Error {
   }
 }
 
+/** El contenedor está PUBLISHED y hay más de un post que podría ser el nuestro: no se adivina (R28). */
+export class ErrorAmbiguo extends ErrorTransitorio {
+  constructor(message: string) {
+    super(message);
+    this.name = "ErrorAmbiguo";
+  }
+}
+
 /** Sondeo de `status_code` cada 15 s, tope 10 min (40 sondeos). */
 export const SONDEO_MS = 15_000;
 export const MAX_SONDEOS = 40;
-/** URL caída: 3 reintentos separados por 10 min (30 min) y luego `fallido`. */
+/** URL caída: espera hasta el reintento (lo retoma un tick posterior) y tope de reintentos. */
 export const ESPERA_REINTENTO_MS = 10 * 60_000;
+/** Error de red al crear un contenedor: se reintenta en el tick siguiente. */
+export const ESPERA_RED_MS = 60_000;
 export const MAX_REINTENTOS = 3;
 /** Pausa antes de verificar un `media_publish` que falló por red (Meta puede seguir procesándolo). */
 export const ESPERA_VERIFICAR_MS = 30_000;
+/** Candidatos válidos al verificar: `timestamp ≥ inicio − 30 s` (R28). */
+export const MARGEN_INICIO_MS = 30_000;
 /** Límites de Instagram (se validan antes de llamar a Meta). */
 export const CAPTION_MAX = 2200;
 export const HASHTAGS_MAX = 30;
 export const CARRUSEL_MAX = 10;
 export const CARRUSEL_MIN = 2;
-/** Margen de reloj entre este servidor y Meta al comparar `timestamp`. */
-const MARGEN_RELOJ_MS = 5 * 60_000;
+/** Prefijo del error de una fila cerrada como salto (la pieza queda `saltado`, no `fallido`). */
+export const PREFIJO_SALTO = "saltado: ";
 
 // Códigos de Graph que son decisiones de Meta: token (190), permisos (10, 2xx),
 // consulta inválida (100), cuota (4, 17, 32, 613) y media no publicable (9007).
@@ -130,6 +147,10 @@ interface Receta {
 
 const contarHashtags = (s: string): number => (s.match(/#[\p{L}\p{N}_]+/gu) ?? []).length;
 const urlValida = (u: string | undefined): u is string => typeof u === "string" && /^https?:\/\/\S+$/.test(u);
+/** Caption comparable: Instagram puede devolver `\r\n` o recortar espacios al final. */
+const normalizarCaption = (s: string): string => s.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").trim();
+/** Id de la pieza dentro de la clave `"<semana>/<id>"`. */
+const idDeClave = (clave: string): string => clave.slice(clave.lastIndexOf("/") + 1);
 
 /** Límites de Instagram y medios mínimos. Devuelve el motivo del rechazo o undefined. */
 function validarPost(p: Pieza, m: Medios): string | undefined {
@@ -151,8 +172,9 @@ function validarPost(p: Pieza, m: Medios): string | undefined {
 }
 
 /**
- * Publica un post (carrusel o reel) retomando desde `fila.paso`. Devuelve la fila
- * final (`publicado` o `fallido`). Lanza `ErrorTransitorio` solo si quedó en
+ * Publica un post (carrusel o reel) retomando desde `fila.paso`. Devuelve la fila:
+ * `publicado`, `fallido` (o salto), o una fila intermedia con `proximo` cuando hay
+ * un reintento programado (R25). Lanza `ErrorTransitorio` solo si quedó en
  * `publicando` sin poder confirmar con Meta si se publicó: quien llama reintenta
  * más tarde (nunca se marca `fallido` algo que quizás está publicado).
  */
@@ -197,14 +219,15 @@ export async function publicarStory(fila: Fila, medios: Medios, ctx: PublishCtx)
 }
 
 function cerrarFallido(fila: Fila, error: string, ctx: PublishCtx): Fila {
-  const f: Fila = { ...fila, paso: "fallido", error };
+  const f: Fila = { ...fila, paso: "fallido", error, proximo: undefined };
   ctx.guardar(f);
   return f;
 }
 
 /** Modo aviso: recorre los pasos con IDs ficticios, sin ninguna llamada a Meta. */
 function simular(fila: Fila, receta: Receta, ctx: PublishCtx): Fila {
-  const base = receta.tipo === "story" ? `aviso-${fila.piezaId}-story` : `aviso-${fila.piezaId}`;
+  const id = idDeClave(fila.piezaId);
+  const base = receta.tipo === "story" ? `aviso-${id}-story` : `aviso-${id}`;
   let f: Fila = { ...fila };
   const paso = (p: Partial<Fila>): void => {
     f = { ...f, ...p };
@@ -214,7 +237,7 @@ function simular(fila: Fila, receta: Receta, ctx: PublishCtx): Fila {
   paso({ paso: "contenedor" });
   paso({ paso: "esperando", containerId: base });
   paso({ paso: "publicando", inicio: ctx.ahora().toISOString() });
-  paso({ paso: "publicado", mediaId: base, error: undefined });
+  paso({ paso: "publicado", mediaId: base, error: undefined, proximo: undefined });
   return f;
 }
 
@@ -253,65 +276,69 @@ async function sondear(id: string, ctx: PublishCtx): Promise<Estado | "TOPE"> {
 const tsDe = (s: unknown): number => (typeof s === "string" ? Date.parse(s.replace(/([+-]\d{2})(\d{2})$/, "$1:$2")) : NaN);
 
 /**
- * Busca el post recién publicado: el más reciente con caption idéntico (stories:
- * cualquiera) y `timestamp` ≥ inicio del intento (menos un margen de reloj).
- * Sin `inicio` conocido, se mira solo el último día.
+ * Busca el post propio de un contenedor PUBLISHED (R28): caption idéntico (stories:
+ * cualquiera) y `timestamp ≥ inicio − 30 s`. Un candidato → su id; ninguno →
+ * undefined; más de uno → `ErrorAmbiguo` (no se adivina).
  */
 async function buscarPublicado(f: Fila, receta: Receta, ctx: PublishCtx): Promise<string | undefined> {
   const inicio = Date.parse(f.inicio ?? "");
-  const desde = Number.isNaN(inicio) ? ctx.ahora().getTime() - 86_400_000 : inicio - MARGEN_RELOJ_MS;
+  const desde = Number.isNaN(inicio) ? ctx.ahora().getTime() - 86_400_000 : inicio - MARGEN_INICIO_MS;
   const r = receta.tipo === "story"
     ? await ctx.graph.get<{ data?: { id?: string; timestamp?: string }[] }>(`${ctx.igUserId}/stories`, { fields: "id,timestamp" })
     : await ctx.graph.get<{ data?: { id?: string; caption?: string; timestamp?: string }[] }>(
       `${ctx.igUserId}/media`, { fields: "id,caption,timestamp", limit: 10 },
     );
+  const caption = receta.caption !== undefined ? normalizarCaption(receta.caption) : undefined;
   const candidatos = (r?.data ?? [])
     .filter((m): m is { id: string; caption?: string; timestamp?: string } => typeof m?.id === "string")
-    .filter((m) => receta.tipo === "story" || (m as { caption?: string }).caption === receta.caption)
-    .map((m) => ({ id: m.id, ts: tsDe(m.timestamp) }))
-    .filter((m) => !Number.isNaN(m.ts) && m.ts >= desde)
-    .sort((a, b) => b.ts - a.ts);
-  return candidatos[0]?.id;
+    .filter((m) => receta.tipo === "story" || (typeof m.caption === "string" && normalizarCaption(m.caption) === caption))
+    .filter((m) => {
+      const ts = tsDe(m.timestamp);
+      return !Number.isNaN(ts) && ts >= desde;
+    });
+  const ids = [...new Set(candidatos.map((m) => m.id))];
+  if (ids.length > 1) {
+    throw new ErrorAmbiguo(`Instagram confirmó la publicación de ${receta.queProcesa}, pero hay ${ids.length} ` +
+      `${receta.tipo === "story" ? "stories" : "posts con el mismo caption"} en ese rango; no adivino cuál es. Revisa en la app.`);
+  }
+  return ids[0];
 }
 
 /**
- * ¿Ya está publicado este contenedor? Pregunta el `status_code` y busca el post.
- * Si el contenedor dice PUBLISHED pero el post aún no aparece en la lista, insiste
- * dos veces más; si sigue sin aparecer, igual es `publicado` (sin media_id): jamás
- * se vuelve a publicar un contenedor PUBLISHED. Errores de red → ErrorTransitorio.
+ * ¿Ya está publicado este contenedor? Solo si Meta dice PUBLISHED se busca el post
+ * (R28). Si el post aún no aparece, se insiste dos veces; si sigue sin aparecer,
+ * igual es `publicado` (sin media_id): jamás se republica un contenedor PUBLISHED.
+ * Errores de red → ErrorTransitorio; ambigüedad → ErrorAmbiguo.
  */
 async function verificar(f: Fila, receta: Receta, ctx: PublishCtx): Promise<{ publicado: true; mediaId?: string } | { publicado: false; status: Estado }> {
   try {
     const status = await leerStatus(f.containerId!, ctx);
-    if (status === "PUBLISHED") {
-      for (let i = 0; i < 3; i++) {
-        const id = await buscarPublicado(f, receta, ctx);
-        if (id) return { publicado: true, mediaId: id };
-        if (i < 2) await ctx.dormir(20_000);
-      }
-      return { publicado: true };
+    if (status !== "PUBLISHED") return { publicado: false, status };
+    for (let i = 0; i < 3; i++) {
+      const id = await buscarPublicado(f, receta, ctx);
+      if (id) return { publicado: true, mediaId: id };
+      if (i < 2) await ctx.dormir(20_000);
     }
-    // Defensa extra por si el status va atrasado: ¿el post ya está en la cuenta?
-    const id = await buscarPublicado(f, receta, ctx);
-    if (id) return { publicado: true, mediaId: id };
-    return { publicado: false, status };
+    return { publicado: true };
   } catch (e) {
     if (e instanceof ErrorTransitorio) throw e;
     throw new ErrorTransitorio(`No pude confirmar con Meta si ${receta.queProcesa} se publicó: ${mensaje(e)}`);
   }
 }
 
-/** El motor: retoma desde `fila.paso` y avanza hasta `publicado` o `fallido`. */
+/** El motor: retoma desde `fila.paso` y avanza hasta `publicado`, `fallido` o un reintento programado. */
 async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fila> {
   if (ctx.modo === "aviso") return simular(fila, receta, ctx);
   const ig = ctx.igUserId;
-  let f: Fila = { ...fila, children: fila.children ? [...fila.children] : undefined };
+  let f: Fila = { ...fila, children: fila.children ? [...fila.children] : undefined, proximo: undefined };
   const guardar = (p: Partial<Fila>): Fila => {
     f = { ...f, ...p };
     ctx.guardar({ ...f, children: f.children ? [...f.children] : undefined });
     return f;
   };
-  const tarde = (): boolean => ctx.limite !== undefined && ctx.ahora().getTime() > ctx.limite.getTime();
+  const pasado = (d?: Date): boolean => d !== undefined && ctx.ahora().getTime() > d.getTime();
+  const salto = (detalle?: string): Fila =>
+    guardar({ paso: "fallido", proximo: undefined, error: `${PREFIJO_SALTO}no se publica tarde${detalle ? ` (${detalle})` : ""}` });
   // Una fila que llega en `publicando` pudo publicarse antes del reinicio: se verifica primero.
   let verificarPrimero = f.paso === "publicando";
   let fallosPublish = 0;
@@ -323,7 +350,7 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
         case "hijos": {
           if (receta.hijos.length) {
             const children = f.children ?? [];
-            if (!children.length && tarde()) return guardar({ paso: "fallido", error: "no se publica tarde" });
+            if (!children.length && pasado(ctx.limite)) return salto();
             while (children.length < receta.hijos.length) {
               guardar({ paso: "hijos", children: [...children] });
               const r = await ctx.graph.post(`${ig}/media`, { image_url: receta.hijos[children.length], is_carousel_item: true });
@@ -335,7 +362,7 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
           break;
         }
         case "contenedor": {
-          if (tarde()) return guardar({ paso: "fallido", error: "no se publica tarde" });
+          if (pasado(ctx.limite)) return salto();
           const r = await ctx.graph.post(`${ig}/media`, receta.contenedor(f.children ?? []));
           guardar({ paso: "esperando", containerId: idDe(r, "el contenedor") });
           break;
@@ -375,6 +402,8 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
               break;
             }
           }
+          // Contenedor listo y NO publicado: si ya es tarde, no se publica (el contenedor expira solo).
+          if (pasado(ctx.limitePublicar)) return salto("el contenedor estaba listo, pero pasó la hora");
           // La fila `publicando` (con containerId e inicio) queda guardada ANTES del POST.
           guardar({ paso: "publicando", inicio: f.inicio ?? ctx.ahora().toISOString() });
           try {
@@ -407,14 +436,20 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
       if (clasificar(e) === "meta") return guardar({ paso: "fallido", error: mensaje(e) });
       const intentos = f.intentos + 1;
       if (intentos > MAX_REINTENTOS) {
-        return guardar({ paso: "fallido", intentos, error: `${mensaje(e)} (tras ${MAX_REINTENTOS} reintentos)` });
+        return guardar({ paso: "fallido", intentos, proximo: undefined, error: `${mensaje(e)} (tras ${MAX_REINTENTOS} reintentos)` });
+      }
+      const muerto = e instanceof ContenedorMuerto;
+      const proximo = new Date(ctx.ahora().getTime() + (muerto ? ESPERA_REINTENTO_MS : ESPERA_RED_MS));
+      // R26: si el reintento cae después del límite, no habrá contenedor nuevo: se cierra ya.
+      if (ctx.limite && proximo.getTime() > ctx.limite.getTime()) {
+        return guardar({ paso: "fallido", intentos, proximo: undefined, error: `${PREFIJO_SALTO}no se publica tarde (${mensaje(e)})` });
       }
       // Contenedor muerto → uno nuevo desde cero (el viejo queda huérfano y Meta lo expira).
-      const reinicio: Partial<Fila> = e instanceof ContenedorMuerto
+      const reinicio: Partial<Fila> = muerto
         ? { paso: "inicio", children: undefined, containerId: undefined, inicio: undefined }
         : {};
-      guardar({ ...reinicio, intentos, error: mensaje(e) });
-      await ctx.dormir(ESPERA_REINTENTO_MS);
+      // R25: no se duerme aquí; el tick que llegue después de `proximo` retoma la fila.
+      return guardar({ ...reinicio, intentos, error: mensaje(e), proximo: proximo.toISOString() });
     }
   }
 }
