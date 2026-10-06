@@ -23,7 +23,7 @@ import {
 } from "../calendario/scheduler.ts";
 import {
   argsPreview, avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, ETAPAS_RENDER, formatSemana, idDesdeArgumento, leerCallbackSaltar,
-  modoCalendario, previewsPendientes, publicadas, recordatorioLunes, semanasConPlan, silencioCalendario, TEXTO_POST_PUBLICACION,
+  arranqueScheduler, mediosParaLimpiar, modoCalendario, previewsPendientes, recordatorioLunes, semanasConPlan, silencioCalendario, TEXTO_POST_PUBLICACION,
   TEXTO_RECORDATORIO_LUNES,
 } from "../calendario/telegram.ts";
 import { graphGet } from "../meta/client.ts";
@@ -947,29 +947,35 @@ function depsCalendario(): SchedulerDeps {
     // la vez que una pull con --autostash (guardados, sincronización). El costo: una
     // publicación puede esperar a que termine un guardado de ficha.
     enSerie: serial,
-    // Ya dentro de la cadena (enSerie): no vuelve a entrar a `serial` (se trabaría).
-    commit: async (paths, mensaje) => {
-      try {
-        await commitPaths(paths, mensaje);
-        ultimoErrorCommit = undefined;
-      } catch (e) {
-        // Un fallo no se pierde: se avisa por Telegram (una vez por error distinto). El push
-        // fallido ya lo avisa `setSyncErrorHandler`; lo no commiteado sube con el próximo commit.
-        const msg = sinToken(errText(e));
-        if (msg === ultimoErrorCommit) return;
-        ultimoErrorCommit = msg;
-        void notifyAdmin(`⚠️ Calendario: no pude commitear ${paths.length} archivo(s) («${mensaje}»): ${msg}`);
-      }
-    },
+    commit: commitCalendario,
   };
   return calDeps;
+}
+
+/**
+ * Commit de estado.json/registro.jsonl. Se llama ya dentro de la cadena serial: no
+ * vuelve a entrar a `serial` (se trabaría). No depende de Meta (sirve aunque el
+ * scheduler esté apagado).
+ */
+async function commitCalendario(paths: string[], mensaje: string): Promise<void> {
+  try {
+    await commitPaths(paths, mensaje);
+    ultimoErrorCommit = undefined;
+  } catch (e) {
+    // Un fallo no se pierde: se avisa por Telegram (una vez por error distinto). El push
+    // fallido ya lo avisa `setSyncErrorHandler`; lo no commiteado sube con el próximo commit.
+    const msg = sinToken(errText(e));
+    if (msg === ultimoErrorCommit) return;
+    ultimoErrorCommit = msg;
+    void notifyAdmin(`⚠️ Calendario: no pude commitear ${paths.length} archivo(s) («${mensaje}»): ${msg}`);
+  }
 }
 
 /** `programado` en estado.json + su commit, en la cadena serial (R50). */
 async function programarPieza(semana: string, id: string): Promise<void> {
   await serial(async () => {
     await escribirEstado(semana, id, { estado: "programado" });
-    await depsCalendario().commit([estadoPath(semana)], `calendario: programado ${id}`);
+    await commitCalendario([estadoPath(semana)], `calendario: programado ${id}`);
   });
 }
 
@@ -1055,6 +1061,10 @@ function adelantarTick(): void {
   void minutoCalendario();
 }
 
+/** ¿Corre el scheduler? Con CALENDARIO_MODO y sin META_* queda apagado (M5): lo decide `iniciarCalendario`. */
+let schedulerActivo = false;
+const TEXTO_SCHEDULER_APAGADO = "⚠️ El scheduler del calendario no corre (falta la configuración de Meta): no publico ni salto nada. Completa META_ACCESS_TOKEN y META_IG_USER_ID y reinicia el bot.";
+
 /**
  * `/publicar <id>` (solo la semana en curso, R43): deja la orden, responde al tiro y
  * adelanta una pasada. Solo piezas `programadas` cuya hora no llegó.
@@ -1066,6 +1076,7 @@ async function cmdPublicar(chatId: number, arg: string): Promise<void> {
     const x = await piezaDelComando(chatId, arg, "/publicar", semanaEnCurso, "solo piezas de esta semana");
     if (!x) return;
     const { s, p, clave } = x;
+    if (!schedulerActivo) return say(TEXTO_SCHEDULER_APAGADO);
     if (esPausado(leerClaveDb("pausado"))) return say("⏸ El calendario está en pausa: /reanudar primero.");
     if (zonedToUtc(p.dia, p.hora).getTime() <= Date.now()) {
       return say(`La hora de ${p.id} ya llegó (${p.dia} ${p.hora}): la maneja el scheduler. Mira /calendario.`);
@@ -1096,6 +1107,10 @@ async function cmdPublicar(chatId: number, arg: string): Promise<void> {
 async function saltar(chatId: number, x: PiezaRef, soloAntesDeLaHora: boolean): Promise<boolean> {
   const { s, p, clave } = x;
   const say = async (t: string): Promise<void> => void (await bot.api.sendMessage(chatId, sinToken(t)));
+  if (!schedulerActivo) {
+    await say(TEXTO_SCHEDULER_APAGADO);
+    return false;
+  }
   const ef = estadoEfectivo(p, s.render[p.id], s.estado[p.id]);
   if (ef === "publicado" || ef === "saltado" || ef === "fallido") {
     await say(`${p.id} ya está ${ef}.`);
@@ -1235,7 +1250,7 @@ async function avisosDelMinuto(): Promise<void> {
 
 let minutoEnCurso = false;
 async function minutoCalendario(): Promise<void> {
-  if (minutoEnCurso) return;
+  if (minutoEnCurso || !schedulerActivo) return;
   minutoEnCurso = true;
   try {
     await tick(depsCalendario()); // nunca lanza; tiene su propio candado
@@ -1247,13 +1262,13 @@ async function minutoCalendario(): Promise<void> {
   }
 }
 
-/** Borra de MEDIA_ROOT los medios publicados hace más de 7 días (Meta ya los copió). */
+/** Borra de MEDIA_ROOT los medios publicados (o saltados/fallidos, por su hora de plan) hace más de 7 días (M6). */
 async function limpiarMediosViejos(): Promise<void> {
   try {
     const ahora = new Date();
     const { semanas } = await semanasCalendario(addDays(weekMonday(ahora), -35), 6);
-    const borradas = await limpiarMedios(MEDIA_ROOT, publicadas(semanas), ahora);
-    if (borradas.length) console.log(`🧹 Medios borrados (7 días tras publicar): ${borradas.join(", ")}`);
+    const borradas = await limpiarMedios(MEDIA_ROOT, mediosParaLimpiar(semanas), ahora);
+    if (borradas.length) console.log(`🧹 Medios borrados (7 días tras publicar, saltar o fallar): ${borradas.join(", ")}`);
   } catch (err) {
     console.warn(`⚠️  Limpieza de medios: ${sinToken(errText(err))}`);
   }
@@ -1264,14 +1279,18 @@ function iniciarCalendario(): void {
     console.log("📅 Calendario apagado (sin CALENDARIO_MODO): no publico ni aviso nada del calendario.");
     return;
   }
-  try {
-    depsCalendario();
-  } catch (err) {
-    throw new Error(`CALENDARIO_MODO=${calendarioModo} necesita la configuración de Meta: ${errText(err)}`);
+  // M5: sin META_* el bot sigue en pie (fichas, DMs, /metricas, previews); solo el scheduler no corre.
+  const arranque = arranqueScheduler(calendarioModo, () => void depsCalendario());
+  schedulerActivo = arranque.scheduler;
+  if (arranque.aviso) {
+    console.warn(arranque.aviso);
+    void notifyAdmin(arranque.aviso); // una vez, al arrancar
   }
   if (!mediaToken) console.warn("⚠️  Calendario sin MEDIA_PUBLIC_TOKEN: no sirvo medios y Meta no podrá descargar las piezas.");
-  console.log(`📅 Calendario en modo ${calendarioModo}: scheduler cada minuto.`);
-  setInterval(() => void minutoCalendario(), CALENDARIO_CADA_MS);
+  if (schedulerActivo) {
+    console.log(`📅 Calendario en modo ${calendarioModo}: scheduler cada minuto.`);
+    setInterval(() => void minutoCalendario(), CALENDARIO_CADA_MS);
+  }
   setTimeout(() => void limpiarMediosViejos(), 5 * 60_000);
   setInterval(() => void limpiarMediosViejos(), LIMPIEZA_MEDIOS_MS);
   // Sin sincronización con GitHub (base local), la revisión corre sola cada hora.

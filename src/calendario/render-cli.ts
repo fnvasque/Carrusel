@@ -39,7 +39,7 @@ if (faltan.length) {
 
 if (!dirMediosValido(process.env.SERVER_MEDIA_DIR!.trim())) {
   console.error(
-    "✗ SERVER_MEDIA_DIR inválido: usa solo letras, números y _ . / - (sin espacios, ~, $, comillas ni ..), " +
+    "✗ SERVER_MEDIA_DIR inválido: usa solo letras, números y _ . / - (sin espacios, ~, $, comillas, .. ni - al inicio), " +
       "p. ej. carrusel/media (relativo al home del servidor).",
   );
   process.exit(1);

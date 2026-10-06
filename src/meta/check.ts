@@ -47,7 +47,9 @@ export function onlineFollowersDisponible(r: InsightsResp | undefined): boolean 
  * error lo indica; si no, el mensaje (ya traducido por `graphGet`). Función pura.
  */
 export function mensajeOnlineFollowers(error: string): string {
-  if (/100\s*(followers|seguidores)|not enough followers|menos de 100|seguidores/i.test(error)) {
+  // Hace falta el 100 Y la mención de seguidores: "seguidores" a secas (p. ej. un error de red
+  // al leerlos) o "(#100) Invalid parameter" no son el límite de los 100 seguidores.
+  if (/\b100\b/.test(error) && /followers|seguidores/i.test(error)) {
     return "online_followers no responde (requiere 100 seguidores); el calendario usa la hora por defecto.";
   }
   return `online_followers no responde: ${error}`;

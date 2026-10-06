@@ -344,6 +344,46 @@ export function previewsPendientes(
   return out;
 }
 
+/**
+ * ¿Arranca el scheduler? (M5) Sin `CALENDARIO_MODO`, no. Con él, solo si la configuración
+ * de Meta está (`metaLista` lanza si falta): sin `META_*` el bot sigue en pie (fichas,
+ * DMs, /metricas, previews) y solo el scheduler queda apagado, con un aviso.
+ */
+export function arranqueScheduler(modo: "auto" | "aviso" | undefined, metaLista: () => void): { scheduler: boolean; aviso?: string } {
+  if (!modo) return { scheduler: false };
+  try {
+    metaLista();
+    return { scheduler: true };
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message : String(e);
+    return {
+      scheduler: false,
+      aviso: `⚠️ CALENDARIO_MODO=${modo} pero falta la configuración de Meta (${motivo}): no publico nada del calendario ` +
+        "hasta que completes META_ACCESS_TOKEN y META_IG_USER_ID y reinicies el bot. El resto del bot sigue funcionando.",
+    };
+  }
+}
+
+/**
+ * Medios que se pueden borrar a los 7 días (M6): las publicadas desde su `publicadoEn`;
+ * las saltadas o fallidas desde su hora del plan (nunca salen, sus medios solo ocupan disco).
+ */
+export function mediosParaLimpiar(semanas: SemanaLeida[]): { semana: string; id: string; publicadoEn: string }[] {
+  const out = publicadas(semanas);
+  for (const s of semanas) {
+    for (const p of s.plan.piezas) {
+      const e = s.estado[p.id]?.estado;
+      if (e !== "saltado" && e !== "fallido") continue;
+      try {
+        out.push({ semana: s.semana, id: p.id, publicadoEn: zonedToUtc(p.dia, p.hora).toISOString() });
+      } catch {
+        // día u hora inválidos: no se borra nada
+      }
+    }
+  }
+  return out;
+}
+
 /** Publicadas con fecha válida (para borrar sus medios a los 7 días). */
 export function publicadas(semanas: SemanaLeida[]): { semana: string; id: string; publicadoEn: string }[] {
   return semanas.flatMap((s) =>

@@ -221,6 +221,9 @@ await checkAsync("procesar: valida semana e id por su cuenta (no llama a render 
 check("dirMediosValido (R34): solo [A-Za-z0-9_./-], sin ..", () => {
   for (const ok of ["carrusel/media", "/home/u/carrusel/media", "media_1.v2"]) assert.equal(dirMediosValido(ok), true, ok);
   for (const malo of ["mis medios", "~/media", "$HOME/m", "a'b", 'a"b', "a/../b", "..", "", "m$(x)", "a;b"]) assert.equal(dirMediosValido(malo), false, malo);
+  // R34: un `-` inicial lo leerían rsync/ssh como opción.
+  for (const malo of ["-e", "--rsync-path=x", "-media/x"]) assert.equal(dirMediosValido(malo), false, malo);
+  assert.equal(dirMediosValido("media-1/x-y"), true, "guiones en medio sí");
 });
 
 await checkAsync("fondosIaQuitados (R35): ai fuera de Hook/Cta y más allá del 3.º en orden de día y hora", () =>

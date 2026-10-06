@@ -27,8 +27,8 @@ for v in SERVER_HOST SERVER_MEDIA_DIR MEDIA_PUBLIC_BASE MEDIA_PUBLIC_TOKEN; do
   [ -n "${!v:-}" ] || { echo "✗ Falta $v en .env (ver .env.example)." >&2; exit 1; }
 done
 # Mismo criterio que render-cli.ts (R34): la ruta pasa por el shell remoto de ssh.
-if ! printf '%s' "$SERVER_MEDIA_DIR" | grep -Eq '^[A-Za-z0-9_./-]+$' || printf '%s' "/$SERVER_MEDIA_DIR/" | grep -q '/\.\./'; then
-  echo "✗ SERVER_MEDIA_DIR inválido: solo letras, números y _ . / - (sin espacios, ~, \$, comillas ni ..)." >&2
+if ! printf '%s' "$SERVER_MEDIA_DIR" | grep -Eq '^[A-Za-z0-9_./-]+$' || printf '%s' "/$SERVER_MEDIA_DIR/" | grep -q '/\.\./' || [ "${SERVER_MEDIA_DIR#-}" != "$SERVER_MEDIA_DIR" ]; then
+  echo "✗ SERVER_MEDIA_DIR inválido: solo letras, números y _ . / - (sin espacios, ~, \$, comillas, .. ni - al inicio)." >&2
   exit 1
 fi
 [ -x "$CHROMIUM" ] || echo "⚠️  No encuentro Chromium en $CHROMIUM (define PLAYWRIGHT_CHROMIUM_EXECUTABLE)."

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { check, checkAsync } from "../_check.ts";
 import {
   avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
-  archivoDeUrl, argsPreview, modoCalendario, ordenesDesde, previewsPendientes, publicadas, recordatorioLunes, rutaMedioLocal, semanasConPlan,
+  archivoDeUrl, argsPreview, arranqueScheduler, mediosParaLimpiar, modoCalendario, ordenesDesde, previewsPendientes, publicadas, recordatorioLunes, rutaMedioLocal, semanasConPlan,
   silencioCalendario, TELEGRAM_CAPTION_MAX, truncar,
 } from "../../src/calendario/telegram.ts";
 import { empezado, ORDEN_PUBLICAR, ORDEN_SALTAR, ordenesVencidas, tareasDebidas, tick, type SchedulerDeps } from "../../src/calendario/scheduler.ts";
@@ -471,4 +471,41 @@ check("meta:check: 'requiere 100 seguidores' solo si el error lo indica", () => 
   assert.doesNotMatch(otro, /100 seguidores/);
   assert.match(otro, /instagram_manage_insights/);
   assert.doesNotMatch(mensajeOnlineFollowers("(#100) Invalid parameter"), /100 seguidores/);
+  // Punto 16: la palabra "seguidores" sola (sin el 100) no basta.
+  assert.doesNotMatch(mensajeOnlineFollowers("No pude leer los seguidores: ETIMEDOUT"), /100 seguidores/);
+  assert.doesNotMatch(mensajeOnlineFollowers("followers endpoint unavailable"), /100 seguidores/);
+  assert.match(mensajeOnlineFollowers("La cuenta necesita al menos 100 seguidores"), /requiere 100 seguidores/);
+});
+
+// M5 / punto 12: CALENDARIO_MODO sin META_* no tumba el bot; solo el scheduler queda apagado.
+check("arranqueScheduler: sin calendario no arranca ni avisa; con META_* arranca; sin META_* sigue el bot y avisa una vez", () => {
+  assert.deepEqual(arranqueScheduler(undefined, () => {}), { scheduler: false });
+  assert.deepEqual(arranqueScheduler("auto", () => {}), { scheduler: true });
+  const sinMeta = arranqueScheduler("aviso", () => { throw new Error("Falta META_ACCESS_TOKEN en .env"); });
+  assert.equal(sinMeta.scheduler, false);
+  assert.match(sinMeta.aviso ?? "", /CALENDARIO_MODO=aviso/);
+  assert.match(sinMeta.aviso ?? "", /META_ACCESS_TOKEN/);
+  assert.match(sinMeta.aviso ?? "", /no publico/);
+});
+
+// M6 / punto 13: los medios de piezas saltadas o fallidas también se borran, 7 días después de su hora de plan.
+check("medios para limpiar: publicadas por su publicadoEn; saltadas y fallidas por su hora de plan", () => {
+  const s = semana(
+    [pieza({ id: "lun-saltada", dia: "2026-10-12", hora: "14:00" }), pieza({ id: "mar-fallida", dia: "2026-10-13", hora: "09:30" }), pieza({ id: "mie-prog", dia: "2026-10-14" })],
+    {},
+    {
+      a: { estado: "publicado", publicadoEn: "2026-10-12T11:00:00Z" },
+      "lun-saltada": { estado: "saltado", motivo: "falta el render" },
+      "mar-fallida": { estado: "fallido", motivo: "x" },
+      "mie-prog": { estado: "programado" },
+    },
+  );
+  assert.deepEqual(mediosParaLimpiar([s]), [
+    { semana: "2026-10-12", id: "a", publicadoEn: "2026-10-12T11:00:00Z" },
+    { semana: "2026-10-12", id: "lun-saltada", publicadoEn: "2026-10-12T17:00:00.000Z" },
+    { semana: "2026-10-12", id: "mar-fallida", publicadoEn: "2026-10-13T12:30:00.000Z" },
+  ]);
+  // Render fallido (render.json) a su hora también queda saltado en estado.json; sin estado no se borra nada.
+  const sinEstado = semana([pieza({ id: "jue-nada", dia: "2026-10-15" })]);
+  assert.deepEqual(mediosParaLimpiar([sinEstado]), []);
 });

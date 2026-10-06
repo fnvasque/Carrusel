@@ -94,7 +94,7 @@ publicar cada pieza.
 |---|---|
 | `MEDIA_PUBLIC_TOKEN` | Token largo al azar (`openssl rand -hex 32`). **El mismo** que en el `.env` del Mac. Sin él no se sirven medios. No lo compartas |
 | `MEDIA_PUBLIC_BASE` | URL pública del ngrok, p. ej. `https://<tu-dominio>.ngrok-free.dev`, sin `/` final. El mismo que en el Mac |
-| `CALENDARIO_MODO` | `auto` publica en Instagram; `aviso` hace todo menos los POST a Meta (depuración). Sin la variable, el scheduler no arranca. **Solo en el servidor**, no en el `.env` del Mac |
+| `CALENDARIO_MODO` | `auto` publica en Instagram; `aviso` hace todo menos los POST a Meta (depuración). Sin la variable, el scheduler no arranca; con ella pero sin `META_ACCESS_TOKEN`/`META_IG_USER_ID`, el bot arranca igual y solo el scheduler queda apagado (avisa una vez por Telegram). **Solo en el servidor**, no en el `.env` del Mac |
 
 `scripts/deploy-to-server.sh` copia el `.env` del Mac solo la **primera vez**: después agrega o cambia
 estas variables directamente en el servidor. `--update` avisa (sin mostrar valores) si falta alguna.

@@ -84,10 +84,11 @@ const ID_RE = /^[a-z0-9-]{3,80}$/;
 
 /**
  * SERVER_MEDIA_DIR admitido (R34): solo letras, números, `_ . / -`, sin `..`. Sin
- * espacios, `~`, `$` ni comillas: la ruta pasa por el shell remoto de ssh.
+ * espacios, `~`, `$` ni comillas: la ruta pasa por el shell remoto de ssh. Tampoco un
+ * `-` inicial: rsync y ssh lo leerían como una opción.
  */
 export function dirMediosValido(dir: string): boolean {
-  return /^[A-Za-z0-9_./-]+$/.test(dir) && !dir.split("/").includes("..");
+  return /^[A-Za-z0-9_./-]+$/.test(dir) && !dir.startsWith("-") && !dir.split("/").includes("..");
 }
 
 export interface Deps {
