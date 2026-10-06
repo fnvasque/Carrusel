@@ -11,6 +11,7 @@
     "meta:check": "tsx src/meta/check.ts",
     "score": "tsx src/score/cli.ts",
     "record": "tsx src/score/record.ts",
+    "insights": "tsx src/insights/cli.ts",
     "calibrate": "tsx src/score/calibrate.ts",
     "typecheck": "tsc --noEmit",
     "test:reel": "tsx test/layout-bounds.ts && tsx test/reel-runtime.ts && tsx test/reel-capture.ts && tsx test/calendario/qa-media.ts && tsx test/calendario/render-media.ts && tsx test/adversarial-media/index.ts",

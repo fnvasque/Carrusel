@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Bot, GrammyError, InlineKeyboard, type Api } from "grammy";
 import { ask } from "./ask.ts";
 import { indexedHead, reindex, setIndexedHead } from "./indexer.ts";
@@ -10,9 +11,13 @@ import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job }
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
 import {
-  abortStaleRebase, findFichaById, findLastSave, kbHead, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave, setSyncErrorHandler,
-  temasDir,
+  abortStaleRebase, commitPaths, findFichaById, findLastSave, kbDir, kbHead, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave,
+  setSyncErrorHandler, temasDir,
 } from "./store.ts";
+import { localParts } from "../calendario/time.ts";
+import { guardarCuenta, tomarInstantaneas } from "../insights/snapshots.ts";
+import { guardarEstado, leerEstado, resumenDelDomingo, resumenReciente, textoPost } from "../insights/lectura.ts";
+import { debeCuenta, debeResumir, formatResumenTelegram } from "../insights/summary.ts";
 import { markSummaryNotified, newSummaries, registroPath, silenceAlert } from "./research.ts";
 import { sendDm } from "../meta/messages.ts";
 import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
@@ -100,13 +105,13 @@ async function notifyAdmin(text: string): Promise<void> {
   for (const chatId of allowed) await bot.api.sendMessage(chatId, text).catch(() => {});
 }
 
-/** Como notifyAdmin, pero dice si el mensaje llegó al menos a un chat. */
-async function sendToAdmins(text: string): Promise<boolean> {
+/** Como notifyAdmin, pero dice si el mensaje llegó al menos a un chat. Con `html`, el texto va como HTML de Telegram. */
+async function sendToAdmins(text: string, html = false): Promise<boolean> {
   console.log(text);
   let ok = false;
   for (const chatId of allowed) {
     try {
-      await bot.api.sendMessage(chatId, text);
+      await bot.api.sendMessage(chatId, text, html ? { parse_mode: "HTML", link_preview_options: { is_disabled: true } } : {});
       ok = true;
     } catch (err) {
       console.warn(`⚠️  Telegram (${chatId}): ${errText(err)}`);
@@ -260,6 +265,10 @@ bot.command("tema", async (ctx) => {
 
 bot.command("costos", async (ctx) => {
   await sendLong(ctx.api, ctx.chat.id, escapeHtml(formatCostSummary(costSummary())));
+});
+
+bot.command("metricas", async (ctx) => {
+  await responderMetricas(ctx.api, ctx.chat.id, ctx.match);
 });
 
 bot.command("ultimos", async (ctx) => {
@@ -710,6 +719,116 @@ async function checkResearch(): Promise<void> {
   await notifyAdmin(alert.text);
 }
 
+// --- métricas de la cuenta ---
+// Instantáneas cada hora, cuenta una vez al día y resumen del domingo 05:30 (hora de Chile).
+// Toda la escritura pasa por `serial`; ningún fallo de Meta sale de aquí (se avisa una vez por error distinto).
+
+const METRICAS_PRIMERA_MS = 2 * 60_000;
+const METRICAS_CADA_MS = 3_600_000;
+const RESUMEN_CADA_MS = 10 * 60_000;
+
+const metricasActivas = (): boolean => Boolean(process.env.META_ACCESS_TOKEN?.trim() && process.env.META_IG_USER_ID?.trim());
+const metricasDir = (): string => join(kbDir(), "_metricas");
+/** Último error avisado por tick: el mismo error seguido no se repite; un éxito lo limpia. */
+const ultimoErrorMetricas = new Map<string, string>();
+
+async function avisarUnaVez(tick: string, err: unknown): Promise<void> {
+  const msg = errText(err);
+  if (ultimoErrorMetricas.get(tick) === msg) return;
+  ultimoErrorMetricas.set(tick, msg);
+  await notifyAdmin(`⚠️ Métricas (${tick}): ${msg}`).catch(() => {});
+}
+
+/** Guarda en la base los archivos que existan (uno que no se pudo escribir no debe romper el commit). */
+async function commitMetricas(rutas: string[], mensaje: string): Promise<void> {
+  const existentes = rutas.filter((r) => existsSync(r));
+  if (existentes.length) await commitPaths(existentes, mensaje);
+}
+
+async function snapshotTick(): Promise<void> {
+  try {
+    await serial(async () => {
+      const now = new Date();
+      const dia = localParts(now).dia;
+      try {
+        const nuevas = await tomarInstantaneas(now);
+        if (nuevas.length) console.log(`📈 Instantáneas nuevas: ${nuevas.map((i) => `${i.mediaId} ${i.ventana}`).join(", ")}`);
+      } finally {
+        // Aunque la toma falle a medias, lo que alcanzó a escribirse se guarda (sin cambios, no hace nada).
+        await commitMetricas([join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json")], `métricas: instantáneas ${dia}`);
+      }
+    });
+    ultimoErrorMetricas.delete("instantáneas");
+  } catch (err) {
+    await avisarUnaVez("instantáneas", err);
+  }
+}
+
+async function accountTick(): Promise<void> {
+  try {
+    await serial(async () => {
+      const now = new Date();
+      if (!debeCuenta(now, leerEstado("cuenta:ultima"))) return;
+      await guardarCuenta(now);
+      const dia = localParts(now).dia;
+      guardarEstado("cuenta:ultima", dia);
+      await commitMetricas([join(metricasDir(), "cuenta.json")], `métricas: cuenta ${dia}`);
+    });
+    ultimoErrorMetricas.delete("cuenta");
+  } catch (err) {
+    await avisarUnaVez("cuenta", err);
+  }
+}
+
+async function summaryTick(): Promise<void> {
+  try {
+    if (!debeResumir(new Date(), leerEstado("resumen:ultimo"))) return;
+    const enviado = await serial(async () => {
+      const now = new Date();
+      // Otra pasada pudo enviarlo mientras esperaba su turno.
+      if (!debeResumir(now, leerEstado("resumen:ultimo"))) return true;
+      const { domingo, md, html } = resumenDelDomingo(now);
+      const ruta = join(metricasDir(), "resumenes", `${domingo}.md`);
+      await mkdir(dirname(ruta), { recursive: true });
+      await writeFile(ruta, md, "utf8");
+      await commitMetricas([ruta], `métricas: resumen ${domingo}`);
+      // Se marca solo si llegó: si Telegram falla, se reintenta en la próxima pasada.
+      if (!(await sendToAdmins(html, true))) return false;
+      guardarEstado("resumen:ultimo", domingo);
+      return true;
+    });
+    if (enviado) ultimoErrorMetricas.delete("resumen");
+    else await avisarUnaVez("resumen", new Error("Telegram no aceptó el resumen semanal; sigo reintentando cada 10 min."));
+  } catch (err) {
+    await avisarUnaVez("resumen", err);
+  }
+}
+
+/** `/metricas` (últimos 7 días) y `/metricas <link|media_id|piezaId>` (todas las instantáneas de un post). */
+async function responderMetricas(api: Api, chatId: number, arg: string): Promise<void> {
+  try {
+    const now = new Date();
+    const html = arg.trim() ? await textoPost(arg, now) : formatResumenTelegram(resumenReciente(now));
+    await sendLong(api, chatId, html);
+  } catch (err) {
+    await api.sendMessage(chatId, `⚠️ No pude leer las métricas: ${errText(err)}`).catch(() => {});
+  }
+}
+
+function iniciarMetricas(): void {
+  if (!metricasActivas()) {
+    console.warn("⚠️  Sin META_ACCESS_TOKEN y META_IG_USER_ID: no tomo métricas de Instagram (/metricas muestra lo que ya haya).");
+    return;
+  }
+  setTimeout(() => void snapshotTick(), METRICAS_PRIMERA_MS);
+  setInterval(() => void snapshotTick(), METRICAS_CADA_MS);
+  // La cuenta se guarda a lo más una vez por día local; la pasada horaria solo revisa si ya toca.
+  setTimeout(() => void accountTick(), METRICAS_PRIMERA_MS + 60_000);
+  setInterval(() => void accountTick(), METRICAS_CADA_MS);
+  setTimeout(() => void summaryTick(), METRICAS_PRIMERA_MS + 3 * 60_000);
+  setInterval(() => void summaryTick(), RESUMEN_CADA_MS);
+}
+
 // --- arranque ---
 
 setSyncErrorHandler((m) => void notifyAdmin(`⚠️ ${m}`));
@@ -725,6 +844,7 @@ await bot.api.setMyCommands([
   { command: "tema", description: "Qué hay en un tema" },
   { command: "ultimos", description: "Lo último que guardaste" },
   { command: "costos", description: "Cuánto se ha gastado en la API" },
+  { command: "metricas", description: "Cómo le fue a tu Instagram esta semana" },
   { command: "ayuda", description: "Cómo usarme" },
 ]);
 console.log(`🤖 Bot en marcha (chats autorizados: ${[...allowed].join(", ")}). Base: ${temasDir().replace(/\/temas$/, "")}`);
@@ -740,5 +860,6 @@ if (process.env.KB_GIT_PUSH === "1") {
 void checkResearch();
 setInterval(() => void checkResearch(), 24 * 3_600_000);
 setInterval(() => void refreshStaleTopics(), TOPIC_CHECK_MS);
+iniciarMetricas();
 void work();
 await bot.start({ drop_pending_updates: false });

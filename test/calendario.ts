@@ -4,6 +4,7 @@ import "./calendario/plan.ts";
 import "./calendario/media-server.ts";
 import "./calendario/draft.ts";
 import "./calendario/qa.ts";
+import "./calendario/validar.ts";
 import "./calendario/render.ts";
 
 await done();
