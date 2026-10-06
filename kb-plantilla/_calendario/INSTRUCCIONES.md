@@ -64,6 +64,57 @@ métricas):
 7. Para cada tema candidato: `temas/<Tema>.md`, sus fichas en `fuentes/` y sus
    notas en `referencias/`.
 
+### Cómo leer `_metricas/bucle.json`
+
+El bot lo escribe cada domingo entre las 05:30 y las 06:00 (o, si estuvo
+caído, más tarde ese domingo o el lunes). Mira `generado`: si es de hace más
+de 8 días, trátalo como "sin métricas" y anótalo en `plan.json → motivo` solo
+si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
+7 días comparable; los posts manuales y las pruebas no cuentan. Campos:
+
+- `semana`: el lunes que vas a planificar (debe coincidir con `$SEMANA`).
+- `escala`: `absoluto` (conteos, alcance < `umbralAlcanceTasas`) o `tasa`
+  (por alcance). Cuando la cuenta cruza el umbral, los pesos y ganadores usan
+  solo las piezas medidas en tasa: no se mezclan conteos con tasas.
+- `medidas`: piezas comparables. Con 0, no hay métricas: Paso 3 solo (b) y (d).
+- `pesos.tema`, `pesos.arquetipo`, `pesos.hookCategoria`: por nombre, `n`
+  (piezas medidas) y `peso`. El peso es un **índice relativo**: 1 = la media de
+  la cuenta en su señal; 1,3 = 30 % mejor que la media. Ya viene encogido hacia
+  1 para que un viral no dicte el mes, y **solo aparece con `n ≥ 3`**: sin
+  `peso`, ese nombre todavía no tiene historia suficiente (no lo uses para
+  priorizar). Los nombres de tema van sin `[[ ]]`; en `plan.json` escríbelos
+  con `[[ ]]` como siempre.
+- `ganadores`: piezas en el 20 % superior de su señal a 7 días (`piezaId`,
+  `senal`, `valor`, `modo`, `semana`, `tema`).
+- `derivados`: lo que debes programar en la prioridad (a) del Paso 3: `de` (id
+  del ganador, va en `derivadoDe`), `tema` (el mismo tema, con otro ángulo) y
+  `hasta` (último lunes en que cabe). Cada ganador admite a lo más 2
+  derivados; cuando ya los tiene, desaparece de la lista.
+- `horas` (solo desde 100 seguidores): hora por día (`"1"` = lunes … `"6"` =
+  sábado), ya dentro de `ventanaHoras`, en `:00`/`:30` y con
+  `separacionMinHoras`. Un día que falta usa `config.json → horasPorDefecto`.
+- `seguidoresPorPieza`: seguidores nuevos del día siguiente a cada pieza
+  (aproximación: también cuentan los de otras causas).
+- `cuenta`: seguidores nuevos y alcance de los últimos 28 días (y los
+  seguidores nuevos de los 28 anteriores), la base del diagnóstico.
+- `diagnostico`: frases del diagnóstico mensual (sale solo con ≥ 4 semanas de
+  datos). Úsalas como dice el Paso 2.
+- `parametros`: por parámetro de `plan.json → parametros`, la media relativa
+  (`media`, 1 = la media de la cuenta) y `n` por valor. Solo aparece con ≥ 4
+  semanas y ≥ 6 piezas por valor: es la base de una `Propuesta:` en
+  `aprendizajes.md`.
+- `experimentos`: cada experimento declarado en las últimas semanas, con
+  `evaluarDesde` (lunes + 4 semanas), `evaluable` y la media relativa de las
+  piezas del experimento contra el resto de su semana (`experimento`,
+  `control`). `variableValida: false` significa que la variable no es una de
+  las permitidas (Paso 4).
+- `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
+  arregles tú: son zona del bot o del usuario.
+
+**Tú no cambias `config.json`.** Si `parametros`, `experimentos` o el
+diagnóstico sugieren mover un parámetro, lo **propones** en `aprendizajes.md`
+(`Propuesta:` con el dato); el cambio lo aplica el usuario.
+
 ## Paso 2 — Evaluar la semana pasada
 
 Con `bucle.json` y las instantáneas de 7 días (si no hay datos, salta este paso):
@@ -101,7 +152,8 @@ Un tema es una página `temas/<Tema>.md`; en `plan.json` se escribe
   ganador);
 - (b) temas con fichas nuevas o referencias investigadas esta semana;
 - (c) temas con mejor tasa objetivo histórica (solo si tienen ≥ 3 piezas
-  medidas);
+  medidas: los que traen `peso` en `bucle.json → pesos.tema`, de mayor a
+  menor);
 - (d) el resto, por antigüedad de su última pieza (el que hace más tiempo no
   sale, primero).
 

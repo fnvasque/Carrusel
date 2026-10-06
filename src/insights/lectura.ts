@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { localParts } from "../calendario/time.ts";
+import { diagnosticoDeDatos } from "../calendario/bucle.ts";
 import { calendarioDir } from "../calendario/plan.ts";
 import { openDb } from "../kb/db.ts";
 import { kbDir } from "../kb/store.ts";
@@ -109,6 +110,13 @@ export function resumenReciente(now: Date): ResumenSemana {
 export function resumenDelDomingo(now: Date): { domingo: string; md: string; html: string } {
   const domingo = domingoDeResumen(now);
   const r = resumenDeLaSemana(domingo);
+  try {
+    // Diagnóstico mensual del bucle (necesita toda la historia, no solo la semana).
+    const registro = leerRegistroPublicados();
+    r.diagnostico = diagnosticoDeDatos(now, leerInstantaneas(registro), registro, leerCuenta(), leerUmbral());
+  } catch (err) {
+    r.avisos.push(`No pude calcular el diagnóstico mensual: ${err instanceof Error ? err.message : String(err)}`);
+  }
   return { domingo, md: formatResumen(r), html: formatResumenTelegram(r) };
 }
 

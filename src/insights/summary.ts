@@ -35,6 +35,8 @@ export interface ResumenSemana {
   horaTop?: string;
   noSeguidores?: number;
   avisos: string[];
+  /** Diagnóstico mensual (últimas 4 semanas) del bucle de feedback; solo en el resumen del domingo. */
+  diagnostico?: string[];
 }
 
 const HORA_MS = 3_600_000;
@@ -209,6 +211,7 @@ function cuerpo(r: ResumenSemana, e: Estilo): string {
   if (r.seguidoresGanados !== undefined) out.push(`Seguidores ganados: ${r.seguidoresGanados >= 0 ? "+" : ""}${r.seguidoresGanados}`);
   if (r.horaTop) out.push(`Hora con más audiencia: ${e.esc(r.horaTop)}`);
   if (r.noSeguidores !== undefined) out.push(`Alcance a no seguidores (7 d): ${r.noSeguidores}`);
+  if (r.diagnostico?.length) out.push("", e.b("Diagnóstico (últimas 4 semanas)"), ...r.diagnostico.map((d) => `• ${e.esc(d)}`));
   if (r.avisos.length) out.push("", ...r.avisos.map((a) => `⚠️ ${e.esc(a)}`));
   return out.join("\n").trimEnd() + "\n";
 }
