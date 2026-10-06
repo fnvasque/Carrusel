@@ -552,6 +552,20 @@ await checkAsync("R32: status siempre FINISHED y sin candidatos → se republica
   assert.deepEqual(m.violaciones, []);
 });
 
+await checkAsync("R32: sin `diferido`, media_publish siempre ambiguo y FINISHED sin candidatos → 2 POST y ErrorAmbiguo", async () => {
+  const m = new MetaFalso();
+  let publishes = 0;
+  m.fallar = (c) => {
+    if (c.metodo !== "post" || !c.path.endsWith("media_publish")) return undefined;
+    publishes++;
+    return { error: new GraphError("No pude conectar con la API de Meta (ETIMEDOUT).") };
+  };
+  await assert.rejects(publicar(filaNueva(), piezaDe(), mediosReel, m.ctx()), ErrorAmbiguo);
+  assert.equal(publishes, 2);
+  assert.equal(m.guardadas.at(-1)?.paso, "publicando");
+  assert.equal(m.guardadas.at(-1)?.republicaciones, 1);
+});
+
 await checkAsync("R32: sin `diferido`, los 3 re-sondeos esperan ≥ 1 min cada uno dentro de la llamada", async () => {
   const m = new MetaFalso();
   conRedCaidaTrasPublish(m);

@@ -13,14 +13,23 @@ import type { Medios, Pieza } from "./plan.ts";
  * (pieza, tipo)**. Para eso:
  * - la fila se persiste (`ctx.guardar`) ANTES de cada POST que avanza de paso, así
  *   que la fila guardada nunca va adelante del trabajo hecho;
- * - una fila que llega en `publicando` (reinicio entre el POST y su respuesta) o un
- *   `media_publish` que falla por red NUNCA se reintentan a ciegas: primero se
- *   pregunta a Meta por el contenedor (`status_code`). Solo si está `PUBLISHED` se
- *   busca el post propio (R28); si sigue `FINISHED`, no se publicó y se publica.
+ * - un `media_publish` ambiguo (red caída o 200 sin `id`) o una fila que llega en
+ *   `publicando` (reinicio entre el POST y su respuesta) NUNCA se republica a ciegas
+ *   (R28 + R32): se pregunta a Meta por el `status_code` del contenedor.
+ *   · `PUBLISHED` → se busca el post propio (caption idéntico, `ts ≥ inicio − 30 s`);
+ *     con más de un candidato no se adivina (`ErrorAmbiguo`).
+ *   · `FINISHED` → puede ser un status atrasado: se re-sondea 3 veces, con ≥ 1 min
+ *     entre sondeos (`resondeos` en la fila). Si sigue FINISHED y no hay candidatos,
+ *     se permite UN nuevo `media_publish` (`republicaciones` en la fila); con
+ *     candidatos, o si ese único republish también queda ambiguo, la fila se queda
+ *     en `publicando` y se avisa al admin (`ErrorAmbiguo`).
  *
- * Nunca duerme minutos (R25): un reintento por URL caída se anota en la fila como
- * `proximo` y lo retoma el tick siguiente. Solo el sondeo de `status_code` (15 s)
- * y la pausa antes de verificar (30 s) ocurren dentro de la llamada.
+ * Dos modos de espera, con la misma secuencia y la misma invariante:
+ * - `ctx.diferido` (el scheduler): nunca duerme minutos (R25). Los reintentos por URL
+ *   caída o red y los re-sondeos de R32 quedan en la fila como `proximo` y los retoma
+ *   un tick posterior. Dentro de la llamada solo hay sondeos de 15 s y pausas de 20 s.
+ * - sin `diferido` (llamada directa): espera dentro de la llamada con `ctx.dormir`
+ *   (10 min por URL caída, 1 min por re-sondeo) y termina la secuencia.
  *
  * Todo el I/O entra por `ctx` (graph, reloj, dormir, guardar): se prueba con un
  * Meta falso, sin red.
@@ -47,6 +56,8 @@ export interface Fila {
   rendida?: boolean;
   /** R32: sondeos de `status_code` que dieron FINISHED tras un `media_publish` ambiguo. */
   resondeos?: number;
+  /** R32: `media_publish` repetidos tras FINISHED ×3 sin candidatos (máximo 1). */
+  republicaciones?: number;
   /** R29: los reintentos son por URL caída (contenedor en ERROR/EXPIRED): valen hasta `limiteReintento`. */
   urlCaida?: boolean;
 }
@@ -114,6 +125,8 @@ export const ESPERA_RED_MS = 60_000;
 export const MAX_REINTENTOS = 3;
 /** R32: tras un `media_publish` ambiguo, sondeos en FINISHED (≥ 1 min entre sí) antes de mirar candidatos. */
 export const RESONDEOS = 3;
+/** R32: a lo más un `media_publish` adicional por fila tras un publish ambiguo. */
+export const MAX_REPUBLICACIONES = 1;
 export const ESPERA_RESONDEO_MS = 60_000;
 /** Candidatos válidos al verificar: `timestamp ≥ inicio − 30 s` (R28). */
 export const MARGEN_INICIO_MS = 30_000;
@@ -449,7 +462,12 @@ async function ejecutar(fila: Fila, receta: Receta, ctx: PublishCtx): Promise<Fi
               throw new ErrorTransitorio(`No pude revisar los posts recientes: ${mensaje(e)}`);
             }
             if (ids.length) throw ambiguo(receta, ids.length, `Según Meta, ${receta.queProcesa} sigue sin publicarse`);
-            guardar({ resondeos: undefined });
+            // Un solo republish por fila (R32), también entre ticks: si ya se hizo, no hay otro POST.
+            if ((f.republicaciones ?? 0) >= MAX_REPUBLICACIONES) {
+              throw new ErrorAmbiguo(`Ya volví a publicar ${receta.queProcesa} una vez y Meta sigue sin confirmarlo; ` +
+                "no vuelvo a publicar. Revisa en la app si salió.");
+            }
+            guardar({ resondeos: undefined, republicaciones: (f.republicaciones ?? 0) + 1 });
           }
           // Contenedor listo y NO publicado: si ya es tarde, no se publica (el contenedor expira solo).
           if (pasado(ctx.limitePublicar)) return salto("el contenedor estaba listo, pero pasó la hora");

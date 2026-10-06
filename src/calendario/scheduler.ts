@@ -598,10 +598,10 @@ interface FilaDb {
 
 /**
  * La columna `children` guarda JSON: un arreglo (solo hijos) o un objeto
- * `{ children?, inicio?, proximo?, rendida?, resondeos?, urlCaida? }` con los datos de control de la fila
+ * `{ children?, inicio?, proximo?, rendida?, resondeos?, republicaciones?, urlCaida? }` con los datos de control de la fila
  * (sin cambiar el esquema de db.ts). `actualizado` es siempre la última escritura.
  */
-interface Extra { children?: string[]; inicio?: string; proximo?: string; rendida?: boolean; resondeos?: number; urlCaida?: boolean }
+interface Extra { children?: string[]; inicio?: string; proximo?: string; rendida?: boolean; resondeos?: number; republicaciones?: number; urlCaida?: boolean }
 
 /** Filas de `publicaciones` (clave `"<semana>/<id>"`). */
 export function cargarFilasDb(): Fila[] {
@@ -628,6 +628,7 @@ export function cargarFilasDb(): Fila[] {
       ...(typeof extra.proximo === "string" ? { proximo: extra.proximo } : {}),
       ...(extra.rendida === true ? { rendida: true } : {}),
       ...(typeof extra.resondeos === "number" ? { resondeos: extra.resondeos } : {}),
+      ...(typeof extra.republicaciones === "number" ? { republicaciones: extra.republicaciones } : {}),
       ...(extra.urlCaida === true ? { urlCaida: true } : {}),
     });
   }
@@ -642,6 +643,7 @@ export function guardarFilaDb(f: Fila, ahora: Date): void {
   if (f.proximo) extra.proximo = f.proximo;
   if (f.rendida) extra.rendida = true;
   if (f.resondeos !== undefined) extra.resondeos = f.resondeos;
+  if (f.republicaciones !== undefined) extra.republicaciones = f.republicaciones;
   if (f.urlCaida) extra.urlCaida = true;
   const children = Object.keys(extra).length ? JSON.stringify(extra) : null;
   openDb().prepare(

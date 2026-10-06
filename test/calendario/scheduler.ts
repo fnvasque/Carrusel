@@ -585,17 +585,39 @@ await checkAsync("tick: R32 — status siempre FINISHED con un post manual de ca
 await checkAsync("tick: un error de red al crear el contenedor no gana la ventana de +30 min de R29 (solo URL caída)", async () => {
   const w = mundo([programada()]);
   const { GraphError } = await import("../../src/meta/client.ts");
-  w.meta.fallar = (c) => c.metodo === "post" ? { error: new GraphError("No pude conectar con la API de Meta (ECONNRESET).") } : undefined;
   const hora = w.reloj.t;
+  const intentosEn: number[] = [];
+  w.meta.fallar = (c) => {
+    if (c.metodo !== "post") return undefined;
+    if (c.path.endsWith("/media")) intentosEn.push(w.reloj.t);
+    return { error: new GraphError("No pude conectar con la API de Meta (ECONNRESET).") };
+  };
   for (w.reloj.t = hora + 13 * 60_000; w.reloj.t <= hora + 35 * 60_000; w.reloj.t += 60_000) await tick(w.deps);
-  const intentos = w.meta.llamadas;
-  assert.ok(intentos >= 1 && intentos <= 3, `intentos ${intentos}`);
+  assert.ok(intentosEn.length >= 1, "hubo al menos el intento original");
+  const tardios = intentosEn.filter((t) => t > hora + 15 * 60_000).map((t) => `+${(t - hora) / 60_000} min`);
+  assert.deepEqual(tardios, [], "ningún intento de crear contenedor después de hora + 15 min");
   const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
   assert.equal(f.paso, "fallido");
   assert.match(f.error ?? "", /sin tiempo|reintentos/);
-  // Ningún intento pasada la ventana de 15 min.
-  assert.ok(w.reloj.t > hora + 15 * 60_000);
   assert.equal(f.urlCaida, undefined);
+});
+
+await checkAsync("tick: R32 — media_publish siempre ambiguo, status siempre FINISHED y sin candidatos → exactamente 2 media_publish, sin importar los ticks", async () => {
+  const w = mundo([programada()]);
+  const { GraphError } = await import("../../src/meta/client.ts");
+  let publishes = 0;
+  w.meta.fallar = (c) => {
+    if (c.metodo !== "post" || !c.path.endsWith("/media_publish")) return undefined;
+    publishes++;
+    return { error: new GraphError("No pude conectar con la API de Meta (ETIMEDOUT).") };
+  };
+  for (let i = 0; i < 6 * 60; i++) { await tick(w.deps); w.reloj.t += 60_000; }
+  assert.equal(publishes, 2, "el original y un solo republish");
+  assert.equal(w.meta.publicaciones, 0);
+  const f = w.filas.get(`2026-10-12/${lunes.id}|post`)!;
+  assert.equal(f.paso, "publicando");
+  assert.equal(f.republicaciones, 1);
+  assert.ok(w.avisos.some((a) => /no vuelvo a publicar/.test(a)), "avisa al admin");
 });
 
 // --- registro.ts y filas en SQLite (con KB_DIR temporal) ---
