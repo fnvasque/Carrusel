@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Render del calendario en el Mac: corre `npm run calendario:render` cada hora y al
+  cargarse (si el Mac estaba dormido, launchd lo corre al despertar). No se instala a
+  mano: scripts/calendario-install-mac.sh reemplaza __REPO__ por la ruta del repo y lo
+  copia a ~/Library/LaunchAgents/.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>es.ia.calendario-render</string>
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>mkdir -p output/calendario &amp;&amp; npm run calendario:render &gt;&gt; output/calendario/render.log 2&gt;&amp;1</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PLAYWRIGHT_CHROMIUM_EXECUTABLE</key>
+    <string>__CHROMIUM__</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/tmp/es.ia.calendario-render.out</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/es.ia.calendario-render.err</string>
+</dict>
+</plist>
