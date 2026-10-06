@@ -6,6 +6,8 @@
 let passed = 0;
 let failed = 0;
 const pending: Promise<void>[] = [];
+/** Cola global: los checks async corren en serie (KB_DIR y SQLite son globales del proceso). */
+let cola: Promise<void> = Promise.resolve();
 
 export function check(name: string, fn: () => void): void {
   try {
@@ -18,9 +20,9 @@ export function check(name: string, fn: () => void): void {
   }
 }
 
-/** Igual que `check`, para casos async. Se registra y `done()` lo espera. */
+/** Igual que `check`, para casos async. Corre en serie y en orden de registro; `done()` lo espera. */
 export async function checkAsync(name: string, fn: () => Promise<void>): Promise<void> {
-  const p = (async () => {
+  const p = cola.then(async () => {
     try {
       await fn();
       passed++;
@@ -29,7 +31,8 @@ export async function checkAsync(name: string, fn: () => Promise<void>): Promise
       failed++;
       console.error("✗", name, "—", e instanceof Error ? e.message : e);
     }
-  })();
+  });
+  cola = p;
   pending.push(p);
   await p;
 }
