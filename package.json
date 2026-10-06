@@ -13,7 +13,7 @@
     "record": "tsx src/score/record.ts",
     "calibrate": "tsx src/score/calibrate.ts",
     "typecheck": "tsc --noEmit",
-    "test:reel": "tsx test/layout-bounds.ts && tsx test/reel-runtime.ts && tsx test/reel-capture.ts && tsx test/calendario/qa-media.ts",
+    "test:reel": "tsx test/layout-bounds.ts && tsx test/reel-runtime.ts && tsx test/reel-capture.ts && tsx test/calendario/qa-media.ts && tsx test/adversarial-media/index.ts",
     "test": "tsx test/smoke.ts && tsx test/kb.ts && tsx test/insights.ts && tsx test/calendario.ts && tsx test/adversarial/index.ts",
     "kb:add": "tsx src/kb/cli.ts add",
     "kb:ask": "tsx src/kb/cli.ts ask",

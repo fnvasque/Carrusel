@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { check } from "../_check.ts";
-import { luminanciaMedia, hayTextoEnZona, tiemposDeLectura } from "../../src/calendario/qa.ts";
+import { luminanciaMedia, hayTextoEnZona, tiemposDeLectura, esPantallaNegra } from "../../src/calendario/qa.ts";
 import { Hook } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
 
@@ -63,4 +63,14 @@ check("tiemposDeLectura: texto corto con tiempo de sobra pasa; el mínimo tambi�
 
 check("tiemposDeLectura: sin duraciones usa las del motor", () => {
   assert.deepEqual(tiemposDeLectura(spec("Hola mundo"), 3, 2), []);
+});
+
+check("R16: negro puro y #06060A liso son pantalla negra; pieza lima con texto claro no", () => {
+  assert.equal(esPantallaNegra(new Uint8Array(1000).fill(0)), true);
+  assert.equal(esPantallaNegra(new Uint8Array(1000).fill(6)), true);
+  const g = new Uint8Array(1000).fill(6);
+  for (let i = 0; i < 100; i++) g[i] = 255; // 10 % de píxeles claros: media ≈ 12 %
+  assert.equal(esPantallaNegra(g), false);
+  const tenue = new Uint8Array(1000).fill(40); // media 15 % pero sin píxeles claros
+  assert.equal(esPantallaNegra(tenue), true);
 });

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { specDurations } from "../reel/timing.ts";
+import { specDurations, specTiming } from "../reel/timing.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 
 /**
@@ -95,35 +95,91 @@ export function tiemposDeLectura(spec: CarouselSpec, wps: number, minS: number, 
   return out;
 }
 
+const TIMEOUT_MS = 60_000;
+
+interface Ejecucion {
+  status: number | null;
+  stdout: Buffer;
+  stderr: string;
+}
+
+/** Ejecuta ffmpeg/ffprobe con timeout de 60 s; lanza un Error en español si falta la herramienta o vence. */
+function ejecutar(cmd: "ffmpeg" | "ffprobe", args: string[], maxBuffer = 10 * 1024 * 1024): Ejecucion {
+  const r = spawnSync(cmd, args, { maxBuffer, timeout: TIMEOUT_MS });
+  const err = r.error as NodeJS.ErrnoException | undefined;
+  if (err?.code === "ENOENT") throw new Error(`falta ${cmd}/ffmpeg: no se encontró ${cmd} en el PATH`);
+  if (err?.code === "ETIMEDOUT" || r.signal === "SIGTERM") throw new Error(`${cmd} tardó más de ${TIMEOUT_MS / 1000} s y se canceló`);
+  if (err) throw new Error(`no se pudo ejecutar ${cmd}: ${err.message}`);
+  return { status: r.status, stdout: r.stdout as Buffer, stderr: String(r.stderr ?? "") };
+}
+
 /** Un cuadro (imagen o primer cuadro de un video) escalado a width×height en grises. Lanza si no se puede leer. */
 export async function grisDeImagen(path: string, width: number, height: number): Promise<Uint8Array> {
   if (!existsSync(path)) throw new Error(`no existe el archivo ${path}`);
-  const r = spawnSync("ffmpeg", ["-v", "error", "-i", path, "-vf", `scale=${width}:${height},format=gray`, "-frames:v", "1", "-f", "rawvideo", "-"], {
-    maxBuffer: width * height + 1024,
-  });
-  if (r.error) throw new Error(`no se pudo ejecutar ffmpeg: ${r.error.message}`);
-  const buf = r.stdout as Buffer;
+  const r = ejecutar("ffmpeg", ["-v", "error", "-i", path, "-vf", `scale=${width}:${height},format=gray`, "-frames:v", "1", "-f", "rawvideo", "-"], width * height + 1024);
+  const buf = r.stdout;
   if (r.status !== 0 || buf.length !== width * height) throw new Error(`no se pudo leer un cuadro de ${path}`);
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.length);
 }
 
-/** ¿El MP4 tiene al menos una pista de audio? (false si no existe o está dañado). */
-export async function tieneAudio(mp4: string): Promise<boolean> {
+/** ¿El MP4 tiene pista de audio? Lanza si falta ffprobe o vence el tiempo. */
+function hayPistaAudio(mp4: string): boolean {
   if (!existsSync(mp4)) return false;
-  const r = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", mp4], { encoding: "utf8" });
-  return r.status === 0 && r.stdout.trim().length > 0;
+  const r = ejecutar("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", mp4]);
+  return r.status === 0 && r.stdout.toString("utf8").trim().length > 0;
+}
+
+/** ¿El MP4 tiene al menos una pista de audio? (false si no existe, está dañado o falta ffprobe). */
+export async function tieneAudio(mp4: string): Promise<boolean> {
+  try {
+    return hayPistaAudio(mp4);
+  } catch {
+    return false;
+  }
+}
+
+/** Duración real (s) del contenedor según ffprobe; undefined si no se puede leer. */
+function duracionReal(mp4: string): number | undefined {
+  const r = ejecutar("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp4]);
+  const n = Number(r.stdout.toString("utf8").trim());
+  return r.status === 0 && Number.isFinite(n) ? n : undefined;
+}
+
+/** Decodifica el MP4 entero; devuelve la salida de error de ffmpeg ("" si está sano). */
+function erroresDeDecodificacion(mp4: string): string {
+  const r = ejecutar("ffmpeg", ["-v", "error", "-i", mp4, "-f", "null", "-"]);
+  return (r.stderr.trim() || (r.status === 0 ? "" : `ffmpeg terminó con código ${r.status}`)).split("\n")[0];
 }
 
 /** Volumen máximo (dB) de la pista de audio; -Infinity si es silencio absoluto; undefined si no se pudo medir. */
 function volumenMaximo(mp4: string): number | undefined {
-  const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-i", mp4, "-vn", "-af", "volumedetect", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
-  const m = /max_volume:\s*(-?inf|-?[\d.]+)\s*dB/.exec(r.stderr ?? "");
+  const r = ejecutar("ffmpeg", ["-hide_banner", "-nostats", "-i", mp4, "-vn", "-af", "volumedetect", "-f", "null", "-"]);
+  const m = /max_volume:\s*(-?inf|-?[\d.]+)\s*dB/.exec(r.stderr);
   if (!m) return undefined;
   return /inf/.test(m[1]) ? -Infinity : Number(m[1]);
 }
 
-const LUMINANCIA_MIN = 0.12;
+/**
+ * "Pantalla negra" (R16): la spec pedía luminancia media > 12 %, pero el fondo
+ * de marca #06060A da ≈ 2,4 % y las piezas lima reales quedan entre 5 y 15 %.
+ * Se sigue la intención ("no es una pantalla negra"): pasa si la luminancia
+ * media supera LUMINANCIA_MIN Y al menos FRACCION_CLARA_MIN de los píxeles
+ * tiene luma > 50 %. Un MP4 negro puro (0 %) sigue fallando.
+ */
+export const LUMINANCIA_MIN = 0.03;
+export const FRACCION_CLARA_MIN = 0.005;
+
+/** ¿El cuadro es una pantalla negra según R16? */
+export function esPantallaNegra(gray: Uint8Array): boolean {
+  if (luminanciaMedia(gray) <= LUMINANCIA_MIN) return true;
+  let claros = 0;
+  for (let i = 0; i < gray.length; i++) if (gray[i] > 127) claros++;
+  return claros / gray.length < FRACCION_CLARA_MIN;
+}
+
 const AUDIO_MUDO_DB = -60;
+/** Tolerancia (s) entre la duración real del MP4 y la esperada por el motor. */
+const DURACION_TOLERANCIA_S = 0.5;
 const ANCHO = 540;
 const ALTO = 960;
 
@@ -135,11 +191,17 @@ function razon(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** Motivos de un cuadro: pantalla negra y (opcional) falta de texto en zona segura. */
-function motivosDeCuadro(gray: Uint8Array, w: number, h: number, que: string, conTexto: boolean): string[] {
+/** Franja vertical de texto: 15-75 % en 9:16 (reel, story); 10-90 % en portadas 4:5 (R18). */
+function franja(w: number, h: number): [number, number] {
+  return h / w > 1.5 ? [0.15, 0.75] : [0.1, 0.9];
+}
+
+/** Motivos de un cuadro: pantalla negra y falta de texto en la franja segura. */
+function motivosDeCuadro(gray: Uint8Array, w: number, h: number, que: string): string[] {
   const m: string[] = [];
-  if (luminanciaMedia(gray) <= LUMINANCIA_MIN) m.push(`${que} es una pantalla negra (luminancia media ≤ 12 %).`);
-  if (conTexto && !hayTextoEnZona(gray, w, h)) m.push(`No se detecta texto en la zona segura (15-75 % vertical) de ${que}.`);
+  if (esPantallaNegra(gray)) m.push(`${que} es una pantalla negra.`);
+  const [d, hasta] = franja(w, h);
+  if (!hayTextoEnZona(gray, w, h, d, hasta)) m.push(`No se detecta texto en la zona segura (${Math.round(d * 100)}-${Math.round(hasta * 100)} % vertical) de ${que}.`);
   return m;
 }
 
@@ -152,24 +214,45 @@ export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, pue
   if (!existsSync(mp4)) return resultado([`No existe el reel ${mp4}.`]);
   try {
     const frame0 = await grisDeImagen(mp4, ANCHO, ALTO);
-    motivos.push(...motivosDeCuadro(frame0, ANCHO, ALTO, "El cuadro 0 del reel", false));
+    motivos.push(...motivosDeCuadro(frame0, ANCHO, ALTO, "El cuadro 0 del reel"));
   } catch (e) {
     motivos.push(`No se pudo leer el cuadro 0 del reel (¿archivo truncado o dañado?): ${razon(e)}`);
   }
   try {
     const portada = await grisDeImagen(cover, ANCHO, ALTO);
-    motivos.push(...motivosDeCuadro(portada, ANCHO, ALTO, "La portada", true));
+    motivos.push(...motivosDeCuadro(portada, ANCHO, ALTO, "La portada"));
   } catch (e) {
     motivos.push(`No se pudo leer la portada: ${razon(e)}`);
   }
-  if (!(await tieneAudio(mp4))) {
-    motivos.push("El reel está sin audio (no tiene pista de audio).");
-  } else {
-    const vol = volumenMaximo(mp4);
-    if (vol === undefined) motivos.push("No se pudo medir el volumen del audio del reel.");
-    else if (vol < AUDIO_MUDO_DB) motivos.push(`Hay audio mudo: la pista está en silencio (volumen máximo ${Number.isFinite(vol) ? vol.toFixed(1) : "-inf"} dB < ${AUDIO_MUDO_DB} dB).`);
+  // Integridad: decodificación completa y duración real frente a la esperada.
+  try {
+    const dano = erroresDeDecodificacion(mp4);
+    if (dano) {
+      motivos.push(`Archivo dañado: ffmpeg informa errores al decodificar el reel (${dano}).`);
+    }
+    const real = duracionReal(mp4);
+    const esperada = specTiming(spec).total;
+    if (real === undefined) {
+      motivos.push("Archivo dañado: no se pudo leer la duración del reel.");
+    } else if (Math.abs(real - esperada) > DURACION_TOLERANCIA_S) {
+      motivos.push(`El reel dura ${real.toFixed(1)} s y debía durar ${esperada.toFixed(1)} s (± ${DURACION_TOLERANCIA_S} s): archivo incompleto o con duración distinta.`);
+    }
+  } catch (e) {
+    motivos.push(`No se pudo comprobar la integridad del reel: ${razon(e)}`);
   }
   try {
+    if (!hayPistaAudio(mp4)) {
+      motivos.push("El reel está sin audio (no tiene pista de audio).");
+    } else {
+      const vol = volumenMaximo(mp4);
+      if (vol === undefined) motivos.push("No se pudo medir el volumen del audio del reel.");
+      else if (vol < AUDIO_MUDO_DB) motivos.push(`Hay audio mudo: la pista está en silencio (volumen máximo ${Number.isFinite(vol) ? vol.toFixed(1) : "-inf"} dB < ${AUDIO_MUDO_DB} dB).`);
+    }
+  } catch (e) {
+    motivos.push(`No se pudo comprobar el audio del reel: ${razon(e)}`);
+  }
+  try {
+    // La duración real frente a la esperada ya se reportó arriba (si es menor, los textos finales no se ven).
     motivos.push(...tiemposDeLectura(spec, puerta.lecturaPalabrasPorSegundo, puerta.lecturaMinSegundos));
   } catch (e) {
     motivos.push(`No se pudieron comprobar los tiempos de lectura: ${razon(e)}`);
@@ -177,12 +260,15 @@ export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, pue
   return resultado(motivos);
 }
 
-/** QA de una imagen (portada de carrusel o story): no negra y con texto en zona segura. Nunca lanza. */
+/**
+ * QA de una imagen (portada de carrusel o story): no negra y con texto en la
+ * franja segura (15-75 % en 9:16; 10-90 % en 4:5). Nunca lanza.
+ */
 export async function qaImagen(jpg: string, width: number, height: number): Promise<QaResultado> {
   if (!existsSync(jpg)) return resultado([`No existe la imagen ${jpg}.`]);
   try {
     const gray = await grisDeImagen(jpg, width, height);
-    return resultado(motivosDeCuadro(gray, width, height, "La imagen", true));
+    return resultado(motivosDeCuadro(gray, width, height, "La imagen"));
   } catch (e) {
     return resultado([`No se pudo leer la imagen (¿archivo truncado o dañado?): ${razon(e)}`]);
   }
