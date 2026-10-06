@@ -1,9 +1,11 @@
 /**
- * Arnés mínimo de tests (mismo estilo que test/smoke.ts): cada `check` cuenta
- * y `done()` imprime los totales y sale con código 1 si algo falló.
+ * Arnés mínimo de tests offline (mismo estilo que test/smoke.ts): `check` para
+ * casos síncronos, `checkAsync` para async y `done()` al final, que espera los
+ * pendientes, imprime el resumen y sale con código ≠ 0 si algo falló.
  */
 let passed = 0;
 let failed = 0;
+const pending: Promise<void>[] = [];
 
 export function check(name: string, fn: () => void): void {
   try {
@@ -16,19 +18,24 @@ export function check(name: string, fn: () => void): void {
   }
 }
 
-/** Igual que `check`, para casos async (se esperan con `await`). */
+/** Igual que `check`, para casos async. Se registra y `done()` lo espera. */
 export async function checkAsync(name: string, fn: () => Promise<void>): Promise<void> {
-  try {
-    await fn();
-    passed++;
-    console.log("✓", name);
-  } catch (e) {
-    failed++;
-    console.error("✗", name, "—", e instanceof Error ? e.message : e);
-  }
+  const p = (async () => {
+    try {
+      await fn();
+      passed++;
+      console.log("✓", name);
+    } catch (e) {
+      failed++;
+      console.error("✗", name, "—", e instanceof Error ? e.message : e);
+    }
+  })();
+  pending.push(p);
+  await p;
 }
 
-export function done(): void {
-  console.log(`\n${passed} ok, ${failed} fallidos`);
+export async function done(): Promise<void> {
+  await Promise.all(pending);
+  console.log(`\n${passed} ok, ${failed} fallos`);
   if (failed > 0) process.exit(1);
 }

@@ -9,4 +9,4 @@ for (const f of readdirSync(dir).filter((n) => n.endsWith(".ts") && n !== "index
   await import(pathToFileURL(join(dir, f)).href);
 }
 
-done();
+await done();
