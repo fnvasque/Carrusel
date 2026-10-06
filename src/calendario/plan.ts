@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { kbDir } from "../kb/store.ts";
+import { fechaValida } from "./time.ts";
 
 /**
  * Tipos y lectura del calendario (`<base>/_calendario/<semana>/`). Un escritor por archivo:
@@ -74,20 +75,13 @@ export type SemanaLeida = {
   estado: Record<string, EstadoEntry>;
 };
 
-/** Fecha AAAA-MM-DD real (ida y vuelta por Date.UTC, como `validDate` de validar.mjs). */
-function fechaValida(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const d = new Date(`${s}T00:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
-}
-
 const dia = z.string().refine(fechaValida, "fecha inválida (AAAA-MM-DD)");
 const ESTADOS = ["planificado", "renderizado", "programado", "publicado", "saltado", "fallido"] as const;
 const estadoEnum = z.enum(ESTADOS);
 
 const PiezaSchema = z.object({
-  // El id es nombre de carpeta y segmento de URL: nada de barras ni puntos.
-  id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, "id inválido (letras, números, - y _)"),
+  // El id es nombre de carpeta y segmento de URL (contrato de las tareas 5 y 9).
+  id: z.string().regex(/^[a-z0-9-]{3,80}$/, "id inválido (minúsculas, números y -, 3 a 80 caracteres)"),
   dia,
   hora: z.string().regex(/^([01]\d|2[0-3]):(00|30)$/, "hora inválida (HH:00 o HH:30)"),
   formato: z.enum(["reel", "carrusel"]),

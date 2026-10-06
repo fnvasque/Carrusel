@@ -33,13 +33,20 @@ function offsetMinutes(at: Date, zone: string): number {
   return Math.round((asUtc - Math.floor(at.getTime() / 60_000) * 60_000) / 60_000);
 }
 
+/** Fecha AAAA-MM-DD real (ida y vuelta por Date.UTC, como `validDate` de validar.mjs). */
+export function fechaValida(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
 /**
  * Instante UTC de una fecha y hora locales. Si la hora se repite (fin del horario
  * de verano) se toma la primera; si no existe (inicio), la misma hora de reloj
  * después del salto. Función pura.
  */
 export function zonedToUtc(dia: string, hora: string, zone = ZONA): Date {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || !/^\d{2}:\d{2}$/.test(hora)) throw new Error(`Fecha u hora inválida: ${dia} ${hora}`);
+  if (!fechaValida(dia) || !/^\d{2}:\d{2}$/.test(hora)) throw new Error(`Fecha u hora inválida: ${dia} ${hora}`);
   const [y, m, d] = dia.split("-").map(Number);
   const [hh, mm] = hora.split(":").map(Number);
   const guess = Date.UTC(y, m - 1, d, hh, mm);

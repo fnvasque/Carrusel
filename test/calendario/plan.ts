@@ -65,7 +65,12 @@ check("parsePlan rechaza ids repetidos y nombra el id", () => {
   );
 });
 check("parsePlan rechaza ids que escapan de la carpeta", () => {
-  for (const id of ["../x", "a/b", "", ".."]) assert.throws(() => parsePlan(plan([pieza({ id })])), /id/);
+  for (const id of ["../x", "a/b", "", "..", "Lun", "a_b", "ab", "a".repeat(81)]) {
+    assert.throws(() => parsePlan(plan([pieza({ id })])), /id/, id);
+  }
+});
+check("parsePlan acepta ids en los límites de 3 y 80 caracteres", () => {
+  for (const id of ["abc", "a-1", "a".repeat(80)]) assert.equal(parsePlan(plan([pieza({ id })])).piezas[0].id, id);
 });
 check("parsePlan rechaza JSON malformado con mensaje claro", () => {
   assert.throws(() => parsePlan("{no es json"), /JSON/);

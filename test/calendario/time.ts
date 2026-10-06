@@ -51,6 +51,8 @@ check("zonedToUtc: valores exactos en los cambios de 2026 y 2027", () => {
 check("zonedToUtc rechaza formatos inválidos", () => {
   assert.throws(() => zonedToUtc("2026-10-12", "7:30"));
   assert.throws(() => zonedToUtc("12/10/2026", "07:30"));
+  assert.throws(() => zonedToUtc("2026-02-30", "07:30"), /inválida/);
+  assert.throws(() => zonedToUtc("2026-13-01", "07:30"), /inválida/);
 });
 check("weekMonday: medianoche local exacta de un lunes abre la semana nueva", () => {
   const lunes0 = zonedToUtc("2026-10-12", "00:00");
