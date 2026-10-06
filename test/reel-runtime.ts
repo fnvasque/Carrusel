@@ -680,6 +680,38 @@ try {
     await r.close();
     console.log(`✓ ritmo ensenar: hook intacto, entradas 1.3× más lentas, bullets cada 1.8 s con su ✓, barra en sincronía (${t.total}s)`);
   }
+
+  // Logo tardío (logoEnCuadro0: false): el wordmark de la escena 0 está oculto
+  // hasta los 3 s y entra en 0.4 s; por defecto se ve desde el cuadro 0.
+  {
+    const logoSpec = (late: boolean) =>
+      ({
+        name: "_logo-tardio",
+        slides: [
+          { template: Hook, props: { title: "Logo después del hook", highlight: "Logo", ...(late ? { logoEnCuadro0: false } : {}) } },
+          { template: Hook, props: { title: "Segunda escena del reel", highlight: "escena", ...(late ? { logoEnCuadro0: false } : {}) } },
+        ],
+      }) as unknown as CarouselSpec;
+    const logoAt = (p: Page, t: number) =>
+      p.evaluate((x) => {
+        (window as any).__reel.seek(x);
+        const logo = document.querySelector('[data-scene="0"] [data-brand="logo"]') as HTMLElement;
+        return { opacity: Number(getComputedStyle(logo).opacity), late: logo.getAttribute("data-anim") === "late" };
+      }, t);
+    const { page: d } = await open(browser, logoSpec(false));
+    const d0 = await logoAt(d, 0);
+    assert.deepEqual(d0, { opacity: 1, late: false }, "por defecto, wordmark visible en el cuadro 0");
+    await d.close();
+    const { page: l } = await open(browser, logoSpec(true));
+    await hookGoals(l, "logo tardío");
+    for (const t of [0, 1.5, 2.95]) assert.equal((await logoAt(l, t)).opacity, 0, `logo tardío: oculto a los ${t} s`);
+    const mid = (await logoAt(l, 3.2)).opacity;
+    assert.ok(mid > 0 && mid < 1, `logo tardío: entrando a los 3.2 s (${mid})`);
+    assert.equal((await logoAt(l, 3.45)).opacity, 1, "logo tardío: completo a los 3.4 s");
+    assert.equal((await logoAt(l, 0)).opacity, 0, "logo tardío: seek hacia atrás lo vuelve a ocultar");
+    await l.close();
+    console.log("✓ logo tardío: wordmark oculto hasta 3 s, entra en 0.4 s; por defecto desde el cuadro 0");
+  }
 } finally {
   await browser.close();
 }
