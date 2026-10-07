@@ -78,9 +78,15 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    que la pieza no explica**. Si el término está explicado en alguna slide, o
    es de uso común para la audiencia (ChatGPT, WhatsApp, PDF), no bloquea.
 4. La respuesta 4 es compatible con la emoción declarada (`emocion`).
-5. La respuesta 5 coincide con la señal objetivo (`guardados` → guardar,
-   `envios` → enviárselo a alguien, `comentarios` → comentar, `retencion` →
-   verlo hasta el final y guardar o enviar; "nada" nunca pasa).
+5. La respuesta 5 es una acción concreta: guardar, enviárselo a alguien o
+   comentar. "Nada" nunca pasa. Si la acción no es la de la señal objetivo
+   (`guardados` → guardar, `envios` → enviar, `comentarios` → comentar,
+   `retencion` → verlo hasta el final y guardar o enviar), **no bloquea**:
+   regístralo como `NB` con la regla `completo P5: acción distinta a la señal`
+   o `con prisa P5: acción distinta a la señal`. Con la cuenta chica y sin
+   métricas, lo que el lector *cree* que haría vale menos que lo que mide el
+   bucle; el desajuste queda anotado para compararlo con los datos reales
+   (decisión del usuario, 2026-10-07).
 6. La respuesta 6 no señala una **contradicción**, una **promesa** que la pieza
    no cumple, ni que **no pudo seguir los pasos** para obtener el entregable.
    Cualquier otra duda (quería más detalle, un ejemplo extra) no bloquea.
@@ -107,6 +113,7 @@ Reglas que puedes citar (con dónde lo explica la pieza cuando corresponda):
 - `completo P3: explicado en la pieza (slide N: …)`
 - `completo P3: uso común (…)`
 - `completo P6: no es contradicción, promesa incumplida ni paso imposible`
+- `completo P5: acción distinta a la señal`, `con prisa P5: acción distinta a la señal`
 - `con prisa P3: no bloquea`, `con prisa P4: no bloquea`, `con prisa P6: no bloquea`
 
 Una entrada por línea (o separadas por `; `). El validador rechaza un `NB` mal
