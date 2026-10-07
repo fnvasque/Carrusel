@@ -16,7 +16,7 @@ export interface PromptProps extends BaseSlideProps {
 
 /**
  * Rol — Truco / Prompt (pilar Prompt). Ventana de terminal/chat: barra superior
- * con 3 puntos y título mono ("copia este prompt"), texto mono y cursor lima al
+ * con 3 puntos y título mono ("Copia este prompt") y botón "Copiar", texto mono y cursor lima al
  * final (`data-anim="caret"`). Muy guardable.
  */
 export function Prompt({ heading, prompt, note, accent, format = "post", ...base }: PromptProps) {
@@ -87,8 +87,9 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
             {[theme.colors.pink, theme.colors.violet, lime].map((c) => (
               <span key={c} style={{ width: 20, height: 20, borderRadius: "50%", backgroundColor: c }} />
             ))}
-            <span style={{ marginLeft: 18, ...monoText, fontSize: 26, letterSpacing: "0.08em", color: theme.colors.textMuted }}>
-              copia-este-prompt
+            {/* Texto normal, no un nombre de archivo: "copia-este-prompt" le parecía código al lector no técnico. */}
+            <span style={{ marginLeft: 18, ...monoText, fontSize: 26, letterSpacing: "0.04em", color: theme.colors.textMuted }}>
+              Copia este prompt
             </span>
             <span
               style={{

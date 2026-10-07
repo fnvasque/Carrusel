@@ -845,11 +845,11 @@ check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, no
   b.slides[5].props.handle = "ia.punto.es";
   b.slides[5].props.cta = "Guárdalo 🔖";
   const { completo, conPrisa } = textosLector(b, "carrusel");
-  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "copia-este-prompt", "Copiar", "Desliza →"]) {
+  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "Copia este prompt", "Copiar", "Desliza →"]) {
     assert.ok(completo.includes(x), `falta ${JSON.stringify(x)} en:\n${completo}`);
   }
   assert.ok(!completo.includes("🔖"));
-  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "copia-este-prompt"]) assert.ok(!conPrisa.includes(x), x);
+  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "Copia este prompt"]) assert.ok(!conPrisa.includes(x), x);
   assert.ok(!textosLector(b, "reel").completo.includes("Desliza"), "en reel no hay Desliza");
   b.slides[0].props.swipe = false;
   assert.ok(!textosLector(b, "carrusel").completo.includes("Desliza"));
@@ -1050,4 +1050,49 @@ check("calendario/validar: el Cta exige cta explícito y coherente con la señal
 check("calendario/validar: INSTRUCCIONES.md trae los textos sugeridos de la pastilla por señal", () => {
   const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
   for (const x of ['"Guárdalo"', '"Envíaselo a alguien"', '"Comenta PALABRA"', "sin @: el motor la agrega"]) assert.ok(md.includes(x), x);
+});
+
+// --- 2026-10-07 (2): ventana del Prompt legible y notas NB del lector frío ---
+
+check("calendario/validar (lector): la ventana del Prompt dice \"Copia este prompt\" (no un nombre de archivo con guiones)", () => {
+  for (const format of ["post", "reel"] as const) {
+    const html = textoRender(createElement(Prompt, { heading: "Pega esto", prompt: "Resume esto.", format }));
+    assert.ok(html.includes("Copia este prompt"), format);
+    assert.ok(!html.includes("copia-este-prompt"), format);
+  }
+  const { completo } = textosLector(EJEMPLO.borrador);
+  assert.ok(completo.includes("Copia este prompt") && !completo.includes("copia-este-prompt"), completo);
+});
+
+check("calendario/validar: lectorFrio.notas — cada duda no bloqueante en formato NB: «cita» → regla", () => {
+  const conNotas = (notas: unknown) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
+  for (const ok of [
+    "ambos entendieron a la primera",
+    "NB: «no sé qué es un cuaderno» → completo P3: explicado en el Step 1",
+    "v1: no vio el prompt; se movió al título.\nNB: «¿qué es NotebookLM?» → completo P3: explicado en la slide 3\nNB: «me faltó saber cuánto dura» → con prisa P6: no bloquea",
+    "NB: «quería más ejemplos» → completo P6: no es contradicción, promesa incumplida ni paso imposible; NB: «ChatGPT» → completo P3: uso común",
+  ]) assert.deepEqual(conNotas(ok), [], ok);
+  for (const malo of [
+    "NB: no sé qué es un cuaderno → completo P3: explicado",
+    "NB: «no sé qué es un cuaderno» →",
+    "NB: «no sé qué es un cuaderno» completo P3",
+    "NB: «» → completo P3: uso común",
+    "el completo dudó de «cuaderno» (no bloquea)",
+    "duda no bloqueante: cuaderno",
+  ]) assert.ok(conNotas(malo).some((e: string) => /NB: «cita» → regla/.test(e)), `${malo}: ${JSON.stringify(conNotas(malo))}`);
+  assert.ok(conNotas(3).length > 0, "notas debe ser texto");
+  assertNone(validarPieza(EJEMPLO.plan.piezas[0], { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+  assert.match(EJEMPLO.plan.piezas[0].lectorFrio.notas, /NB: «[^«»]+» → \S/);
+});
+
+check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo de las preguntas 3 y 6 del lector completo, con cita textual", () => {
+  const lf = readFileSync(join(DIR, "lector-frio.md"), "utf8");
+  const ins = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const md of [lf, ins]) {
+    assert.ok(md.includes("NB: «cita» → regla"), "formato NB");
+    assert.ok(/textual/.test(md), "cita textual");
+    assert.ok(/que la pieza no explica/.test(md), "regla de la 3");
+    assert.ok(/contradicción/.test(md) && /promesa/.test(md), "regla de la 6");
+  }
+  assert.ok(!lf.includes("copia-este-prompt"));
 });

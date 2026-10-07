@@ -252,9 +252,11 @@ uno "con prisa" que recibe lo que se ve de un vistazo: títulos con su
 etiquetas y valor + `label` del dato (layer-cake). `source` no entra en
 ninguno. El texto y el mensaje de cada lector los genera
 `node _calendario/validar.mjs --lector <semana> <id>`. Pasa si, en el lector
-completo, (1) coincide con el tema, (2) nombra el entregable, (3) está vacío o
-solo cita el término permitido, (4) es compatible con la emoción declarada,
-(5) coincide con la señal objetivo y (6) está vacío; en el lector con prisa
+completo, (1) coincide con el tema, (2) nombra el entregable, (3) no nombra
+una palabra que no entendió y que la pieza no explica, (4) es compatible con la
+emoción declarada, (5) coincide con la señal objetivo y (6) no señala una
+contradicción, una promesa incumplida ni pasos que no pudo seguir (cada duda
+declarada no bloqueante va en `notas` como `NB: «cita» → regla`); en el lector con prisa
 cuentan solo (1), (2) y (5), y sus respuestas 3, 4 y 6 se anotan en `notas` sin
 bloquear. Si no, reescritura hasta `reescriturasMax` y luego
 hueco vacío. Resultado y notas de cada intento quedan en `plan.json`
@@ -275,6 +277,18 @@ hueco vacío. Resultado y notas de cada intento quedan en `plan.json`
 > `validar.mjs <semana>` comprueba que existan las rutas de `origen.fichas` y
 > `origen.referencias` (relativas a la raíz de la base): una pieza publicada
 > citaba una ficha inexistente.
+
+> **Nota 2026-10-07 (2) — criterio del lector completo.** En la segunda corrida
+> real ninguna de las 4 piezas pasó al lector completo en 3 vueltas: exigir las
+> respuestas 3 y 6 vacías convertía cualquier duda menor en bloqueo, más allá de
+> lo que pide la pregunta 6 ("¿algo te confundió, se contradijo o prometió algo
+> que no llegó?"). Ahora la 3 bloquea solo si el término no está explicado en la
+> pieza ni es de uso común, y la 6 solo ante una contradicción, una promesa
+> incumplida o pasos que no se pueden seguir; lo demás va a `notas` como mejora
+> opcional. Como clasifica quien escribe, cada duda no bloqueante exige cita
+> textual y regla (`NB: «cita» → regla`), y `validar.mjs` valida ese formato.
+> Además, la ventana de `Prompt` dice "Copia este prompt" en vez de
+> "copia-este-prompt": los lectores lo marcaron como jerga en 2 piezas.
 
 **4. Cómo lo corrige el bucle de feedback** (ver Mejora 3): cada parámetro de
 la tabla 2 es una variable de experimento del ritual semanal. Las piezas llevan

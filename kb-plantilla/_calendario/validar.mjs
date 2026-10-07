@@ -489,6 +489,26 @@ function erroresDeParametros(parametros, config) {
   return errs;
 }
 
+/** Una duda no bloqueante bien escrita: `NB: «cita textual» → regla` (la regla hasta el fin de línea, "; NB:" o el final). */
+const NB_RE = /\bNB: «[^«»\n]+» → (?:(?!;\s*NB\b)[^\n])*?\S(?=\s*(?:;\s*NB\b|\n|$))/g;
+
+/**
+ * `lectorFrio.notas`: texto. Cada duda que el planificador declare no
+ * bloqueante va como `NB: «cita textual del lector» → regla que aplica`
+ * (ver lector-frio.md). Validación de forma: todo "NB" debe tener esa forma y
+ * no se puede declarar algo "no bloquea"/"no bloqueante" fuera de un NB.
+ */
+function erroresDeNotas(notas) {
+  const formato = 'cada duda no bloqueante va como NB: «cita» → regla (cita textual del lector y la regla de lector-frio.md que aplica)';
+  if (typeof notas !== "string") return [`lectorFrio.notas debe ser texto; ${formato}`];
+  const total = (notas.match(/\bNB\b/g) ?? []).length;
+  const bien = notas.match(NB_RE) ?? [];
+  if (bien.length !== total) return [`lectorFrio.notas: hay ${total - bien.length} NB mal escrito(s); ${formato}`];
+  const fueraDeNB = notas.replace(NB_RE, "");
+  if (/no bloque/i.test(normalizar(fueraDeNB))) return [`lectorFrio.notas declara algo no bloqueante sin el formato; ${formato}`];
+  return [];
+}
+
 /** Errores de los campos de planificación de una pieza (los que exige la puerta). */
 function erroresDePieza(p, config) {
   const errs = [];
@@ -517,8 +537,11 @@ function erroresDePieza(p, config) {
   }
   if (!esObj(p.lectorFrio) || p.lectorFrio.resultado !== "ok") {
     errs.push(`lectorFrio.resultado debe ser exactamente "ok" (es ${q(esObj(p.lectorFrio) ? p.lectorFrio.resultado : p.lectorFrio)})`);
-  } else if (!Number.isInteger(p.lectorFrio.intentos) || p.lectorFrio.intentos < 1) {
-    errs.push(`lectorFrio.intentos ${q(p.lectorFrio.intentos)} inválido (entero ≥ 1)`);
+  } else {
+    if (!Number.isInteger(p.lectorFrio.intentos) || p.lectorFrio.intentos < 1) {
+      errs.push(`lectorFrio.intentos ${q(p.lectorFrio.intentos)} inválido (entero ≥ 1)`);
+    }
+    errs.push(...erroresDeNotas(p.lectorFrio.notas));
   }
   if (!esObj(p.origen) || ![p.origen.fichas, p.origen.referencias].every((x) => Array.isArray(x) && x.every((v) => typeof v === "string"))) {
     errs.push("origen inválido: { fichas: [...], referencias: [...] }");
@@ -737,7 +760,7 @@ export function erroresDeOrigen(pieza, raiz) {
 const ETIQUETA_MITO = "El mito";
 const ETIQUETA_REALIDAD = "La realidad";
 /** Ventana de `Prompt`: título mono y botón (`src/templates/Prompt.tsx`). */
-const VENTANA_PROMPT = ["copia-este-prompt", "Copiar"];
+const VENTANA_PROMPT = ["Copia este prompt", "Copiar"];
 /** "DESLIZA →" del Hook, solo en carrusel (`src/templates/Hook.tsx`). */
 const DESLIZA = "Desliza →";
 
@@ -1114,7 +1137,7 @@ export const EJEMPLO = {
         emocion: ["curiosidad", "alivio"],
         entregable: "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
         fraseAmigo: "hay una herramienta gratis que convierte tus documentos en un podcast para escuchar caminando",
-        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook" },
+        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)" },
         origen: { fichas: ["fuentes/2026-10-04-dm-ejemplo.md"], referencias: ["referencias/notebooklm.md"] },
         derivadoDe: null,
         caption:

@@ -591,7 +591,7 @@ Una entrada de `plan.json → piezas`:
   "lectorFrio": {
     "intentos": 2,
     "resultado": "ok",
-    "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook"
+    "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)"
   },
   "origen": {
     "fichas": [
@@ -746,12 +746,24 @@ lo que se ve de un vistazo (títulos con su `highlight`, número de paso, el
 
 Criterio (detalle en `lector-frio.md`):
 
-- **Lector completo:** las seis condiciones (1)–(6), igual de estricto que siempre.
+- **Lector completo:** las condiciones (1)–(6). La **3** bloquea solo si nombra
+  una palabra o frase que no entendió **y que la pieza no explica** (si está
+  explicada o es de uso común para la audiencia, como ChatGPT, no bloquea). La
+  **6** bloquea solo si señala una **contradicción**, una **promesa** que la
+  pieza no cumple o que no pudo seguir los pasos para obtener el entregable.
+  Las demás dudas son mejoras opcionales. La 1, 2, 4 y 5, igual que siempre.
 - **Lector con prisa:** cuentan solo (1) tema, (2) entregable y (5) acción
-  coherente con la señal. Sus respuestas 3, 4 y 6 **no bloquean**: anótalas en
-  `lectorFrio.notas` (p. ej. "con prisa (no bloquea): echó de menos cómo se
-  sube el archivo") y, si te sirven, úsalas para afinar un título, pero no
-  reescribas la pieza ni cuentes una vuelta por ellas.
+  coherente con la señal. Sus respuestas 3, 4 y 6 no bloquean; si te sirven,
+  úsalas para afinar un título, pero no reescribas la pieza ni cuentes una
+  vuelta por ellas.
+
+Tú clasificas, y tú escribiste la pieza: por **cada** duda que declares no
+bloqueante, cita **textual** la respuesta del lector y la regla de
+`lector-frio.md` que aplicas, en `lectorFrio.notas`, con el formato
+`NB: «cita» → regla` (una por línea; p. ej.
+`NB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: …)`).
+`validar.mjs` rechaza un `NB` mal escrito y un "no bloquea" fuera de un `NB`. Si
+ninguna regla la cubre, la duda bloquea.
 
 Si una condición que cuenta falla, reescribe y vuelve a lanzar ambos (con
 subagentes nuevos y una nueva salida de `--lector`). Registra el resultado en
