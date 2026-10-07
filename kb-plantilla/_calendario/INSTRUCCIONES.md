@@ -584,7 +584,7 @@ Una entrada de `plan.json → piezas`:
   "lectorFrio": {
     "intentos": 2,
     "resultado": "ok",
-    "notas": "v1: el lector con prisa no vio el prompt; se nombró en el subtítulo del Hook"
+    "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook"
   },
   "origen": {
     "fichas": [
@@ -718,12 +718,35 @@ Antes de pasar al lector frío, revisa cada pieza contra esto:
 
 ## Paso 6 — Lector frío
 
-Por cada pieza, sigue `lector-frio.md`: lanza **dos subagentes con contexto
-limpio** (el lector completo y el "con prisa"), pasándoles **solo**
-`lector-frio.md` y el texto de las slides que les corresponde. Nunca les pases
-el tema, las fuentes, el plan ni la emoción buscada. Compara sus respuestas con
-lo declarado según el criterio de paso de `lector-frio.md`. Si no pasan,
-reescribe y vuelve a lanzar ambos. Registra el resultado en
+Por cada pieza, sigue `lector-frio.md`. El texto de cada lector y el mensaje
+para cada subagente los genera el código; no los armes a mano:
+
+```bash
+node _calendario/validar.mjs --lector "$SEMANA" <id>
+```
+
+Lanza **dos subagentes con contexto limpio** (el lector completo y el "con
+prisa") y pega a cada uno su bloque `MENSAJE PARA EL SUBAGENTE …` **tal cual**,
+sin agregar nada. Ese mensaje ya trae copiado el cuestionario: nunca le pases la
+ruta de `lector-frio.md` (tendría el plan al lado), ni el tema, las fuentes, el
+plan o la emoción buscada.
+
+Qué ve cada uno: el completo, todo el texto visible de cada slide; el con prisa,
+lo que se ve de un vistazo (títulos con su `highlight`, número de paso, el
+`prompt` completo, mito y realidad con sus etiquetas, valor y `label` del dato).
+`source` no entra en ninguno.
+
+Criterio (detalle en `lector-frio.md`):
+
+- **Lector completo:** las seis condiciones (1)–(6), igual de estricto que siempre.
+- **Lector con prisa:** cuentan solo (1) tema, (2) entregable y (5) acción
+  coherente con la señal. Sus respuestas 3, 4 y 6 **no bloquean**: anótalas en
+  `lectorFrio.notas` (p. ej. "con prisa (no bloquea): echó de menos cómo se
+  sube el archivo") y, si te sirven, úsalas para afinar un título, pero no
+  reescribas la pieza ni cuentes una vuelta por ellas.
+
+Si una condición que cuenta falla, reescribe y vuelve a lanzar ambos (con
+subagentes nuevos y una nueva salida de `--lector`). Registra el resultado en
 `plan.json → lectorFrio` (`intentos`, `resultado: "ok"`, `notas`).
 
 ## Paso 7 — Validar

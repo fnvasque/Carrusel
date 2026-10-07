@@ -46,6 +46,12 @@ function nuevaBase(prefijo: string): string {
   const config = JSON.parse(readFileSync(join(PLANTILLA, "config.json"), "utf8"));
   config.audios = [AUDIO];
   writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify(config, null, 2));
+  // Las fichas y referencias que cita el ejemplo en `origen` (validar.mjs comprueba que existan).
+  const origen = EJEMPLO.plan.piezas[0].origen as { fichas: string[]; referencias: string[] };
+  for (const r of [...origen.fichas, ...origen.referencias]) {
+    mkdirSync(join(dir, r, ".."), { recursive: true });
+    writeFileSync(join(dir, r), "# ficha\n");
+  }
   process.env.KB_DIR = dir;
   return dir;
 }

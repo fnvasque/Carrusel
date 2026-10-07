@@ -12,6 +12,7 @@ import {
   contarFondosIA,
   reglasDeTexto,
   segundosEscena,
+  textosLector,
   validarBorrador,
   validarCaption,
   validarConfig,
@@ -460,11 +461,22 @@ check("calendario/validar: plan — ids repetidos y dos piezas del mismo tema �
 
 // --- semana completa (archivos) ---
 
+/** Crea en `root` (la raíz de la base) las fichas y referencias que citan las piezas en `origen`. */
+function crearOrigen(root: string, piezas: any[]): void {
+  for (const x of piezas) {
+    for (const r of [...x.origen.fichas, ...x.origen.referencias]) {
+      mkdirSync(join(root, r, ".."), { recursive: true });
+      writeFileSync(join(root, r), "# ficha\n");
+    }
+  }
+}
+
 function semanaTemporal(): { root: string; dir: string; p: any } {
   const root = mkdtempSync(join(tmpdir(), "kb-calendario-"));
   const dir = join(root, "_calendario", "2026-10-12");
   mkdirSync(dir, { recursive: true });
   const p = plan();
+  crearOrigen(root, p.piezas);
   for (const x of p.piezas) {
     const b = borrador();
     b.name = x.id;
@@ -587,6 +599,7 @@ check("calendario/validar (CLI): --self-test, semana válida → 0, semana invá
     const env = { ...process.env, CARRUSEL_DIR: join(root, "nada") };
     execFileSync("node", [join(cal, "validar.mjs"), "--self-test"], { stdio: "pipe", env });
     const p = plan();
+    crearOrigen(root, p.piezas);
     for (const x of p.piezas) {
       const b = borrador();
       b.name = x.id;
@@ -769,4 +782,129 @@ check("calendario/validar: INSTRUCCIONES.md — mix con los valores exactos, pre
   const esqueleto = JSON.parse(m[1]);
   assert.deepEqual(Object.keys(esqueleto), ["semana", "zona", "experimento", "piezas"]);
   assert.equal(esqueleto.piezas.length, 6);
+});
+
+// --- lector frío (2026-10-07): texto exacto por código y origen verificado ---
+
+/** Borrador con un mito y un dato para probar las etiquetas y el valor del Stat. */
+function borradorConMito(): any {
+  const b = clone(EJEMPLO.borrador) as any;
+  b.slides.splice(5, 0,
+    { template: "MythReality", props: { myth: "Necesitas pagar para tener un podcast", reality: "NotebookLM lo hace gratis" } },
+    { template: "MythReality", props: { myth: "Hay que saber editar audio", reality: "Lo arma solo", mythLabel: "Lo que crees", realityLabel: "Lo que pasa" } },
+    { template: "Stat", props: { value: "10 min", label: "dura el resumen", context: "en la versión corta" } },
+  );
+  return b;
+}
+
+check("calendario/validar (lector): con prisa ve el prompt completo y las etiquetas del mito", () => {
+  const { conPrisa, completo } = textosLector(borradorConMito());
+  const prompt = EJEMPLO.borrador.slides[4].props.prompt as string;
+  assert.ok(conPrisa.includes(prompt), conPrisa);
+  assert.ok(completo.includes(prompt));
+  for (const t of [conPrisa, completo]) {
+    assert.ok(t.includes("El mito: Necesitas pagar para tener un podcast"), t);
+    assert.ok(t.includes("La realidad: NotebookLM lo hace gratis"), t);
+    assert.ok(t.includes("Lo que crees: Hay que saber editar audio"), t);
+    assert.ok(t.includes("Lo que pasa: Lo arma solo"), t);
+    assert.ok(/10 min\ndura el resumen/.test(t), t);
+  }
+  // El cuerpo y el contexto solo los ve el lector completo.
+  assert.ok(!conPrisa.includes("arrastra los archivos"));
+  assert.ok(completo.includes("arrastra los archivos"));
+  assert.ok(!conPrisa.includes("en la versión corta") && completo.includes("en la versión corta"));
+  assert.ok(!conPrisa.includes("El truco es el prompt") && completo.includes("El truco es el prompt"));
+  // En orden: slide por slide.
+  assert.ok(conPrisa.indexOf("Slide 1:") < conPrisa.indexOf("Slide 5:") && conPrisa.indexOf("Slide 5:") < conPrisa.indexOf(prompt));
+});
+
+check("calendario/validar (lector): source no entra en ningún lector; el número de paso sí", () => {
+  const { conPrisa, completo } = textosLector(EJEMPLO.borrador);
+  for (const t of [conPrisa, completo]) {
+    assert.ok(!t.includes("Fuente") && !t.includes("notebooklm.google.com/"), t);
+    assert.ok(!t.includes("Fuente: notebooklm.google.com"), t);
+    assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
+    assert.ok(/^2\n.*Pide el resumen en audio/m.test(t), t);
+  }
+});
+
+check("calendario/validar (lector): entradas raras no lanzan", () => {
+  assert.doesNotThrow(() => textosLector(null));
+  assert.doesNotThrow(() => textosLector({ slides: [null, { template: "X" }, { template: "Hook", props: 3 }] }));
+});
+
+/** Base temporal con `_calendario/config.json`, validar.mjs, lector-frio.md y la semana del ejemplo. */
+function baseConEjemplo(): { root: string; cal: string; env: NodeJS.ProcessEnv } {
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-lector-"));
+  const cal = join(root, "_calendario");
+  const dir = join(cal, EJEMPLO.plan.semana);
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(join(DIR, "validar.mjs"), join(cal, "validar.mjs"));
+  copyFileSync(join(DIR, "lector-frio.md"), join(cal, "lector-frio.md"));
+  writeFileSync(join(cal, "config.json"), JSON.stringify({ ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+  writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+  writeFileSync(join(dir, `${EJEMPLO.plan.piezas[0].id}.json`), JSON.stringify(EJEMPLO.borrador));
+  crearOrigen(root, EJEMPLO.plan.piezas);
+  return { root, cal, env: { ...process.env, CARRUSEL_DIR: join(root, "nada") } };
+}
+
+check("calendario/validar (CLI): --lector imprime los dos textos y el mensaje con lector-frio.md copiado, sin su ruta", () => {
+  const { root, cal, env } = baseConEjemplo();
+  try {
+    const out = execFileSync("node", [join(cal, "validar.mjs"), "--lector", EJEMPLO.plan.semana, EJEMPLO.plan.piezas[0].id], { encoding: "utf8", stdio: "pipe", env });
+    const { completo, conPrisa } = textosLector(EJEMPLO.borrador);
+    assert.ok(out.includes(completo) && out.includes(conPrisa), out);
+    assert.ok(out.includes("¿De qué trata, en una frase?"), "lleva el cuestionario copiado");
+    assert.ok(!out.includes("lector-frio.md"), "nunca la ruta del archivo");
+    assert.ok(!out.includes("plan.json"), "nada del plan");
+    assert.ok(!out.includes(EJEMPLO.plan.piezas[0].entregable));
+    assert.equal((out.match(/=== MENSAJE/g) ?? []).length, 2, out);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar (CLI): --lector con id inexistente da un error claro y sale con 1", () => {
+  const { root, cal, env } = baseConEjemplo();
+  try {
+    for (const args of [[EJEMPLO.plan.semana, "no-existe"], [EJEMPLO.plan.semana], ["x", "lun-reel-pdfs-a-podcast"], ["2026-10-19", "lun-reel-pdfs-a-podcast"]]) {
+      try {
+        execFileSync("node", [join(cal, "validar.mjs"), "--lector", ...args], { stdio: "pipe", env });
+        assert.fail(`debió fallar: ${args.join(" ")}`);
+      } catch (e: any) {
+        assert.equal(e.status, 1, String(e.stderr));
+        if (args[1] === "no-existe") assert.match(String(e.stderr), /no hay ninguna pieza con id "no-existe".*lun-reel-pdfs-a-podcast/s);
+      }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: origen con una ruta que no existe en la base → error; sin base (self-test) no se mira", () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    assertNone(validarSemana(dir, config, { score: () => 90 }));
+    rmSync(join(root, p.piezas[0].origen.referencias[0]));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /lun-reel-a: origen\.referencias: "referencias\/notebooklm\.md" no existe en la base/);
+    for (const mala of ["../fuera.md", "/etc/passwd", "fuentes/../../x.md"]) {
+      const q = JSON.parse(readFileSync(join(dir, "plan.json"), "utf8"));
+      crearOrigen(root, q.piezas);
+      q.piezas[1].origen.fichas = [mala];
+      writeFileSync(join(dir, "plan.json"), JSON.stringify(q));
+      assertHas(validarSemana(dir, config, { score: () => 90 }), /mar-carrusel-b: origen\.fichas: .* (fuera de la base|no existe)/);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  // validarBorrador (lo que usa --self-test) no depende de que exista la base.
+  assertNone(validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+});
+
+check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo del lector con prisa y uso de --lector", () => {
+  const lf = readFileSync(join(DIR, "lector-frio.md"), "utf8");
+  const ins = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  assert.ok(lf.includes("--lector") && ins.includes("node _calendario/validar.mjs --lector"));
+  assert.ok(/no bloquean/.test(lf) && /no bloquean/.test(ins));
+  assert.ok(!lf.includes("Lee `lector-frio.md`"), "el mensaje ya no lleva la ruta");
 });

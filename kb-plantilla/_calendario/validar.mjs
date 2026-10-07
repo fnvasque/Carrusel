@@ -3,6 +3,8 @@
 //
 //   node _calendario/validar.mjs <semana>     valida _calendario/<semana>/plan.json y sus borradores
 //   node _calendario/validar.mjs --self-test  valida config.json y el ejemplo embebido (lo usa el instalador)
+//   node _calendario/validar.mjs --lector <semana> <id>
+//                                             imprime el texto exacto y el mensaje para cada lector frío
 //
 // Sale con código 0 y ✓ si todo cumple; si no, con código 1 y una línea `<id>: <motivo>`
 // por problema. Ante entradas raras (JSON roto, tipos equivocados, rutas hostiles)
@@ -12,7 +14,7 @@
 // lo corre pero nunca lo modifica.
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join, normalize } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
@@ -649,6 +651,150 @@ export function validarBorrador(pieza, borrador, config) {
   });
 }
 
+/**
+ * Errores de las rutas de `origen` (fichas y referencias): cada una relativa a
+ * `raiz` (la raíz de la base), sin salirse de ella, y existente. Si `origen` no
+ * tiene la forma correcta no dice nada (eso ya lo reporta `validarPieza`).
+ */
+export function erroresDeOrigen(pieza, raiz) {
+  return seguro(() => {
+    if (!esObj(pieza) || !esObj(pieza.origen) || typeof raiz !== "string") return [];
+    const errs = [];
+    for (const campo of ["fichas", "referencias"]) {
+      const rutas = pieza.origen[campo];
+      if (!Array.isArray(rutas)) continue;
+      for (const r of rutas) {
+        if (typeof r !== "string") continue;
+        const n = normalize(r);
+        if (!r.trim() || isAbsolute(r) || r.includes("\\") || n === ".." || n.startsWith("../") || r.split("/").includes("..")) {
+          errs.push(`origen.${campo}: ${q(r)} está fuera de la base (usa una ruta relativa a la raíz de la base, sin "..")`);
+        } else if (!existsSync(join(raiz, n))) {
+          errs.push(`origen.${campo}: ${q(r)} no existe en la base (cita solo fichas o referencias que existen)`);
+        }
+      }
+    }
+    return errs;
+  });
+}
+
+// --- lector frío ------------------------------------------------------------
+
+/** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`). */
+const ETIQUETA_MITO = "El mito";
+const ETIQUETA_REALIDAD = "La realidad";
+/** Texto por defecto de la pastilla del `Cta` (`pillContent` en `src/templates/Cta.tsx`). */
+const PASTILLA_CTA = "Link en bio →";
+
+/** Texto de una prop si es texto no vacío. */
+const txt = (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+
+/**
+ * El título con su `highlight` marcado entre ** ** (así ve el lector la palabra
+ * pintada en lima). Si el highlight no aparece, va aparte.
+ */
+function conDestacado(titulo, hl) {
+  const h = txt(hl);
+  if (!titulo) return h ? [`**${h}**`] : [];
+  if (!h) return [titulo];
+  const i = minus(titulo).indexOf(minus(h));
+  if (i < 0) return [titulo, `**${h}**`];
+  return [`${titulo.slice(0, i)}**${titulo.slice(i, i + h.length)}**${titulo.slice(i + h.length)}`];
+}
+
+/**
+ * Líneas visibles de una slide. `prisa` = solo lo que se ve de un vistazo:
+ * título con highlight, número de paso, prompt copiable, mito/realidad con sus
+ * etiquetas y valor + label del dato. `source` nunca entra (es la cita al pie).
+ */
+function lineasSlide(template, p, prisa) {
+  const L = [];
+  const add = (...xs) => {
+    for (const x of xs.flat()) if (txt(x)) L.push(txt(x));
+  };
+  const lista = (v) => (Array.isArray(v) ? v.filter(txt).map((x) => `- ${x.trim()}`) : []);
+  switch (template) {
+    case "Hook":
+      if (!prisa) add(p.eyebrow);
+      add(conDestacado(txt(p.title), p.highlight));
+      if (!prisa) add(p.subtitle);
+      break;
+    case "Lead":
+      if (!prisa) add(p.kicker);
+      add(conDestacado(txt(p.text), p.highlight));
+      break;
+    case "Step":
+      add(p.step, conDestacado(txt(p.heading), p.highlight));
+      if (!prisa) add(p.body, lista(p.bullets));
+      break;
+    case "Prompt":
+      add(p.heading, p.prompt);
+      if (!prisa) add(p.note);
+      break;
+    case "MythReality":
+      if (txt(p.myth)) add(`${txt(p.mythLabel) ?? ETIQUETA_MITO}: ${txt(p.myth)}`);
+      if (txt(p.reality)) add(`${txt(p.realityLabel) ?? ETIQUETA_REALIDAD}: ${txt(p.reality)}`);
+      break;
+    case "Stat":
+      add(p.value, p.label);
+      if (!prisa) add(p.context);
+      break;
+    case "Cta":
+      add(conDestacado(txt(p.title), p.highlight));
+      if (!prisa) add(p.reason, txt(p.cta) ?? PASTILLA_CTA, p.handle);
+      break;
+    default:
+      break;
+  }
+  return L;
+}
+
+/**
+ * Texto exacto que recibe cada lector frío, slide por slide y en orden:
+ * `{ completo, conPrisa }`. Lo genera el código para que nadie lo arme a mano
+ * (ni filtre el tema, el plan o la cita de la fuente). Nunca lanza.
+ */
+export function textosLector(borrador) {
+  const armar = (prisa) => {
+    try {
+      if (!esObj(borrador) || !Array.isArray(borrador.slides)) return "";
+      return borrador.slides
+        .map((s, i) => {
+          const lineas = esObj(s) && esObj(s.props) && typeof s.template === "string" ? lineasSlide(s.template, s.props, prisa) : [];
+          return [`Slide ${i + 1}:`, ...lineas].join("\n");
+        })
+        .join("\n\n");
+    } catch {
+      return "";
+    }
+  };
+  return { completo: armar(false), conPrisa: armar(true) };
+}
+
+/**
+ * Mensaje completo para el subagente de un lector: la sección "Para el lector"
+ * de `lector-frio.md` COPIADA (nunca su ruta: con la ruta, el lector tendría
+ * `plan.json` al lado) y el texto que le toca.
+ */
+export function mensajeLector(seccionLector, perfil, texto) {
+  return [
+    `Responde como el perfil ${perfil === "conPrisa" ? '"con prisa"' : "completo"} de estas instrucciones. No abras ni busques ningún archivo: todo lo que necesitas está en este mensaje.`,
+    "",
+    seccionLector.trim(),
+    "",
+    "## Texto",
+    "",
+    texto,
+  ].join("\n");
+}
+
+/** La sección "## Para el lector" de `lector-frio.md` (hasta el siguiente "## "). */
+export function seccionDelLector(md) {
+  const i = md.indexOf("## Para el lector");
+  if (i < 0) return undefined;
+  const fin = md.indexOf("\n## ", i + 3);
+  return md.slice(i, fin < 0 ? undefined : fin).trim();
+}
+
 // --- plan -------------------------------------------------------------------
 
 /**
@@ -799,7 +945,8 @@ export function validarConfig(config) {
 
 /**
  * Valida la carpeta de una semana (`_calendario/<semana>/`): plan, cada
- * borrador, tope de fondos ai y score léxico. `opts.score(borrador)` devuelve
+ * borrador, que existan las rutas de `origen` (relativas a la raíz de la base,
+ * dos carpetas arriba, u `opts.raiz`), tope de fondos ai y score léxico. `opts.score(borrador)` devuelve
  * el score o `undefined`; sin `score` no se evalúa y se avisa (no es error).
  * Los avisos van a `opts.avisos` si se pasa; si no, a la consola.
  */
@@ -817,6 +964,8 @@ export function validarSemana(dir, config, opts = {}) {
       out.push(`plan: la carpeta "${basename(dir)}" no coincide con semana "${plan.semana}"`);
     }
     const borradores = [];
+    // Raíz de la base: <base>/_calendario/<semana>. `opts.raiz` la fija; null no revisa origen.
+    const raiz = opts?.raiz === null ? undefined : typeof opts?.raiz === "string" ? opts.raiz : join(dir, "..", "..");
     const score = typeof opts?.score === "function" ? opts.score : undefined;
     let sinScore = 0;
     for (const p of plan.piezas) {
@@ -834,6 +983,7 @@ export function validarSemana(dir, config, opts = {}) {
       }
       borradores.push(b.data);
       out.push(...validarBorrador(p, b.data, config).map((e) => `${id}: ${e}`));
+      if (raiz) out.push(...erroresDeOrigen(p, raiz).map((e) => `${id}: ${e}`));
       let s;
       if (score) {
         try {
@@ -884,7 +1034,7 @@ export const EJEMPLO = {
         emocion: ["curiosidad", "alivio"],
         entregable: "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
         fraseAmigo: "hay una herramienta gratis que convierte tus documentos en un podcast para escuchar caminando",
-        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio el prompt; se nombró en el subtítulo del Hook" },
+        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook" },
         origen: { fichas: ["fuentes/2026-10-04-dm-ejemplo.md"], referencias: ["referencias/notebooklm.md"] },
         derivadoDe: null,
         caption:
@@ -972,6 +1122,41 @@ function scoreConRepo(repo, borrador) {
   return m ? Number(m[1]) : undefined;
 }
 
+/** `--lector <semana> <id>`: los dos textos y el mensaje exacto para cada subagente. */
+function imprimirLector(here, semana, id, fallar) {
+  const uso = "uso: node _calendario/validar.mjs --lector <semana AAAA-MM-DD> <id>";
+  if (!fechaValida(semana)) fallar([`${uso} (semana ${q(semana)} inválida)`]);
+  if (typeof id !== "string" || !ID_RE.test(id)) fallar([`${uso} (id ${q(id)} inválido)`]);
+  const plan = leerJson(join(here, semana, "plan.json"));
+  if ("error" in plan) fallar([`${semana}/plan.json ${plan.error}`]);
+  const piezas = esObj(plan.data) && Array.isArray(plan.data.piezas) ? plan.data.piezas.filter(esObj) : [];
+  const p = piezas.find((x) => x.id === id);
+  if (!p) {
+    const ids = piezas.map((x) => x.id).filter((x) => typeof x === "string");
+    fallar([`no hay ninguna pieza con id ${q(id)} en ${semana}/plan.json (ids: ${ids.length ? ids.join(", ") : "ninguno"})`]);
+  }
+  const b = leerJson(join(here, semana, `${id}.json`));
+  if ("error" in b) fallar([`${semana}/${id}.json ${b.error}`]);
+  let md;
+  try {
+    md = readFileSync(join(here, "lector-frio.md"), "utf8");
+  } catch {
+    fallar(["no se pudo leer el cuestionario del lector frío (lector-frio.md junto a validar.mjs)"]);
+  }
+  const seccion = seccionDelLector(md);
+  if (!seccion) fallar(['lector-frio.md no tiene la sección "## Para el lector"']);
+  const { completo, conPrisa } = textosLector(b.data);
+  const bloque = (titulo, cuerpo) => `=== ${titulo} ===\n${cuerpo}\n=== FIN ===\n`;
+  console.log(
+    [
+      bloque("TEXTO LECTOR COMPLETO", completo),
+      bloque("TEXTO LECTOR CON PRISA", conPrisa),
+      bloque("MENSAJE PARA EL SUBAGENTE LECTOR COMPLETO (pégalo tal cual)", mensajeLector(seccion, "completo", completo)),
+      bloque("MENSAJE PARA EL SUBAGENTE LECTOR CON PRISA (pégalo tal cual)", mensajeLector(seccion, "conPrisa", conPrisa)),
+    ].join("\n"),
+  );
+}
+
 function main(args) {
   const here = dirname(self);
   const cfg = leerJson(join(here, "config.json"));
@@ -993,8 +1178,12 @@ function main(args) {
     console.log("✓ Autoprueba del calendario: config.json y ejemplo válidos.");
     return;
   }
+  if (args[0] === "--lector") {
+    imprimirLector(here, args[1], args[2], fallar);
+    return;
+  }
   const semana = args[0];
-  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test (recibí ${q(semana)})`]);
+  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test | --lector <semana> <id> (recibí ${q(semana)})`]);
   const repo = repoDeCodigo(join(here, ".."));
   const score = repo
     ? (b) => {
