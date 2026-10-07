@@ -22,7 +22,7 @@ lado).
 
 | Lector | Qué recibe (en el orden de las slides, `Slide 1: …`, `Slide 2: …`) |
 |---|---|
-| **Completo** | Todo el texto visible de cada slide: títulos, `highlight`, número de paso, cuerpo, bullets, prompt, mito y realidad con sus etiquetas, dato, CTA. |
+| **Completo** | Todo el texto que dibuja cada slide: títulos, `highlight`, `eyebrow`, `kicker`, `subtitle`, "Desliza →" (solo carrusel), número de paso, cuerpo, bullets, la ventana del prompt ("copia-este-prompt", "Copiar") y el prompt, `note`, mito y realidad con sus etiquetas, dato, `reason`, la pastilla del CTA (sin emoji) y `@handle`. |
 | **Con prisa** | Lo que se ve de un vistazo: el título de cada slide (`title`, `heading` o `text` según la plantilla) con su `highlight`; el número de paso; en `Prompt`, el texto copiable completo (`prompt`); en `MythReality`, mito y realidad con sus etiquetas ("El mito", "La realidad" o `mythLabel`/`realityLabel`); en `Stat`, el valor más su `label`. |
 
 En ambos, `source` (la cita al pie) **no** entra y el número de paso **sí**. La

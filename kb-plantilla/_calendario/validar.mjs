@@ -13,8 +13,8 @@
 // Lo escribe el usuario (scripts/kb-calendario-install.sh); el agente planificador
 // lo corre pero nunca lo modifica.
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, normalize } from "node:path";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
@@ -653,24 +653,40 @@ export function validarBorrador(pieza, borrador, config) {
 
 /**
  * Errores de las rutas de `origen` (fichas y referencias): cada una relativa a
- * `raiz` (la raíz de la base), sin salirse de ella, y existente. Si `origen` no
- * tiene la forma correcta no dice nada (eso ya lo reporta `validarPieza`).
+ * `raiz` (la raíz de la base), un archivo que existe y cuya ruta real (siguiendo
+ * enlaces simbólicos) queda dentro de la base. Si `origen` no tiene la forma
+ * correcta no dice nada (eso ya lo reporta `validarPieza`).
  */
 export function erroresDeOrigen(pieza, raiz) {
   return seguro(() => {
     if (!esObj(pieza) || !esObj(pieza.origen) || typeof raiz !== "string") return [];
+    let base;
+    try {
+      base = realpathSync(raiz);
+    } catch {
+      return [`origen: no se encontró la raíz de la base (${q(raiz)})`];
+    }
     const errs = [];
     for (const campo of ["fichas", "referencias"]) {
       const rutas = pieza.origen[campo];
       if (!Array.isArray(rutas)) continue;
       for (const r of rutas) {
         if (typeof r !== "string") continue;
-        const n = normalize(r);
-        if (!r.trim() || isAbsolute(r) || r.includes("\\") || n === ".." || n.startsWith("../") || r.split("/").includes("..")) {
-          errs.push(`origen.${campo}: ${q(r)} está fuera de la base (usa una ruta relativa a la raíz de la base, sin "..")`);
-        } else if (!existsSync(join(raiz, n))) {
-          errs.push(`origen.${campo}: ${q(r)} no existe en la base (cita solo fichas o referencias que existen)`);
+        const fuera = `origen.${campo}: ${q(r)} está fuera de la base (usa una ruta relativa a la raíz de la base, sin "..")`;
+        if (!r.trim() || isAbsolute(r) || r.includes("\\") || r.split("/").includes("..")) {
+          errs.push(fuera);
+          continue;
         }
+        let real;
+        try {
+          real = realpathSync(join(base, normalize(r)));
+        } catch {
+          errs.push(`origen.${campo}: ${q(r)} no existe en la base (cita solo fichas o referencias que existen)`);
+          continue;
+        }
+        // Ruta real: un enlace simbólico dentro de la base podría apuntar afuera.
+        if (real !== base && !real.startsWith(base + sep)) errs.push(fuera);
+        else if (!statSync(real).isFile()) errs.push(`origen.${campo}: ${q(r)} no es un archivo (cita la ficha o referencia, no una carpeta)`);
       }
     }
     return errs;
@@ -679,14 +695,26 @@ export function erroresDeOrigen(pieza, raiz) {
 
 // --- lector frío ------------------------------------------------------------
 
-/** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`). */
+/** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`; un test las compara). */
 const ETIQUETA_MITO = "El mito";
 const ETIQUETA_REALIDAD = "La realidad";
-/** Texto por defecto de la pastilla del `Cta` (`pillContent` en `src/templates/Cta.tsx`). */
-const PASTILLA_CTA = "Link en bio →";
+/** Ventana de `Prompt`: título mono y botón (`src/templates/Prompt.tsx`). */
+const VENTANA_PROMPT = ["copia-este-prompt", "Copiar"];
+/** "DESLIZA →" del Hook, solo en carrusel (`src/templates/Hook.tsx`). */
+const DESLIZA = "Desliza →";
 
-/** Texto de una prop si es texto no vacío. */
-const txt = (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+/**
+ * COPIA de `pillContent` de `src/templates/Cta.tsx` (solo el texto): la
+ * pastilla por defecto y sin emoji. `test/calendario/validar.ts` compara ambas.
+ */
+const EMOJI_PASTILLA = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
+export function textoPastilla(cta) {
+  const raw = cta ?? "Link en bio →";
+  return String(raw).replace(EMOJI_PASTILLA, "").replace(/\s+/g, " ").trim();
+}
+
+/** Texto de una prop si es texto no vacío (o un número, como un `step` 1). */
+const txt = (v) => (typeof v === "number" && Number.isFinite(v) ? String(v) : typeof v === "string" && v.trim() ? v.trim() : undefined);
 
 /**
  * El título con su `highlight` marcado entre ** ** (así ve el lector la palabra
@@ -701,22 +729,33 @@ function conDestacado(titulo, hl) {
   return [`${titulo.slice(0, i)}**${titulo.slice(i, i + h.length)}**${titulo.slice(i + h.length)}`];
 }
 
+/** "Etiqueta: texto" como el panel de `MythReality`; con etiqueta "" solo el texto (igual que el componente). */
+function conEtiqueta(etiqueta, defecto, texto) {
+  const t = txt(texto);
+  if (!t) return undefined;
+  const e = typeof etiqueta === "string" ? etiqueta.trim() : defecto;
+  return e ? `${e}: ${t}` : t;
+}
+
 /**
  * Líneas visibles de una slide. `prisa` = solo lo que se ve de un vistazo:
  * título con highlight, número de paso, prompt copiable, mito/realidad con sus
  * etiquetas y valor + label del dato. `source` nunca entra (es la cita al pie).
  */
-function lineasSlide(template, p, prisa) {
+function lineasSlide(template, p, prisa, formato) {
   const L = [];
   const add = (...xs) => {
     for (const x of xs.flat()) if (txt(x)) L.push(txt(x));
   };
-  const lista = (v) => (Array.isArray(v) ? v.filter(txt).map((x) => `- ${x.trim()}`) : []);
+  const lista = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x) => `- ${x.trim()}`) : []);
   switch (template) {
     case "Hook":
       if (!prisa) add(p.eyebrow);
       add(conDestacado(txt(p.title), p.highlight));
-      if (!prisa) add(p.subtitle);
+      if (!prisa) {
+        add(p.subtitle);
+        if (p.swipe !== false && formato !== "reel") add(DESLIZA);
+      }
       break;
     case "Lead":
       if (!prisa) add(p.kicker);
@@ -727,12 +766,13 @@ function lineasSlide(template, p, prisa) {
       if (!prisa) add(p.body, lista(p.bullets));
       break;
     case "Prompt":
-      add(p.heading, p.prompt);
+      add(p.heading);
+      if (!prisa) add(VENTANA_PROMPT);
+      add(p.prompt);
       if (!prisa) add(p.note);
       break;
     case "MythReality":
-      if (txt(p.myth)) add(`${txt(p.mythLabel) ?? ETIQUETA_MITO}: ${txt(p.myth)}`);
-      if (txt(p.reality)) add(`${txt(p.realityLabel) ?? ETIQUETA_REALIDAD}: ${txt(p.reality)}`);
+      add(conEtiqueta(p.mythLabel, ETIQUETA_MITO, p.myth), conEtiqueta(p.realityLabel, ETIQUETA_REALIDAD, p.reality));
       break;
     case "Stat":
       add(p.value, p.label);
@@ -740,7 +780,7 @@ function lineasSlide(template, p, prisa) {
       break;
     case "Cta":
       add(conDestacado(txt(p.title), p.highlight));
-      if (!prisa) add(p.reason, txt(p.cta) ?? PASTILLA_CTA, p.handle);
+      if (!prisa) add(p.reason, textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.handle) ? `@${txt(p.handle)}` : undefined);
       break;
     default:
       break;
@@ -751,15 +791,17 @@ function lineasSlide(template, p, prisa) {
 /**
  * Texto exacto que recibe cada lector frío, slide por slide y en orden:
  * `{ completo, conPrisa }`. Lo genera el código para que nadie lo arme a mano
- * (ni filtre el tema, el plan o la cita de la fuente). Nunca lanza.
+ * (ni filtre el tema, el plan o la cita de la fuente). `formato` ("reel" o
+ * "carrusel", por defecto carrusel como el componente) decide si el Hook
+ * muestra "Desliza →". Nunca lanza.
  */
-export function textosLector(borrador) {
+export function textosLector(borrador, formato) {
   const armar = (prisa) => {
     try {
       if (!esObj(borrador) || !Array.isArray(borrador.slides)) return "";
       return borrador.slides
         .map((s, i) => {
-          const lineas = esObj(s) && esObj(s.props) && typeof s.template === "string" ? lineasSlide(s.template, s.props, prisa) : [];
+          const lineas = esObj(s) && esObj(s.props) && typeof s.template === "string" ? lineasSlide(s.template, s.props, prisa, formato) : [];
           return [`Slide ${i + 1}:`, ...lineas].join("\n");
         })
         .join("\n\n");
@@ -1145,7 +1187,7 @@ function imprimirLector(here, semana, id, fallar) {
   }
   const seccion = seccionDelLector(md);
   if (!seccion) fallar(['lector-frio.md no tiene la sección "## Para el lector"']);
-  const { completo, conPrisa } = textosLector(b.data);
+  const { completo, conPrisa } = textosLector(b.data, p.formato);
   const bloque = (titulo, cuerpo) => `=== ${titulo} ===\n${cuerpo}\n=== FIN ===\n`;
   console.log(
     [

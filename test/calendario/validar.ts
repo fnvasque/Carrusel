@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check } from "../_check.ts";
@@ -12,6 +14,7 @@ import {
   contarFondosIA,
   reglasDeTexto,
   segundosEscena,
+  textoPastilla,
   textosLector,
   validarBorrador,
   validarCaption,
@@ -24,6 +27,8 @@ import { sceneSeconds } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
+import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
+import { pillContent } from "../../src/templates/Cta.tsx";
 
 /**
  * Tests del validador del planificador (`kb-plantilla/_calendario/validar.mjs`).
@@ -818,13 +823,84 @@ check("calendario/validar (lector): con prisa ve el prompt completo y las etique
   assert.ok(conPrisa.indexOf("Slide 1:") < conPrisa.indexOf("Slide 5:") && conPrisa.indexOf("Slide 5:") < conPrisa.indexOf(prompt));
 });
 
-check("calendario/validar (lector): source no entra en ningún lector; el número de paso sí", () => {
+check("calendario/validar (lector): source no entra en ningún lector; el número de paso sí (también numérico)", () => {
+  const source = EJEMPLO.borrador.slides[5].props.source as string;
   const { conPrisa, completo } = textosLector(EJEMPLO.borrador);
   for (const t of [conPrisa, completo]) {
-    assert.ok(!t.includes("Fuente") && !t.includes("notebooklm.google.com/"), t);
-    assert.ok(!t.includes("Fuente: notebooklm.google.com"), t);
+    assert.ok(!t.includes(source), t);
     assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
     assert.ok(/^2\n.*Pide el resumen en audio/m.test(t), t);
+  }
+  const b = clone(EJEMPLO.borrador) as any;
+  b.slides[2].props.step = 1;
+  for (const t of Object.values(textosLector(b))) assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
+});
+
+check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, note, reason, pastilla, @handle, ventana del prompt y Desliza (solo carrusel)", () => {
+  const b = clone(EJEMPLO.borrador) as any;
+  b.slides[0].props.eyebrow = "Truco de estudio";
+  b.slides[1].props.kicker = "Sin pantalla";
+  b.slides[4].props.note = "Funciona también en inglés";
+  b.slides[5].props.reason = "Cada semana un truco nuevo";
+  b.slides[5].props.handle = "ia.punto.es";
+  b.slides[5].props.cta = "Guárdalo 🔖";
+  const { completo, conPrisa } = textosLector(b, "carrusel");
+  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "copia-este-prompt", "Copiar", "Desliza →"]) {
+    assert.ok(completo.includes(x), `falta ${JSON.stringify(x)} en:\n${completo}`);
+  }
+  assert.ok(!completo.includes("🔖"));
+  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "copia-este-prompt"]) assert.ok(!conPrisa.includes(x), x);
+  assert.ok(!textosLector(b, "reel").completo.includes("Desliza"), "en reel no hay Desliza");
+  b.slides[0].props.swipe = false;
+  assert.ok(!textosLector(b, "carrusel").completo.includes("Desliza"));
+  delete b.slides[5].props.cta;
+  assert.ok(textosLector(b).completo.includes("Link en bio →"), "pastilla por defecto");
+});
+
+check("calendario/validar (lector): textoPastilla es copia de pillContent (Cta.tsx)", () => {
+  for (const c of [undefined, "", "Guárdalo 🔖", "Envíaselo ↗", "Comenta RESUMEN  ✍️ ya", "👨‍👩‍👧 familia", "Link en bio →", "  espacios   raros  "]) {
+    assert.equal(textoPastilla(c), pillContent(c).text, JSON.stringify(c));
+  }
+});
+
+/** Texto visible de un componente renderizado (sin etiquetas HTML). */
+const textoRender = (el: any) =>
+  renderToStaticMarkup(el).replace(/<[^>]+>/g, "\n").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+
+check("calendario/validar (lector): etiquetas por defecto de MythReality leídas del componente; mythLabel \"\" da etiqueta vacía", () => {
+  const html = textoRender(createElement(MythReality, { myth: "MITO_X", reality: "REAL_Y" }));
+  const etiquetas = html.split("\n").map((x) => x.trim()).filter((x) => x && x !== "MITO_X" && x !== "REAL_Y");
+  const { completo } = textosLector({ slides: [{ template: "MythReality", props: { myth: "MITO_X", reality: "REAL_Y" } }] });
+  const [lm, lr] = [completo.match(/^(.*): MITO_X$/m)?.[1], completo.match(/^(.*): REAL_Y$/m)?.[1]];
+  assert.ok(lm && etiquetas.includes(lm), `etiqueta del mito ${lm} no está en el componente: ${JSON.stringify(etiquetas)}`);
+  assert.ok(lr && etiquetas.includes(lr), `etiqueta de la realidad ${lr} no está en el componente: ${JSON.stringify(etiquetas)}`);
+  const vacia = textosLector({ slides: [{ template: "MythReality", props: { myth: "MITO_X", reality: "REAL_Y", mythLabel: "" } }] });
+  assert.ok(/^MITO_X$/m.test(vacia.completo) && /^MITO_X$/m.test(vacia.conPrisa), vacia.completo);
+  assert.ok(!textoRender(createElement(MythReality, { myth: "MITO_X", reality: "REAL_Y", mythLabel: "" })).includes(lm!));
+});
+
+check("calendario/validar (lector): cada línea del lector completo está en lo que dibuja el componente", () => {
+  const casos: [string, any, Record<string, unknown>][] = [
+    ["Hook", Hook, { eyebrow: "Truco de estudio", title: "Convierte 6 PDFs en un podcast", highlight: "podcast", subtitle: "El truco es el prompt" }],
+    ["Lead", Lead, { kicker: "Sin pantalla", text: "6 archivos y cero horas", highlight: "cero horas" }],
+    ["Step", Step, { step: "1", heading: "Sube tus PDFs", highlight: "PDFs", body: "Arrastra los archivos.", bullets: ["Uno", "Dos"] }],
+    ["Prompt", Prompt, { heading: "Pega esto", prompt: "Resume las 3 ideas clave.", note: "Funciona en inglés" }],
+    ["MythReality", MythReality, { myth: "Hay que pagar", reality: "Es gratis", mythLabel: "Lo que crees" }],
+    ["Stat", Stat, { value: "10", label: "minutos dura", context: "en la versión corta" }],
+    ["Cta", Cta, { title: "Guárdalo para después", highlight: "Guárdalo", reason: "Cada semana", handle: "ia.punto.es", cta: "Guárdalo 🔖" }],
+  ];
+  for (const [t, C, props] of casos) {
+    for (const formato of ["post", "reel"] as const) {
+      const html = textoRender(createElement(C, { ...props, format: formato }));
+      const plano = html.replace(/\s+/g, " ");
+      const { completo } = textosLector({ slides: [{ template: t, props }] }, formato === "reel" ? "reel" : "carrusel");
+      for (const linea of completo.split("\n").slice(1)) {
+        const partes = linea.replace(/\*\*/g, "").replace(/^- /, "").split(/: (?=.)/);
+        for (const x of t === "MythReality" ? partes : [partes.join(": ")]) {
+          assert.ok(plano.includes(x.replace(/\s+/g, " ")), `${t} (${formato}): ${JSON.stringify(x)} no lo dibuja el componente`);
+        }
+      }
+    }
   }
 });
 
@@ -852,7 +928,7 @@ check("calendario/validar (CLI): --lector imprime los dos textos y el mensaje co
   const { root, cal, env } = baseConEjemplo();
   try {
     const out = execFileSync("node", [join(cal, "validar.mjs"), "--lector", EJEMPLO.plan.semana, EJEMPLO.plan.piezas[0].id], { encoding: "utf8", stdio: "pipe", env });
-    const { completo, conPrisa } = textosLector(EJEMPLO.borrador);
+    const { completo, conPrisa } = textosLector(EJEMPLO.borrador, EJEMPLO.plan.piezas[0].formato);
     assert.ok(out.includes(completo) && out.includes(conPrisa), out);
     assert.ok(out.includes("¿De qué trata, en una frase?"), "lleva el cuestionario copiado");
     assert.ok(!out.includes("lector-frio.md"), "nunca la ruta del archivo");
@@ -881,21 +957,39 @@ check("calendario/validar (CLI): --lector con id inexistente da un error claro y
   }
 });
 
-check("calendario/validar: origen con una ruta que no existe en la base → error; sin base (self-test) no se mira", () => {
+check("calendario/validar: origen — ruta inexistente, traversal, symlink afuera, carpeta y \".\" dan error; sin base (self-test) no se mira", () => {
   const { root, dir, p } = semanaTemporal();
+  const afuera = mkdtempSync(join(tmpdir(), "kb-calendario-afuera-"));
   try {
     assertNone(validarSemana(dir, config, { score: () => 90 }));
     rmSync(join(root, p.piezas[0].origen.referencias[0]));
     assertHas(validarSemana(dir, config, { score: () => 90 }), /lun-reel-a: origen\.referencias: "referencias\/notebooklm\.md" no existe en la base/);
-    for (const mala of ["../fuera.md", "/etc/passwd", "fuentes/../../x.md"]) {
-      const q = JSON.parse(readFileSync(join(dir, "plan.json"), "utf8"));
+    // Un archivo real fuera de la base y un enlace simbólico dentro que apunta a él.
+    writeFileSync(join(afuera, "secreto.md"), "fuera\n");
+    symlinkSync(join(afuera, "secreto.md"), join(root, "fuentes", "enlace.md"));
+    symlinkSync(afuera, join(root, "fuentes", "carpeta-afuera"));
+    const casos: [string, RegExp][] = [
+      ["../fuera.md", /fuera de la base/],
+      ["/etc/passwd", /fuera de la base/],
+      ["fuentes/../../x.md", /fuera de la base/],
+      ["fuentes/enlace.md", /fuera de la base/],
+      ["fuentes/carpeta-afuera/secreto.md", /fuera de la base/],
+      ["fuentes", /no es un archivo/],
+      ["./", /no es un archivo/],
+      [".", /no es un archivo/],
+    ];
+    for (const [mala, re] of casos) {
+      const q = clone(p);
       crearOrigen(root, q.piezas);
       q.piezas[1].origen.fichas = [mala];
       writeFileSync(join(dir, "plan.json"), JSON.stringify(q));
-      assertHas(validarSemana(dir, config, { score: () => 90 }), /mar-carrusel-b: origen\.fichas: .* (fuera de la base|no existe)/);
+      const errs = validarSemana(dir, config, { score: () => 90 }).filter((e: string) => e.startsWith("mar-carrusel-b: origen"));
+      assert.equal(errs.length, 1, `${mala}: ${JSON.stringify(errs)}`);
+      assert.match(errs[0], re, mala);
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
+    rmSync(afuera, { recursive: true, force: true });
   }
   // validarBorrador (lo que usa --self-test) no depende de que exista la base.
   assertNone(validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
