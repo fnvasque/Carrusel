@@ -3,6 +3,8 @@
 //
 //   node _calendario/validar.mjs <semana>     valida _calendario/<semana>/plan.json y sus borradores
 //   node _calendario/validar.mjs --self-test  valida config.json y el ejemplo embebido (lo usa el instalador)
+//   node _calendario/validar.mjs --lector <semana> <id>
+//                                             imprime el texto exacto y el mensaje para cada lector frío
 //
 // Sale con código 0 y ✓ si todo cumple; si no, con código 1 y una línea `<id>: <motivo>`
 // por problema. Ante entradas raras (JSON roto, tipos equivocados, rutas hostiles)
@@ -11,8 +13,8 @@
 // Lo escribe el usuario (scripts/kb-calendario-install.sh); el agente planificador
 // lo corre pero nunca lo modifica.
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { basename, dirname, isAbsolute, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
@@ -537,6 +539,43 @@ function tipoDeProp(k, v) {
   return typeof v === "string" ? undefined : "debe ser texto";
 }
 
+/**
+ * Gesto que debe pedir la pastilla del Cta según la señal objetivo: alguna de
+ * estas raíces (sin tildes) en cualquier posición de una palabra del texto
+ * ("Reenvíaselo" cuenta como envío). `retencion` acepta guardar o enviar.
+ */
+const RAICES_GUARDAR = ["guard"];
+const RAICES_ENVIAR = ["envia", "manda", "compart", "pasa", "dile", "etiqueta"];
+const GESTO_PASTILLA = {
+  guardados: RAICES_GUARDAR,
+  envios: RAICES_ENVIAR,
+  comentarios: ["comenta", "escribe", "responde"],
+  retencion: [...RAICES_GUARDAR, ...RAICES_ENVIAR],
+};
+const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo" };
+
+/**
+ * Errores de `handle` y de la pastilla (`cta`) del Cta. Sin `cta` el motor
+ * dibuja "Link en bio →" (`pillContent` en `src/templates/Cta.tsx`), que no
+ * pide el gesto de la señal; y el motor ya antepone la @ al handle.
+ */
+function erroresDePastilla(props, senal) {
+  const errs = [];
+  if (typeof props.handle === "string" && props.handle.startsWith("@")) {
+    errs.push(`handle ${q(props.handle)} sin @: el motor la agrega (escribe ${q(props.handle.replace(/^@+/, ""))})`);
+  }
+  const sugerida = SUGERIDA_PASTILLA[senal];
+  if (!esTexto(props.cta)) {
+    errs.push(`falta cta (el texto de la pastilla): sin él el motor dibuja "Link en bio →"${sugerida ? `; para ${senal} usa p. ej. "${sugerida}"` : ""}`);
+  } else if (GESTO_PASTILLA[senal]) {
+    const ts = tokens(props.cta);
+    if (!GESTO_PASTILLA[senal].some((r) => ts.some((t) => t.includes(r)))) {
+      errs.push(`la pastilla ${q(props.cta)} no pide el gesto de la señal ${senal} (p. ej. "${sugerida}")`);
+    }
+  }
+  return errs;
+}
+
 /** Errores de forma del borrador (`VariationDraft` + pace/audio/logoEnCuadro0). */
 function erroresDeBorrador(b, p, config) {
   const errs = [];
@@ -600,6 +639,7 @@ function erroresDeBorrador(b, p, config) {
       if (v === undefined || (typeof v === "string" && !v.trim())) errs.push(`${donde} (${t}): falta ${k}`);
     }
     if (esTexto(s.props.source)) hayFuente = true;
+    if (t === "Cta") errs.push(...erroresDePastilla(s.props, p.senal).map((e) => `${donde} (Cta): ${e}`));
     // highlight: el motor lo busca sin distinguir mayúsculas, pero con tildes exactas.
     const campo = DONDE_HIGHLIGHT[t];
     const hl = s.props.highlight;
@@ -647,6 +687,192 @@ export function validarBorrador(pieza, borrador, config) {
     errs.push(...reglasDeTexto(borrador, config, pieza.formato));
     return errs;
   });
+}
+
+/**
+ * Errores de las rutas de `origen` (fichas y referencias): cada una relativa a
+ * `raiz` (la raíz de la base), un archivo que existe y cuya ruta real (siguiendo
+ * enlaces simbólicos) queda dentro de la base. Si `origen` no tiene la forma
+ * correcta no dice nada (eso ya lo reporta `validarPieza`).
+ */
+export function erroresDeOrigen(pieza, raiz) {
+  return seguro(() => {
+    if (!esObj(pieza) || !esObj(pieza.origen) || typeof raiz !== "string") return [];
+    let base;
+    try {
+      base = realpathSync(raiz);
+    } catch {
+      return [`origen: no se encontró la raíz de la base (${q(raiz)})`];
+    }
+    const errs = [];
+    for (const campo of ["fichas", "referencias"]) {
+      const rutas = pieza.origen[campo];
+      if (!Array.isArray(rutas)) continue;
+      for (const r of rutas) {
+        if (typeof r !== "string") continue;
+        const fuera = `origen.${campo}: ${q(r)} está fuera de la base (usa una ruta relativa a la raíz de la base, sin "..")`;
+        if (!r.trim() || isAbsolute(r) || r.includes("\\") || r.split("/").includes("..")) {
+          errs.push(fuera);
+          continue;
+        }
+        let real;
+        try {
+          real = realpathSync(join(base, normalize(r)));
+        } catch {
+          errs.push(`origen.${campo}: ${q(r)} no existe en la base (cita solo fichas o referencias que existen)`);
+          continue;
+        }
+        // Ruta real: un enlace simbólico dentro de la base podría apuntar afuera.
+        if (real !== base && !real.startsWith(base + sep)) errs.push(fuera);
+        else if (!statSync(real).isFile()) errs.push(`origen.${campo}: ${q(r)} no es un archivo (cita la ficha o referencia, no una carpeta)`);
+      }
+    }
+    return errs;
+  });
+}
+
+// --- lector frío ------------------------------------------------------------
+
+/** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`; un test las compara). */
+const ETIQUETA_MITO = "El mito";
+const ETIQUETA_REALIDAD = "La realidad";
+/** Ventana de `Prompt`: título mono y botón (`src/templates/Prompt.tsx`). */
+const VENTANA_PROMPT = ["copia-este-prompt", "Copiar"];
+/** "DESLIZA →" del Hook, solo en carrusel (`src/templates/Hook.tsx`). */
+const DESLIZA = "Desliza →";
+
+/**
+ * COPIA de `pillContent` de `src/templates/Cta.tsx` (solo el texto): la
+ * pastilla por defecto y sin emoji. `test/calendario/validar.ts` compara ambas.
+ */
+const EMOJI_PASTILLA = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
+export function textoPastilla(cta) {
+  const raw = cta ?? "Link en bio →";
+  return String(raw).replace(EMOJI_PASTILLA, "").replace(/\s+/g, " ").trim();
+}
+
+/** Texto de una prop si es texto no vacío (o un número, como un `step` 1). */
+const txt = (v) => (typeof v === "number" && Number.isFinite(v) ? String(v) : typeof v === "string" && v.trim() ? v.trim() : undefined);
+
+/**
+ * El título con su `highlight` marcado entre ** ** (así ve el lector la palabra
+ * pintada en lima). Si el highlight no aparece, va aparte.
+ */
+function conDestacado(titulo, hl) {
+  const h = txt(hl);
+  if (!titulo) return h ? [`**${h}**`] : [];
+  if (!h) return [titulo];
+  const i = minus(titulo).indexOf(minus(h));
+  if (i < 0) return [titulo, `**${h}**`];
+  return [`${titulo.slice(0, i)}**${titulo.slice(i, i + h.length)}**${titulo.slice(i + h.length)}`];
+}
+
+/** "Etiqueta: texto" como el panel de `MythReality`; con etiqueta "" solo el texto (igual que el componente). */
+function conEtiqueta(etiqueta, defecto, texto) {
+  const t = txt(texto);
+  if (!t) return undefined;
+  const e = typeof etiqueta === "string" ? etiqueta.trim() : defecto;
+  return e ? `${e}: ${t}` : t;
+}
+
+/**
+ * Líneas visibles de una slide. `prisa` = solo lo que se ve de un vistazo:
+ * título con highlight, número de paso, prompt copiable, mito/realidad con sus
+ * etiquetas y valor + label del dato. `source` nunca entra (es la cita al pie).
+ */
+function lineasSlide(template, p, prisa, formato) {
+  const L = [];
+  const add = (...xs) => {
+    for (const x of xs.flat()) if (txt(x)) L.push(txt(x));
+  };
+  const lista = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()).map((x) => `- ${x.trim()}`) : []);
+  switch (template) {
+    case "Hook":
+      if (!prisa) add(p.eyebrow);
+      add(conDestacado(txt(p.title), p.highlight));
+      if (!prisa) {
+        add(p.subtitle);
+        if (p.swipe !== false && formato !== "reel") add(DESLIZA);
+      }
+      break;
+    case "Lead":
+      if (!prisa) add(p.kicker);
+      add(conDestacado(txt(p.text), p.highlight));
+      break;
+    case "Step":
+      add(p.step, conDestacado(txt(p.heading), p.highlight));
+      if (!prisa) add(p.body, lista(p.bullets));
+      break;
+    case "Prompt":
+      add(p.heading);
+      if (!prisa) add(VENTANA_PROMPT);
+      add(p.prompt);
+      if (!prisa) add(p.note);
+      break;
+    case "MythReality":
+      add(conEtiqueta(p.mythLabel, ETIQUETA_MITO, p.myth), conEtiqueta(p.realityLabel, ETIQUETA_REALIDAD, p.reality));
+      break;
+    case "Stat":
+      add(p.value, p.label);
+      if (!prisa) add(p.context);
+      break;
+    case "Cta":
+      add(conDestacado(txt(p.title), p.highlight));
+      if (!prisa) add(p.reason, textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.handle) ? `@${txt(p.handle)}` : undefined);
+      break;
+    default:
+      break;
+  }
+  return L;
+}
+
+/**
+ * Texto exacto que recibe cada lector frío, slide por slide y en orden:
+ * `{ completo, conPrisa }`. Lo genera el código para que nadie lo arme a mano
+ * (ni filtre el tema, el plan o la cita de la fuente). `formato` ("reel" o
+ * "carrusel", por defecto carrusel como el componente) decide si el Hook
+ * muestra "Desliza →". Nunca lanza.
+ */
+export function textosLector(borrador, formato) {
+  const armar = (prisa) => {
+    try {
+      if (!esObj(borrador) || !Array.isArray(borrador.slides)) return "";
+      return borrador.slides
+        .map((s, i) => {
+          const lineas = esObj(s) && esObj(s.props) && typeof s.template === "string" ? lineasSlide(s.template, s.props, prisa, formato) : [];
+          return [`Slide ${i + 1}:`, ...lineas].join("\n");
+        })
+        .join("\n\n");
+    } catch {
+      return "";
+    }
+  };
+  return { completo: armar(false), conPrisa: armar(true) };
+}
+
+/**
+ * Mensaje completo para el subagente de un lector: la sección "Para el lector"
+ * de `lector-frio.md` COPIADA (nunca su ruta: con la ruta, el lector tendría
+ * `plan.json` al lado) y el texto que le toca.
+ */
+export function mensajeLector(seccionLector, perfil, texto) {
+  return [
+    `Responde como el perfil ${perfil === "conPrisa" ? '"con prisa"' : "completo"} de estas instrucciones. No abras ni busques ningún archivo: todo lo que necesitas está en este mensaje.`,
+    "",
+    seccionLector.trim(),
+    "",
+    "## Texto",
+    "",
+    texto,
+  ].join("\n");
+}
+
+/** La sección "## Para el lector" de `lector-frio.md` (hasta el siguiente "## "). */
+export function seccionDelLector(md) {
+  const i = md.indexOf("## Para el lector");
+  if (i < 0) return undefined;
+  const fin = md.indexOf("\n## ", i + 3);
+  return md.slice(i, fin < 0 ? undefined : fin).trim();
 }
 
 // --- plan -------------------------------------------------------------------
@@ -799,7 +1025,8 @@ export function validarConfig(config) {
 
 /**
  * Valida la carpeta de una semana (`_calendario/<semana>/`): plan, cada
- * borrador, tope de fondos ai y score léxico. `opts.score(borrador)` devuelve
+ * borrador, que existan las rutas de `origen` (relativas a la raíz de la base,
+ * dos carpetas arriba, u `opts.raiz`), tope de fondos ai y score léxico. `opts.score(borrador)` devuelve
  * el score o `undefined`; sin `score` no se evalúa y se avisa (no es error).
  * Los avisos van a `opts.avisos` si se pasa; si no, a la consola.
  */
@@ -817,6 +1044,8 @@ export function validarSemana(dir, config, opts = {}) {
       out.push(`plan: la carpeta "${basename(dir)}" no coincide con semana "${plan.semana}"`);
     }
     const borradores = [];
+    // Raíz de la base: <base>/_calendario/<semana>. `opts.raiz` la fija; null no revisa origen.
+    const raiz = opts?.raiz === null ? undefined : typeof opts?.raiz === "string" ? opts.raiz : join(dir, "..", "..");
     const score = typeof opts?.score === "function" ? opts.score : undefined;
     let sinScore = 0;
     for (const p of plan.piezas) {
@@ -834,6 +1063,7 @@ export function validarSemana(dir, config, opts = {}) {
       }
       borradores.push(b.data);
       out.push(...validarBorrador(p, b.data, config).map((e) => `${id}: ${e}`));
+      if (raiz) out.push(...erroresDeOrigen(p, raiz).map((e) => `${id}: ${e}`));
       let s;
       if (score) {
         try {
@@ -884,7 +1114,7 @@ export const EJEMPLO = {
         emocion: ["curiosidad", "alivio"],
         entregable: "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
         fraseAmigo: "hay una herramienta gratis que convierte tus documentos en un podcast para escuchar caminando",
-        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio el prompt; se nombró en el subtítulo del Hook" },
+        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook" },
         origen: { fichas: ["fuentes/2026-10-04-dm-ejemplo.md"], referencias: ["referencias/notebooklm.md"] },
         derivadoDe: null,
         caption:
@@ -943,7 +1173,8 @@ export const EJEMPLO = {
         props: {
           title: "Guárdalo para tu próxima pila de lectura",
           highlight: "Guárdalo",
-          handle: "@ia.punto.es",
+          handle: "ia.punto.es",
+          cta: "Guárdalo",
           source: "Fuente: notebooklm.google.com",
         },
       },
@@ -972,6 +1203,41 @@ function scoreConRepo(repo, borrador) {
   return m ? Number(m[1]) : undefined;
 }
 
+/** `--lector <semana> <id>`: los dos textos y el mensaje exacto para cada subagente. */
+function imprimirLector(here, semana, id, fallar) {
+  const uso = "uso: node _calendario/validar.mjs --lector <semana AAAA-MM-DD> <id>";
+  if (!fechaValida(semana)) fallar([`${uso} (semana ${q(semana)} inválida)`]);
+  if (typeof id !== "string" || !ID_RE.test(id)) fallar([`${uso} (id ${q(id)} inválido)`]);
+  const plan = leerJson(join(here, semana, "plan.json"));
+  if ("error" in plan) fallar([`${semana}/plan.json ${plan.error}`]);
+  const piezas = esObj(plan.data) && Array.isArray(plan.data.piezas) ? plan.data.piezas.filter(esObj) : [];
+  const p = piezas.find((x) => x.id === id);
+  if (!p) {
+    const ids = piezas.map((x) => x.id).filter((x) => typeof x === "string");
+    fallar([`no hay ninguna pieza con id ${q(id)} en ${semana}/plan.json (ids: ${ids.length ? ids.join(", ") : "ninguno"})`]);
+  }
+  const b = leerJson(join(here, semana, `${id}.json`));
+  if ("error" in b) fallar([`${semana}/${id}.json ${b.error}`]);
+  let md;
+  try {
+    md = readFileSync(join(here, "lector-frio.md"), "utf8");
+  } catch {
+    fallar(["no se pudo leer el cuestionario del lector frío (lector-frio.md junto a validar.mjs)"]);
+  }
+  const seccion = seccionDelLector(md);
+  if (!seccion) fallar(['lector-frio.md no tiene la sección "## Para el lector"']);
+  const { completo, conPrisa } = textosLector(b.data, p.formato);
+  const bloque = (titulo, cuerpo) => `=== ${titulo} ===\n${cuerpo}\n=== FIN ===\n`;
+  console.log(
+    [
+      bloque("TEXTO LECTOR COMPLETO", completo),
+      bloque("TEXTO LECTOR CON PRISA", conPrisa),
+      bloque("MENSAJE PARA EL SUBAGENTE LECTOR COMPLETO (pégalo tal cual)", mensajeLector(seccion, "completo", completo)),
+      bloque("MENSAJE PARA EL SUBAGENTE LECTOR CON PRISA (pégalo tal cual)", mensajeLector(seccion, "conPrisa", conPrisa)),
+    ].join("\n"),
+  );
+}
+
 function main(args) {
   const here = dirname(self);
   const cfg = leerJson(join(here, "config.json"));
@@ -993,8 +1259,12 @@ function main(args) {
     console.log("✓ Autoprueba del calendario: config.json y ejemplo válidos.");
     return;
   }
+  if (args[0] === "--lector") {
+    imprimirLector(here, args[1], args[2], fallar);
+    return;
+  }
   const semana = args[0];
-  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test (recibí ${q(semana)})`]);
+  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test | --lector <semana> <id> (recibí ${q(semana)})`]);
   const repo = repoDeCodigo(join(here, ".."));
   const score = repo
     ? (b) => {

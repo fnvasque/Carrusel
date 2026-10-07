@@ -246,13 +246,35 @@ escribe):
 5. ¿Qué harías al terminar? (guardar / enviárselo a alguien / comentar / nada)
 6. ¿Algo te confundió, se contradijo o prometió algo que no llegó?
 
-Se corren **dos lectores**: el no técnico completo y uno "con prisa" que solo
-recibe títulos y `highlight` (layer-cake). Pasa si: (1) coincide con el tema,
-(2) nombra el entregable, (3) está vacío o solo cita el término permitido,
-(4) es compatible con la emoción declarada, (5) coincide con la señal objetivo,
-(6) está vacío, **en ambos**. Si no, reescritura hasta `reescriturasMax` y luego
+Se corren **dos lectores**: el no técnico completo (todo el texto visible) y
+uno "con prisa" que recibe lo que se ve de un vistazo: títulos con su
+`highlight`, número de paso, el `prompt` completo, mito y realidad con sus
+etiquetas y valor + `label` del dato (layer-cake). `source` no entra en
+ninguno. El texto y el mensaje de cada lector los genera
+`node _calendario/validar.mjs --lector <semana> <id>`. Pasa si, en el lector
+completo, (1) coincide con el tema, (2) nombra el entregable, (3) está vacío o
+solo cita el término permitido, (4) es compatible con la emoción declarada,
+(5) coincide con la señal objetivo y (6) está vacío; en el lector con prisa
+cuentan solo (1), (2) y (5), y sus respuestas 3, 4 y 6 se anotan en `notas` sin
+bloquear. Si no, reescritura hasta `reescriturasMax` y luego
 hueco vacío. Resultado y notas de cada intento quedan en `plan.json`
 (`lectorFrio`) y `registro.jsonl`.
+
+> **Nota 2026-10-07 — ajuste del lector frío.** En una corrida real del
+> planificador, 4 piezas buenas sacadas de la base fallaron las 3 vueltas: en 12
+> lecturas el lector con prisa nunca salió limpio. Recibía solo títulos y
+> `highlight` (no el `prompt` copiable, que es el entregable de casi todos los
+> reels; en `MythReality`, el mito sin la etiqueta "El mito", así que lo leía
+> como afirmación) y el criterio exigía las preguntas 3 y 6 vacías también en
+> él, que siempre echa de menos el cuerpo. Cambios: el con prisa ve lo que se ve
+> de un vistazo (arriba) y solo bloquean sus respuestas 1, 2 y 5; el completo
+> sigue con (1)–(6). El texto exacto lo genera `textosLector` en `validar.mjs`
+> (`--lector` imprime además el mensaje con el cuestionario copiado, nunca la
+> ruta de `lector-frio.md`, para que el lector no tenga `plan.json` al lado).
+> `source` no entra en ningún lector y el número de paso sí. Además,
+> `validar.mjs <semana>` comprueba que existan las rutas de `origen.fichas` y
+> `origen.referencias` (relativas a la raíz de la base): una pieza publicada
+> citaba una ficha inexistente.
 
 **4. Cómo lo corrige el bucle de feedback** (ver Mejora 3): cada parámetro de
 la tabla 2 es una variable de experimento del ritual semanal. Las piezas llevan

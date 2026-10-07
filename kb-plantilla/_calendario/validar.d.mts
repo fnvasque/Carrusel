@@ -14,5 +14,10 @@ export declare function validarCaption(caption: string, config: unknown, tema?: 
 export declare function validarSemana(
   dir: string,
   config: unknown,
-  opts?: { score?: (borrador: unknown) => number | undefined; avisos?: string[] },
+  opts?: { score?: (borrador: unknown) => number | undefined; avisos?: string[]; raiz?: string | null },
 ): string[];
+export declare function erroresDeOrigen(pieza: unknown, raiz: string): string[];
+export declare function textosLector(borrador: unknown, formato?: "reel" | "carrusel"): { completo: string; conPrisa: string };
+export declare function textoPastilla(cta?: string): string;
+export declare function mensajeLector(seccionLector: string, perfil: "completo" | "conPrisa", texto: string): string;
+export declare function seccionDelLector(md: string): string | undefined;

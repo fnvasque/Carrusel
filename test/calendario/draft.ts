@@ -176,3 +176,12 @@ check("parseBorrador lanza con mensaje claro ante formas inválidas", () => {
     assert.throws(() => parseBorrador(text), (e: unknown) => e instanceof Error && re.test(e.message), `debía rechazar: ${text.slice(0, 120)}`);
   }
 });
+
+check("borradorASpec quita las @ iniciales de handle (el Cta ya dibuja una: nunca \"@@\")", () => {
+  for (const h of ["@ia.punto.es", "@@ia.punto.es", "ia.punto.es"]) {
+    const b = base();
+    b.slides[3].props.handle = h;
+    const cta = borradorASpec(b).slides.find((s) => s.template === Cta)!;
+    assert.equal(cta.props.handle, "ia.punto.es", h);
+  }
+});

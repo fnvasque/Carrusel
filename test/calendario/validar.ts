@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check } from "../_check.ts";
@@ -12,6 +14,8 @@ import {
   contarFondosIA,
   reglasDeTexto,
   segundosEscena,
+  textoPastilla,
+  textosLector,
   validarBorrador,
   validarCaption,
   validarConfig,
@@ -23,6 +27,8 @@ import { sceneSeconds } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
+import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
+import { pillContent } from "../../src/templates/Cta.tsx";
 
 /**
  * Tests del validador del planificador (`kb-plantilla/_calendario/validar.mjs`).
@@ -77,7 +83,7 @@ function borrador(): any {
       { template: "Hook", props: { title: "Convierte 6 PDFs en un podcast de 10 minutos", highlight: "podcast" } },
       { template: "Step", props: { step: "1", heading: "Sube tus PDFs a NotebookLM", body: "Crea un cuaderno y arrastra los archivos." } },
       { template: "Step", props: { step: "2", heading: "Pide el resumen en audio", bullets: ["Toca resumen en audio", "Elige la versión corta"] } },
-      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", source: "Fuente: notebooklm.google.com" } },
+      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "Fuente: notebooklm.google.com" } },
     ],
   };
 }
@@ -460,11 +466,22 @@ check("calendario/validar: plan — ids repetidos y dos piezas del mismo tema �
 
 // --- semana completa (archivos) ---
 
+/** Crea en `root` (la raíz de la base) las fichas y referencias que citan las piezas en `origen`. */
+function crearOrigen(root: string, piezas: any[]): void {
+  for (const x of piezas) {
+    for (const r of [...x.origen.fichas, ...x.origen.referencias]) {
+      mkdirSync(join(root, r, ".."), { recursive: true });
+      writeFileSync(join(root, r), "# ficha\n");
+    }
+  }
+}
+
 function semanaTemporal(): { root: string; dir: string; p: any } {
   const root = mkdtempSync(join(tmpdir(), "kb-calendario-"));
   const dir = join(root, "_calendario", "2026-10-12");
   mkdirSync(dir, { recursive: true });
   const p = plan();
+  crearOrigen(root, p.piezas);
   for (const x of p.piezas) {
     const b = borrador();
     b.name = x.id;
@@ -587,6 +604,7 @@ check("calendario/validar (CLI): --self-test, semana válida → 0, semana invá
     const env = { ...process.env, CARRUSEL_DIR: join(root, "nada") };
     execFileSync("node", [join(cal, "validar.mjs"), "--self-test"], { stdio: "pipe", env });
     const p = plan();
+    crearOrigen(root, p.piezas);
     for (const x of p.piezas) {
       const b = borrador();
       b.name = x.id;
@@ -769,4 +787,267 @@ check("calendario/validar: INSTRUCCIONES.md — mix con los valores exactos, pre
   const esqueleto = JSON.parse(m[1]);
   assert.deepEqual(Object.keys(esqueleto), ["semana", "zona", "experimento", "piezas"]);
   assert.equal(esqueleto.piezas.length, 6);
+});
+
+// --- lector frío (2026-10-07): texto exacto por código y origen verificado ---
+
+/** Borrador con un mito y un dato para probar las etiquetas y el valor del Stat. */
+function borradorConMito(): any {
+  const b = clone(EJEMPLO.borrador) as any;
+  b.slides.splice(5, 0,
+    { template: "MythReality", props: { myth: "Necesitas pagar para tener un podcast", reality: "NotebookLM lo hace gratis" } },
+    { template: "MythReality", props: { myth: "Hay que saber editar audio", reality: "Lo arma solo", mythLabel: "Lo que crees", realityLabel: "Lo que pasa" } },
+    { template: "Stat", props: { value: "10 min", label: "dura el resumen", context: "en la versión corta" } },
+  );
+  return b;
+}
+
+check("calendario/validar (lector): con prisa ve el prompt completo y las etiquetas del mito", () => {
+  const { conPrisa, completo } = textosLector(borradorConMito());
+  const prompt = EJEMPLO.borrador.slides[4].props.prompt as string;
+  assert.ok(conPrisa.includes(prompt), conPrisa);
+  assert.ok(completo.includes(prompt));
+  for (const t of [conPrisa, completo]) {
+    assert.ok(t.includes("El mito: Necesitas pagar para tener un podcast"), t);
+    assert.ok(t.includes("La realidad: NotebookLM lo hace gratis"), t);
+    assert.ok(t.includes("Lo que crees: Hay que saber editar audio"), t);
+    assert.ok(t.includes("Lo que pasa: Lo arma solo"), t);
+    assert.ok(/10 min\ndura el resumen/.test(t), t);
+  }
+  // El cuerpo y el contexto solo los ve el lector completo.
+  assert.ok(!conPrisa.includes("arrastra los archivos"));
+  assert.ok(completo.includes("arrastra los archivos"));
+  assert.ok(!conPrisa.includes("en la versión corta") && completo.includes("en la versión corta"));
+  assert.ok(!conPrisa.includes("El truco es el prompt") && completo.includes("El truco es el prompt"));
+  // En orden: slide por slide.
+  assert.ok(conPrisa.indexOf("Slide 1:") < conPrisa.indexOf("Slide 5:") && conPrisa.indexOf("Slide 5:") < conPrisa.indexOf(prompt));
+});
+
+check("calendario/validar (lector): source no entra en ningún lector; el número de paso sí (también numérico)", () => {
+  const source = EJEMPLO.borrador.slides[5].props.source as string;
+  const { conPrisa, completo } = textosLector(EJEMPLO.borrador);
+  for (const t of [conPrisa, completo]) {
+    assert.ok(!t.includes(source), t);
+    assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
+    assert.ok(/^2\n.*Pide el resumen en audio/m.test(t), t);
+  }
+  const b = clone(EJEMPLO.borrador) as any;
+  b.slides[2].props.step = 1;
+  for (const t of Object.values(textosLector(b))) assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
+});
+
+check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, note, reason, pastilla, @handle, ventana del prompt y Desliza (solo carrusel)", () => {
+  const b = clone(EJEMPLO.borrador) as any;
+  b.slides[0].props.eyebrow = "Truco de estudio";
+  b.slides[1].props.kicker = "Sin pantalla";
+  b.slides[4].props.note = "Funciona también en inglés";
+  b.slides[5].props.reason = "Cada semana un truco nuevo";
+  b.slides[5].props.handle = "ia.punto.es";
+  b.slides[5].props.cta = "Guárdalo 🔖";
+  const { completo, conPrisa } = textosLector(b, "carrusel");
+  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "copia-este-prompt", "Copiar", "Desliza →"]) {
+    assert.ok(completo.includes(x), `falta ${JSON.stringify(x)} en:\n${completo}`);
+  }
+  assert.ok(!completo.includes("🔖"));
+  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "copia-este-prompt"]) assert.ok(!conPrisa.includes(x), x);
+  assert.ok(!textosLector(b, "reel").completo.includes("Desliza"), "en reel no hay Desliza");
+  b.slides[0].props.swipe = false;
+  assert.ok(!textosLector(b, "carrusel").completo.includes("Desliza"));
+  delete b.slides[5].props.cta;
+  assert.ok(textosLector(b).completo.includes("Link en bio →"), "pastilla por defecto");
+});
+
+check("calendario/validar (lector): textoPastilla es copia de pillContent (Cta.tsx)", () => {
+  for (const c of [undefined, "", "Guárdalo 🔖", "Envíaselo ↗", "Comenta RESUMEN  ✍️ ya", "👨‍👩‍👧 familia", "Link en bio →", "  espacios   raros  "]) {
+    assert.equal(textoPastilla(c), pillContent(c).text, JSON.stringify(c));
+  }
+});
+
+/** Texto visible de un componente renderizado (sin etiquetas HTML). */
+const textoRender = (el: any) =>
+  renderToStaticMarkup(el).replace(/<[^>]+>/g, "\n").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+
+check("calendario/validar (lector): etiquetas por defecto de MythReality leídas del componente; mythLabel \"\" da etiqueta vacía", () => {
+  const html = textoRender(createElement(MythReality, { myth: "MITO_X", reality: "REAL_Y" }));
+  const etiquetas = html.split("\n").map((x) => x.trim()).filter((x) => x && x !== "MITO_X" && x !== "REAL_Y");
+  const { completo } = textosLector({ slides: [{ template: "MythReality", props: { myth: "MITO_X", reality: "REAL_Y" } }] });
+  const [lm, lr] = [completo.match(/^(.*): MITO_X$/m)?.[1], completo.match(/^(.*): REAL_Y$/m)?.[1]];
+  assert.ok(lm && etiquetas.includes(lm), `etiqueta del mito ${lm} no está en el componente: ${JSON.stringify(etiquetas)}`);
+  assert.ok(lr && etiquetas.includes(lr), `etiqueta de la realidad ${lr} no está en el componente: ${JSON.stringify(etiquetas)}`);
+  const vacia = textosLector({ slides: [{ template: "MythReality", props: { myth: "MITO_X", reality: "REAL_Y", mythLabel: "" } }] });
+  assert.ok(/^MITO_X$/m.test(vacia.completo) && /^MITO_X$/m.test(vacia.conPrisa), vacia.completo);
+  assert.ok(!textoRender(createElement(MythReality, { myth: "MITO_X", reality: "REAL_Y", mythLabel: "" })).includes(lm!));
+});
+
+check("calendario/validar (lector): cada línea del lector completo está en lo que dibuja el componente", () => {
+  const casos: [string, any, Record<string, unknown>][] = [
+    ["Hook", Hook, { eyebrow: "Truco de estudio", title: "Convierte 6 PDFs en un podcast", highlight: "podcast", subtitle: "El truco es el prompt" }],
+    ["Lead", Lead, { kicker: "Sin pantalla", text: "6 archivos y cero horas", highlight: "cero horas" }],
+    ["Step", Step, { step: "1", heading: "Sube tus PDFs", highlight: "PDFs", body: "Arrastra los archivos.", bullets: ["Uno", "Dos"] }],
+    ["Prompt", Prompt, { heading: "Pega esto", prompt: "Resume las 3 ideas clave.", note: "Funciona en inglés" }],
+    ["MythReality", MythReality, { myth: "Hay que pagar", reality: "Es gratis", mythLabel: "Lo que crees" }],
+    ["Stat", Stat, { value: "10", label: "minutos dura", context: "en la versión corta" }],
+    ["Cta", Cta, { title: "Guárdalo para después", highlight: "Guárdalo", reason: "Cada semana", handle: "ia.punto.es", cta: "Guárdalo 🔖" }],
+  ];
+  for (const [t, C, props] of casos) {
+    for (const formato of ["post", "reel"] as const) {
+      const html = textoRender(createElement(C, { ...props, format: formato }));
+      const plano = html.replace(/\s+/g, " ");
+      const { completo } = textosLector({ slides: [{ template: t, props }] }, formato === "reel" ? "reel" : "carrusel");
+      for (const linea of completo.split("\n").slice(1)) {
+        const partes = linea.replace(/\*\*/g, "").replace(/^- /, "").split(/: (?=.)/);
+        for (const x of t === "MythReality" ? partes : [partes.join(": ")]) {
+          assert.ok(plano.includes(x.replace(/\s+/g, " ")), `${t} (${formato}): ${JSON.stringify(x)} no lo dibuja el componente`);
+        }
+      }
+    }
+  }
+});
+
+check("calendario/validar (lector): entradas raras no lanzan", () => {
+  assert.doesNotThrow(() => textosLector(null));
+  assert.doesNotThrow(() => textosLector({ slides: [null, { template: "X" }, { template: "Hook", props: 3 }] }));
+});
+
+/** Base temporal con `_calendario/config.json`, validar.mjs, lector-frio.md y la semana del ejemplo. */
+function baseConEjemplo(): { root: string; cal: string; env: NodeJS.ProcessEnv } {
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-lector-"));
+  const cal = join(root, "_calendario");
+  const dir = join(cal, EJEMPLO.plan.semana);
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(join(DIR, "validar.mjs"), join(cal, "validar.mjs"));
+  copyFileSync(join(DIR, "lector-frio.md"), join(cal, "lector-frio.md"));
+  writeFileSync(join(cal, "config.json"), JSON.stringify({ ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+  writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+  writeFileSync(join(dir, `${EJEMPLO.plan.piezas[0].id}.json`), JSON.stringify(EJEMPLO.borrador));
+  crearOrigen(root, EJEMPLO.plan.piezas);
+  return { root, cal, env: { ...process.env, CARRUSEL_DIR: join(root, "nada") } };
+}
+
+check("calendario/validar (CLI): --lector imprime los dos textos y el mensaje con lector-frio.md copiado, sin su ruta", () => {
+  const { root, cal, env } = baseConEjemplo();
+  try {
+    const out = execFileSync("node", [join(cal, "validar.mjs"), "--lector", EJEMPLO.plan.semana, EJEMPLO.plan.piezas[0].id], { encoding: "utf8", stdio: "pipe", env });
+    const { completo, conPrisa } = textosLector(EJEMPLO.borrador, EJEMPLO.plan.piezas[0].formato);
+    assert.ok(out.includes(completo) && out.includes(conPrisa), out);
+    assert.ok(out.includes("¿De qué trata, en una frase?"), "lleva el cuestionario copiado");
+    assert.ok(!out.includes("lector-frio.md"), "nunca la ruta del archivo");
+    assert.ok(!out.includes("plan.json"), "nada del plan");
+    assert.ok(!out.includes(EJEMPLO.plan.piezas[0].entregable));
+    assert.equal((out.match(/=== MENSAJE/g) ?? []).length, 2, out);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar (CLI): --lector con id inexistente da un error claro y sale con 1", () => {
+  const { root, cal, env } = baseConEjemplo();
+  try {
+    for (const args of [[EJEMPLO.plan.semana, "no-existe"], [EJEMPLO.plan.semana], ["x", "lun-reel-pdfs-a-podcast"], ["2026-10-19", "lun-reel-pdfs-a-podcast"]]) {
+      try {
+        execFileSync("node", [join(cal, "validar.mjs"), "--lector", ...args], { stdio: "pipe", env });
+        assert.fail(`debió fallar: ${args.join(" ")}`);
+      } catch (e: any) {
+        assert.equal(e.status, 1, String(e.stderr));
+        if (args[1] === "no-existe") assert.match(String(e.stderr), /no hay ninguna pieza con id "no-existe".*lun-reel-pdfs-a-podcast/s);
+      }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: origen — ruta inexistente, traversal, symlink afuera, carpeta y \".\" dan error; sin base (self-test) no se mira", () => {
+  const { root, dir, p } = semanaTemporal();
+  const afuera = mkdtempSync(join(tmpdir(), "kb-calendario-afuera-"));
+  try {
+    assertNone(validarSemana(dir, config, { score: () => 90 }));
+    rmSync(join(root, p.piezas[0].origen.referencias[0]));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /lun-reel-a: origen\.referencias: "referencias\/notebooklm\.md" no existe en la base/);
+    // Un archivo real fuera de la base y un enlace simbólico dentro que apunta a él.
+    writeFileSync(join(afuera, "secreto.md"), "fuera\n");
+    symlinkSync(join(afuera, "secreto.md"), join(root, "fuentes", "enlace.md"));
+    symlinkSync(afuera, join(root, "fuentes", "carpeta-afuera"));
+    const casos: [string, RegExp][] = [
+      ["../fuera.md", /fuera de la base/],
+      ["/etc/passwd", /fuera de la base/],
+      ["fuentes/../../x.md", /fuera de la base/],
+      ["fuentes/enlace.md", /fuera de la base/],
+      ["fuentes/carpeta-afuera/secreto.md", /fuera de la base/],
+      ["fuentes", /no es un archivo/],
+      ["./", /no es un archivo/],
+      [".", /no es un archivo/],
+    ];
+    for (const [mala, re] of casos) {
+      const q = clone(p);
+      crearOrigen(root, q.piezas);
+      q.piezas[1].origen.fichas = [mala];
+      writeFileSync(join(dir, "plan.json"), JSON.stringify(q));
+      const errs = validarSemana(dir, config, { score: () => 90 }).filter((e: string) => e.startsWith("mar-carrusel-b: origen"));
+      assert.equal(errs.length, 1, `${mala}: ${JSON.stringify(errs)}`);
+      assert.match(errs[0], re, mala);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(afuera, { recursive: true, force: true });
+  }
+  // validarBorrador (lo que usa --self-test) no depende de que exista la base.
+  assertNone(validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+});
+
+check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo del lector con prisa y uso de --lector", () => {
+  const lf = readFileSync(join(DIR, "lector-frio.md"), "utf8");
+  const ins = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  assert.ok(lf.includes("--lector") && ins.includes("node _calendario/validar.mjs --lector"));
+  assert.ok(/no bloquean/.test(lf) && /no bloquean/.test(ins));
+  assert.ok(!lf.includes("Lee `lector-frio.md`"), "el mensaje ya no lleva la ruta");
+});
+
+check("calendario/validar: handle con @ inicial → error \"sin @: el motor la agrega\"", () => {
+  const b = borrador();
+  b.slides[3].props.handle = "@ia.punto.es";
+  assertHas(vb(pieza(), b), /handle "@ia\.punto\.es" sin @: el motor la agrega/);
+  b.slides[3].props.handle = "ia.punto.es";
+  assertNone(vb(pieza(), b));
+  assert.equal(EJEMPLO.borrador.slides[5].props.handle, "ia.punto.es");
+});
+
+check("calendario/validar: el Cta exige cta explícito y coherente con la señal", () => {
+  const b = borrador();
+  delete b.slides[3].props.cta;
+  assertHas(vb(pieza(), b), /falta cta.*Link en bio/);
+  const casos: [string, string, boolean][] = [
+    ["guardados", "Guárdalo", true],
+    ["guardados", "Guarda este post 🔖", true],
+    ["guardados", "Envíaselo a alguien", false],
+    ["envios", "Envíaselo a alguien", true],
+    ["envios", "Mándaselo a tu jefe", true],
+    ["envios", "Compártelo", true],
+    ["envios", "Guárdalo", false],
+    ["comentarios", "Comenta RESUMEN", true],
+    ["comentarios", "Guárdalo", false],
+    ["retencion", "Guárdalo", true],
+    ["retencion", "Envíaselo a alguien", true],
+    ["retencion", "Comenta RESUMEN", false],
+    ["guardados", "Link en bio →", false],
+    ["envios", "Reenvíaselo a alguien", true],
+    ["envios", "Pásaselo a quien lo necesite", true],
+    ["envios", "Dile a alguien", true],
+    ["envios", "Etiqueta a un amigo", true],
+    ["comentarios", "Escribe PALABRA", true],
+    ["comentarios", "Responde PALABRA", true],
+    ["retencion", "Reenvíaselo a alguien", true],
+    ...["guardados", "envios", "comentarios", "retencion"].map((x): [string, string, boolean] => [x, "Link en bio →", false]),
+  ];
+  for (const [senal, cta, ok] of casos) {
+    const c = borrador();
+    c.slides[3].props.cta = cta;
+    const errs = vb(pieza({ senal }), c).filter((e: string) => /pastilla/.test(e));
+    assert.equal(errs.length === 0, ok, `${senal} + ${JSON.stringify(cta)}: ${JSON.stringify(errs)}`);
+  }
+});
+
+check("calendario/validar: INSTRUCCIONES.md trae los textos sugeridos de la pastilla por señal", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const x of ['"Guárdalo"', '"Envíaselo a alguien"', '"Comenta PALABRA"', "sin @: el motor la agrega"]) assert.ok(md.includes(x), x);
 });

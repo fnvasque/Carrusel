@@ -7,20 +7,31 @@ nunca este cuestionario.
 ## Para el planificador: cómo se usa
 
 Por cada pieza lanzas **dos subagentes con contexto limpio** (sin nada de tu
-conversación). A cada uno le pasas **solo** este archivo y el texto que le toca:
+conversación). El texto de cada uno y el mensaje exacto los genera el código:
 
-| Lector | Qué recibe |
+```bash
+node _calendario/validar.mjs --lector "$SEMANA" <id>
+```
+
+Imprime cuatro bloques: el texto del lector completo, el del lector con prisa y
+el **mensaje completo** para cada subagente. Pega cada mensaje **tal cual**
+(entre `===` y `=== FIN ===`): ya lleva copiada la sección "Para el lector" de
+este archivo y el texto que le toca. No lo armes a mano ni le agregues nada, y
+nunca le pases la ruta de este archivo (con la ruta el lector tendría el plan al
+lado).
+
+| Lector | Qué recibe (en el orden de las slides, `Slide 1: …`, `Slide 2: …`) |
 |---|---|
-| **Completo** | El texto visible de todas las slides, en orden, slide por slide (`Slide 1: …`, `Slide 2: …`): títulos, `highlight`, cuerpo, bullets, prompt, mito/realidad, dato, CTA. |
-| **Con prisa** | Solo el título y el `highlight` de cada slide, en orden. Nada más. Título = `title` o `heading`; en las slides sin título, su texto principal: `Lead` → `text`, `Stat` → `value` + `label`, `MythReality` → `myth`. |
+| **Completo** | Todo el texto que dibuja cada slide: títulos, `highlight`, `eyebrow`, `kicker`, `subtitle`, "Desliza →" (solo carrusel), número de paso, cuerpo, bullets, la ventana del prompt ("copia-este-prompt", "Copiar") y el prompt, `note`, mito y realidad con sus etiquetas, dato, `reason`, la pastilla del CTA (sin emoji) y `@handle`. |
+| **Con prisa** | Lo que se ve de un vistazo: el título de cada slide (`title`, `heading` o `text` según la plantilla) con su `highlight`; el número de paso; en `Prompt`, el texto copiable completo (`prompt`); en `MythReality`, mito y realidad con sus etiquetas ("El mito", "La realidad" o `mythLabel`/`realityLabel`); en `Stat`, el valor más su `label`. |
+
+En ambos, `source` (la cita al pie) **no** entra y el número de paso **sí**. La
+palabra destacada (`highlight`) va entre `**` dentro del título.
 
 **Prohibido** pasarle al lector: el tema, las fuentes o fichas, el plan, el
 caption, el id, la señal objetivo, el entregable, la frase de amigo ni la
 emoción buscada. Tampoco le digas qué esperas que responda. Si recibe algo de
 eso, la prueba no vale y se repite.
-
-El mensaje al subagente es exactamente: «Lee `lector-frio.md` (sección "Para el
-lector") y responde sobre este texto:» seguido del texto.
 
 ## Para el lector
 
@@ -30,10 +41,12 @@ Eres este perfil y respondes como él, con honestidad, sin ayudar al autor:
 
 **Perfil "con prisa":** el mismo hispanohablante de 25 a 45 años, curioso de la
 IA, no técnico, en el celular y distraído, pero con más prisa todavía: solo
-alcanza a leer los títulos y la palabra destacada de cada slide antes de pasar.
-Recibe solo títulos y `highlight`.
+alcanza a ver lo que salta a la vista en cada slide antes de pasar: títulos,
+palabra destacada, número de paso, el prompt para copiar, el mito y la realidad,
+y la cifra de un dato. No lee los párrafos de explicación.
 
-No busques nada fuera del texto. Si algo no se entiende, dilo: no lo adivines
+Las palabras entre `**` son las que se ven destacadas en color. No busques nada
+fuera del texto. Si algo no se entiende, dilo: no lo adivines
 ni lo completes con lo que sabes.
 
 ### Preguntas
@@ -57,8 +70,7 @@ hay nada, deja el texto vacío (`""`).
 ## Para el planificador: criterio de paso
 
 Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
-`plan.json` para esa pieza (el lector nunca ve lo declarado). La pieza pasa
-solo si se cumplen las seis condiciones **en ambos lectores**:
+`plan.json` para esa pieza (el lector nunca ve lo declarado). Las condiciones:
 
 1. La respuesta 1 coincide con el tema de la pieza.
 2. La respuesta 2 nombra el entregable (lo que se lleva el espectador).
@@ -70,7 +82,15 @@ solo si se cumplen las seis condiciones **en ambos lectores**:
    verlo hasta el final y guardar o enviar; "nada" nunca pasa).
 6. La respuesta 6 está vacía.
 
-Si falla cualquiera en cualquiera de los dos lectores: reescribe la pieza
+- **Lector completo:** deben cumplirse las seis (1–6).
+- **Lector con prisa:** cuentan solo la 1, la 2 y la 5. Sus respuestas 3, 4 y 6
+  **no bloquean**: anótalas en `notas` (sirven para el bucle de feedback y para
+  mejorar títulos), pero la pieza no se reescribe por ellas. El lector con prisa
+  no ve el cuerpo a propósito; echarlo de menos es esperable.
+
+La pieza pasa solo si pasa en los dos lectores con su criterio.
+
+Si falla una condición que cuenta, en cualquiera de los dos lectores: reescribe la pieza
 (contando la vuelta) y vuelve a correr **ambos** lectores con subagentes nuevos.
 Tope: `puerta.reescriturasMax` vueltas en total, sumando las del validador.
 Si no pasa, la pieza se quita y el hueco queda vacío.
@@ -78,8 +98,9 @@ Si no pasa, la pieza se quita y el hueco queda vacío.
 Registra el resultado en `plan.json`, campo `lectorFrio` de la pieza:
 
 ```json
-{ "intentos": 2, "resultado": "ok", "notas": "v1: el lector con prisa no vio el prompt; se movió al título" }
+{ "intentos": 2, "resultado": "ok", "notas": "v1: el lector completo no entendió 'cuaderno'; se explicó en el Step 1. Con prisa (no bloquea): echó de menos cómo se sube el archivo" }
 ```
 
 `resultado` es exactamente `"ok"` solo si pasó; `notas` resume qué falló en
-cada intento anterior (sirve para el bucle de feedback).
+cada intento anterior y las respuestas 3, 4 y 6 del lector con prisa que no
+bloquearon (sirve para el bucle de feedback).
