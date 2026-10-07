@@ -254,13 +254,15 @@ ninguno. El texto y el mensaje de cada lector los genera
 `node _calendario/validar.mjs --lector <semana> <id>`. Pasa si, en el lector
 completo, (1) coincide con el tema, (2) nombra el entregable, (3) no nombra
 una palabra que no entendió y que la pieza no explica, (4) es compatible con la
-emoción declarada, (5) coincide con la señal objetivo y (6) no señala una
+emoción declarada, (5) es una acción concreta (guardar, enviar o comentar; si no es la de la señal objetivo se anota como `NB` sin bloquear) y (6) no señala una
 contradicción, una promesa incumplida ni pasos que no pudo seguir (cada duda
 declarada no bloqueante va en `notas` como `NB: «cita» → regla`); en el lector con prisa
 cuentan solo (1), (2) y (5), y sus respuestas 3, 4 y 6 se anotan en `notas` sin
 bloquear. Si no, reescritura hasta `reescriturasMax` y luego
 hueco vacío. Resultado y notas de cada intento quedan en `plan.json`
 (`lectorFrio`) y `registro.jsonl`.
+
+> **Nota 2026-10-07 (3) — la acción no bloquea por la señal.** Con la cuenta casi sin seguidores y sin métricas, el usuario decidió que la pregunta 5 solo exija una acción concreta: lo que un lector simulado *cree* que haría (guardar en vez de enviar) vale menos que lo que mida el bucle. El desajuste queda como `NB` para compararlo con los datos reales y revisarlo cuando haya métricas.
 
 > **Nota 2026-10-07 — ajuste del lector frío.** En una corrida real del
 > planificador, 4 piezas buenas sacadas de la base fallaron las 3 vueltas: en 12

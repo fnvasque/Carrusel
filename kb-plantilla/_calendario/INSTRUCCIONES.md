@@ -751,9 +751,9 @@ Criterio (detalle en `lector-frio.md`):
   explicada o es de uso común para la audiencia, como ChatGPT, no bloquea). La
   **6** bloquea solo si señala una **contradicción**, una **promesa** que la
   pieza no cumple o que no pudo seguir los pasos para obtener el entregable.
-  Las demás dudas son mejoras opcionales. La 1, 2, 4 y 5, igual que siempre.
-- **Lector con prisa:** cuentan solo (1) tema, (2) entregable y (5) acción
-  coherente con la señal. Sus respuestas 3, 4 y 6 no bloquean; si te sirven,
+  Las demás dudas son mejoras opcionales. La **5** pide una acción concreta (guardar, enviar o comentar; "nada" bloquea); si no es la de la señal, va como `NB` (`P5: acción distinta a la señal`) y no bloquea. La 1, 2 y 4, igual que siempre.
+- **Lector con prisa:** cuentan solo (1) tema, (2) entregable y (5) una acción
+  concreta (si no es la de la señal, `NB`). Sus respuestas 3, 4 y 6 no bloquean; si te sirven,
   úsalas para afinar un título, pero no reescribas la pieza ni cuentes una
   vuelta por ellas.
 
