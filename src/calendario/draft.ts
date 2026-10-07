@@ -111,14 +111,17 @@ function toBackground(bg?: BorradorBackground): Background | undefined {
  * Pasa por `validateDraft` (descarta plantillas desconocidas, garantiza Hook y
  * Cta, fija index/total) y por `draftToSpec` (el mismo que puntúa `scoreDraft`),
  * y además conserva lo que `draftToSpec` pierde: los fondos (los `ai`, siempre
- * con estilo de marca) y el ritmo. El nombre (carpeta de salida) va en slug: nunca una ruta.
+ * con estilo de marca) y el ritmo. Quita las @ iniciales de `handle` (el Cta
+ * ya pone una). El nombre (carpeta de salida) va en slug: nunca una ruta.
  */
 export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): CarouselSpec {
   const validated = validateDraft(b) as Borrador;
   const spec = draftToSpec(validated);
   const slides = spec.slides.map((s, i) => {
     const background = toBackground(validated.slides[i].background);
-    return background ? { ...s, props: { ...s.props, background } } : s;
+    // El Cta dibuja "@{handle}": un handle con @ inicial saldría "@@cuenta".
+    const handle = typeof s.props.handle === "string" ? { handle: s.props.handle.replace(/^@+/, "") } : {};
+    return { ...s, props: { ...s.props, ...handle, ...(background ? { background } : {}) } };
   });
   return {
     name: slugify(validated.name),

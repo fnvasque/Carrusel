@@ -383,6 +383,13 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Cta` | `title` | `highlight`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
 
+En el `Cta`, `cta` (el texto de la pastilla) es **obligatorio** y pide el gesto
+de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
+"Guárdalo" para `guardados`, "Envíaselo a alguien" para `envios`,
+"Comenta PALABRA" para `comentarios` y "Guárdalo" o "Envíaselo a alguien" para
+`retencion`. `handle` va sin @: el motor la agrega (`"ia.punto.es"`, nunca
+`"@ia.punto.es"`).
+
 ### Caption
 
 - **Primera línea con la palabra clave del tema** (el buscador de Instagram la
@@ -689,7 +696,8 @@ Su borrador, `_calendario/2026-10-12/lun-reel-pdfs-a-podcast.json`:
       "props": {
         "title": "Guárdalo para tu próxima pila de lectura",
         "highlight": "Guárdalo",
-        "handle": "@ia.punto.es",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
         "source": "Fuente: notebooklm.google.com"
       }
     }

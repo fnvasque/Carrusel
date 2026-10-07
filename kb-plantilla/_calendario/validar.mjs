@@ -539,6 +539,40 @@ function tipoDeProp(k, v) {
   return typeof v === "string" ? undefined : "debe ser texto";
 }
 
+/**
+ * Gesto que debe pedir la pastilla del Cta según la señal objetivo: alguna de
+ * estas raíces (sin tildes) en el texto. `retencion` acepta guardar o enviar.
+ */
+const GESTO_PASTILLA = {
+  guardados: ["guard"],
+  envios: ["envia", "manda", "compart"],
+  comentarios: ["comenta"],
+  retencion: ["guard", "envia", "manda", "compart"],
+};
+const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo" };
+
+/**
+ * Errores de `handle` y de la pastilla (`cta`) del Cta. Sin `cta` el motor
+ * dibuja "Link en bio →" (`pillContent` en `src/templates/Cta.tsx`), que no
+ * pide el gesto de la señal; y el motor ya antepone la @ al handle.
+ */
+function erroresDePastilla(props, senal) {
+  const errs = [];
+  if (typeof props.handle === "string" && props.handle.startsWith("@")) {
+    errs.push(`handle ${q(props.handle)} sin @: el motor la agrega (escribe ${q(props.handle.replace(/^@+/, ""))})`);
+  }
+  const sugerida = SUGERIDA_PASTILLA[senal];
+  if (!esTexto(props.cta)) {
+    errs.push(`falta cta (el texto de la pastilla): sin él el motor dibuja "Link en bio →"${sugerida ? `; para ${senal} usa p. ej. "${sugerida}"` : ""}`);
+  } else if (GESTO_PASTILLA[senal]) {
+    const ts = tokens(props.cta);
+    if (!GESTO_PASTILLA[senal].some((r) => ts.some((t) => t.startsWith(r)))) {
+      errs.push(`la pastilla ${q(props.cta)} no pide el gesto de la señal ${senal} (p. ej. "${sugerida}")`);
+    }
+  }
+  return errs;
+}
+
 /** Errores de forma del borrador (`VariationDraft` + pace/audio/logoEnCuadro0). */
 function erroresDeBorrador(b, p, config) {
   const errs = [];
@@ -602,6 +636,7 @@ function erroresDeBorrador(b, p, config) {
       if (v === undefined || (typeof v === "string" && !v.trim())) errs.push(`${donde} (${t}): falta ${k}`);
     }
     if (esTexto(s.props.source)) hayFuente = true;
+    if (t === "Cta") errs.push(...erroresDePastilla(s.props, p.senal).map((e) => `${donde} (Cta): ${e}`));
     // highlight: el motor lo busca sin distinguir mayúsculas, pero con tildes exactas.
     const campo = DONDE_HIGHLIGHT[t];
     const hl = s.props.highlight;
@@ -1135,7 +1170,8 @@ export const EJEMPLO = {
         props: {
           title: "Guárdalo para tu próxima pila de lectura",
           highlight: "Guárdalo",
-          handle: "@ia.punto.es",
+          handle: "ia.punto.es",
+          cta: "Guárdalo",
           source: "Fuente: notebooklm.google.com",
         },
       },

@@ -83,7 +83,7 @@ function borrador(): any {
       { template: "Hook", props: { title: "Convierte 6 PDFs en un podcast de 10 minutos", highlight: "podcast" } },
       { template: "Step", props: { step: "1", heading: "Sube tus PDFs a NotebookLM", body: "Crea un cuaderno y arrastra los archivos." } },
       { template: "Step", props: { step: "2", heading: "Pide el resumen en audio", bullets: ["Toca resumen en audio", "Elige la versión corta"] } },
-      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", source: "Fuente: notebooklm.google.com" } },
+      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "Fuente: notebooklm.google.com" } },
     ],
   };
 }
@@ -1001,4 +1001,45 @@ check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo 
   assert.ok(lf.includes("--lector") && ins.includes("node _calendario/validar.mjs --lector"));
   assert.ok(/no bloquean/.test(lf) && /no bloquean/.test(ins));
   assert.ok(!lf.includes("Lee `lector-frio.md`"), "el mensaje ya no lleva la ruta");
+});
+
+check("calendario/validar: handle con @ inicial → error \"sin @: el motor la agrega\"", () => {
+  const b = borrador();
+  b.slides[3].props.handle = "@ia.punto.es";
+  assertHas(vb(pieza(), b), /handle "@ia\.punto\.es" sin @: el motor la agrega/);
+  b.slides[3].props.handle = "ia.punto.es";
+  assertNone(vb(pieza(), b));
+  assert.equal(EJEMPLO.borrador.slides[5].props.handle, "ia.punto.es");
+});
+
+check("calendario/validar: el Cta exige cta explícito y coherente con la señal", () => {
+  const b = borrador();
+  delete b.slides[3].props.cta;
+  assertHas(vb(pieza(), b), /falta cta.*Link en bio/);
+  const casos: [string, string, boolean][] = [
+    ["guardados", "Guárdalo", true],
+    ["guardados", "Guarda este post 🔖", true],
+    ["guardados", "Envíaselo a alguien", false],
+    ["envios", "Envíaselo a alguien", true],
+    ["envios", "Mándaselo a tu jefe", true],
+    ["envios", "Compártelo", true],
+    ["envios", "Guárdalo", false],
+    ["comentarios", "Comenta RESUMEN", true],
+    ["comentarios", "Guárdalo", false],
+    ["retencion", "Guárdalo", true],
+    ["retencion", "Envíaselo a alguien", true],
+    ["retencion", "Comenta RESUMEN", false],
+    ["guardados", "Link en bio →", false],
+  ];
+  for (const [senal, cta, ok] of casos) {
+    const c = borrador();
+    c.slides[3].props.cta = cta;
+    const errs = vb(pieza({ senal }), c).filter((e: string) => /pastilla/.test(e));
+    assert.equal(errs.length === 0, ok, `${senal} + ${JSON.stringify(cta)}: ${JSON.stringify(errs)}`);
+  }
+});
+
+check("calendario/validar: INSTRUCCIONES.md trae los textos sugeridos de la pastilla por señal", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const x of ['"Guárdalo"', '"Envíaselo a alguien"', '"Comenta PALABRA"', "sin @: el motor la agrega"]) assert.ok(md.includes(x), x);
 });
