@@ -1030,6 +1030,14 @@ check("calendario/validar: el Cta exige cta explícito y coherente con la señal
     ["retencion", "Envíaselo a alguien", true],
     ["retencion", "Comenta RESUMEN", false],
     ["guardados", "Link en bio →", false],
+    ["envios", "Reenvíaselo a alguien", true],
+    ["envios", "Pásaselo a quien lo necesite", true],
+    ["envios", "Dile a alguien", true],
+    ["envios", "Etiqueta a un amigo", true],
+    ["comentarios", "Escribe PALABRA", true],
+    ["comentarios", "Responde PALABRA", true],
+    ["retencion", "Reenvíaselo a alguien", true],
+    ...["guardados", "envios", "comentarios", "retencion"].map((x): [string, string, boolean] => [x, "Link en bio →", false]),
   ];
   for (const [senal, cta, ok] of casos) {
     const c = borrador();

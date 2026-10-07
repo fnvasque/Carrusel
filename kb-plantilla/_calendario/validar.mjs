@@ -541,13 +541,16 @@ function tipoDeProp(k, v) {
 
 /**
  * Gesto que debe pedir la pastilla del Cta según la señal objetivo: alguna de
- * estas raíces (sin tildes) en el texto. `retencion` acepta guardar o enviar.
+ * estas raíces (sin tildes) en cualquier posición de una palabra del texto
+ * ("Reenvíaselo" cuenta como envío). `retencion` acepta guardar o enviar.
  */
+const RAICES_GUARDAR = ["guard"];
+const RAICES_ENVIAR = ["envia", "manda", "compart", "pasa", "dile", "etiqueta"];
 const GESTO_PASTILLA = {
-  guardados: ["guard"],
-  envios: ["envia", "manda", "compart"],
-  comentarios: ["comenta"],
-  retencion: ["guard", "envia", "manda", "compart"],
+  guardados: RAICES_GUARDAR,
+  envios: RAICES_ENVIAR,
+  comentarios: ["comenta", "escribe", "responde"],
+  retencion: [...RAICES_GUARDAR, ...RAICES_ENVIAR],
 };
 const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo" };
 
@@ -566,7 +569,7 @@ function erroresDePastilla(props, senal) {
     errs.push(`falta cta (el texto de la pastilla): sin él el motor dibuja "Link en bio →"${sugerida ? `; para ${senal} usa p. ej. "${sugerida}"` : ""}`);
   } else if (GESTO_PASTILLA[senal]) {
     const ts = tokens(props.cta);
-    if (!GESTO_PASTILLA[senal].some((r) => ts.some((t) => t.startsWith(r)))) {
+    if (!GESTO_PASTILLA[senal].some((r) => ts.some((t) => t.includes(r)))) {
       errs.push(`la pastilla ${q(props.cta)} no pide el gesto de la señal ${senal} (p. ej. "${sugerida}")`);
     }
   }
