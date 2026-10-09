@@ -917,7 +917,7 @@ check("validar: referencia válida (listas en bloque e inline)", () => {
   }
 });
 
-check("validar: Para la audiencia — obligatoria desde 2026-10-09, cuatro rótulos con cita o \"No aplica a la cuenta\"", () => {
+check("validar: Para la audiencia — obligatoria desde 2026-10-05, cuatro rótulos con cita o \"No aplica a la cuenta\"", () => {
   const errs = (t: string) => validateReferencia(t).join(" | ");
   const sin = REF_OK.replace(/## Para la audiencia\n[\s\S]*?\n\n## Mis notas/, "## Mis notas");
   assert.match(errs(sin), /falta la sección "## Para la audiencia"/);

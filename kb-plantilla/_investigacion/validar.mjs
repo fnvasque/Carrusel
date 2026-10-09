@@ -16,8 +16,8 @@ const RESEARCH_END = "<!-- kb:research:end -->";
 const AUTO_START = "<!-- kb:auto:start -->";
 const AUTO_END = "<!-- kb:auto:end -->";
 const MAX_RESUMEN = 1000;
-/** Desde esta fecha de `revisado`, toda referencia lleva `## Para la audiencia` (las anteriores se completan al revisarlas). */
-export const DESDE_AUDIENCIA = "2026-10-09";
+/** Desde esta fecha de `revisado`, toda referencia lleva `## Para la audiencia` (las anteriores se completan al revisarlas). Es anterior al día del cambio (2026-10-09 UTC): las corridas de esa noche en Chile fechan 2026-10-08. */
+export const DESDE_AUDIENCIA = "2026-10-05";
 /** Rótulos obligatorios de `## Para la audiencia` cuando la referencia aplica a la cuenta. */
 export const ROTULOS_AUDIENCIA = ["Por qué importa", "Qué se puede hacer", "Para quién", "Límites"];
 const NO_APLICA_RE = /^No aplica a la cuenta\b/m;
