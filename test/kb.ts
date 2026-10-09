@@ -24,7 +24,7 @@ import {
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import {
-  autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateReferencia, validateResumen, validateTopicBlock,
+  autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateAlcance, validateReferencia, validateResumen, validateTopicBlock,
   zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
 import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
@@ -905,7 +905,7 @@ checkAsync("pullKb (R49): autostash que choca (UU) → error claro con el archiv
 
 // --- validador del agente de investigación ---
 const REF_OK =
-  "---\ntipo: software\nnombre: n8n\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io\ntags: [kb/referencia]\n---\n\n## Qué es\nAutomatiza flujos [1].\n\n## Datos clave\n- Tiene API REST [2].\n\n## Mis notas\n";
+  "---\ntipo: software\nnombre: n8n\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-12\nfuentes:\n  - https://n8n.io/pricing\n  - https://docs.n8n.io\ntags: [kb/referencia]\n---\n\n## Qué es\nAutomatiza flujos [1].\n\n## Datos clave\n- Tiene API REST [2].\n\n## Para la audiencia\n- **Por qué importa:** conecta apps sin programar [1].\n- **Qué se puede hacer:** mandar un aviso cuando llega un correo [2].\n- **Para quién:** quien repite tareas en la oficina.\n- **Límites:** la nube es de pago [1].\n\n## Mis notas\n";
 
 check("validar: referencia válida (listas en bloque e inline)", () => {
   assert.deepEqual(validateReferencia(REF_OK), []);
@@ -915,6 +915,28 @@ check("validar: referencia válida (listas en bloque e inline)", () => {
     assert.deepEqual(fm.data.fuentes, ["https://n8n.io/pricing", "https://docs.n8n.io"]);
     assert.deepEqual(fm.data.temas, ["[[Automatización con IA]]"]);
   }
+});
+
+check("validar: Para la audiencia — obligatoria desde 2026-10-09, cuatro rótulos con cita o \"No aplica a la cuenta\"", () => {
+  const errs = (t: string) => validateReferencia(t).join(" | ");
+  const sin = REF_OK.replace(/## Para la audiencia\n[\s\S]*?\n\n## Mis notas/, "## Mis notas");
+  assert.match(errs(sin), /falta la sección "## Para la audiencia"/);
+  // Antes de la fecha de corte no se exige (las notas viejas se completan al revisarlas).
+  assert.deepEqual(validateReferencia(sin.replace("revisado: 2026-10-12", "revisado: 2026-10-04")), []);
+  assert.deepEqual(validateReferencia(sin.replace("## Mis notas", "## Para la audiencia\nNo aplica a la cuenta: es una pastelería.\n\n## Mis notas")), []);
+  assert.match(errs(REF_OK.replace("- **Para quién:** quien repite tareas en la oficina.\n", "")), /Para quién/);
+  assert.match(errs(REF_OK.replace("- **Límites:** la nube es de pago [1].", "- **Límites:**")), /Límites/);
+  assert.match(errs(REF_OK.replace(/(## Para la audiencia\n[\s\S]*?)\s\[\d\]/g, "$1").replace(/(## Para la audiencia\n[\s\S]*?)\s\[\d\]/g, "$1").replace(/(## Para la audiencia\n[\s\S]*?)\s\[\d\]/g, "$1")), /no cita ninguna fuente/);
+});
+
+check("validar: alcance.json — listas de temas sin repetir; el agente no toca alcance ni pedidos", () => {
+  assert.deepEqual(validateAlcance(JSON.stringify({ dentro: ["A"], despues: ["B"], fuera: ["C"] })), []);
+  assert.match(validateAlcance("{").join(), /JSON/);
+  assert.match(validateAlcance(JSON.stringify({ dentro: ["Á"], despues: ["a"], fuera: [] })).join(), /está en "dentro" y en "despues"/);
+  assert.match(validateAlcance(JSON.stringify({ dentro: "A", despues: [], fuera: [] })).join(), /"dentro" debe ser una lista/);
+  assert.match(zoneErrors([{ status: "M", path: "_investigacion/alcance.json" }]).join(), /son del usuario/);
+  assert.match(zoneErrors([{ status: "M", path: "_investigacion/pedidos.md" }]).join(), /son del usuario/);
+  assert.match(zoneErrors([{ status: "A", path: "_calendario/candidatos.json" }]).join(), /no puede modificar/);
 });
 
 check("validar: referencias inválidas", () => {
@@ -1362,7 +1384,7 @@ check("validar: el agente no puede modificar el validador ni el manual", () => {
     { status: "M", path: "_investigacion/registro.md" },
   ]);
   assert.equal(errs.length, 2);
-  assert.match(errs.join(), /validar\.mjs: el agente no puede modificar el validador ni el manual/);
+  assert.match(errs.join(), /validar\.mjs: el agente no puede modificar el validador, el manual/);
 });
 
 check("researchNote: avisa si la respuesta usa investigación sin decirlo; si ya lo dice o no la usa, nada", () => {

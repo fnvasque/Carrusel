@@ -64,6 +64,12 @@ const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const AUDIO_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,120}$/;
 const HASHTAG_RE = /^#[a-z0-9_]+$/;
 const MAX_SLIDES = 10;
+/** Desde esta semana cada pieza se apoya en una referencia lista, el tema está en el alcance, hay candidatos.json y a lo más 1 noticia. */
+export const DESDE_REFERENCIAS = "2026-10-12";
+/** Una referencia sirve si se revisó a lo más hace estos días respecto del lunes de la semana. */
+export const REFERENCIA_MAX_DIAS = 60;
+const MOTIVOS_CANDIDATO = ["sin-referencia", "derivado", "proxima-semana"];
+const MAX_CANDIDATOS = 8;
 
 /** Props con texto de título (límite `tituloMaxPalabras`). */
 const CAMPOS_TITULO = ["title", "heading"];
@@ -754,6 +760,142 @@ export function erroresDeOrigen(pieza, raiz) {
   });
 }
 
+// --- referencias, alcance y candidatos --------------------------------------
+
+/** Clave de comparación de un tema: sin `[[ ]]`, sin tildes, en minúsculas. */
+export const claveTema = (t) => tokens(String(t).replace(/\[\[|\]\]/g, " ")).join(" ");
+
+/** Ruta real de `r` dentro de `base` (sin "..", absolutas ni enlaces que salgan), o undefined. */
+function dentroDeBase(base, r) {
+  if (typeof r !== "string" || !r.trim() || isAbsolute(r) || r.includes("\\") || r.split("/").includes("..")) return undefined;
+  try {
+    const real = realpathSync(join(base, normalize(r)));
+    return (real === base || real.startsWith(base + sep)) && statSync(real).isFile() ? real : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Frontmatter mínimo de una referencia: `revisado` y la lista `temas` (en línea o con guiones). */
+function frontmatterReferencia(text) {
+  const m = String(text).replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  if (!m) return undefined;
+  const lineas = m[1].split("\n");
+  const quitar = (v) => v.trim().replace(/^(['"])(.*)\1$/, "$2");
+  let revisado;
+  const temas = [];
+  for (let i = 0; i < lineas.length; i++) {
+    const kv = lineas[i].match(/^([\p{L}\w-]+):\s*(.*)$/u);
+    if (!kv) continue;
+    if (kv[1] === "revisado") revisado = quitar(kv[2]);
+    if (kv[1] === "temas") {
+      const v = kv[2].trim();
+      if (v.startsWith("[") && v.endsWith("]")) temas.push(...v.slice(1, -1).split(/,(?![^\[]*\]\])/).map(quitar).filter(Boolean));
+      else for (let j = i + 1; j < lineas.length && /^\s*-\s+/.test(lineas[j]); j++) temas.push(quitar(lineas[j].replace(/^\s*-\s+/, "")));
+    }
+  }
+  return { revisado, temas, body: m[2] };
+}
+
+/** Texto de `## Para la audiencia` hasta la siguiente sección `## ` (undefined si no está). */
+function paraLaAudiencia(body) {
+  const lineas = body.split("\n");
+  const i = lineas.findIndex((l) => /^## Para la audiencia\s*$/.test(l));
+  if (i === -1) return undefined;
+  const fin = lineas.findIndex((l, j) => j > i && /^## /.test(l));
+  return lineas.slice(i + 1, fin === -1 ? undefined : fin).join("\n");
+}
+
+/**
+ * Por qué una referencia NO está lista para una pieza del tema `tema` en la semana
+ * `semana` (undefined = lista): con el tema en `temas`, `revisado` de hace ≤ 60 días
+ * y `## Para la audiencia` que no dice "No aplica a la cuenta".
+ */
+export function motivoReferenciaNoLista(text, tema, semana) {
+  const fm = frontmatterReferencia(text);
+  if (!fm) return "no tiene frontmatter";
+  if (!fm.temas.some((t) => claveTema(t) === claveTema(tema))) return `no es del tema ${tema} (su frontmatter temas no lo incluye)`;
+  if (!fechaValida(fm.revisado)) return "no tiene revisado válido";
+  if (fm.revisado < sumarDias(semana, -REFERENCIA_MAX_DIAS)) return `revisado ${fm.revisado} tiene más de ${REFERENCIA_MAX_DIAS} días`;
+  const s = paraLaAudiencia(fm.body);
+  if (s === undefined || !s.trim()) return 'no tiene "## Para la audiencia"';
+  if (/^No aplica a la cuenta\b/m.test(s)) return 'su "## Para la audiencia" dice que no aplica a la cuenta';
+  return undefined;
+}
+
+/** `_investigacion/alcance.json` de la base: { dentro, despues, fuera } con claves de tema, o undefined si no existe o es ilegible. */
+export function leerAlcance(raiz) {
+  try {
+    const a = JSON.parse(readFileSync(join(raiz, "_investigacion", "alcance.json"), "utf8"));
+    if (!esObj(a)) return undefined;
+    const set = (k) => new Set(lista(a[k]).map(claveTema));
+    return { dentro: set("dentro"), despues: set("despues"), fuera: set("fuera") };
+  } catch {
+    return undefined;
+  }
+}
+
+const enAlcance = (alcance, tema) => alcance.dentro.has(claveTema(tema)) || alcance.despues.has(claveTema(tema));
+
+/**
+ * Errores de sustancia de una pieza (semanas desde `DESDE_REFERENCIAS`): al menos una
+ * referencia lista en `origen.referencias` y, si hay `alcance.json`, tema en `dentro`
+ * o `despues`. Las rutas inseguras o inexistentes ya las reporta `erroresDeOrigen`.
+ */
+export function erroresDeReferencias(pieza, raiz, semana, alcance = leerAlcance(raiz)) {
+  return seguro(() => {
+    if (!esObj(pieza) || typeof raiz !== "string" || !fechaValida(semana) || semana < DESDE_REFERENCIAS) return [];
+    const errs = [];
+    if (typeof pieza.tema === "string" && alcance && !enAlcance(alcance, pieza.tema)) {
+      errs.push(`tema ${pieza.tema} no está en "dentro" ni "despues" de _investigacion/alcance.json`);
+    }
+    const refs = esObj(pieza.origen) && Array.isArray(pieza.origen.referencias) ? pieza.origen.referencias.filter((r) => typeof r === "string") : [];
+    if (!refs.length) return [...errs, "origen.referencias vacío: toda pieza se apoya en al menos una referencia lista (Paso 3)"];
+    let base;
+    try {
+      base = realpathSync(raiz);
+    } catch {
+      return errs;
+    }
+    const motivos = [];
+    for (const r of refs) {
+      const real = dentroDeBase(base, r);
+      if (!real) continue;
+      const m = motivoReferenciaNoLista(readFileSync(real, "utf8"), String(pieza.tema ?? ""), semana);
+      if (m === undefined) return errs;
+      motivos.push(`${r}: ${m}`);
+    }
+    errs.push(`ninguna referencia lista en origen.referencias${motivos.length ? ` (${motivos.join("; ")})` : ""}`);
+    return errs;
+  });
+}
+
+/** Errores de `_calendario/candidatos.json` para la semana `semana` (el que escribe el planificador en el Paso 8). */
+export function validarCandidatos(data, semana, alcance) {
+  return seguro(() => {
+    if (!esObj(data)) return ["candidatos.json debe ser un objeto { generado, temas }"];
+    const errs = [];
+    if (!fechaValida(data.generado)) errs.push(`candidatos.json: generado ${q(data.generado)} inválido (AAAA-MM-DD)`);
+    else if (fechaValida(semana) && data.generado < semana) errs.push(`candidatos.json: generado ${data.generado} es de una semana anterior; escribe el de ${semana} (Paso 8)`);
+    if (!Array.isArray(data.temas) || !data.temas.length) return [...errs, "candidatos.json: temas debe ser una lista con al menos un tema"];
+    if (data.temas.length > MAX_CANDIDATOS) errs.push(`candidatos.json: ${data.temas.length} temas (máximo ${MAX_CANDIDATOS})`);
+    const vistos = new Set();
+    data.temas.forEach((t, i) => {
+      const n = `candidatos.json: temas[${i}]`;
+      if (!esObj(t)) return errs.push(`${n} no es un objeto`);
+      if (typeof t.tema !== "string" || !/^\[\[[^\]]+\]\]$/.test(t.tema.trim())) errs.push(`${n}.tema ${q(t.tema)} debe ser "[[<Tema>]]"`);
+      else {
+        if (vistos.has(claveTema(t.tema))) errs.push(`${n}.tema ${t.tema} repetido`);
+        vistos.add(claveTema(t.tema));
+        if (alcance && !enAlcance(alcance, t.tema)) errs.push(`${n}.tema ${t.tema} no está en "dentro" ni "despues" de _investigacion/alcance.json`);
+      }
+      if (!MOTIVOS_CANDIDATO.includes(t.motivo)) errs.push(`${n}.motivo ${q(t.motivo)} inválido (usa: ${MOTIVOS_CANDIDATO.join(", ")})`);
+      if (!esTexto(t.detalle)) errs.push(`${n}.detalle vacío: di qué necesitas que la investigación traiga`);
+    });
+    return errs;
+  });
+}
+
 // --- lector frío ------------------------------------------------------------
 
 /** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`; un test las compara). */
@@ -959,6 +1101,10 @@ export function validarPlan(plan, config) {
         if (!temas.has(clave)) temas.set(clave, id);
       }
     });
+    if (semanaOk && semana >= DESDE_REFERENCIAS) {
+      const noticias = plan.piezas.filter((p) => esObj(p) && p.pilar === "noticia").length;
+      if (noticias > 1) errs.push(`plan: ${noticias} piezas con pilar "noticia" (a lo más 1 por semana)`);
+    }
     const sep = esObj(config) && typeof config.separacionMinHoras === "number" ? config.separacionMinHoras : 20;
     conHora.sort((a, b) => a.min - b.min);
     for (let i = 1; i < conHora.length; i++) {
@@ -1070,6 +1216,7 @@ export function validarSemana(dir, config, opts = {}) {
     // Raíz de la base: <base>/_calendario/<semana>. `opts.raiz` la fija; null no revisa origen.
     const raiz = opts?.raiz === null ? undefined : typeof opts?.raiz === "string" ? opts.raiz : join(dir, "..", "..");
     const score = typeof opts?.score === "function" ? opts.score : undefined;
+    const alcance = raiz ? leerAlcance(raiz) : undefined;
     let sinScore = 0;
     for (const p of plan.piezas) {
       if (!esObj(p)) continue;
@@ -1086,7 +1233,10 @@ export function validarSemana(dir, config, opts = {}) {
       }
       borradores.push(b.data);
       out.push(...validarBorrador(p, b.data, config).map((e) => `${id}: ${e}`));
-      if (raiz) out.push(...erroresDeOrigen(p, raiz).map((e) => `${id}: ${e}`));
+      if (raiz) {
+        out.push(...erroresDeOrigen(p, raiz).map((e) => `${id}: ${e}`));
+        out.push(...erroresDeReferencias(p, raiz, plan.semana, alcance).map((e) => `${id}: ${e}`));
+      }
       let s;
       if (score) {
         try {
@@ -1101,6 +1251,11 @@ export function validarSemana(dir, config, opts = {}) {
     }
     const fondos = contarFondosIA(borradores);
     if (fondos > config.fondosIAMaxSemana) out.push(`semana: ${fondos} fondos ai (máximo ${config.fondosIAMaxSemana}, config.fondosIAMaxSemana)`);
+    if (raiz && fechaValida(plan.semana) && plan.semana >= DESDE_REFERENCIAS) {
+      const c = leerJson(join(raiz, "_calendario", "candidatos.json"));
+      if ("error" in c) out.push(`semana: _calendario/candidatos.json ${c.error} (escríbelo en el Paso 8, también con 0 piezas)`);
+      else out.push(...validarCandidatos(c.data, plan.semana, alcance).map((e) => `semana: ${e}`));
+    }
     if (sinScore) avisos.push(`score léxico no evaluado en ${sinScore} pieza(s): falta el repo de código al lado; lo revisa el Mac antes de renderizar`);
     return out;
   });

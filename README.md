@@ -379,12 +379,20 @@ Mix fijo de la semana: **lun** reel tutorial · **mar** carrusel lista/guía · 
 
 | Máquina | Qué hace | Cuándo | Qué escribe en `ia-es-kb` |
 |---|---|---|---|
-| **Nube** (tarea programada de claude.ai) | Planifica la semana, escribe los borradores y los valida (`validar.mjs`, lector frío) | Domingo 06:00 Chile | `_calendario/<semana>/plan.json` y borradores, `experimentos.md`, `aprendizajes.md` |
+| **Nube** (tarea programada de claude.ai) | Planifica la semana, escribe los borradores y los valida (`validar.mjs`, lector frío) | Domingo 06:00 Chile | `_calendario/<semana>/plan.json` y borradores, `experimentos.md`, `aprendizajes.md`, `candidatos.json` |
 | **Mac** (launchd) | `npm run calendario:render`: renderiza con Chromium/ffmpeg, pasa el QA, sube los medios con `rsync` y verifica la URL pública | Cada hora mientras esté encendido | `_calendario/<semana>/render.json` |
 | **Servidor** (Docker, el bot `kb`) | Sirve los medios, publica a la hora, publica la story 60 min después, toma instantáneas y manda resúmenes | 24/7 (scheduler cada minuto) | `_metricas/**`, `_calendario/registro.jsonl`, `_calendario/<semana>/estado.json` |
 
 Cada archivo tiene **un solo escritor**, así nunca chocan dos `git pull --rebase`. Tú solo editas
-`_calendario/config.json`. El estado de una pieza (`planificado` → `renderizado` → `programado` →
+`_calendario/config.json`, `_investigacion/alcance.json` (qué temas sirven a la cuenta) y
+`_investigacion/pedidos.md` (temas `fuera` que quieres investigar).
+
+**De dónde sale el contenido.** Desde la semana del 2026-10-12 cada pieza se apoya en una
+**referencia lista** de `referencias/` (de su tema, revisada hace ≤ 60 días, con
+`## Para la audiencia`): de ahí salen los datos y el entregable; la ficha de `fuentes/` aporta
+solo el ángulo. El planificador deja en `_calendario/candidatos.json` los temas que le faltaron, y
+la investigación del domingo siguiente los atiende primero. A lo más una pieza `noticia` por
+semana. El estado de una pieza (`planificado` → `renderizado` → `programado` →
 `publicado`, o `saltado` / `fallido`) sale de combinar los tres archivos.
 
 ### Puesta en marcha (una vez)

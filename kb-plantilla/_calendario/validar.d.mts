@@ -21,3 +21,10 @@ export declare function textosLector(borrador: unknown, formato?: "reel" | "carr
 export declare function textoPastilla(cta?: string): string;
 export declare function mensajeLector(seccionLector: string, perfil: "completo" | "conPrisa", texto: string): string;
 export declare function seccionDelLector(md: string): string | undefined;
+export declare const DESDE_REFERENCIAS: string;
+export declare const REFERENCIA_MAX_DIAS: number;
+export declare function claveTema(t: string): string;
+export declare function motivoReferenciaNoLista(text: string, tema: string, semana: string): string | undefined;
+export declare function leerAlcance(raiz: string): { dentro: Set<string>; despues: Set<string>; fuera: Set<string> } | undefined;
+export declare function erroresDeReferencias(pieza: unknown, raiz: string, semana: string, alcance?: ReturnType<typeof leerAlcance>): string[];
+export declare function validarCandidatos(data: unknown, semana: string, alcance?: ReturnType<typeof leerAlcance>): string[];

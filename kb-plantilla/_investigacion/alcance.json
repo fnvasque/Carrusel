@@ -1,0 +1,29 @@
+{
+  "_nota": "Del usuario. Qué temas de la base sirven a @ia.punto.es. dentro = se investigan primero y alimentan las piezas; despues = se investigan si sobra espacio y también pueden alimentar piezas; fuera = nunca se investigan solos: el resumen semanal pregunta y se piden en pedidos.md. Un tema que no está en ninguna lista cuenta como fuera.",
+  "dentro": [
+    "Aprendizaje con IA",
+    "Automatización con IA",
+    "Avances en inteligencia artificial",
+    "Creación de contenido para redes sociales",
+    "Finanzas personales con IA",
+    "Habilidades de comunicación",
+    "Marketing y diseño de conversión",
+    "Monetización con Inteligencia Artificial",
+    "Producción de contenido automatizado",
+    "Productividad y gestión del tiempo",
+    "Psicología del comportamiento y toma de decisiones",
+    "Storytelling y narrativa"
+  ],
+  "despues": [
+    "Emprendimiento y startups",
+    "Herramientas de desarrollo open source",
+    "Liderazgo y gestión de equipos",
+    "Modelos mentales y pensamiento crítico"
+  ],
+  "fuera": [
+    "Gastronomía y restaurantes",
+    "Sin tema",
+    "Teoría de las Restricciones",
+    "Viajes y turismo económico"
+  ]
+}
