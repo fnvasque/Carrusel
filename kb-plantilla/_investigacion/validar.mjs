@@ -16,6 +16,11 @@ const RESEARCH_END = "<!-- kb:research:end -->";
 const AUTO_START = "<!-- kb:auto:start -->";
 const AUTO_END = "<!-- kb:auto:end -->";
 const MAX_RESUMEN = 1000;
+/** Desde esta fecha de `revisado`, toda referencia lleva `## Para la audiencia` (las anteriores se completan al revisarlas). */
+export const DESDE_AUDIENCIA = "2026-10-09";
+/** Rótulos obligatorios de `## Para la audiencia` cuando la referencia aplica a la cuenta. */
+export const ROTULOS_AUDIENCIA = ["Por qué importa", "Qué se puede hacer", "Para quién", "Límites"];
+const NO_APLICA_RE = /^No aplica a la cuenta\b/m;
 
 const unquote = (s) => s.trim().replace(/^(['"])(.*)\1$/, "$2");
 
@@ -88,8 +93,64 @@ export function validateReferencia(text) {
   const cited = [...body.matchAll(/(?<!\[)\[(\d+)\](?![\](])/g)].map((x) => Number(x[1]));
   if (!cited.length) errs.push("ninguna afirmación cita una fuente [n]");
   for (const n of new Set(cited)) if (n < 1 || n > fuentes.length) errs.push(`la cita [${n}] no tiene fuente (hay ${fuentes.length})`);
+  if (validDate(data.revisado) && data.revisado >= DESDE_AUDIENCIA) errs.push(...validateAudiencia(body));
   return errs;
 }
+
+/** Texto de una sección `## <titulo>` hasta la siguiente `## ` (undefined si no está). */
+export function seccion(body, titulo) {
+  const lineas = body.replace(/\r\n/g, "\n").split("\n");
+  const i = lineas.findIndex((l) => new RegExp(`^## ${titulo}\\s*$`).test(l));
+  if (i === -1) return undefined;
+  const fin = lineas.findIndex((l, j) => j > i && /^## /.test(l));
+  return lineas.slice(i + 1, fin === -1 ? undefined : fin).join("\n");
+}
+
+/**
+ * Errores de `## Para la audiencia`: o dice "No aplica a la cuenta: <motivo>", o
+ * lleva los cuatro rótulos (`- **Por qué importa:** …`) y al menos una cita [n].
+ */
+export function validateAudiencia(body) {
+  const s = seccion(body, "Para la audiencia");
+  if (s === undefined) return ['falta la sección "## Para la audiencia" (obligatoria desde revisado ' + DESDE_AUDIENCIA + ")"];
+  if (NO_APLICA_RE.test(s)) return [];
+  const errs = [];
+  for (const r of ROTULOS_AUDIENCIA) {
+    if (!new RegExp(`^- \\*\\*${r}:\\*\\*\\s*\\S`, "m").test(s)) errs.push(`"## Para la audiencia" sin "- **${r}:** …" (o escribe "No aplica a la cuenta: <motivo>")`);
+  }
+  if (!/(?<!\[)\[\d+\](?![\](])/.test(s)) errs.push('"## Para la audiencia" no cita ninguna fuente [n]: lo que se puede hacer debe estar verificado');
+  return errs;
+}
+
+/** Errores de `_investigacion/alcance.json` (del usuario): listas `dentro`, `despues`, `fuera` de temas, sin repetir. */
+export function validateAlcance(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    return [`no es JSON válido (${e instanceof Error ? e.message : e})`];
+  }
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return ["debe ser un objeto { dentro, despues, fuera }"];
+  const errs = [];
+  const vistos = new Map();
+  for (const k of ["dentro", "despues", "fuera"]) {
+    const v = data[k];
+    if (!Array.isArray(v) || !v.every((x) => typeof x === "string" && x.trim())) {
+      errs.push(`"${k}" debe ser una lista de nombres de tema`);
+      continue;
+    }
+    for (const t of v) {
+      const key = claveTema(t);
+      if (vistos.has(key)) errs.push(`el tema "${t}" está en "${vistos.get(key)}" y en "${k}"`);
+      else vistos.set(key, k);
+    }
+  }
+  return errs;
+}
+
+/** Clave de comparación de un tema: sin `[[ ]]`, sin tildes, en minúsculas. */
+export const claveTema = (t) =>
+  String(t).replace(/\[\[|\]\]/g, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
 /** Errores del bloque kb:research de un tema ([] si es válido o si el tema no tiene bloque). */
 export function validateTopicBlock(text) {
@@ -131,14 +192,19 @@ export function parseNameStatus(out) {
 }
 
 /** Archivos de _investigacion/ que instala el usuario (scripts/kb-research-install.sh), no el agente. */
-const PROTECTED = new Set(["_investigacion/validar.mjs", "_investigacion/INSTRUCCIONES.md"]);
+const PROTECTED = new Set([
+  "_investigacion/validar.mjs",
+  "_investigacion/INSTRUCCIONES.md",
+  "_investigacion/alcance.json",
+  "_investigacion/pedidos.md",
+]);
 
 /** Errores de zona: nada fuera de las zonas del agente; en temas/ solo se modifican los existentes. */
 export function zoneErrors(changes) {
   const errs = [];
   for (const { status, path } of changes) {
     if (outsideAgentZones([path]).length) errs.push(`${path}: el agente no puede modificar este archivo`);
-    else if (PROTECTED.has(path)) errs.push(`${path}: el agente no puede modificar el validador ni el manual`);
+    else if (PROTECTED.has(path)) errs.push(`${path}: el agente no puede modificar el validador, el manual, el alcance ni los pedidos (son del usuario)`);
     else if (path.startsWith("_investigacion/resumenes/") && status !== "A") {
       errs.push(`${path}: no sobrescribas un resumen ya publicado (el bot ya lo envió); usa <HOY>-2.md, <HOY>-3.md…`);
     }
@@ -201,6 +267,8 @@ function main(root, desde) {
   for (const f of mdIn(join(root, "temas"))) {
     if (touched(`temas/${f}`)) add(`temas/${f}`, validateTopicBlock(readFileSync(join(root, "temas", f), "utf8")));
   }
+  const alcance = join(root, "_investigacion", "alcance.json");
+  if (existsSync(alcance)) add("_investigacion/alcance.json", validateAlcance(readFileSync(alcance, "utf8")));
   const resumenes = mdIn(join(root, "_investigacion", "resumenes")).sort((a, b) => summaryKey(a).localeCompare(summaryKey(b)));
   const last = resumenes[resumenes.length - 1];
   if (last) add(`_investigacion/resumenes/${last}`, validateResumen(readFileSync(join(root, "_investigacion", "resumenes", last), "utf8")));

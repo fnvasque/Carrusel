@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Instala (o actualiza) la plantilla de investigación semanal en la base:
-# _investigacion/INSTRUCCIONES.md, _investigacion/validar.mjs y CLAUDE.md. Commitea y sube.
+# _investigacion/INSTRUCCIONES.md, _investigacion/validar.mjs y CLAUDE.md; además
+# alcance.json y pedidos.md solo si no existen (son del usuario). Commitea y sube.
 #
 #   scripts/kb-research-install.sh [ruta-de-la-base]    (default: $KB_DIR o ./knowledge)
 set -euo pipefail
@@ -14,6 +15,14 @@ cp "$HERE/kb-plantilla/_investigacion/INSTRUCCIONES.md" "$KB/_investigacion/"
 cp "$HERE/kb-plantilla/_investigacion/validar.mjs" "$KB/_investigacion/"
 cp "$HERE/kb-plantilla/CLAUDE.md" "$KB/"
 touch "$KB/_investigacion/resumenes/.gitkeep"
+# Del usuario: se crean la primera vez y nunca se sobrescriben.
+for f in alcance.json pedidos.md; do
+  if [ -f "$KB/_investigacion/$f" ]; then
+    cmp -s "$KB/_investigacion/$f" "$HERE/kb-plantilla/_investigacion/$f" || echo "ℹ _investigacion/$f ya existe y no se toca."
+  else
+    cp "$HERE/kb-plantilla/_investigacion/$f" "$KB/_investigacion/"
+  fi
+done
 
 node "$KB/_investigacion/validar.mjs"
 

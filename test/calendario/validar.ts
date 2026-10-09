@@ -22,6 +22,8 @@ import {
   validarPieza,
   validarPlan,
   validarSemana,
+  validarCandidatos,
+  motivoReferenciaNoLista,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -467,13 +469,30 @@ check("calendario/validar: plan — ids repetidos y dos piezas del mismo tema �
 // --- semana completa (archivos) ---
 
 /** Crea en `root` (la raíz de la base) las fichas y referencias que citan las piezas en `origen`. */
+/** Referencia lista (Paso 3 del manual): de esos temas, revisada hace poco y con `## Para la audiencia`. */
+function referenciaLista(temas: string[], revisado = "2026-10-09", audiencia = "- **Por qué importa:** x [1]\n- **Qué se puede hacer:** x [1]\n- **Para quién:** x\n- **Límites:** x [1]\n"): string {
+  return `---\ntipo: software\nnombre: X\ntemas: [${temas.map((t) => JSON.stringify(t)).join(", ")}]\nrevisado: ${revisado}\nfuentes:\n  - https://x.y\n---\n## Qué es\nX [1]\n\n## Para la audiencia\n${audiencia}\n## Mis notas\n`;
+}
+
+/** Fichas y referencias que citan las piezas (las referencias, listas para su tema) y un candidatos.json vigente. */
 function crearOrigen(root: string, piezas: any[]): void {
+  const temasPorRef = new Map<string, string[]>();
   for (const x of piezas) {
-    for (const r of [...x.origen.fichas, ...x.origen.referencias]) {
+    for (const r of x.origen.fichas) {
       mkdirSync(join(root, r, ".."), { recursive: true });
       writeFileSync(join(root, r), "# ficha\n");
     }
+    for (const r of x.origen.referencias) temasPorRef.set(r, [...(temasPorRef.get(r) ?? []), x.tema]);
   }
+  for (const [r, temas] of temasPorRef) {
+    mkdirSync(join(root, r, ".."), { recursive: true });
+    writeFileSync(join(root, r), referenciaLista(temas));
+  }
+  mkdirSync(join(root, "_calendario"), { recursive: true });
+  writeFileSync(
+    join(root, "_calendario", "candidatos.json"),
+    JSON.stringify({ generado: "2026-10-12", temas: [{ tema: "[[Automatización con IA]]", motivo: "proxima-semana", detalle: "x" }] }),
+  );
 }
 
 function semanaTemporal(): { root: string; dir: string; p: any } {
@@ -952,6 +971,80 @@ check("calendario/validar (CLI): --lector con id inexistente da un error claro y
         if (args[1] === "no-existe") assert.match(String(e.stderr), /no hay ninguna pieza con id "no-existe".*lun-reel-pdfs-a-podcast/s);
       }
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: referencia lista — tema, revisado ≤ 60 d y Para la audiencia (o error por pieza)", () => {
+  const T = "[[Automatización con IA]]";
+  assert.equal(motivoReferenciaNoLista(referenciaLista([T]), T, "2026-10-12"), undefined);
+  assert.equal(motivoReferenciaNoLista(referenciaLista(["[[Automatizacion con ia]]"]), T, "2026-10-12"), undefined, "sin tildes ni mayúsculas");
+  assert.match(motivoReferenciaNoLista(referenciaLista(["[[Otro]]"]), T, "2026-10-12")!, /no es del tema/);
+  assert.match(motivoReferenciaNoLista(referenciaLista([T], "2026-08-01"), T, "2026-10-12")!, /más de 60 días/);
+  assert.match(motivoReferenciaNoLista(referenciaLista([T], "2026-10-09", "No aplica a la cuenta: es un lugar.\n"), T, "2026-10-12")!, /no aplica/);
+  assert.match(motivoReferenciaNoLista("---\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-09\n---\n## Qué es\nx\n", T, "2026-10-12")!, /Para la audiencia/);
+  const lista = "---\ntemas:\n  - '[[Automatización con IA]]'\nrevisado: '2026-10-09'\n---\n## Para la audiencia\n- **Por qué importa:** x [1]\n";
+  assert.equal(motivoReferenciaNoLista(lista, T, "2026-10-12"), undefined, "temas en columna y fecha entre comillas");
+
+  const { root, dir, p } = semanaTemporal();
+  try {
+    assertNone(validarSemana(dir, config, { score: () => 90 }));
+    writeFileSync(join(root, p.piezas[0].origen.referencias[0]), referenciaLista(["[[Otro]]"]));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /lun-reel-a: ninguna referencia lista en origen\.referencias \(referencias\/notebooklm\.md: no es del tema/);
+    p.piezas[0].origen.referencias = [];
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(p));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /lun-reel-a: origen\.referencias vacío/);
+    // Antes de 2026-10-12 no se exige (la semana 2026-10-05 ya publicada sigue válida).
+    const vieja = join(root, "_calendario", "2026-10-05");
+    mkdirSync(vieja);
+    const pv = JSON.parse(JSON.stringify(p));
+    pv.semana = "2026-10-05";
+    pv.piezas.forEach((x: any, i: number) => { x.dia = `2026-10-0${5 + i}`; });
+    for (const x of pv.piezas) copyFileSync(join(dir, x.borrador), join(vieja, x.borrador));
+    writeFileSync(join(vieja, "plan.json"), JSON.stringify(pv));
+    assert.ok(!validarSemana(vieja, config, { score: () => 90 }).some((e: string) => /referencia|candidatos/.test(e)));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: alcance.json — tema fuera de dentro/despues da error; sin alcance.json no se mira", () => {
+  const { root, dir } = semanaTemporal();
+  try {
+    mkdirSync(join(root, "_investigacion"));
+    const temas = ["Automatización con IA", "Automatización de tareas", "Automatización del hogar"];
+    writeFileSync(join(root, "_investigacion", "alcance.json"), JSON.stringify({ dentro: temas.slice(0, 2), despues: [temas[2]], fuera: [] }));
+    assertNone(validarSemana(dir, config, { score: () => 90 }));
+    writeFileSync(join(root, "_investigacion", "alcance.json"), JSON.stringify({ dentro: temas.slice(0, 2), despues: [], fuera: [temas[2]] }));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /mie-reel-c: tema \[\[Automatización del hogar\]\] no está en "dentro" ni "despues"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: noticias — a lo más 1 por semana desde 2026-10-12", () => {
+  const p = plan();
+  p.piezas[0].pilar = "noticia";
+  assertNone(validarPlan(p, config));
+  p.piezas[1].pilar = "noticia";
+  assertHas(validarPlan(p, config), /2 piezas con pilar "noticia"/);
+});
+
+check("calendario/validar: candidatos.json — obligatorio desde 2026-10-12, forma, motivos y generado vigente", () => {
+  const ok = { generado: "2026-10-12", temas: [{ tema: "[[A]]", motivo: "sin-referencia", detalle: "x" }] };
+  assertNone(validarCandidatos(ok, "2026-10-12"));
+  assertNone(validarCandidatos({ ...ok, generado: "2026-10-19" }, "2026-10-12"), );
+  assertHas(validarCandidatos({ ...ok, generado: "2026-10-05" }, "2026-10-12"), /semana anterior/);
+  assertHas(validarCandidatos({ ...ok, temas: [] }, "2026-10-12"), /al menos un tema/);
+  assertHas(validarCandidatos({ ...ok, temas: [{ tema: "A", motivo: "otro", detalle: "" }] }, "2026-10-12"), /"\[\[<Tema>\]\]"/);
+  assertHas(validarCandidatos({ ...ok, temas: [{ tema: "[[A]]", motivo: "otro", detalle: "x" }] }, "2026-10-12"), /motivo "otro" inválido/);
+  assertHas(validarCandidatos({ ...ok, temas: [ok.temas[0], { ...ok.temas[0], tema: "[[á]]" }] }, "2026-10-12"), /repetido/);
+  assertHas(validarCandidatos({ ...ok, temas: Array.from({ length: 9 }, (_, i) => ({ tema: `[[T${i}]]`, motivo: "derivado", detalle: "x" })) }, "2026-10-12"), /máximo 8/);
+  const { root, dir } = semanaTemporal();
+  try {
+    rmSync(join(root, "_calendario", "candidatos.json"));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /semana: _calendario\/candidatos\.json no existe/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

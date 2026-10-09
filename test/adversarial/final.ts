@@ -48,10 +48,24 @@ function nuevaBase(prefijo: string): string {
   writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify(config, null, 2));
   // Las fichas y referencias que cita el ejemplo en `origen` (validar.mjs comprueba que existan).
   const origen = EJEMPLO.plan.piezas[0].origen as { fichas: string[]; referencias: string[] };
-  for (const r of [...origen.fichas, ...origen.referencias]) {
+  for (const r of origen.fichas) {
     mkdirSync(join(dir, r, ".."), { recursive: true });
     writeFileSync(join(dir, r), "# ficha\n");
   }
+  // Desde 2026-10-12 cada pieza se apoya en una referencia lista de su tema (validar.mjs).
+  const temas = MIX.map((m) => JSON.stringify(m.tema)).join(", ");
+  for (const r of origen.referencias) {
+    mkdirSync(join(dir, r, ".."), { recursive: true });
+    writeFileSync(
+      join(dir, r),
+      `---\ntipo: software\nnombre: NotebookLM\ntemas: [${temas}]\nrevisado: 2026-10-09\nfuentes:\n  - https://notebooklm.google.com\n---\n` +
+        "## Para la audiencia\n- **Por qué importa:** x [1]\n- **Qué se puede hacer:** x [1]\n- **Para quién:** x\n- **Límites:** x [1]\n",
+    );
+  }
+  writeFileSync(
+    join(dir, "_calendario", "candidatos.json"),
+    JSON.stringify({ generado: "2030-01-07", temas: [{ tema: MIX[0]!.tema, motivo: "proxima-semana", detalle: "x" }] }),
+  );
   process.env.KB_DIR = dir;
   return dir;
 }

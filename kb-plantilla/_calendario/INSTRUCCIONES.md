@@ -16,20 +16,26 @@ curiosa de la IA, **no técnica**, en el celular y distraída. Todo el copy va e
 1. **Zonas de escritura.** Solo escribes:
    - `_calendario/<semana>/plan.json` (lo creas una vez; no se modifica después),
    - `_calendario/<semana>/<id>.json` (un borrador por pieza),
-   - `_calendario/experimentos.md` y `_calendario/aprendizajes.md`.
+   - `_calendario/experimentos.md` y `_calendario/aprendizajes.md`,
+   - `_calendario/candidatos.json` (lo reescribes cada domingo, Paso 8).
 
    **Nunca** tocas `render.json` (es del Mac), `estado.json` ni
    `registro.jsonl` (son del bot), nada de `_metricas/` (bot), ni
    `config.json`, `lector-frio.md`, `validar.mjs` o este manual (son del
-   usuario). Tampoco el resto de la base (`temas/`, `referencias/`, `fuentes/`…).
+   usuario). Tampoco el resto de la base (`temas/`, `referencias/`, `fuentes/`,
+   `_investigacion/`…).
 2. **El evaluador está fuera de tu alcance.** Si crees que un parámetro de
    `config.json` debería cambiar, lo **propones** en `aprendizajes.md`; el
    cambio lo aplica el usuario.
 3. **Validar antes de subir.** `node _calendario/validar.mjs <semana>` debe
    terminar con ✓. Nunca subas una semana que no pase.
 4. **Fechas absolutas** (AAAA-MM-DD) y horas de Chile (`America/Santiago`).
-5. **Nada inventado.** Cada pieza sale de la base (fichas, referencias, temas)
-   y cita su origen. Lo que no está respaldado en la base, no lo afirmas.
+5. **Nada inventado: la sustancia sale de una referencia.** Cada pieza se apoya
+   en al menos una **referencia lista** (ver Paso 3) y de ella saca sus datos,
+   capacidades y el entregable. Una ficha de `fuentes/` es lo que otro creador
+   afirmó, sin verificar: úsala para el **ángulo y el formato** (qué hook
+   funcionó, cómo lo contó), nunca como única fuente de un dato. Lo que no está
+   en una referencia, no lo afirmas.
 
 ## Paso 0 — Preparación
 
@@ -63,6 +69,9 @@ métricas):
    investigaron esta semana.
 7. Para cada tema candidato: `temas/<Tema>.md`, sus fichas en `fuentes/` y sus
    notas en `referencias/`.
+8. `_investigacion/alcance.json` (qué temas sirven a la cuenta: `dentro`,
+   `despues`, `fuera`) y tu `_calendario/candidatos.json` de la semana pasada
+   (qué le pediste a la investigación; mira si esta madrugada lo cubrió).
 
 ### Cómo leer `_metricas/bucle.json`
 
@@ -159,12 +168,24 @@ Con `bucle.json` y las instantáneas de 7 días (si no hay datos, salta este pas
 ## Paso 3 — Elegir temas
 
 Un tema es una página `temas/<Tema>.md`; en `plan.json` se escribe
-`"[[<Tema>]]"`. Elige 6 con esta prioridad:
+`"[[<Tema>]]"`.
+
+**Solo son elegibles** los temas que cumplen las dos cosas:
+
+- están en `dentro` o `despues` de `_investigacion/alcance.json` (nunca `fuera`
+  ni fuera de toda lista; compara sin tildes ni mayúsculas), y
+- tienen al menos una **referencia lista**: una nota de `referencias/` con ese
+  tema en `temas`, `revisado` de hace ≤ 60 días respecto del lunes que planificas
+  y una sección `## Para la audiencia` que **no** dice "No aplica a la cuenta".
+
+El validador revisa ambas cosas. Elige 6 con esta prioridad (entre elegibles,
+`dentro` antes que `despues`):
 
 - (a) derivados pendientes de ganadores (`bucle.json`, 1-2 por ganador en las 2
   semanas siguientes: mismo tema, otro ángulo; marca `derivadoDe` con el id
   ganador);
-- (b) temas con fichas nuevas o referencias investigadas esta semana;
+- (b) temas con referencias investigadas esta semana (las de `revisado` más
+  reciente) o con fichas nuevas;
 - (c) temas con mejor tasa objetivo histórica (solo si tienen ≥ 3 piezas
   medidas: los que traen `peso` en `bucle.json → pesos.tema`, de mayor a
   menor);
@@ -173,6 +194,16 @@ Un tema es una página `temas/<Tema>.md`; en `plan.json` se escribe
 
 **Sin métricas (primeras semanas), solo (b) y (d).** Nunca dos piezas del
 mismo tema en la misma semana, salvo derivados (el validador lo revisa).
+
+Si un tema que querías (un derivado, uno con muchas fichas nuevas) no tiene
+referencia lista, **no lo uses**: anótalo en `candidatos.json` con motivo
+`sin-referencia` (Paso 8) y la investigación lo cubre el domingo siguiente. Si
+no alcanzan los temas elegibles para 6 piezas, deja el hueco vacío con su motivo.
+
+**Noticias.** A lo más **una** pieza con `pilar: "noticia"` por semana, y solo
+si la novedad está en `## Novedades` de una referencia lista (con fecha y cita).
+La cuenta privilegia formatos atemporales: una noticia llega con 1-2 semanas de
+atraso respecto de la ficha, así que elige solo las que siguen siendo útiles.
 
 ## Paso 4 — Mix, horas, señal y experimento
 
@@ -227,7 +258,11 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
 Para cada pieza, en este orden y sin saltarte ninguno:
 
 1. **Entregable**: qué se lleva el espectador (prompt copiable, pasos, lista,
-   herramienta + caso de uso). Sin entregable no hay pieza.
+   herramienta + caso de uso). Sale de `## Para la audiencia` de la referencia
+   lista ("Qué se puede hacer"). Si escribes un prompt o pasos, **solo pueden
+   pedir lo que esa sección afirma que la herramienta hace**; los "Límites" van
+   en la pieza si cambian el resultado (cuenta, costo, idioma). Sin entregable
+   no hay pieza.
 2. **Señal y destinatario**: la señal objetivo y a quién se lo mandaría o para
    qué lo guardaría.
 3. **Emoción** que busca (puede encadenar más de una: `["curiosidad", "alivio"]`).
@@ -400,9 +435,11 @@ de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
 
 ### Fuente y parámetros
 
-- `source` al pie de alguna slide (normalmente el `Cta`): cita la ficha o
-  referencia de origen ("Fuente: notebooklm.google.com"). `origen` en
-  `plan.json` lista las rutas de la base que usaste.
+- `source` al pie de alguna slide (normalmente el `Cta`): cita la referencia
+  de origen ("Fuente: notebooklm.google.com"). `origen` en `plan.json` lista
+  las rutas de la base que usaste: `referencias` con **al menos una referencia
+  lista** del tema de la pieza (de ella salen los datos y el entregable) y
+  `fichas` con las que te dieron el ángulo (puede ir vacía).
 - `parametros` es obligatorio en cada pieza de `plan.json`: lleva **todas** las
   claves de `config.json → puerta` con el valor que usaste al producir la pieza,
   del mismo tipo que en `config.json` (número, `true`/`false` o lista). Si no
@@ -785,13 +822,35 @@ de `experimento.piezas`.
 
 ## Paso 8 — Escribir y subir
 
-Escribe solo `plan.json`, los borradores, `experimentos.md` y
-`aprendizajes.md`. **Nunca** `render.json`, `estado.json`, `registro.jsonl`,
-`_metricas/`, `config.json`, `lector-frio.md` ni `validar.mjs`.
+Escribe solo `plan.json`, los borradores, `experimentos.md`,
+`aprendizajes.md` y `candidatos.json`.
+
+**`_calendario/candidatos.json`** (siempre, también en una semana de 0 piezas):
+lo que la investigación del domingo siguiente debe cubrir primero. Reemplaza el
+archivo entero:
+
+```json
+{
+  "generado": "2026-10-12",
+  "temas": [
+    { "tema": "[[Automatización con IA]]", "motivo": "sin-referencia", "detalle": "derivado de lun-reel-x; ninguna referencia del tema tiene Para la audiencia" },
+    { "tema": "[[Productividad y gestión del tiempo]]", "motivo": "proxima-semana", "detalle": "9 fichas nuevas sobre bloques de tiempo con IA" }
+  ]
+}
+```
+
+`generado` = `$SEMANA`. `motivo`: `sin-referencia` (lo quisiste usar y no tenía
+referencia lista), `derivado` (un derivado pendiente de `bucle.json` que cabe la
+semana siguiente) o `proxima-semana` (candidato para la semana siguiente). Entre
+3 y 8 temas, solo de `dentro` o `despues`, sin repetir; `detalle` dice qué
+necesitas que la investigación traiga (qué herramienta, qué capacidad).
+
+**Nunca** escribas `render.json`, `estado.json`, `registro.jsonl`, `_metricas/`,
+`config.json`, `lector-frio.md`, `validar.mjs` ni nada de `_investigacion/`.
 
 ```bash
 node _calendario/validar.mjs "$SEMANA"
-git add "_calendario/$SEMANA" _calendario/experimentos.md _calendario/aprendizajes.md
+git add "_calendario/$SEMANA" _calendario/experimentos.md _calendario/aprendizajes.md _calendario/candidatos.json
 git commit -m "calendario: semana $SEMANA (<n> piezas)"
 git push || (git pull --rebase && git push)
 ```
