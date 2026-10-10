@@ -1043,7 +1043,7 @@ export function seccionDelLector(md) {
 // --- plan -------------------------------------------------------------------
 
 /**
- * Errores del plan de la semana: fechas dentro de la semana (sin domingo),
+ * Errores del plan de la semana: fechas dentro de la semana (lunes a domingo),
  * horas en :00/:30 dentro de la ventana, separación mínima, mix, temas sin
  * repetir (salvo derivados), ids únicos y experimento declarado.
  */
@@ -1079,13 +1079,12 @@ export function validarPlan(plan, config) {
       const diaOk = fechaValida(p.dia);
       if (!diaOk) errs.push(`${id}: dia ${q(p.dia)} inválido (AAAA-MM-DD)`);
       else if (semanaOk && (p.dia < semana || p.dia > sumarDias(semana, 6))) errs.push(`${id}: dia ${p.dia} fuera de la semana ${semana}…${sumarDias(semana, 6)}`);
-      else if (diaSemana(p.dia) === 0) errs.push(`${id}: el domingo es de descanso`);
       const horaOk = typeof p.hora === "string" && HORA_RE.test(p.hora);
       if (!horaOk) errs.push(`${id}: hora ${q(p.hora)} inválida (HH:MM en :00 o :30, hora de Chile)`);
       else if (p.hora < desde || p.hora > hasta) errs.push(`${id}: hora ${p.hora} fuera de la ventana ${desde}–${hasta} (config.ventanaHoras)`);
       // Tiempo real (con el cambio de hora de Chile), no reloj local.
       if (diaOk && horaOk) conHora.push({ id, min: instanteSeguro(p.dia, p.hora, esObj(config) ? config.zona : undefined) });
-      if (diaOk && diaSemana(p.dia) !== 0) {
+      if (diaOk) {
         const m = mix.find((x) => x.dia === diaSemana(p.dia));
         if (!m) errs.push(`${id}: config.mix no tiene entrada para ese día`);
         else {
@@ -1142,12 +1141,12 @@ export function validarConfig(config) {
     if (!esObj(config)) return ["config.json debe ser un objeto"];
     const errs = [];
     if (!esTexto(config.zona)) errs.push("zona debe ser un texto (America/Santiago)");
-    if (!Array.isArray(config.mix) || config.mix.length !== 6) errs.push("mix debe tener 6 entradas (lunes a sábado)");
+    if (!Array.isArray(config.mix) || config.mix.length < 6 || config.mix.length > 7) errs.push("mix debe tener 6 o 7 entradas (lunes a sábado, y domingo si se publica)");
     else {
       const dias = new Set();
       config.mix.forEach((m, i) => {
-        if (!esObj(m) || !Number.isInteger(m.dia) || m.dia < 1 || m.dia > 6 || !FORMATOS.includes(m.formato) || !esTexto(m.arquetipo)) {
-          errs.push(`mix[${i}] inválido: { dia: 1-6, formato: reel|carrusel, arquetipo }`);
+        if (!esObj(m) || !Number.isInteger(m.dia) || m.dia < 0 || m.dia > 6 || !FORMATOS.includes(m.formato) || !esTexto(m.arquetipo)) {
+          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo }`);
         } else if (dias.has(m.dia)) errs.push(`mix: día ${m.dia} repetido`);
         else dias.add(m.dia);
       });

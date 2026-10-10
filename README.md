@@ -371,9 +371,9 @@ al planificador de la semana siguiente. Diseño completo en
 `docs/superpowers/specs/2026-10-06-calendario-metricas-feedback-design.md`.
 
 Mix fijo de la semana: **lun** reel tutorial · **mar** carrusel lista/guía · **mié** reel compartible
-· **jue** reel demo · **vie** carrusel opinión/mito · **sáb** reel atemporal · **dom** descanso
-(2 carruseles + 4 reels). Zona del calendario: `America/Santiago`; la hora por defecto es 14:00
-(lun-sáb) hasta tener 100 seguidores. Audiencia: español neutro.
+· **jue** reel demo · **vie** carrusel opinión/mito · **sáb** reel atemporal · **dom** reel compartible
+(2 carruseles + 5 reels; los domingos se publica desde 2026-10-11). Zona del calendario: `America/Santiago`; la hora por defecto es 14:00
+(todos los días) hasta tener 100 seguidores. Audiencia: español neutro.
 
 ### Qué corre dónde
 

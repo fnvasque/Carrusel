@@ -413,13 +413,22 @@ check("calendario/validar: plan — hora fuera de 08:00–23:00 o sin :00/:30 �
   }
 });
 
-check("calendario/validar: plan — día fuera de la semana o domingo → error", () => {
+check("calendario/validar: plan — día fuera de la semana → error; el domingo sigue su entrada del mix", () => {
   const p = plan();
   p.piezas[0].dia = "2026-10-19";
   assertHas(validarPlan(p, config), /semana/);
   const q = plan();
   q.piezas[0].dia = "2026-10-18";
-  assertHas(validarPlan(q, config), /domingo/);
+  q.piezas[0].formato = "carrusel";
+  assertHas(validarPlan(q, config), /no sigue el mix \(ese día va reel\)/);
+  const ok = plan();
+  Object.assign(ok.piezas[0], { dia: "2026-10-18", arquetipo: "compartible" });
+  assert.deepEqual(validarPlan(ok, config).filter((e: string) => /mix|domingo|semana/.test(e)), []);
+  const sinDomingo = { ...config, mix: config.mix.filter((m: { dia: number }) => m.dia !== 0) };
+  assert.deepEqual(validarConfig(sinDomingo), []);
+  const d = plan();
+  d.piezas[0].dia = "2026-10-18";
+  assertHas(validarPlan(d, sinDomingo), /config\.mix no tiene entrada para ese día/);
   const r = plan();
   r.piezas[0].dia = "2026-02-30";
   assertHas(validarPlan(r, config), /dia/);
