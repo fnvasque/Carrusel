@@ -6,9 +6,10 @@
     { "dia": 3, "formato": "reel", "arquetipo": "compartible" },
     { "dia": 4, "formato": "reel", "arquetipo": "demo" },
     { "dia": 5, "formato": "carrusel", "arquetipo": "opinion" },
-    { "dia": 6, "formato": "reel", "arquetipo": "atemporal" }
+    { "dia": 6, "formato": "reel", "arquetipo": "atemporal" },
+    { "dia": 0, "formato": "reel", "arquetipo": "compartible" }
   ],
-  "horasPorDefecto": { "1": "14:00", "2": "14:00", "3": "14:00", "4": "14:00", "5": "14:00", "6": "14:00" },
+  "horasPorDefecto": { "1": "14:00", "2": "14:00", "3": "14:00", "4": "14:00", "5": "14:00", "6": "14:00", "0": "14:00" },
   "ventanaHoras": ["08:00", "23:00"],
   "separacionMinHoras": 20,
   "zonaOnlineFollowers": { "valor": "America/Los_Angeles", "respaldo": "supuesto", "nota": "verificar al cruzar 100 seguidores" },
