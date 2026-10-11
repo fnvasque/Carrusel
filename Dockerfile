@@ -6,10 +6,13 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg git openssh-client ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 
-# yt-dlp (videos de YouTube → fichas): binario oficial, sin Python del sistema. Para actualizarlo,
-# reconstruye la imagen sin caché (`docker compose build --no-cache kb`).
-RUN curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-  && chmod +x /usr/local/bin/yt-dlp
+# yt-dlp (videos de YouTube → fichas): binario autocontenido según la arquitectura (el archivo
+# `yt-dlp` a secas es un zip de Python y la imagen no trae Python). Para actualizarlo, reconstruye
+# la imagen sin caché (`docker compose build --no-cache kb`).
+RUN case "$(dpkg --print-architecture)" in arm64) a=yt-dlp_linux_aarch64 ;; *) a=yt-dlp_linux ;; esac \
+  && curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/$a" -o /usr/local/bin/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp \
+  && yt-dlp --version
 
 WORKDIR /app
 # El bot no usa Chromium (solo generate/reel/remix): no se descarga.
