@@ -10,6 +10,7 @@ import { costSummary, formatCostSummary } from "./costs.ts";
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext, type Job } from "./queue.ts";
 import { NeedsUserError, resolveUser } from "./instagram.ts";
 import { findInstagramUrls } from "./shortcode.ts";
+import { findYouTubeUrls } from "./youtube.ts";
 import {
   abortStaleRebase, commitPaths, findFichaById, findLastSave, kbDir, kbHead, listFichas, listTopics, pullKb, readIfExists, removeOrphanGalleries, revertSave,
   setSyncErrorHandler, temasDir,
@@ -326,6 +327,14 @@ bot.on("message:text", async (ctx) => {
   if (waiting && reply) {
     awaitingUser.delete(chatId);
     return void (await saveLinks(chatId, waiting.urls, reply, waiting.note));
+  }
+
+  // Videos de YouTube: no hace falta cuenta; el link basta.
+  const videos = findYouTubeUrls(text);
+  if (videos.length) {
+    const note = noteFromMessage(text, videos);
+    for (const url of videos) await queueSave(chatId, { url, note }, "Recibido, leo el video de YouTube…");
+    return;
   }
 
   const urls = findInstagramUrls(text);

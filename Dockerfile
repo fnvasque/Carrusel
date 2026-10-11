@@ -3,8 +3,13 @@
 FROM node:24-bookworm-slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg git openssh-client ca-certificates \
+  && apt-get install -y --no-install-recommends ffmpeg git openssh-client ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
+
+# yt-dlp (videos de YouTube → fichas): binario oficial, sin Python del sistema. Para actualizarlo,
+# reconstruye la imagen sin caché (`docker compose build --no-cache kb`).
+RUN curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+  && chmod +x /usr/local/bin/yt-dlp
 
 WORKDIR /app
 # El bot no usa Chromium (solo generate/reel/remix): no se descarga.

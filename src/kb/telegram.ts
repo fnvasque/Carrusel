@@ -155,6 +155,7 @@ export const HELP = [
   "📥 <b>Guardar:</b> en Instagram → Compartir → este chat. Si no me dices de qué cuenta es, te pregunto el @usuario " +
     "(también puedes mandarlo junto al link: «@cuenta https://…»). Lo que escribas además queda como nota.",
   "ℹ️ Leo los posts con la API oficial de Meta: solo cuentas Business o Creator.",
+  "▶️ <b>YouTube:</b> manda el link de un video y guardo su ficha con la transcripción (subtítulos del video o el audio).",
   "🖼 <b>Complementar:</b> manda capturas después del link (sueltas o en álbum) y se suman a esa ficha.",
   "❓ <b>Preguntar:</b> escribe cualquier pregunta; respondo solo con tu base y cito las fichas.",
   "",

@@ -51,8 +51,8 @@ export const TopicSynthesisSchema = z.object({
 
 export type TopicSynthesis = z.infer<typeof TopicSynthesisSchema>;
 
-/** Tipo de pieza guardada. */
-export type PostKind = "reel" | "post" | "carrusel" | "manual";
+/** Tipo de pieza guardada (`video` = video de YouTube). */
+export type PostKind = "reel" | "post" | "carrusel" | "manual" | "video";
 
 /** Metadatos del post leídos con la API de Meta (Business Discovery). */
 export interface PostMeta {

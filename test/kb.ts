@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import matter from "gray-matter";
 import { findInstagramUrl, findInstagramUrls, isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "../src/kb/shortcode.ts";
 import { metaToPostMeta, resolveUser } from "../src/kb/instagram.ts";
+import { findYouTubeUrls, isYouTubeUrl, normalizeYouTubeUrl, pickSubtitle, vttToText, youtubeIdFromUrl } from "../src/kb/youtube.ts";
 import { hashtagsIn, mentionsIn, pickHashtags } from "../src/kb/discover.ts";
 import { dmAction, parseWebhook, validSignature } from "../src/kb/inbox.ts";
 import { splitDm } from "../src/meta/messages.ts";
@@ -127,7 +128,69 @@ check("shortcodeFromUrl / isInstagramUrl / findInstagramUrl", () => {
   );
 });
 
-// --- yt-dlp ---
+// --- youtube ---
+check("youtubeIdFromUrl / isYouTubeUrl / normalizeYouTubeUrl", () => {
+  assert.equal(youtubeIdFromUrl("https://youtu.be/Ut3LOjKNJaE?si=9C2ndHST4JA43U0g"), "Ut3LOjKNJaE");
+  assert.equal(youtubeIdFromUrl("https://www.youtube.com/watch?v=aircAruvnKk&t=12s"), "aircAruvnKk");
+  assert.equal(youtubeIdFromUrl("https://m.youtube.com/watch?feature=share&v=aircAruvnKk"), "aircAruvnKk");
+  assert.equal(youtubeIdFromUrl("https://youtube.com/shorts/abc-DEF_123"), "abc-DEF_123");
+  assert.equal(youtubeIdFromUrl("https://www.youtube.com/live/abc-DEF_123?x=1"), "abc-DEF_123");
+  assert.equal(youtubeIdFromUrl("https://www.youtube.com/@canal"), undefined);
+  assert.equal(youtubeIdFromUrl("https://www.instagram.com/p/ABC/"), undefined);
+  assert.equal(isYouTubeUrl("https://youtu.be/Ut3LOjKNJaE"), true);
+  assert.equal(isYouTubeUrl("https://www.youtube.com/playlist?list=PL1"), false);
+  assert.equal(normalizeYouTubeUrl("https://youtu.be/Ut3LOjKNJaE?si=x"), "https://www.youtube.com/watch?v=Ut3LOjKNJaE");
+  assert.equal(normalizeYouTubeUrl("no es link"), "no es link");
+});
+
+check("findYouTubeUrls: todos los videos del texto, sin repetir", () => {
+  const text = "mira https://youtu.be/Ut3LOjKNJaE?si=9C y https://www.youtube.com/watch?v=Ut3LOjKNJaE otra https://youtube.com/shorts/abc-DEF_123 fin";
+  assert.deepEqual(findYouTubeUrls(text), ["https://youtu.be/Ut3LOjKNJaE?si=9C", "https://youtube.com/shorts/abc-DEF_123"]);
+  assert.deepEqual(findYouTubeUrls("https://www.youtube.com/@canal y https://www.instagram.com/p/ABC/"), []);
+});
+
+check("vttToText: quita cabecera, tiempos y etiquetas, y no repite las líneas de los subtítulos automáticos", () => {
+  const auto = [
+    "WEBVTT", "Kind: captions", "Language: en", "",
+    "00:00:01.200 --> 00:00:03.360 align:start position:0%", "All right, so here we are, in front of the", "elephants", "",
+    "00:00:03.360 --> 00:00:05.318", "elephants", "<00:00:03.500><c>the cool thing</c> about these guys", "",
+    "00:00:05.318 --> 00:00:07.974", "the cool thing about these guys", "", "",
+  ].join("\n");
+  assert.equal(vttToText(auto), "All right, so here we are, in front of the elephants the cool thing about these guys");
+  const manual = "WEBVTT\n\n1\n00:00:04.220 --> 00:00:05.400\nEste es un tres,\n\n2\n00:00:06.060 --> 00:00:10.207\ny tu cerebro lo reconoce.\n";
+  assert.equal(vttToText(manual), "Este es un tres, y tu cerebro lo reconoce.");
+  assert.equal(vttToText("WEBVTT\n"), "");
+  assert.equal(vttToText("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n&gt;&gt; Mhm &amp; ok\n"), ">> Mhm & ok");
+});
+
+check("pickSubtitle: manual antes que automático, pista original antes que traducida, español antes que inglés", () => {
+  assert.deepEqual(pickSubtitle(["en", "es-419"], ["es", "en"]), { lang: "es-419", auto: false });
+  assert.deepEqual(pickSubtitle(["en"], ["es", "en"]), { lang: "en", auto: false });
+  assert.deepEqual(pickSubtitle([], ["es", "en", "en-orig", "pt"]), { lang: "en-orig", auto: true });
+  // Doblaje automático: una pista -orig por idioma; gana la del idioma hablado, y sin dato, español.
+  assert.deepEqual(pickSubtitle([], ["ar-orig", "en-orig", "es-US-orig"], "en"), { lang: "en-orig", auto: true });
+  assert.deepEqual(pickSubtitle([], ["ar-orig", "en-orig", "es-US-orig"]), { lang: "es-US-orig", auto: true });
+  assert.deepEqual(pickSubtitle([], ["ar-orig", "fr-orig"], "de"), { lang: "ar-orig", auto: true });
+  assert.deepEqual(pickSubtitle([], ["pt", "es", "en"]), { lang: "es", auto: true });
+  assert.deepEqual(pickSubtitle([], ["pt", "en-US"]), { lang: "en-US", auto: true });
+  assert.deepEqual(pickSubtitle([], ["pt"]), { lang: "pt", auto: true });
+  assert.deepEqual(pickSubtitle(["live_chat"], []), undefined);
+  assert.deepEqual(pickSubtitle([], []), undefined);
+});
+
+check("renderFicha de un video de YouTube: tipo video, origen y link a YouTube", () => {
+  const out = renderFicha(
+    ficha({ id: "yt-Ut3LOjKNJaE", kind: "video", url: "https://www.youtube.com/watch?v=Ut3LOjKNJaE", author: "@canal", publishedAt: "2026-10-01" }),
+    "Automatización con IA",
+    [],
+  );
+  const { data, content } = matter(out);
+  assert.equal(data.tipo, "video");
+  assert.equal(data.id, "yt-Ut3LOjKNJaE");
+  assert.ok(content.includes("@canal · video de YouTube · publicado 2026-10-01 · [ver en YouTube](https://www.youtube.com/watch?v=Ut3LOjKNJaE)"));
+  assert.ok(!content.includes("ver en Instagram"));
+});
+
 // --- temas ---
 check("resolveTopicName reutiliza el existente ignorando acentos/mayúsculas", () => {
   const existing = ["Automatización con IA", "Edición de video"];

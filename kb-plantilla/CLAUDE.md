@@ -4,7 +4,7 @@ Vault de Obsidian versionado en git. Lo escriben dos sistemas y el usuario.
 
 ## Estructura
 
-- `fuentes/` — una ficha por post de Instagram guardado (resumen, ideas clave, herramientas, transcripción). La escribe el bot.
+- `fuentes/` — una ficha por post de Instagram guardado o video de YouTube enviado al bot (`tipo: video`), con resumen, ideas clave, herramientas y transcripción. La escribe el bot.
 - `temas/` — una página por tema. Zona `kb:auto` = síntesis del bot; bloque `kb:research` = investigación semanal.
 - `referencias/` — una nota por cosa concreta investigada (software, producto, libro, método, persona, lugar, concepto), con fuentes `[n]`, fecha `revisado` y `## Para la audiencia` (qué puede hacer con eso una persona no técnica; de ahí salen las piezas de Instagram).
 - `_investigacion/` — manual del agente (`INSTRUCCIONES.md`), validador, registro de corridas y resúmenes; `alcance.json` (qué temas sirven a la cuenta) y `pedidos.md` (temas que el usuario pide investigar), ambos del usuario.
