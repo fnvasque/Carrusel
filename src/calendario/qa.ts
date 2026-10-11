@@ -261,6 +261,34 @@ export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, pue
 }
 
 /**
+ * QA de un reel con hook de video (`hook-video.ts`): cuadro 0 no negro y con texto en
+ * la zona segura (el clip va detrás del título, no lo tapa), decodificación sana,
+ * misma duración que el reel original (± 0,1 s: el bot ya tiene `duracionMs`) y
+ * pista de audio. Nunca lanza.
+ */
+export async function qaHookVideo(mp4: string, original: string): Promise<QaResultado> {
+  const motivos: string[] = [];
+  if (!existsSync(mp4)) return resultado([`No existe el reel con hook ${mp4}.`]);
+  try {
+    motivos.push(...motivosDeCuadro(await grisDeImagen(mp4, ANCHO, ALTO), ANCHO, ALTO, "El cuadro 0 del reel con hook"));
+  } catch (e) {
+    motivos.push(`No se pudo leer el cuadro 0 del reel con hook: ${razon(e)}`);
+  }
+  try {
+    const dano = erroresDeDecodificacion(mp4);
+    if (dano) motivos.push(`Archivo dañado: ffmpeg informa errores al decodificar el reel con hook (${dano}).`);
+    const real = duracionReal(mp4);
+    const esperada = duracionReal(original);
+    if (real === undefined || esperada === undefined) motivos.push("No se pudo leer la duración del reel con hook o del original.");
+    else if (Math.abs(real - esperada) > 0.1) motivos.push(`El reel con hook dura ${real.toFixed(2)} s y el original ${esperada.toFixed(2)} s.`);
+    if (!hayPistaAudio(mp4)) motivos.push("El reel con hook está sin audio.");
+  } catch (e) {
+    motivos.push(`No se pudo comprobar la integridad del reel con hook: ${razon(e)}`);
+  }
+  return resultado(motivos);
+}
+
+/**
  * QA de una imagen (portada de carrusel o story): no negra y con texto en la
  * franja segura (15-75 % en 9:16; 10-90 % en 4:5). Nunca lanza.
  */

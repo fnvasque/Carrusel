@@ -4,6 +4,7 @@ import { specTiming, parsePace } from "../reel/timing.ts";
 import { StoryCover } from "../templates/StoryCover.tsx";
 import type { Background, CarouselSpec, Format, Pace, Pillar } from "../templates/types.ts";
 import type { LogicalBackground, LogicalSlide, VariationDraft } from "../remix/types.ts";
+import { hookVideoError, type HookVideo } from "./hook-video.ts";
 
 /**
  * Motor del calendario: convierte el borrador JSON que escribe el agente
@@ -27,6 +28,8 @@ export interface Borrador extends VariationDraft {
   audio?: string;
   /** Reel: wordmark desde el cuadro 0 (por defecto true; false = experimento logo tardío). */
   logoEnCuadro0?: boolean;
+  /** Reel: clip de video IA detrás del hook (lo aplica `hook-video.ts` después del render). */
+  hookVideo?: HookVideo;
   slides: (LogicalSlide & { background?: BorradorBackground })[];
 }
 
@@ -88,6 +91,10 @@ export function parseBorrador(text: string): Borrador {
   if (data.pace !== undefined) parsePace(data.pace, "el campo `pace` del borrador");
   if (data.audio !== undefined && (typeof data.audio !== "string" || !data.audio.trim())) throw new Error("El campo `audio` debe ser el nombre de una pista (texto).");
   if (data.logoEnCuadro0 !== undefined && typeof data.logoEnCuadro0 !== "boolean") throw new Error("El campo `logoEnCuadro0` debe ser true o false.");
+  if (data.hookVideo !== undefined) {
+    const err = hookVideoError(data.hookVideo);
+    if (err) throw new Error(`El campo \`hookVideo\`: ${err}.`);
+  }
   return { ...data, angle: typeof data.angle === "string" ? data.angle : "" } as unknown as Borrador;
 }
 
