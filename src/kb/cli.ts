@@ -46,6 +46,7 @@ async function cmdAdd(argv: string[]): Promise<void> {
     console.error('Uso: npm run kb:add "<url-instagram>" -- --user=cuenta [--nota="..."] [--image=captura.png] [--no-commit]');
     console.error("     (--user: cuenta dueña del post, Business/Creator; no hace falta si el link la trae)");
     console.error("     npm run kb:add -- --image=captura.png [--caption=\"...\"]   (solo capturas)");
+    console.error('     npm run kb:add "<url-youtube>" [-- --nota="..."]                (video de YouTube, necesita yt-dlp)');
     process.exit(1);
   }
   input.onProgress = (stage, detail) => console.log(`${STAGE_LABEL[stage]}${detail ? `: ${detail}` : ""}`);

@@ -15,6 +15,7 @@ import { applyNameFixes, groundToolUrls } from "./names.ts";
 import { reindex } from "./indexer.ts";
 import { resolveTopic } from "./topics.ts";
 import { isInstagramUrl, normalizeInstagramUrl, shortcodeFromUrl } from "./shortcode.ts";
+import { fetchYouTube, isYouTubeUrl, type YouTubeVideo } from "./youtube.ts";
 import {
   adjuntosDir, commitPaths, findFichaById, fuentesDir, kbDir, listFichas, listTopics,
   readIfExists, topicPath, writeNote,
@@ -57,16 +58,23 @@ export async function addPost(input: AddInput): Promise<AddResult> {
 async function savePost(input: AddInput): Promise<AddResult> {
   const progress = input.onProgress ?? (() => {});
 
-  if (input.url && !isInstagramUrl(input.url)) {
-    throw new Error("Ese link no es de un post, reel o carrusel de Instagram.");
+  if (input.url && !isInstagramUrl(input.url) && !isYouTubeUrl(input.url)) {
+    throw new Error("Ese link no es de un post, reel o carrusel de Instagram ni de un video de YouTube.");
   }
-  const url = input.url ? normalizeInstagramUrl(input.url) : undefined;
+  // Video de YouTube: metadatos, miniatura y subtítulos (o el audio) con yt-dlp; el resto
+  // del guardado (ficha, tema, commit) es el mismo que para un post.
+  let yt: YouTubeVideo | undefined;
+  if (input.url && isYouTubeUrl(input.url)) {
+    progress("descargando");
+    yt = await fetchYouTube(input.url, (msg) => progress("descargando", msg));
+  }
+  const url = yt ? yt.url : input.url ? normalizeInstagramUrl(input.url) : undefined;
 
   // 1) Lectura del post con la API de Meta. El @usuario sale del link original
   //    (la URL normalizada ya no lo trae) o de input.user.
-  progress("descargando");
+  if (!yt) progress("descargando");
   let meta: PostMeta | null = null;
-  if (input.url) {
+  if (input.url && !yt) {
     try {
       const knownAccounts = [
         ...new Set((await listFichas()).map((f) => f.author?.replace(/^@/, "")).filter((a): a is string => !!a).reverse()),
@@ -89,7 +97,13 @@ async function savePost(input: AddInput): Promise<AddResult> {
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
   // El video del post; si Meta no lo entrega, el que mandó el usuario (URL o archivo local).
   const videoUrl = meta?.videoUrl ?? input.videoUrl;
-  if (videoUrl || input.videoFile) {
+  if (yt) {
+    if (yt.thumbnail) images.push(yt.thumbnail);
+    if (yt.audioPath) {
+      video = { path: yt.audioPath, cleanup: yt.cleanup };
+      audioSeconds = yt.durationSeconds;
+    }
+  } else if (videoUrl || input.videoFile) {
     video = videoUrl ? await downloadVideo(videoUrl) : null;
     if (!video && input.videoFile) video = { path: input.videoFile, cleanup: async () => {} };
     if (video) {
@@ -99,7 +113,7 @@ async function savePost(input: AddInput): Promise<AddResult> {
     }
   }
   // Fotos (o la portada de un reel cuyo video Meta no entrega), o las imágenes de un DM.
-  if (!images.length) {
+  if (!images.length && !yt) {
     for (const u of (meta?.imageUrls ?? input.mediaUrls ?? []).slice(0, MAX_IMAGES)) {
       const uri = await fetchImageAsDataUri(u);
       if (uri?.startsWith("data:image/")) images.push(uri);
@@ -121,15 +135,15 @@ async function savePost(input: AddInput): Promise<AddResult> {
     const uri = await localImageToDataUri(p);
     if (uri && !images.includes(uri)) images.push(uri);
   }
-  const caption = meta?.caption || input.caption || "";
+  const caption = yt ? [yt.title, yt.description].filter(Boolean).join("\n\n") : meta?.caption || input.caption || "";
   if (!caption && !images.length) {
     await video?.cleanup();
     throw new Error("No hay nada que analizar: ni caption ni imágenes. Manda capturas del post.");
   }
 
-  // 2) Transcripción (solo reels con video disponible).
-  let transcript: string | undefined;
-  if (video) {
+  // 2) Transcripción: los subtítulos del video de YouTube, o el audio (reels y YouTube sin subtítulos).
+  let transcript: string | undefined = yt?.transcript;
+  if (video && !transcript) {
     progress("transcribiendo");
     try {
       const mp3 = await toSpeechMp3(video.path);
@@ -139,9 +153,11 @@ async function savePost(input: AddInput): Promise<AddResult> {
     }
   }
   await video?.cleanup();
+  await yt?.cleanup();
 
   // 3) Identidad del post y ficha previa (re-compartir actualiza, no duplica).
   const id =
+    (yt && `yt-${yt.id}`) ||
     (url && shortcodeFromUrl(url)) ||
     (input.sourceId && `dm-${input.sourceId.replace(/[^\w-]/g, "").slice(-24)}`) ||
     `manual-${createHash("sha256").update(images.join("|") + caption).digest("hex").slice(0, 10)}`;
@@ -153,9 +169,9 @@ async function savePost(input: AddInput): Promise<AddResult> {
   // 4) Extracción con el modelo (incluye asignación de tema).
   progress("analizando");
   const topics = await listTopics();
-  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl || input.videoFile || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
-  // Cuadros de video en baja resolución (el audio ya va transcrito); fotos y capturas en alta (texto fino).
-  const frames = !!video && !input.images?.length;
+  const kind: PostKind = yt ? "video" : url ? (meta?.kind ?? "post") : input.videoUrl || input.videoFile || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
+  // Cuadros de video (y la miniatura de YouTube) en baja resolución: el audio ya va transcrito; fotos y capturas en alta (texto fino).
+  const frames = (!!video || !!yt) && !input.images?.length;
   const raw = await extractFicha({ kind, caption, transcript, notes, images, topics, imageDetail: frames ? frameDetail() : "high" });
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");
@@ -163,6 +179,8 @@ async function savePost(input: AddInput): Promise<AddResult> {
   transcript = fixed.transcript;
   // Links de herramientas solo si el post los muestra (el modelo inventa dominios "probables").
   const extraction = groundToolUrls(fixed.extraction, `${evidence}\n${transcript ?? ""}`);
+  // El modelo a veces devuelve el título vacío: la ficha no puede quedar sin nombre.
+  if (!extraction.title.trim()) extraction.title = (yt?.title || caption.split("\n")[0] || id).trim().slice(0, 80);
 
   const existingNames = topics.map((t) => t.name);
   // Tema: por nombre equivalente o, si es nuevo, por parecido de significado con los existentes.
@@ -179,14 +197,16 @@ async function savePost(input: AddInput): Promise<AddResult> {
     id,
     url,
     kind,
-    author: meta?.author ?? previous?.author,
-    publishedAt: meta?.publishedAt,
+    author: yt?.author ?? meta?.author ?? previous?.author,
+    publishedAt: yt?.publishedAt ?? meta?.publishedAt,
     savedAt: previous?.savedAt ?? today(),
     caption,
     transcript,
     notes,
     // Parcial: Meta no pudo leer el post (se guardó desde capturas) o faltó contenido.
-    partial: (!!url && (!meta || !images.length || (!caption && !transcript))) || (!!input.videoUrl && !transcript && !images.length),
+    partial: yt
+      ? !transcript
+      : (!!url && (!meta || !images.length || (!caption && !transcript))) || (!!input.videoUrl && !transcript && !images.length),
     extraction,
   };
   const baseName = previous?.baseName ?? fichaBaseName(ficha);

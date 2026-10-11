@@ -122,7 +122,10 @@ export function safeUrl(url: string | null | undefined): string | undefined {
   return u && /^https?:\/\/[^\s/]+\.[^\s]+$/i.test(u) ? u : undefined;
 }
 
-const KIND_LABEL: Record<Ficha["kind"], string> = { reel: "reel", post: "post", carrusel: "carrusel", manual: "capturas" };
+const KIND_LABEL: Record<Ficha["kind"], string> = { reel: "reel", post: "post", carrusel: "carrusel", manual: "capturas", video: "video de YouTube" };
+
+/** Texto del link al original según de dónde viene la ficha. */
+const sourceLink = (url: string): string => `[ver en ${/youtube\.com|youtu\.be/i.test(url) ? "YouTube" : "Instagram"}](${url})`;
 
 /** Zona automática de una ficha. */
 export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): string {
@@ -131,7 +134,7 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
     f.author,
     KIND_LABEL[f.kind],
     f.publishedAt ? `publicado ${f.publishedAt}` : undefined,
-    f.url ? `[ver en Instagram](${f.url})` : undefined,
+    f.url ? sourceLink(f.url) : undefined,
   ].filter(Boolean).join(" · ");
   const topics = `Tema: ${wikilink(topic)}` + (secondary.length ? ` · También en: ${secondary.map((s) => wikilink(s)).join(", ")}` : "");
 
@@ -139,7 +142,7 @@ export function renderFichaAuto(f: Ficha, topic: string, secondary: string[]): s
     .map((t) => `- **${t.name}**${t.purpose ? ` — ${t.purpose}` : ""}${safeUrl(t.url) ? ` ([link](${safeUrl(t.url)}))` : ""}`)
     .join("\n");
 
-  const label = f.kind === "reel" ? "Cuadro" : "Imagen";
+  const label = f.kind === "reel" || f.kind === "video" ? "Cuadro" : "Imagen";
   const imageTexts = (e.imageTexts ?? [])
     .filter((t) => t.text.trim())
     // Un ">" al inicio de línea se escapa para no anidar citas dentro del callout.

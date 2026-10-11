@@ -262,6 +262,7 @@ Lee los posts con la **API oficial de Meta** (Business Discovery, igual que el r
 npm run kb:add "https://www.instagram.com/reel/XXXX/" -- --user=cuenta --nota="por qué me interesa"
 npm run kb:add "<url>" -- --image=captura.png   # suma capturas al post
 npm run kb:add -- --image=captura1.png --image=captura2.png  # solo capturas, sin link
+npm run kb:add "https://youtu.be/XXXX" -- --nota="..."   # video de YouTube: subtítulos o audio, con yt-dlp
 npm run kb:ask "¿qué herramientas guardé para editar video?"   # pregunta a tu base
 npm run kb:undo                        # deshace el último guardado
 npm run kb:undo "<url o shortcode>"    # deshace el último guardado de ese post
