@@ -619,6 +619,45 @@ Reglas:
 - El logo, chip de pilar, indicador `NN/MM` y fuente al pie no se animan (la barra de progreso
   del reel es un elemento aparte, solo del video).
 
+### Hook con video IA (Kling, Genjutsu…)
+
+Para un reel por semana (p. ej. el del domingo), se puede poner un clip generado con IA
+**detrás** del texto del hook, sin retrasarlo: el texto sigue entrando desde el cuadro 0.
+
+```bash
+scripts/reel-hook-video.sh <reel.mp4> <clip.mp4> <salida.mp4> [segundos=5] [brillo=0.45]
+```
+
+El clip se oscurece y se mezcla con el reel en modo *lighten*: como el fondo del reel es casi
+negro, el clip queda detrás, y el texto blanco y el acento lima quedan encima. El clip se
+desvanece en su último medio segundo y desde ahí el reel es idéntico al original. El audio
+se copia tal cual.
+
+**Automático, desde el planificador.** El planificador marca a lo más
+`hookVideoMaxSemana` (1) reel por semana con `"hookVideo": { "prompt", "segundos" }` en el
+borrador, cuando el hook es una escena que se puede mostrar (ver "Hook con video IA" en
+`kb-plantilla/_calendario/INSTRUCCIONES.md`). El Mac lo renderiza normal y después:
+
+```bash
+npm run calendario:hook-video -- pendientes                          # JSON: reels que esperan clip (prompt + parámetros de Kling)
+npm run calendario:hook-video -- aplicar <semana> <id> <clip.mp4>    # mezcla, QA, reemplaza reel.mp4, lo sube y verifica
+```
+
+Quien genera el clip es una **tarea programada local de Claude** (diaria, en
+`~/Documents/Claude/Carrusel-render`), porque el MCP de Higgsfield usa los créditos de la
+suscripción y necesita una sesión de Claude: lee `pendientes`, genera cada clip con
+`generate_video` (Kling 3.0, 9:16, `pro`, sin sonido, ≈ 9 créditos), lo descarga y llama a
+`aplicar`. `aplicar` siempre mezcla sobre el original (`.reel-sin-hook.mp4`), deja
+`.hook-video.json` al terminar y no toca un reel a menos de 45 min de su hora. Si algo falla,
+avisa por Telegram y el reel sale sin clip. La duración no cambia, así que `render.json`
+sigue valiendo.
+
+**A mano** (otra pieza, o para probar): generar el clip en Higgsfield con la acción en la
+mitad de abajo del cuadro y, si hay personas, **chilenas o latinoamericanas**; correr el
+script sobre `output/calendario/<semana>/<id>/reel.mp4`, y si queda bien reemplazar
+`reel.mp4` y subirlo antes de la hora (el bot publica la copia del servidor):
+`rsync -az <id>/reel.mp4 "$SERVER_HOST:$SERVER_MEDIA_DIR/<semana>/<id>/"`.
+
 ## Roadmap
 
 - **Plantillas-Reel dedicadas**: hoy el Reel reusa las plantillas del carrusel; a futuro,

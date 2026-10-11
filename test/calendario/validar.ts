@@ -1198,3 +1198,36 @@ check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo 
   }
   assert.ok(!lf.includes("copia-este-prompt"));
 });
+
+// --- Hook con video IA (hookVideo) ---
+
+const HOOK_VIDEO = { prompt: "Cinematic slow dolly-in on a team of Chilean coworkers in silence at a meeting in Santiago.", segundos: 5 };
+
+check("calendario/validar: hookVideo válido en un reel pasa; en carrusel, mal formado o con fondo en el Hook → error", () => {
+  const b = { ...borrador(), hookVideo: HOOK_VIDEO };
+  assertNone(validarBorrador(pieza(), b, config).filter((e) => /hookVideo/.test(e)));
+  assertHas(validarBorrador(pieza({ formato: "carrusel" }), b, config), /hookVideo solo va en reels/);
+  assertHas(validarBorrador(pieza(), { ...borrador(), hookVideo: { prompt: "corto" } }, config), /hookVideo\.prompt/);
+  assertHas(validarBorrador(pieza(), { ...borrador(), hookVideo: { ...HOOK_VIDEO, segundos: 9 } }, config), /hookVideo\.segundos/);
+  assertHas(validarBorrador(pieza(), { ...borrador(), hookVideo: { ...HOOK_VIDEO, url: "x" } }, config), /campo desconocido "url"/);
+  const conFondo = { ...borrador(), hookVideo: HOOK_VIDEO };
+  conFondo.slides[0].background = { ai: "oficina" };
+  assertHas(validarBorrador(pieza(), conFondo, config), /el Hook no lleva background/);
+});
+
+check("calendario/validar: validarSemana — 2 reels con hookVideo → error (máximo 1 por defecto); config.hookVideoMaxSemana inválido → error", () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    for (const x of p.piezas.filter((x: any) => x.formato === "reel").slice(0, 2)) {
+      const b = JSON.parse(readFileSync(join(dir, x.borrador), "utf8"));
+      writeFileSync(join(dir, x.borrador), JSON.stringify({ ...b, hookVideo: HOOK_VIDEO }));
+    }
+    const sinClave = { ...config };
+    delete sinClave.hookVideoMaxSemana;
+    assertHas(validarSemana(dir, sinClave, { score: () => 90 }), /2 reels con hookVideo \(máximo 1/);
+    assertNone(validarSemana(dir, { ...config, hookVideoMaxSemana: 2 }, { score: () => 90 }).filter((e) => /hookVideo/.test(e)));
+    assertHas(validarConfig({ ...config, hookVideoMaxSemana: -1 }), /hookVideoMaxSemana/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

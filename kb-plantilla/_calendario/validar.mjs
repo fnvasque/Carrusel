@@ -51,11 +51,15 @@ const SENALES = ["guardados", "envios", "comentarios", "retencion"];
 const FORMATOS = ["reel", "carrusel"];
 const PACES = ["ensenar", "rapido"];
 const RESPALDOS = ["skill", "supuesto", "base"];
-const CAMPOS_BORRADOR = new Set(["name", "angle", "pillar", "slides", "pace", "audio", "logoEnCuadro0"]);
+const CAMPOS_BORRADOR = new Set(["name", "angle", "pillar", "slides", "pace", "audio", "logoEnCuadro0", "hookVideo"]);
 const CAMPOS_SLIDE = new Set(["template", "props", "pillar", "background"]);
 const CAMPOS_FONDO = new Set(["ai", "overlay", "brandStyle"]);
 /** Variables de experimento fijas (más cualquier parámetro de `config.puerta`). */
-const VARIABLES_FIJAS = ["tema", "arquetipo", "hora", "duracion", "hook"];
+const VARIABLES_FIJAS = ["tema", "arquetipo", "hora", "duracion", "hook", "hookVideo"];
+/** Clip de video IA detrás del hook (Kling vía Higgsfield, lo aplica el Mac): forma y tope por semana. */
+const HOOK_VIDEO_PROMPT = [40, 800];
+const HOOK_VIDEO_SEGUNDOS = [3, 6];
+const HOOK_VIDEO_MAX_SEMANA = 1;
 
 /** El id se usa como nombre de carpeta en el servidor. */
 const ID_RE = /^[a-z0-9-]{3,80}$/;
@@ -453,6 +457,29 @@ export function validarCaption(caption, config, tema) {
 
 // --- borrador ---------------------------------------------------------------
 
+/** Borradores con `hookVideo` (cuentan para `config.hookVideoMaxSemana`, 1 si falta). */
+export function contarHookVideo(borradores) {
+  if (!Array.isArray(borradores)) return 0;
+  return borradores.filter((b) => esObj(b) && b.hookVideo !== undefined).length;
+}
+
+/** Errores de `hookVideo` en un borrador (solo reels, forma, Hook sin fondo). */
+function erroresDeHookVideo(b, p) {
+  const v = b.hookVideo;
+  if (v === undefined) return [];
+  if (p.formato !== "reel") return ["hookVideo solo va en reels (el carrusel es estático)"];
+  if (!esObj(v)) return ["hookVideo debe ser un objeto { prompt, segundos? }"];
+  const errs = [];
+  for (const k of Object.keys(v)) if (k !== "prompt" && k !== "segundos") errs.push(`hookVideo: campo desconocido ${q(k)}`);
+  const [min, max] = HOOK_VIDEO_PROMPT;
+  if (typeof v.prompt !== "string" || v.prompt.trim().length < min || v.prompt.length > max) errs.push(`hookVideo.prompt debe ser un texto de ${min} a ${max} caracteres (en inglés, una sola toma)`);
+  const [smin, smax] = HOOK_VIDEO_SEGUNDOS;
+  if (v.segundos !== undefined && !(Number.isInteger(v.segundos) && v.segundos >= smin && v.segundos <= smax)) errs.push(`hookVideo.segundos debe ser un entero entre ${smin} y ${smax}`);
+  const hook = Array.isArray(b.slides) ? b.slides[0] : undefined;
+  if (esObj(hook) && hook.background !== undefined) errs.push("hookVideo: el Hook no lleva background (el clip va detrás, sobre el fondo negro de marca)");
+  return errs;
+}
+
 /** Fondos `ai` válidos de una lista de borradores. */
 export function contarFondosIA(borradores) {
   if (!Array.isArray(borradores)) return 0;
@@ -624,6 +651,7 @@ function erroresDeBorrador(b, p, config) {
   } else if (b.audio !== undefined && !audioSeguro) {
     errs.push(`audio ${q(b.audio)} inválido: solo el nombre de una pista, sin rutas`); // en carrusel se ignora, pero no con rutas
   }
+  errs.push(...erroresDeHookVideo(b, p));
   if (!Array.isArray(b.slides)) {
     errs.push("slides debe ser una lista de slides");
     return errs;
@@ -1159,6 +1187,9 @@ export function validarConfig(config) {
     for (const k of ["separacionMinHoras", "fondosIAMaxSemana", "scoreMin", "umbralAlcanceTasas"]) {
       if (typeof config[k] !== "number" || !Number.isFinite(config[k]) || config[k] < 0) errs.push(`${k} debe ser un número ≥ 0`);
     }
+    if (config.hookVideoMaxSemana !== undefined && !(Number.isInteger(config.hookVideoMaxSemana) && config.hookVideoMaxSemana >= 0)) {
+      errs.push("hookVideoMaxSemana debe ser un entero ≥ 0 (0 = sin clips de video)");
+    }
     if (!Array.isArray(config.pilares) || !config.pilares.length || !config.pilares.every(esTexto)) errs.push("pilares debe ser una lista de textos");
     if (!Array.isArray(config.hashtagsBase) || !config.hashtagsBase.every((h) => typeof h === "string" && HASHTAG_RE.test(h))) {
       errs.push("hashtagsBase debe ser una lista de hashtags en minúsculas (#ia)");
@@ -1250,6 +1281,9 @@ export function validarSemana(dir, config, opts = {}) {
     }
     const fondos = contarFondosIA(borradores);
     if (fondos > config.fondosIAMaxSemana) out.push(`semana: ${fondos} fondos ai (máximo ${config.fondosIAMaxSemana}, config.fondosIAMaxSemana)`);
+    const clips = contarHookVideo(borradores);
+    const maxClips = config.hookVideoMaxSemana ?? HOOK_VIDEO_MAX_SEMANA;
+    if (clips > maxClips) out.push(`semana: ${clips} reels con hookVideo (máximo ${maxClips}, config.hookVideoMaxSemana)`);
     if (raiz && fechaValida(plan.semana) && plan.semana >= DESDE_REFERENCIAS) {
       const c = leerJson(join(raiz, "_calendario", "candidatos.json"));
       if ("error" in c) out.push(`semana: _calendario/candidatos.json ${c.error} (escríbelo en el Paso 8, también con 0 piezas)`);

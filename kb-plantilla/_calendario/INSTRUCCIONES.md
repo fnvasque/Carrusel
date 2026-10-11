@@ -237,7 +237,8 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   guardados; compartible → envíos; opinión → comentarios; demo y atemporal →
   retención.
 - **Un experimento por semana**, declarado antes de escribir. Variables
-  permitidas: `tema`, `arquetipo`, `hora`, `duracion`, `hook` (tipo de hook) o
+  permitidas: `tema`, `arquetipo`, `hora`, `duracion`, `hook` (tipo de hook),
+  `hookVideo` (clip de video detrás del hook, ver Paso 5) o
   un parámetro de `puerta` (por su nombre, p. ej. `tituloMaxPalabras` o
   `logoEnCuadro0`). Va en `plan.json → experimento` (`variable`, `hipotesis`,
   `piezas` con los ids afectados) y como entrada nueva en `experimentos.md` con
@@ -360,6 +361,9 @@ presupuesto de tiempo (rigen solo las longitudes de la puerta).
 - Fondos con IA: `"background": { "ai": "<descripción de la imagen>" }`, solo
   en `Hook` o `Cta`, **máximo `fondosIAMaxSemana` (3) en toda la semana**,
   nunca con `brandStyle: false` (el estilo de marca se anexa siempre).
+- Hook con video IA: `"hookVideo": { "prompt": "…", "segundos": 5 }` en el
+  borrador, solo en reels, **máximo `hookVideoMaxSemana` (1) en toda la
+  semana**, y el `Hook` de ese reel sin `background`. Ver "Hook con video IA".
 - Reel: `"pace": "ensenar"` y `"audio"` con el nombre exacto de una pista de
   `config.audios` (sin rutas; si la lista está vacía, no hay reels: ver Paso 4).
   Carrusel: `pace` y `audio` no hacen falta.
@@ -371,6 +375,50 @@ presupuesto de tiempo (rigen solo las longitudes de la puerta).
   `mar-carrusel-5-prompts-para-excel`). El borrador se llama `<id>.json`.
 - Score léxico ≥ `scoreMin` (75): si el repo de código no está al lado, el
   validador lo omite con un aviso y lo revisa el Mac.
+
+### Hook con video IA (Kling vía Higgsfield)
+
+Un reel por semana (o ninguno) puede llevar un clip de video generado con IA
+**detrás** del título del hook, durante sus primeros segundos. El texto sigue
+entrando desde el cuadro 0; el clip solo le da movimiento a la portada, que es
+donde se decide si alguien se queda. Lo generas tú solo como prompt: después
+del render, el Mac genera el clip con Kling 3.0 (créditos de Higgsfield), lo
+mezcla y lo sube antes de la hora. Si eso falla, el reel sale igual, sin clip.
+
+**Cuándo sí:** el hook habla de una situación que se puede *mostrar* en una
+toma: personas haciendo algo (un equipo callado en una reunión, alguien
+frustrado frente a un correo, una persona que duda antes de hablar), un lugar
+o un objeto concreto. Mejor en `compartible` o `curiosidad`, donde la emoción
+del hook es identificación o sorpresa.
+
+**Cuándo no:** si el hook es una herramienta o pantalla (un clip no puede
+mostrar una interfaz real sin inventarla), si lo que engancha es solo un número
+o una frase, si el tema es sensible (salud, duelo, violencia) o si no se te
+ocurre una toma que diga lo mismo que el título. En la duda, no lo uses: un
+clip genérico de "gente en una oficina" no aporta.
+
+**El prompt** (`hookVideo.prompt`, en **inglés**, 40–800 caracteres):
+- Una sola toma continua de 5 s con movimiento de cámara simple (por ejemplo,
+  *slow dolly-in*), y una acción que se entienda sin sonido.
+- Si hay personas: **chilenas o latinoamericanas** (*Chilean, Latin American,
+  mestizo features*), de edades variadas, en lugares reconocibles de Chile
+  (oficina en Santiago, metro, casa de clase media). Nunca personas reales,
+  famosos, marcas ni pantallas con texto legible.
+- La acción principal en la **mitad de abajo** del cuadro: arriba va el título.
+  Ambiente oscuro, con un toque de luz verde lima si calza.
+- No hace falta pedir 9:16, "sin texto" ni iluminación: el Mac agrega eso al
+  prompt.
+
+`segundos` (3–6, por defecto 5) es cuánto dura el clip; ajústalo a la duración
+de la escena del hook. Para medir si sirve, declara `hookVideo` como variable
+del experimento de la semana (Paso 4).
+
+```json
+"hookVideo": {
+  "prompt": "Cinematic slow dolly-in on a meeting room in an office in Santiago, Chile, at dusk. A team of Chilean coworkers of mixed ages sit in silence, eyes down at their laptops. Close to camera, a woman in her thirties starts to raise her hand to speak, hesitates and lowers it.",
+  "segundos": 5
+}
+```
 
 ### Score léxico (≥ 75): apunta alto desde la nube
 

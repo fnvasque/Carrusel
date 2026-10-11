@@ -16,6 +16,7 @@
   "pilares": ["herramienta", "noticia", "prompt", "curiosidad"],
   "hashtagsBase": ["#ia", "#inteligenciaartificial", "#herramientasia"],
   "fondosIAMaxSemana": 3,
+  "hookVideoMaxSemana": 1,
   "scoreMin": 75,
   "umbralAlcanceTasas": 50,
   "puerta": {
