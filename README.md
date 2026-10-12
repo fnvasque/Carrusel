@@ -380,7 +380,8 @@ Mix fijo de la semana: **lun** reel tutorial · **mar** carrusel lista/guía · 
 
 | Máquina | Qué hace | Cuándo | Qué escribe en `ia-es-kb` |
 |---|---|---|---|
-| **Nube** (tarea programada de claude.ai) | Planifica la semana, escribe los borradores y los valida (`validar.mjs`, lector frío) | Domingo 06:00 Chile | `_calendario/<semana>/plan.json` y borradores, `experimentos.md`, `aprendizajes.md`, `candidatos.json` |
+| **Nube** (rutina de claude.ai) | Investigación semanal de la base (`_investigacion/INSTRUCCIONES.md`) | Domingo 04:00 Chile | `referencias/`, bloques `kb:research` de `temas/`, `_investigacion/` |
+| **Mac** (tarea programada de la app de Claude) o **nube** | Planifica la semana, escribe los borradores y los valida (`validar.mjs`, lector frío). Hoy corre como tarea local (`planificador-ia-es-kb`): domingo 06:00 Chile y, si el Mac dormía, el lunes antes de las 12:00; la rutina en la nube equivalente está apagada | Domingo 06:00 Chile | `_calendario/<semana>/plan.json` y borradores, `experimentos.md`, `aprendizajes.md`, `candidatos.json` |
 | **Mac** (launchd) | `npm run calendario:render`: renderiza con Chromium/ffmpeg, pasa el QA, sube los medios con `rsync` y verifica la URL pública | Cada hora mientras esté encendido | `_calendario/<semana>/render.json` |
 | **Servidor** (Docker, el bot `kb`) | Sirve los medios, publica a la hora, publica la story 60 min después, toma instantáneas y manda resúmenes | 24/7 (scheduler cada minuto) | `_metricas/**`, `_calendario/registro.jsonl`, `_calendario/<semana>/estado.json` |
 
@@ -512,7 +513,11 @@ En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --des
 ### Bucle de feedback
 
 El bot escribe `_metricas/bucle.json` con pesos por tema y arquetipo (solo con 3 o más piezas medidas),
-ganadores (20 % superior), derivados pendientes y un diagnóstico mensual. El planificador lo **lee** y
+ganadores (20 % superior), derivados pendientes, un diagnóstico mensual y la tabla `piezas` (una fila por
+pieza medida: hook publicado, alcance, guardados, envíos, comentarios, retención, seguidores del día
+siguiente), más `sinMedir` (publicadas sin 7 días todavía) y `borradas` (posts que Instagram ya no
+devuelve; el bot lo anota en `registro.jsonl` como `tipo: "borrado"`). Bajo 100 seguidores Meta no da
+`follower_count`, así que `cuenta.json` guarda `historial` (total por día) y deriva los seguidores nuevos. El planificador lo **lee** y
 decide; no cambia solo los pesos de `virality.ts`, el mix, la zona ni los parámetros de la puerta: si
 propone un cambio, lo anota en `aprendizajes.md` y lo aplicas tú en `config.json`. Cada semana declara
 **un** experimento (tema, arquetipo, hora, duración o tipo de hook) que se evalúa a las 4 semanas.

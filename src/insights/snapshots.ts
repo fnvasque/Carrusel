@@ -1,7 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { localParts, zonaOnlineFollowers } from "../calendario/time.ts";
+import { addDays, localParts, zonaOnlineFollowers } from "../calendario/time.ts";
 import { calendarioDir } from "../calendario/plan.ts";
+import { anotarRegistro, registroPath } from "../calendario/registro.ts";
 import { openDb } from "../kb/db.ts";
 import { kbDir } from "../kb/store.ts";
 import { GraphError } from "../meta/client.ts";
@@ -229,6 +230,8 @@ export interface DepsInstantaneas {
   refresh?: (metricsDir: string) => Promise<unknown>;
   /** Ids del listado reciente de posts (por defecto `fetchOwnMedia`), para distinguir "borrado" de "permisos". */
   listado?: () => Promise<Set<string>>;
+  /** Escribe la línea `tipo: "borrado"` en `_calendario/registro.jsonl` (por defecto `anotarRegistro`). */
+  anotarRegistro?: (linea: Record<string, unknown>) => Promise<void>;
 }
 
 /**
@@ -268,8 +271,21 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
     } catch (err) {
       // Un 100 con el post presente en el listado reciente es otro problema (permisos…): no es "borrado".
       if (postInexistente(err) && (await ausenteDelListado(post.mediaId))) {
+        const antes = fallosSeguidos(post.mediaId);
         const n = anotarFallo(post.mediaId, now);
         console.warn(`⚠️  Insights de ${post.mediaId} (${ventana}): ${msgOf(err)} [fallo ${n}/${MAX_FALLOS}${n >= MAX_FALLOS ? ": dejo de pedirlo" : ""}]`);
+        // Al darlo por borrado (una sola vez) queda constancia en el registro: el bucle y el
+        // planificador saben que esa pieza no tendrá métricas y no es un bot caído.
+        if (n >= MAX_FALLOS && antes < MAX_FALLOS) {
+          try {
+            await (deps.anotarRegistro ?? anotarRegistro)({
+              tipo: "borrado", ...(post.piezaId ? { piezaId: post.piezaId } : {}), mediaId: post.mediaId, en: now.toISOString(),
+              motivo: "Instagram responde que el post ya no existe",
+            });
+          } catch (e) {
+            console.warn(`⚠️  No pude anotar el borrado de ${post.mediaId} en registro.jsonl: ${msgOf(e)}`);
+          }
+        }
       } else {
         console.warn(`⚠️  Insights de ${post.mediaId} (${ventana}): ${msgOf(err)} (se reintenta en la próxima pasada).`);
       }
@@ -348,16 +364,42 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
 
 /**
  * Rutas que el bot commitea tras tomar instantáneas del día `dia` (local): el jsonl del
- * día, `posts.json` y la calibración (`_metricas/calibracion/`, R51), que el Mac copia.
+ * día, `posts.json`, la calibración (`_metricas/calibracion/`, R51), que el Mac copia, y
+ * `registro.jsonl` (por las líneas `borrado`).
  */
 export function rutasCommitInstantaneas(dia: string): string[] {
-  return [join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion")];
+  const reg = registroPath();
+  // El registro solo si existe: `git add` de una ruta inexistente haría fallar todo el commit.
+  return [join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion"), ...(existsSync(reg) ? [reg] : [])];
+}
+
+const mapaNumerico = (v: unknown): Record<string, number> => {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return {};
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter((e): e is [string, number] => typeof e[1] === "number" && Number.isFinite(e[1])));
+};
+const ordenado = (o: Record<string, number>): Record<string, number> => Object.fromEntries(Object.entries(o).sort(([x], [y]) => x.localeCompare(y)));
+
+/**
+ * Seguidores nuevos por día derivados del historial de totales: `historial[d] − historial[d−1]`
+ * solo cuando existen ambos días seguidos (sin inventar el delta de un hueco). Lo que Meta
+ * dio en `follower_count` (`porDia`) manda sobre el derivado. Función pura.
+ */
+export function porDiaDesdeHistorial(historial: Record<string, number>, porDia: Record<string, number>): Record<string, number> {
+  const out = { ...porDia };
+  for (const [dia, total] of Object.entries(historial)) {
+    if (dia in out) continue;
+    const previo = historial[addDays(dia, -1)];
+    if (typeof previo === "number") out[dia] = total - previo;
+  }
+  return ordenado(out);
 }
 
 /**
  * Guarda `_metricas/cuenta.json`. Meta da solo 30 días de seguidores por día: `porDia`
- * se fusiona con lo anterior para conservar la historia. Si la consulta no trae
- * seguidores u horas de audiencia, se conserva lo último conocido.
+ * se fusiona con lo anterior para conservar la historia. Bajo 100 seguidores Meta no
+ * entrega `follower_count`: por eso se guarda además `historial` (total de seguidores por
+ * día local) y `porDia` se deriva de sus diferencias (días seguidos). Si la consulta no
+ * trae seguidores u horas de audiencia, se conserva lo último conocido.
  */
 export async function guardarCuenta(now: Date, deps: { fetch?: typeof fetchAccountInsights } = {}): Promise<void> {
   // Los días de follower_count se leen en la zona de la cuenta (config.json, R39).
@@ -365,13 +407,15 @@ export async function guardarCuenta(now: Date, deps: { fetch?: typeof fetchAccou
   const a: AccountInsights = deps.fetch ? await deps.fetch(now) : await fetchAccountInsights(now, undefined, undefined, zona);
   const ruta = join(metricasDir(), "cuenta.json");
   const previo = leerObjeto(ruta);
-  const porDiaPrevio = typeof previo.porDia === "object" && previo.porDia !== null && !Array.isArray(previo.porDia) ? (previo.porDia as Record<string, number>) : {};
-  const porDia: Record<string, number> = { ...porDiaPrevio };
+  const porDia: Record<string, number> = mapaNumerico(previo.porDia);
   for (const f of a.followerCount) porDia[f.dia] = f.valor;
+  const historial = mapaNumerico(previo.historial);
+  if (typeof a.followers === "number" && Number.isFinite(a.followers)) historial[localParts(now).dia] = a.followers;
   const cuenta = {
     actualizado: now.toISOString(),
     seguidores: a.followers ?? (typeof previo.seguidores === "number" ? previo.seguidores : undefined),
-    porDia: Object.fromEntries(Object.entries(porDia).sort(([x], [y]) => x.localeCompare(y))),
+    porDia: porDiaDesdeHistorial(historial, porDia),
+    historial: ordenado(historial),
     onlineFollowers: a.onlineFollowers ?? (typeof previo.onlineFollowers === "object" ? previo.onlineFollowers : undefined),
     reach7d: a.reach7d,
     engaged7d: a.engaged7d,

@@ -509,6 +509,64 @@ check("construirBucle: experimento declarado con variable válida (R15) y su eva
   assert.equal(b.experimentos[1]!.evaluable, false);
 });
 
+check("construirBucle: `piezas` trae la fila completa de 7 d de cada pieza medida, con hook y seguidores del día siguiente", () => {
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: null,
+    piezas: [{ id: "pz-1", dia: "2026-10-12", formato: "reel", hook: { categoria: "curiosidad", texto: "Convierte 6 PDFs en un podcast", score: 9 } } as unknown as Plan["piezas"][number]],
+  };
+  const semanas: SemanaLeida[] = [{ semana: "2026-10-12", plan, render: {}, estado: {} }];
+  const b = construirBucle({
+    ahora: AHORA, instantaneas: [inst("1", { reach: 40, saved: 3, shares: 1, comments: 2, views: 90, likes: 5, avg_watch_ms: 6000 })], registro: [regl("1")],
+    semanas, cuenta: { porDia: { "2026-10-13": 4 } }, config: {},
+  });
+  assert.equal(b.piezas.length, 1);
+  const p = b.piezas[0]!;
+  assert.equal(p.piezaId, "pz-1");
+  assert.equal(p.semana, "2026-10-12");
+  assert.equal(p.mediaId, "1");
+  assert.equal(p.formato, "reel");
+  assert.equal(p.senal, "guardados");
+  assert.equal(p.modo, "absoluto");
+  assert.equal(p.valor, 3);
+  assert.equal(p.hookCategoria, "curiosidad");
+  assert.equal(p.hookTexto, "Convierte 6 PDFs en un podcast");
+  assert.equal(p.predictedScore, 80);
+  assert.deepEqual([p.reach, p.saved, p.shares, p.comments, p.views, p.likes, p.avgWatchMs], [40, 3, 1, 2, 90, 5, 6000]);
+  assert.equal(p.retencion, 0.3);
+  assert.equal(p.guardadosPorAlcance, 0.075);
+  assert.equal(p.enviosPorAlcance, 0.025);
+  assert.equal(p.comentariosPorAlcance, 0.05);
+  assert.equal(p.seguidoresDiaSiguiente, 4);
+  assert.equal(p.publicadoEn, PUB);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});
+
+check("construirBucle: `sinMedir` lista las publicadas sin 7 d comparable con su motivo, y `borradas` las que el bot dio por borradas", () => {
+  const reg = [
+    regl("1"),
+    regl("2", { piezaId: "pz-2", publicadoEn: "2026-10-16T17:00:00.000Z" }), // aún no cumple 7 d el domingo 18
+    regl("3", { piezaId: "pz-3", publicadoEn: "2026-10-09T17:00:00.000Z", semana: "2026-10-05" }), // 7 d pasados, sin instantánea comparable
+    regl("4", { piezaId: "pz-4", publicadoEn: "2026-10-07T17:00:00.000Z", semana: "2026-10-05", borrado: "2026-10-10T12:00:00.000Z" }),
+  ];
+  const b = construirBucle({ ahora: AHORA, instantaneas: [inst("1"), inst("3", {}, "2026-10-17T03:00:00.000Z")], registro: reg, semanas: [], cuenta: {}, config: {} });
+  assert.deepEqual(b.piezas.map((p) => p.piezaId), ["pz-1"]);
+  assert.deepEqual(b.sinMedir, [
+    { piezaId: "pz-2", semana: "2026-10-12", mediaId: "2", motivo: "pendiente: cumple 7 d el 2026-10-23" },
+    { piezaId: "pz-3", semana: "2026-10-05", mediaId: "3", motivo: "sin instantánea de 7 d comparable (bot caído a su hora)" },
+  ]);
+  assert.deepEqual(b.borradas, [{ piezaId: "pz-4", semana: "2026-10-05", mediaId: "4", en: "2026-10-10T12:00:00.000Z" }]);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});
+
+check("construirBucle: un experimento cuyas piezas fueron borradas lo dice (`borradas`) para que el planificador lo cierre", () => {
+  const plan: Plan = {
+    semana: "2026-10-05", zona: "America/Santiago", experimento: { variable: "hook", hipotesis: "h", piezas: ["pz-4", "pz-5"] }, piezas: [],
+  };
+  const reg = [regl("4", { piezaId: "pz-4", semana: "2026-10-05", publicadoEn: "2026-10-07T17:00:00.000Z", borrado: "2026-10-10T12:00:00.000Z" })];
+  const b = construirBucle({ ahora: AHORA, instantaneas: [], registro: reg, semanas: [{ semana: "2026-10-05", plan, render: {}, estado: {} }], cuenta: {}, config: {} });
+  assert.deepEqual(b.experimentos[0]!.borradas, ["pz-4"]);
+});
+
 // --- debeEscribirBucle ---
 
 check("debeEscribirBucle: domingo 05:30–06:00 sí; antes de 05:30 no", () => {
