@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { closeDb, openDb } from "../../src/kb/db.ts";
 import { GraphError } from "../../src/meta/client.ts";
-import type { GraphGetFn, MediaInsights } from "../../src/insights/client.ts";
-import { guardarCuenta, metricaCalibracion, postsConocidos, tomarInstantaneas, type Instantanea, type PostInfo } from "../../src/insights/snapshots.ts";
+import type { Comentario, GraphGetFn, MediaInsights } from "../../src/insights/client.ts";
+import { guardarCuenta, metricaCalibracion, postsConocidos, rutasCommitInstantaneas, tomarInstantaneas, type Instantanea, type PostInfo } from "../../src/insights/snapshots.ts";
 
 async function conBase<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = mkdtempSync(join(tmpdir(), "snap-"));
@@ -289,6 +289,30 @@ await checkAsync("tomarInstantaneas: al dar por borrado un post (3 fallos) anota
     assert.equal(registro[0]!.piezaId, "lun-reel-x");
     assert.equal(typeof registro[0]!.en, "string");
     // Un post manual borrado también se anota (sin piezaId).
+  }));
+
+await checkAsync("tomarInstantaneas: con la 7 d de una pieza del motor guarda el texto de los comentarios en _metricas/comentarios/<semana>/<piezaId>.json; un fallo no rompe la instantánea", () =>
+  conBase(async (dir) => {
+    openDb();
+    let pedidos = 0;
+    const comentarios = async (): Promise<Comentario[]> => { pedidos++; return [{ id: "c1", texto: "¿y en Android?", fecha: "2026-10-14T10:00:00+0000", likes: 1 }]; };
+    const deps = { fetch: async () => ins(), posts: [motor({ semana: "2026-10-12" })], metricsDir: join(dir, "m"), fetchComentarios: comentarios };
+    await tomarInstantaneas(AHORA_24H, deps);
+    assert.equal(pedidos, 0, "a 24 h no se piden comentarios");
+    await tomarInstantaneas(AHORA_7D, deps);
+    assert.equal(pedidos, 1);
+    const f = join(dir, "_metricas", "comentarios", "2026-10-12", "lun-reel-x.json");
+    const c = JSON.parse(readFileSync(f, "utf8"));
+    assert.equal(c.piezaId, "lun-reel-x");
+    assert.equal(c.mediaId, "m1");
+    assert.equal(c.ventana, "7d");
+    assert.deepEqual(c.comentarios, [{ id: "c1", texto: "¿y en Android?", fecha: "2026-10-14T10:00:00+0000", likes: 1 }]);
+    assert.ok(rutasCommitInstantaneas("2026-10-19").includes(join(dir, "_metricas", "comentarios")));
+    // Un fallo al pedir comentarios no impide la instantánea de 28 d ni rompe nada.
+    const falla = { ...deps, fetchComentarios: async () => { throw new GraphError("(#10) sin permiso", 10); } };
+    const n = await tomarInstantaneas(new Date("2026-11-09T22:30:00Z"), falla);
+    assert.equal(n.length, 1);
+    assert.equal(n[0]!.ventana, "28d");
   }));
 
 await checkAsync("tomarInstantaneas: un 100 por permisos con el post en el listado no apaga la medición", () =>

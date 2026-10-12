@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { check, checkAsync } from "../_check.ts";
 import { GraphError } from "../../src/meta/client.ts";
 import {
-  parseInsights, unsupportedMetric, invalidMetrics, fetchOwnMedia, fetchMediaInsights, fetchAccountInsights,
+  parseInsights, unsupportedMetric, invalidMetrics, fetchOwnMedia, fetchMediaInsights, fetchAccountInsights, fetchMediaComments,
   POST_METRICS, REEL_METRICS, type GraphGetFn,
 } from "../../src/insights/client.ts";
 
@@ -273,4 +273,31 @@ await checkAsync("con igUserId explícito no se lee metaConfig() (sin .env)", as
     if (guardado.t !== undefined) process.env.META_ACCESS_TOKEN = guardado.t;
     if (guardado.i !== undefined) process.env.META_IG_USER_ID = guardado.i;
   }
+});
+
+// --- fetchMediaComments ---
+await checkAsync("fetchMediaComments: pagina, normaliza y tolera entradas raras; tope de comentarios", async () => {
+  const pages: Record<string, unknown> = {
+    "": { data: [
+      { id: "c1", text: "¿Sirve en Android?", timestamp: "2026-10-13T10:00:00+0000", like_count: 2, username: "ana" },
+      { id: "c2", text: 7, timestamp: "2026-10-13T11:00:00+0000" },
+      "basura",
+    ], paging: { cursors: { after: "C1" }, next: "x" } },
+    C1: { data: [{ id: "c3", text: "gracias", timestamp: "2026-10-14T10:00:00+0000" }], paging: { cursors: { after: "C2" }, next: "y" } },
+    C2: { data: [{ id: "c4", text: "cuarto", timestamp: "2026-10-15T10:00:00+0000" }] },
+  };
+  const { get, calls } = fake((_p, params) => pages[String(params.after ?? "")]);
+  const r = await fetchMediaComments("m1", get, 3);
+  assert.deepEqual(r, [
+    { id: "c1", texto: "¿Sirve en Android?", fecha: "2026-10-13T10:00:00+0000", likes: 2, usuario: "ana" },
+    { id: "c3", texto: "gracias", fecha: "2026-10-14T10:00:00+0000" },
+    { id: "c4", texto: "cuarto", fecha: "2026-10-15T10:00:00+0000" },
+  ]);
+  assert.equal(calls[0]!.path, "m1/comments");
+  assert.match(String(calls[0]!.params.fields), /text/);
+  assert.equal(calls.length, 3);
+});
+await checkAsync("fetchMediaComments: un error de Meta se propaga (el llamador decide)", async () => {
+  const { get } = fake(() => { throw new GraphError("(#10) permission", 10); });
+  await assert.rejects(() => fetchMediaComments("m1", get));
 });

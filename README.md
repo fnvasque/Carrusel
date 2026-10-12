@@ -515,7 +515,8 @@ En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --des
 El bot escribe `_metricas/bucle.json` con pesos por tema y arquetipo (solo con 3 o más piezas medidas),
 ganadores (20 % superior), derivados pendientes, un diagnóstico mensual y la tabla `piezas` (una fila por
 pieza medida: hook publicado, alcance, guardados, envíos, comentarios, retención, seguidores del día
-siguiente), más `sinMedir` (publicadas sin 7 días todavía) y `borradas` (posts que Instagram ya no
+siguiente y los últimos comentarios en texto, que el bot guarda en `_metricas/comentarios/` a los 7 y 28 días;
+leerlos exige el permiso `instagram_manage_comments` en el token), más `sinMedir` (publicadas sin 7 días todavía) y `borradas` (posts que Instagram ya no
 devuelve; el bot lo anota en `registro.jsonl` como `tipo: "borrado"`). Bajo 100 seguidores Meta no da
 `follower_count`, así que `cuenta.json` guarda `historial` (total por día) y deriva los seguidores nuevos. El planificador lo **lee** y
 decide; no cambia solo los pesos de `virality.ts`, el mix, la zona ni los parámetros de la puerta: si

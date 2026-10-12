@@ -123,8 +123,14 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   publicó), `predictedScore`, `valor` y `modo` (lo que el bucle compara),
   `reach`, `saved`, `shares`, `comments`, `views`, `likes`, `avgWatchMs`,
   `retencion`, `guardadosPorAlcance`, `enviosPorAlcance`,
-  `comentariosPorAlcance` y `seguidoresDiaSiguiente`. Es la tabla del Paso 2:
-  no busques las instantáneas a mano en `_metricas/instantaneas/`.
+  `comentariosPorAlcance`, `seguidoresDiaSiguiente` y `comentariosTexto` (los
+  10 comentarios más recientes del post, texto; el bot los guarda completos en
+  `_metricas/comentarios/<semana>/<id>.json`). Es la tabla del Paso 2: no
+  busques las instantáneas a mano en `_metricas/instantaneas/`. Los comentarios
+  son la única señal cualitativa: una pregunta que se repite ("¿y en Android?",
+  "¿es gratis?") es un ángulo para un derivado o un tema para
+  `candidatos.json` (Paso 8); un malentendido repetido es una mejora para el
+  próximo hook o para `aprendizajes.md`.
 - `sinMedir`: piezas publicadas por el motor que todavía no tienen su
   instantánea de 7 días comparable, con `motivo` (`pendiente: cumple 7 d el
   …` o `sin instantánea de 7 d comparable`). Las pendientes entran el domingo

@@ -8,7 +8,7 @@ import { kbDir } from "../kb/store.ts";
 import { GraphError } from "../meta/client.ts";
 import { refreshCalibration, type Metric } from "../score/calibration.ts";
 import {
-  fetchAccountInsights, fetchMediaInsights, fetchOwnMedia, type AccountInsights, type GraphGetFn, type MediaInsights,
+  fetchAccountInsights, fetchMediaComments, fetchMediaInsights, fetchOwnMedia, type AccountInsights, type Comentario, type GraphGetFn, type MediaInsights,
 } from "./client.ts";
 import { DESVIO_COMPARABLE_7D_MS, derivar, desvioVentana, ventanaDebida, type Derivadas, type Ventana } from "./derive.ts";
 
@@ -29,6 +29,8 @@ export interface PostInfo {
   duracionMs?: number;
   nombreMotor?: string;
   predictedScore?: number;
+  /** Lunes de la semana del plan (línea `publicado` del registro). */
+  semana?: string;
 }
 
 export interface Instantanea extends MediaInsights {
@@ -102,6 +104,7 @@ function leerPostsJson(ruta: string, conocidos: Map<string, PostInfo>): Record<s
 
 interface RegistroPublicado {
   piezaId?: string;
+  semana?: string;
   duracionMs?: number;
   nombreMotor?: string;
   predictedScore?: number;
@@ -124,6 +127,7 @@ function leerRegistro(): Map<string, RegistroPublicado> {
       if (r.tipo !== "publicado" || typeof r.mediaId !== "string") continue;
       out.set(r.mediaId, {
         piezaId: typeof r.piezaId === "string" ? r.piezaId : undefined,
+        semana: typeof r.semana === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.semana) ? r.semana : undefined,
         duracionMs: typeof r.duracionMs === "number" ? r.duracionMs : undefined,
         nombreMotor: typeof r.nombreMotor === "string" ? r.nombreMotor : undefined,
         predictedScore: typeof r.predictedScore === "number" ? r.predictedScore : undefined,
@@ -155,7 +159,7 @@ export async function postsConocidos(now: Date, get?: GraphGetFn, igUserId?: str
     out.push({
       mediaId: m.id, publicado: fecha, productType: m.media_product_type,
       origen: reg ? "motor" : "manual",
-      piezaId: reg?.piezaId, duracionMs: reg?.duracionMs, nombreMotor: reg?.nombreMotor, predictedScore: reg?.predictedScore,
+      piezaId: reg?.piezaId, semana: reg?.semana, duracionMs: reg?.duracionMs, nombreMotor: reg?.nombreMotor, predictedScore: reg?.predictedScore,
     });
   }
   return out;
@@ -232,7 +236,17 @@ export interface DepsInstantaneas {
   listado?: () => Promise<Set<string>>;
   /** Escribe la línea `tipo: "borrado"` en `_calendario/registro.jsonl` (por defecto `anotarRegistro`). */
   anotarRegistro?: (linea: Record<string, unknown>) => Promise<void>;
+  /** Comentarios de un post (por defecto `fetchMediaComments`). */
+  fetchComentarios?: (mediaId: string) => Promise<Comentario[]>;
 }
+
+/** Ventanas en que se guarda el texto de los comentarios de una pieza del motor. */
+const VENTANAS_COMENTARIOS = new Set<Ventana>(["7d", "28d"]);
+const comentariosDir = (): string => join(metricasDir(), "comentarios");
+
+/** Carpeta y nombre seguros para `_metricas/comentarios/<semana>/<piezaId>.json`. */
+const rutaComentarios = (semana: string, piezaId: string): string | undefined =>
+  /^\d{4}-\d{2}-\d{2}$/.test(semana) && /^[a-z0-9-]{3,80}$/.test(piezaId) ? join(comentariosDir(), semana, `${piezaId}.json`) : undefined;
 
 /**
  * Toma la instantánea que toque de cada post: fila en SQLite (PK media_id+ventana,
@@ -326,6 +340,18 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
     if (ventana === "7d" && Math.abs(desvioVentana(post.publicado, ventana, now)) <= DESVIO_COMPARABLE_7D_MS && post.origen === "motor" && post.nombreMotor && typeof post.predictedScore === "number") {
       paraCalibrar.push({ i, post });
     }
+    // Texto de los comentarios (señal cualitativa para el planificador): a 7 d y a 28 d, piezas del motor.
+    if (VENTANAS_COMENTARIOS.has(ventana) && post.origen === "motor" && post.piezaId && post.semana) {
+      const ruta = rutaComentarios(post.semana, post.piezaId);
+      if (ruta) {
+        try {
+          const comentarios = await (deps.fetchComentarios ?? ((id: string) => fetchMediaComments(id)))(post.mediaId);
+          escribirAtomico(ruta, JSON.stringify({ piezaId: post.piezaId, mediaId: post.mediaId, semana: post.semana, ventana, tomadaEn: i.tomadaEn, comentarios }, null, 2) + "\n");
+        } catch (err) {
+          console.warn(`⚠️  Comentarios de ${post.mediaId} (${ventana}): ${msgOf(err)} (si es un permiso, el token necesita instagram_manage_comments).`);
+        }
+      }
+    }
   }
 
   if (paraCalibrar.length) {
@@ -365,12 +391,12 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
 /**
  * Rutas que el bot commitea tras tomar instantáneas del día `dia` (local): el jsonl del
  * día, `posts.json`, la calibración (`_metricas/calibracion/`, R51), que el Mac copia, y
- * `registro.jsonl` (por las líneas `borrado`).
+ * `registro.jsonl` (por las líneas `borrado`) y `_metricas/comentarios/`.
  */
 export function rutasCommitInstantaneas(dia: string): string[] {
-  const reg = registroPath();
-  // El registro solo si existe: `git add` de una ruta inexistente haría fallar todo el commit.
-  return [join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion"), ...(existsSync(reg) ? [reg] : [])];
+  // Solo rutas que existen: `git add` de una ruta inexistente haría fallar todo el commit.
+  const opcionales = [registroPath(), comentariosDir()].filter((r) => existsSync(r));
+  return [join(metricasDir(), "instantaneas", `${dia}.jsonl`), join(metricasDir(), "posts.json"), join(metricasDir(), "calibracion"), ...opcionales];
 }
 
 const mapaNumerico = (v: unknown): Record<string, number> => {

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DESVIO_COMPARABLE_7D_MS, modoComparacion, valorSenal } from "../insights/derive.ts";
 import type { Instantanea } from "../insights/snapshots.ts";
@@ -511,6 +511,23 @@ export interface EntradasBucle {
   avisos?: string[];
   /** `bucle.json` anterior (para `ganadoresVistos`, R37); ausente o corrupto → historial vacío. */
   anterior?: unknown;
+  /** Comentarios guardados por pieza (`_metricas/comentarios/<semana>/<id>.json`), por clave `"<semana>/<id>"`. */
+  comentarios?: Record<string, { texto?: unknown; fecha?: unknown }[]>;
+}
+
+const MAX_COMENTARIOS_PIEZA = 10;
+const MAX_LARGO_COMENTARIO = 200;
+
+/** Los últimos `max` comentarios (por fecha), texto truncado. Entradas raras se ignoran. */
+export function comentariosRecientes(xs: unknown, max = MAX_COMENTARIOS_PIEZA): string[] | undefined {
+  if (!Array.isArray(xs)) return undefined;
+  const validos = xs
+    .filter((c): c is { texto: string; fecha?: unknown } => esObj(c) && typeof c.texto === "string" && c.texto.trim() !== "")
+    .map((c, i) => ({ texto: c.texto.trim(), fecha: texto(c.fecha), i }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.i - b.i)
+    .slice(-max)
+    .map((c) => (c.texto.length > MAX_LARGO_COMENTARIO ? `${c.texto.slice(0, MAX_LARGO_COMENTARIO)}…` : c.texto));
+  return validos.length ? validos : undefined;
 }
 
 export interface Experimento {
@@ -557,6 +574,8 @@ export interface PiezaBucle {
   comentariosPorAlcance?: number;
   /** Seguidores nuevos del día siguiente (aproximación, ver `seguidoresPorPieza`). */
   seguidoresDiaSiguiente?: number;
+  /** Los 10 comentarios más recientes guardados en `_metricas/comentarios/` (texto, ≤ 200 caracteres). */
+  comentariosTexto?: string[];
 }
 
 export interface BucleJson {
@@ -712,6 +731,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
         retencion: esNum(x.retencion) ? r4(x.retencion) : undefined,
         guardadosPorAlcance: tasa(x.saved, x.reach), enviosPorAlcance: tasa(x.shares, x.reach), comentariosPorAlcance: tasa(x.comments, x.reach),
         seguidoresDiaSiguiente: seguidoresPieza[claveDe(x)],
+        comentariosTexto: comentariosRecientes(esObj(e.comentarios) ? e.comentarios[claveDe(x)] : undefined),
       };
       // Sin `undefined` en el JSON: el planificador lee solo claves presentes.
       return Object.fromEntries(Object.entries(fila).filter(([, v]) => v !== undefined)) as PiezaBucle;
@@ -824,7 +844,35 @@ async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahor
   } catch (err) {
     console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior };
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios() };
+}
+
+/** `_metricas/comentarios/<semana>/<id>.json` → `{ "<semana>/<id>": comentarios }`. Archivos ilegibles se ignoran. */
+export function leerComentarios(dir = join(kbDir(), "_metricas", "comentarios")): Record<string, { texto?: unknown; fecha?: unknown }[]> {
+  const out: Record<string, { texto?: unknown; fecha?: unknown }[]> = {};
+  let semanas: string[];
+  try {
+    semanas = readdirSync(dir).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
+  } catch {
+    return out;
+  }
+  for (const semana of semanas) {
+    let archivos: string[];
+    try {
+      archivos = readdirSync(join(dir, semana)).filter((f) => f.endsWith(".json"));
+    } catch {
+      continue;
+    }
+    for (const f of archivos) {
+      try {
+        const v: unknown = JSON.parse(readFileSync(join(dir, semana, f), "utf8"));
+        if (esObj(v) && Array.isArray(v.comentarios)) out[clavePieza(semana, f.slice(0, -5))] = v.comentarios as { texto?: unknown; fecha?: unknown }[];
+      } catch {
+        // archivo corrupto: se ignora.
+      }
+    }
+  }
+  return out;
 }
 
 /**

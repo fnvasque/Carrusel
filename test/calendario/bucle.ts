@@ -538,6 +538,22 @@ check("construirBucle: `piezas` trae la fila completa de 7 d de cada pieza medid
   assert.equal(p.comentariosPorAlcance, 0.05);
   assert.equal(p.seguidoresDiaSiguiente, 4);
   assert.equal(p.publicadoEn, PUB);
+  assert.equal(p.comentariosTexto, undefined, "sin comentarios guardados no aparece la clave");
+  sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});
+
+check("construirBucle: `piezas` lleva los últimos comentarios guardados (texto truncado, máximo 10)", () => {
+  const muchos = Array.from({ length: 12 }, (_, i) => ({ id: `c${i}`, texto: i === 11 ? "x".repeat(300) : `comentario ${i}`, fecha: `2026-10-${String(13 + (i % 5)).padStart(2, "0")}T10:00:00+0000` }));
+  const b = construirBucle({
+    ahora: AHORA, instantaneas: [inst("1")], registro: [regl("1")], semanas: [], cuenta: {}, config: {},
+    comentarios: { "2026-10-12/pz-1": muchos },
+  });
+  const c = b.piezas[0]!.comentariosTexto!;
+  assert.equal(c.length, 10);
+  // Fechas 13..17 repetidas: los dos más viejos (c0 y c5, del 13) quedan fuera; el primero es c10 (del 13).
+  assert.equal(c[0], "comentario 10", "los 10 más recientes por fecha, en orden");
+  assert.equal(c[c.length - 1], "comentario 9");
+  assert.ok(c.some((t) => t.length === 201 && t.endsWith("…")), "texto truncado a 200 caracteres");
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
 });
 
