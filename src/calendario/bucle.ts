@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DESVIO_COMPARABLE_7D_MS, modoComparacion, valorSenal } from "../insights/derive.ts";
 import type { Instantanea } from "../insights/snapshots.ts";
@@ -40,7 +40,15 @@ export interface Medicion {
   reach?: number;
   saved?: number;
   shares?: number;
+  comments?: number;
+  views?: number;
+  likes?: number;
+  avgWatchMs?: number;
   publicadoEn?: string;
+  formato?: string;
+  predictedScore?: number;
+  /** Texto del hook (`plan.json → hook.texto`), para que el planificador vea qué palabras funcionaron. */
+  hookTexto?: string;
 }
 
 const SENALES: Senal[] = ["guardados", "envios", "comentarios", "retencion"];
@@ -428,7 +436,17 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     if (esObj(r) && r.tipo === "publicado" && typeof r.mediaId === "string" && !r.mediaId.startsWith("aviso-")) reg.set(r.mediaId, r);
   }
   const params = new Map<string, Record<string, unknown>>();
-  for (const s of semanas) for (const p of s.plan?.piezas ?? []) if (esObj(p?.parametros)) params.set(clavePieza(s.semana, p.id), p.parametros);
+  const hooks = new Map<string, string>();
+  const formatos = new Map<string, string>();
+  for (const s of semanas) {
+    for (const p of s.plan?.piezas ?? []) {
+      if (!esObj(p)) continue;
+      const k = clavePieza(s.semana, p.id);
+      if (esObj(p.parametros)) params.set(k, p.parametros);
+      if (esObj(p.hook) && texto(p.hook.texto)) hooks.set(k, p.hook.texto);
+      if (texto(p.formato)) formatos.set(k, p.formato);
+    }
+  }
 
   const out: Medicion[] = [];
   const vistos = new Set<string>();
@@ -455,12 +473,22 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
       piezaId, mediaId: i.mediaId, tema: texto(r.tema), arquetipo: texto(r.arquetipo), hookCategoria: texto(r.hookCategoria),
       senal, valor, modo: senal === "retencion" ? "tasa" : modoComparacion(i.reach, umbral), semana, publicadoEn: new Date(pub).toISOString(),
     };
-    const p = params.get(clavePieza(semana, piezaId));
+    const k = clavePieza(semana, piezaId);
+    const p = params.get(k);
     if (p) m.parametros = p;
+    const hook = hooks.get(k);
+    if (hook) m.hookTexto = hook;
+    const formato = formatos.get(k) ?? texto(r.formato);
+    if (formato) m.formato = formato;
+    if (esNum(r.predictedScore)) m.predictedScore = r.predictedScore;
     if (esNum(d.retencion)) m.retencion = d.retencion;
     if (esNum(i.reach)) m.reach = i.reach;
     if (esNum(i.saved)) m.saved = i.saved;
     if (esNum(i.shares)) m.shares = i.shares;
+    if (esNum(i.comments)) m.comments = i.comments;
+    if (esNum(i.views)) m.views = i.views;
+    if (esNum(i.likes)) m.likes = i.likes;
+    if (esNum(i.avg_watch_ms)) m.avgWatchMs = i.avg_watch_ms;
     out.push(m);
   }
   return out;
@@ -483,6 +511,23 @@ export interface EntradasBucle {
   avisos?: string[];
   /** `bucle.json` anterior (para `ganadoresVistos`, R37); ausente o corrupto → historial vacío. */
   anterior?: unknown;
+  /** Comentarios guardados por pieza (`_metricas/comentarios/<semana>/<id>.json`), por clave `"<semana>/<id>"`. */
+  comentarios?: Record<string, { texto?: unknown; fecha?: unknown }[]>;
+}
+
+const MAX_COMENTARIOS_PIEZA = 10;
+const MAX_LARGO_COMENTARIO = 200;
+
+/** Los últimos `max` comentarios (por fecha), texto truncado. Entradas raras se ignoran. */
+export function comentariosRecientes(xs: unknown, max = MAX_COMENTARIOS_PIEZA): string[] | undefined {
+  if (!Array.isArray(xs)) return undefined;
+  const validos = xs
+    .filter((c): c is { texto: string; fecha?: unknown } => esObj(c) && typeof c.texto === "string" && c.texto.trim() !== "")
+    .map((c, i) => ({ texto: c.texto.trim(), fecha: texto(c.fecha), i }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.i - b.i)
+    .slice(-max)
+    .map((c) => (c.texto.length > MAX_LARGO_COMENTARIO ? `${c.texto.slice(0, MAX_LARGO_COMENTARIO)}…` : c.texto));
+  return validos.length ? validos : undefined;
 }
 
 export interface Experimento {
@@ -496,6 +541,41 @@ export interface Experimento {
   evaluable: boolean;
   experimento: { n: number; media?: number };
   control: { n: number; media?: number };
+  /** Piezas del experimento que el bot dio por borradas de Instagram: no tendrán métricas. */
+  borradas: string[];
+}
+
+/** Fila de `bucle.json → piezas`: todo lo medido a 7 d de una pieza, en un solo lugar. */
+export interface PiezaBucle {
+  piezaId: string;
+  semana: string;
+  mediaId?: string;
+  publicadoEn?: string;
+  formato?: string;
+  tema: string;
+  arquetipo: string;
+  senal: Senal;
+  hookCategoria: string;
+  hookTexto?: string;
+  predictedScore?: number;
+  /** Valor de la señal objetivo y su escala (lo mismo que compara el bucle). */
+  valor: number;
+  modo: "absoluto" | "tasa";
+  reach?: number;
+  saved?: number;
+  shares?: number;
+  comments?: number;
+  views?: number;
+  likes?: number;
+  avgWatchMs?: number;
+  retencion?: number;
+  guardadosPorAlcance?: number;
+  enviosPorAlcance?: number;
+  comentariosPorAlcance?: number;
+  /** Seguidores nuevos del día siguiente (aproximación, ver `seguidoresPorPieza`). */
+  seguidoresDiaSiguiente?: number;
+  /** Los 10 comentarios más recientes guardados en `_metricas/comentarios/` (texto, ≤ 200 caracteres). */
+  comentariosTexto?: string[];
 }
 
 export interface BucleJson {
@@ -513,6 +593,12 @@ export interface BucleJson {
   derivados: { de: string; tema: string; hasta: string }[];
   horas?: Record<string, string>;
   seguidoresPorPieza: Record<string, number>;
+  /** Una fila por pieza medida (7 d comparable): la tabla que el planificador lee en el Paso 2. */
+  piezas: PiezaBucle[];
+  /** Publicadas por el motor que todavía no tienen 7 d comparable, con el motivo. */
+  sinMedir: { piezaId: string; semana: string; mediaId: string; motivo: string }[];
+  /** Piezas que Instagram ya no devuelve (borradas a mano): nunca tendrán métricas. */
+  borradas: { piezaId: string; semana: string; mediaId: string; en: string }[];
   cuenta: CuentaDiagnostico;
   diagnostico: string[];
   parametros: Record<string, { valor: string; n: number; media: number }[]>;
@@ -606,14 +692,51 @@ export function construirBucle(e: EntradasBucle): BucleJson {
       : undefined;
 
   const publicadas: { piezaId: string; dia: string }[] = [];
+  const sinMedir: BucleJson["sinMedir"] = [];
+  const borradas: BucleJson["borradas"] = [];
+  const medidas = new Set(m.map(claveDe));
+  const hoyMs = e.ahora.getTime();
   for (const r of Array.isArray(e.registro) ? e.registro : []) {
     if (!esObj(r) || r.tipo !== "publicado" || typeof r.mediaId !== "string" || r.mediaId.startsWith("aviso-") || !texto(r.piezaId)) continue;
     const t = new Date(texto(r.publicadoEn));
     if (Number.isNaN(t.getTime())) continue;
     const sem = /^\d{4}-\d{2}-\d{2}$/.test(texto(r.semana)) ? texto(r.semana) : weekMonday(t);
     // Clave "<semana>/<piezaId>" (R20).
-    publicadas.push({ piezaId: clavePieza(sem, texto(r.piezaId)), dia: localParts(t).dia });
+    const clave = clavePieza(sem, texto(r.piezaId));
+    publicadas.push({ piezaId: clave, dia: localParts(t).dia });
+    if (typeof r.borrado === "string") {
+      borradas.push({ piezaId: texto(r.piezaId), semana: sem, mediaId: r.mediaId, en: r.borrado });
+      continue;
+    }
+    if (medidas.has(clave)) continue;
+    const cumple7d = t.getTime() + 168 * HORA_MS;
+    sinMedir.push({
+      piezaId: texto(r.piezaId), semana: sem, mediaId: r.mediaId,
+      motivo: hoyMs < cumple7d + DESVIO_COMPARABLE_7D_MS
+        ? `pendiente: cumple 7 d el ${localParts(new Date(cumple7d)).dia}`
+        : "sin instantánea de 7 d comparable (bot caído a su hora)",
+    });
   }
+  const seguidoresPieza = seguidoresPorPieza(esObj(cuenta.porDia) ? (cuenta.porDia as Record<string, number>) : {}, publicadas);
+  const tasa = (num: number | undefined, reach: number | undefined): number | undefined =>
+    esNum(num) && esNum(reach) && reach > 0 ? r4(num / reach) : undefined;
+  const piezas: PiezaBucle[] = [...m]
+    .sort((a, b) => texto(a.publicadoEn).localeCompare(texto(b.publicadoEn)))
+    .map((x) => {
+      const fila: PiezaBucle = {
+        piezaId: x.piezaId, semana: x.semana, mediaId: x.mediaId, publicadoEn: x.publicadoEn, formato: x.formato,
+        tema: sinCorchetes(x.tema), arquetipo: x.arquetipo, senal: x.senal, hookCategoria: x.hookCategoria, hookTexto: x.hookTexto,
+        predictedScore: x.predictedScore, valor: r4(x.valor), modo: x.modo,
+        reach: x.reach, saved: x.saved, shares: x.shares, comments: x.comments, views: x.views, likes: x.likes, avgWatchMs: x.avgWatchMs,
+        retencion: esNum(x.retencion) ? r4(x.retencion) : undefined,
+        guardadosPorAlcance: tasa(x.saved, x.reach), enviosPorAlcance: tasa(x.shares, x.reach), comentariosPorAlcance: tasa(x.comments, x.reach),
+        seguidoresDiaSiguiente: seguidoresPieza[claveDe(x)],
+        comentariosTexto: comentariosRecientes(esObj(e.comentarios) ? e.comentarios[claveDe(x)] : undefined),
+      };
+      // Sin `undefined` en el JSON: el planificador lee solo claves presentes.
+      return Object.fromEntries(Object.entries(fila).filter(([, v]) => v !== undefined)) as PiezaBucle;
+    });
+  const borradasIds = new Set(borradas.map((b) => clavePieza(b.semana, b.piezaId)));
 
   const cuentaDiag = cuentaDiagnostico(e.ahora, e.instantaneas, e.cuenta);
 
@@ -641,6 +764,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
       semana: s.semana, variable: x.variable, variableValida: variables.includes(x.variable), hipotesis: texto(x.hipotesis), piezas,
       evaluarDesde, evaluable: semana >= evaluarDesde,
       experimento: resumen(s.semana, piezas), control: resumen(s.semana, deLaSemana.filter((id) => !piezas.includes(id))),
+      borradas: piezas.filter((id) => borradasIds.has(clavePieza(s.semana, id))),
     });
   }
 
@@ -655,7 +779,10 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     ganadoresVistos,
     derivados: derivadosPendientes(m, planificadas, semana, ganadoresVistos),
     ...(horas ? { horas } : {}),
-    seguidoresPorPieza: seguidoresPorPieza(esObj(cuenta.porDia) ? (cuenta.porDia as Record<string, number>) : {}, publicadas),
+    seguidoresPorPieza: seguidoresPieza,
+    piezas,
+    sinMedir,
+    borradas,
     cuenta: cuentaDiag,
     diagnostico: diagnostico(m, cuentaDiag),
     parametros,
@@ -717,7 +844,35 @@ async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahor
   } catch (err) {
     console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior };
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios() };
+}
+
+/** `_metricas/comentarios/<semana>/<id>.json` → `{ "<semana>/<id>": comentarios }`. Archivos ilegibles se ignoran. */
+export function leerComentarios(dir = join(kbDir(), "_metricas", "comentarios")): Record<string, { texto?: unknown; fecha?: unknown }[]> {
+  const out: Record<string, { texto?: unknown; fecha?: unknown }[]> = {};
+  let semanas: string[];
+  try {
+    semanas = readdirSync(dir).filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
+  } catch {
+    return out;
+  }
+  for (const semana of semanas) {
+    let archivos: string[];
+    try {
+      archivos = readdirSync(join(dir, semana)).filter((f) => f.endsWith(".json"));
+    } catch {
+      continue;
+    }
+    for (const f of archivos) {
+      try {
+        const v: unknown = JSON.parse(readFileSync(join(dir, semana, f), "utf8"));
+        if (esObj(v) && Array.isArray(v.comentarios)) out[clavePieza(semana, f.slice(0, -5))] = v.comentarios as { texto?: unknown; fecha?: unknown }[];
+      } catch {
+        // archivo corrupto: se ignora.
+      }
+    }
+  }
+  return out;
 }
 
 /**

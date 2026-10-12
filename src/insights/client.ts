@@ -293,3 +293,46 @@ export async function fetchAccountInsights(
 
   return res;
 }
+
+/** Un comentario de un post propio (solo lectura, `GET /{media-id}/comments`). */
+export interface Comentario {
+  id: string;
+  texto: string;
+  fecha: string;
+  likes?: number;
+  usuario?: string;
+}
+
+/** Tope por defecto de comentarios por post: los primeros que devuelve Meta (del más nuevo al más viejo). */
+const MAX_COMENTARIOS = 200;
+
+/**
+ * Comentarios de un post propio: texto, fecha, likes y usuario. Pagina con `after` hasta
+ * `max` comentarios (tope de páginas como `fetchOwnMedia`). Las entradas sin `id`, `text`
+ * o `timestamp` de texto se ignoran. Un error de Meta (p. ej. sin
+ * `instagram_manage_comments`) se propaga: el llamador decide si avisa o sigue.
+ */
+export async function fetchMediaComments(id: string, get: GraphGetFn = defaultGet, max = MAX_COMENTARIOS): Promise<Comentario[]> {
+  const out: Comentario[] = [];
+  const cursores = new Set<string>();
+  let after: string | undefined;
+  for (let page = 0; page < MAX_PAGES && out.length < max; page++) {
+    const body = await get<unknown>(`${id}/comments`, { fields: "id,text,timestamp,like_count,username", limit: 50, after });
+    const data = isObj(body) && Array.isArray(body.data) ? body.data : [];
+    if (data.length === 0) break;
+    for (const c of data) {
+      if (out.length >= max) break;
+      if (!isObj(c) || typeof c.id !== "string" || typeof c.text !== "string" || typeof c.timestamp !== "string") continue;
+      const x: Comentario = { id: c.id, texto: c.text, fecha: c.timestamp };
+      if (isNum(c.like_count)) x.likes = c.like_count;
+      if (typeof c.username === "string" && c.username) x.usuario = c.username;
+      out.push(x);
+    }
+    const paging = isObj(body) && isObj(body.paging) ? body.paging : undefined;
+    const next = isObj(paging?.cursors) && typeof paging.cursors.after === "string" ? paging.cursors.after : undefined;
+    if (!paging?.next || !next || cursores.has(next)) break;
+    cursores.add(next);
+    after = next;
+  }
+  return out;
+}

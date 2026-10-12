@@ -115,7 +115,29 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   `:00`/`:30` y con `separacionMinHoras`. Un día que falta usa
   `config.json → horasPorDefecto`.
 - `seguidoresPorPieza`: seguidores nuevos del día siguiente a cada pieza
-  (aproximación: también cuentan los de otras causas).
+  (aproximación: también cuentan los de otras causas; bajo 100 seguidores
+  sale de la diferencia diaria del total, `cuenta.json → historial`).
+- `piezas`: **una fila por pieza medida**, con todo lo de su instantánea de
+  7 días en un solo lugar: `piezaId`, `semana`, `formato`, `tema`,
+  `arquetipo`, `senal`, `hookCategoria`, `hookTexto` (el título que se
+  publicó), `predictedScore`, `valor` y `modo` (lo que el bucle compara),
+  `reach`, `saved`, `shares`, `comments`, `views`, `likes`, `avgWatchMs`,
+  `retencion`, `guardadosPorAlcance`, `enviosPorAlcance`,
+  `comentariosPorAlcance`, `seguidoresDiaSiguiente` y `comentariosTexto` (los
+  10 comentarios más recientes del post, texto; el bot los guarda completos en
+  `_metricas/comentarios/<semana>/<id>.json`). Es la tabla del Paso 2: no
+  busques las instantáneas a mano en `_metricas/instantaneas/`. Los comentarios
+  son la única señal cualitativa: una pregunta que se repite ("¿y en Android?",
+  "¿es gratis?") es un ángulo para un derivado o un tema para
+  `candidatos.json` (Paso 8); un malentendido repetido es una mejora para el
+  próximo hook o para `aprendizajes.md`.
+- `sinMedir`: piezas publicadas por el motor que todavía no tienen su
+  instantánea de 7 días comparable, con `motivo` (`pendiente: cumple 7 d el
+  …` o `sin instantánea de 7 d comparable`). Las pendientes entran el domingo
+  siguiente: la pieza del domingo siempre se mide una semana después.
+- `borradas`: piezas que Instagram ya no devuelve (las borró el usuario a
+  mano). Nunca tendrán métricas: no las cuentes como "sin datos por bot
+  caído" ni las uses de ganador o derivado.
 - `cuenta`: `seguidoresNuevos28d` y `alcance28d` (últimos 28 días; el alcance
   suma el de cada post a 7 días) y `seguidoresNuevosPrevios28d` (los 28
   anteriores), la base del diagnóstico.
@@ -130,7 +152,10 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   `evaluarDesde` (lunes + 4 semanas), `evaluable` y la media relativa de las
   piezas del experimento contra el resto de su semana (`experimento`,
   `control`). `variableValida: false` significa que la variable no es una de
-  las permitidas (Paso 4).
+  las permitidas (Paso 4). `borradas` lista las piezas del experimento que
+  se borraron de Instagram: si **todas** sus piezas están ahí, ciérralo ya en
+  `experimentos.md` con `Resultado: sin datos suficientes (pieza borrada)`,
+  sin esperar las 4 semanas, y la variable queda libre para un experimento nuevo.
 - `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
   arregles tú: son zona del bot o del usuario.
 
@@ -142,9 +167,11 @@ diagnóstico sugieren mover un parámetro, lo **propones** en `aprendizajes.md`
 
 Con `bucle.json` y las instantáneas de 7 días (si no hay datos, salta este paso):
 
-- **Mejor y peor pieza** por su señal objetivo, en la ventana de 7 días. Con
-  alcance < `umbralAlcanceTasas` se comparan conteos absolutos; desde ese
-  umbral, tasas por alcance.
+- **Mejor y peor pieza** por su señal objetivo, en la ventana de 7 días
+  (`bucle.json → piezas`: `valor` y `modo`, ya calculados; mira también
+  `hookTexto`, `retencion`, `seguidoresDiaSiguiente` y el alcance para
+  entender *por qué*). Con alcance < `umbralAlcanceTasas` se comparan
+  conteos absolutos; desde ese umbral, tasas por alcance.
 - **Cerrar experimentos** que cumplen 4 semanas: completa su entrada en
   `experimentos.md` con el resultado y el dato. Formato de cada entrada (la
   fecha es el lunes de la semana en que se declaró):

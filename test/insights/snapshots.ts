@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { closeDb, openDb } from "../../src/kb/db.ts";
 import { GraphError } from "../../src/meta/client.ts";
-import type { GraphGetFn, MediaInsights } from "../../src/insights/client.ts";
-import { guardarCuenta, metricaCalibracion, postsConocidos, tomarInstantaneas, type Instantanea, type PostInfo } from "../../src/insights/snapshots.ts";
+import type { Comentario, GraphGetFn, MediaInsights } from "../../src/insights/client.ts";
+import { guardarCuenta, metricaCalibracion, postsConocidos, rutasCommitInstantaneas, tomarInstantaneas, type Instantanea, type PostInfo } from "../../src/insights/snapshots.ts";
 
 async function conBase<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = mkdtempSync(join(tmpdir(), "snap-"));
@@ -247,6 +247,72 @@ await checkAsync("guardarCuenta: fusiona porDia con lo anterior y anota errores"
     writeFileSync(f, "{rota", "utf8");
     await guardarCuenta(ahora, { fetch });
     assert.equal(JSON.parse(readFileSync(f, "utf8")).seguidores, 4);
+  }));
+
+await checkAsync("guardarCuenta: guarda el historial de seguidores por día y deriva porDia cuando Meta no da follower_count (< 100 seguidores)", () =>
+  conBase(async (dir) => {
+    const f = join(dir, "_metricas", "cuenta.json");
+    // Día 1 (Chile 2026-10-12): 20 seguidores, follower_count vacío (Meta no lo da bajo 100).
+    await guardarCuenta(new Date("2026-10-12T15:00:00Z"), { fetch: async () => ({ followers: 20, followerCount: [], errores: [] }) });
+    const a = JSON.parse(readFileSync(f, "utf8"));
+    assert.deepEqual(a.historial, { "2026-10-12": 20 });
+    assert.deepEqual(a.porDia, {}, "sin día anterior no hay delta");
+    // Día 2: 27 → porDia del 13 = 7, derivado del historial.
+    await guardarCuenta(new Date("2026-10-13T15:00:00Z"), { fetch: async () => ({ followers: 27, followerCount: [], errores: [] }) });
+    const b = JSON.parse(readFileSync(f, "utf8"));
+    assert.deepEqual(b.historial, { "2026-10-12": 20, "2026-10-13": 27 });
+    assert.deepEqual(b.porDia, { "2026-10-13": 7 });
+    // Día 4 (sin corrida el día 3): no se inventa el delta de dos días como si fuera de uno.
+    await guardarCuenta(new Date("2026-10-15T15:00:00Z"), { fetch: async () => ({ followers: 30, followerCount: [], errores: [] }) });
+    const c = JSON.parse(readFileSync(f, "utf8"));
+    assert.deepEqual(c.porDia, { "2026-10-13": 7 });
+    // Cuando Meta sí da follower_count, su valor manda sobre el derivado.
+    await guardarCuenta(new Date("2026-10-16T15:00:00Z"), { fetch: async () => ({ followers: 31, followerCount: [{ dia: "2026-10-13", valor: 6 }, { dia: "2026-10-16", valor: 1 }], errores: [] }) });
+    const d = JSON.parse(readFileSync(f, "utf8"));
+    assert.deepEqual(d.porDia, { "2026-10-13": 6, "2026-10-16": 1 });
+    assert.equal(d.historial["2026-10-16"], 31);
+    // Sin seguidores en la respuesta no se anota el día en el historial.
+    await guardarCuenta(new Date("2026-10-17T15:00:00Z"), { fetch: async () => ({ followerCount: [], errores: ["x"] }) });
+    assert.equal(JSON.parse(readFileSync(f, "utf8")).historial["2026-10-17"], undefined);
+  }));
+
+await checkAsync("tomarInstantaneas: al dar por borrado un post (3 fallos) anota una línea `borrado` en registro.jsonl, una sola vez", () =>
+  conBase(async (dir) => {
+    openDb();
+    const registro: Record<string, unknown>[] = [];
+    const fetch = async (): Promise<MediaInsights> => { throw new GraphError("(#100) Object with ID 'm1' does not exist", 100); };
+    const deps = { fetch, posts: [motor()], metricsDir: join(dir, "m"), listado: async () => new Set<string>(), anotarRegistro: async (l: Record<string, unknown>) => { registro.push(l); } };
+    for (let k = 0; k < 6; k++) await tomarInstantaneas(new Date(AHORA_24H.getTime() + k * 25 * 3_600_000), deps);
+    assert.equal(registro.length, 1);
+    assert.equal(registro[0]!.tipo, "borrado");
+    assert.equal(registro[0]!.mediaId, "m1");
+    assert.equal(registro[0]!.piezaId, "lun-reel-x");
+    assert.equal(typeof registro[0]!.en, "string");
+    // Un post manual borrado también se anota (sin piezaId).
+  }));
+
+await checkAsync("tomarInstantaneas: con la 7 d de una pieza del motor guarda el texto de los comentarios en _metricas/comentarios/<semana>/<piezaId>.json; un fallo no rompe la instantánea", () =>
+  conBase(async (dir) => {
+    openDb();
+    let pedidos = 0;
+    const comentarios = async (): Promise<Comentario[]> => { pedidos++; return [{ id: "c1", texto: "¿y en Android?", fecha: "2026-10-14T10:00:00+0000", likes: 1 }]; };
+    const deps = { fetch: async () => ins(), posts: [motor({ semana: "2026-10-12" })], metricsDir: join(dir, "m"), fetchComentarios: comentarios };
+    await tomarInstantaneas(AHORA_24H, deps);
+    assert.equal(pedidos, 0, "a 24 h no se piden comentarios");
+    await tomarInstantaneas(AHORA_7D, deps);
+    assert.equal(pedidos, 1);
+    const f = join(dir, "_metricas", "comentarios", "2026-10-12", "lun-reel-x.json");
+    const c = JSON.parse(readFileSync(f, "utf8"));
+    assert.equal(c.piezaId, "lun-reel-x");
+    assert.equal(c.mediaId, "m1");
+    assert.equal(c.ventana, "7d");
+    assert.deepEqual(c.comentarios, [{ id: "c1", texto: "¿y en Android?", fecha: "2026-10-14T10:00:00+0000", likes: 1 }]);
+    assert.ok(rutasCommitInstantaneas("2026-10-19").includes(join(dir, "_metricas", "comentarios")));
+    // Un fallo al pedir comentarios no impide la instantánea de 28 d ni rompe nada.
+    const falla = { ...deps, fetchComentarios: async () => { throw new GraphError("(#10) sin permiso", 10); } };
+    const n = await tomarInstantaneas(new Date("2026-11-09T22:30:00Z"), falla);
+    assert.equal(n.length, 1);
+    assert.equal(n[0]!.ventana, "28d");
   }));
 
 await checkAsync("tomarInstantaneas: un 100 por permisos con el post en el listado no apaga la medición", () =>

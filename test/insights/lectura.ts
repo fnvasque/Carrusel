@@ -24,10 +24,14 @@ await checkAsync("leerRegistroPublicados: une la línea `permalink` a su `public
       { tipo: "story", piezaId: "mie-reel", mediaId: "s9" },
       { tipo: "permalink", piezaId: "mie-reel", semana: "2026-10-12", mediaId: "m9", permalink: link },
       { tipo: "permalink", piezaId: "huerfano", mediaId: "m404", permalink: "https://www.instagram.com/p/X/" },
+      { tipo: "publicado", piezaId: "mar-carrusel", mediaId: "m2", semana: "2026-10-12", publicadoEn: "2026-10-13T17:00:00.000Z" },
+      { tipo: "borrado", piezaId: "mar-carrusel", mediaId: "m2", semana: "2026-10-12", en: "2026-10-16T12:00:00.000Z" },
     ].map((l) => JSON.stringify(l)).join("\n") + "\n{rota\n");
     const reg = leerRegistroPublicados();
-    assert.equal(reg.length, 1, "solo las líneas publicado");
+    assert.equal(reg.length, 2, "solo las líneas publicado");
     assert.equal(reg[0]!.permalink, link);
+    assert.equal(reg[0]!.borrado, undefined);
+    assert.equal(reg[1]!.borrado, "2026-10-16T12:00:00.000Z", "la línea `borrado` se une a su `publicado` por mediaId");
     let listado = 0;
     const listar = async () => {
       listado++;

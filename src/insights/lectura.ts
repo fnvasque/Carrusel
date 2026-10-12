@@ -57,8 +57,10 @@ export function leerCuenta(): unknown {
 /**
  * Líneas `tipo: "publicado"` de `registro.jsonl` (las rotas se ignoran), con el
  * `permalink` que el scheduler anota al día siguiente en una línea `tipo: "permalink"`
- * aparte, unido por `mediaId`. Así el resumen lleva links y `/metricas <link>` encuentra
- * piezas del motor más viejas que el listado de 35 días de Meta.
+ * aparte, unido por `mediaId`, y con `borrado` (ISO) si el bot anotó una línea
+ * `tipo: "borrado"` al dar el post por desaparecido de Instagram. Así el resumen lleva
+ * links, `/metricas <link>` encuentra piezas del motor más viejas que el listado de 35
+ * días de Meta, y el bucle sabe qué piezas no tendrán métricas nunca.
  */
 export function leerRegistroPublicados(): Record<string, unknown>[] {
   let t: string;
@@ -69,6 +71,7 @@ export function leerRegistroPublicados(): Record<string, unknown>[] {
   }
   const out: Record<string, unknown>[] = [];
   const links = new Map<string, string>();
+  const borrados = new Map<string, string>();
   for (const l of t.split("\n")) {
     if (!l.trim()) continue;
     try {
@@ -76,14 +79,21 @@ export function leerRegistroPublicados(): Record<string, unknown>[] {
       if (r && r.tipo === "publicado") out.push(r);
       else if (r && r.tipo === "permalink" && typeof r.mediaId === "string" && typeof r.permalink === "string" && r.permalink) {
         links.set(r.mediaId, r.permalink);
+      } else if (r && r.tipo === "borrado" && typeof r.mediaId === "string" && !borrados.has(r.mediaId)) {
+        borrados.set(r.mediaId, typeof r.en === "string" && r.en ? r.en : "");
       }
     } catch {
       // línea corrupta: se ignora.
     }
   }
   return out.map((r) => {
-    const link = typeof r.mediaId === "string" ? links.get(r.mediaId) : undefined;
-    return link && typeof r.permalink !== "string" ? { ...r, permalink: link } : r;
+    const id = typeof r.mediaId === "string" ? r.mediaId : undefined;
+    const link = id ? links.get(id) : undefined;
+    const borrado = id ? borrados.get(id) : undefined;
+    let x = r;
+    if (link && typeof x.permalink !== "string") x = { ...x, permalink: link };
+    if (borrado !== undefined && typeof x.borrado !== "string") x = { ...x, borrado: borrado || "desconocido" };
+    return x;
   });
 }
 
