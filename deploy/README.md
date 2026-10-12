@@ -115,8 +115,9 @@ en el Mac y la próxima corrida solo reintenta la subida.
 
 **Token con permiso de publicar.** Publicar exige `instagram_content_publish` además de los permisos
 de lectura. Para que el bot guarde el **texto de los comentarios** de cada post (`_metricas/comentarios/`,
-señal cualitativa del bucle) el token necesita además `instagram_manage_comments`; sin él, el bot lo avisa
-en el log y sigue midiendo todo lo demás. Genera un token de **System User** (Business Manager → Usuarios del sistema → Generar
+señal cualitativa del bucle) bastan los permisos de lectura actuales (comprobado el 2026-10-12 con
+`instagram_basic` + `pages_read_engagement`). Si Meta llegara a responder un error de permiso, agrega
+`instagram_manage_comments` al token; mientras tanto el bot lo avisa en el log y sigue midiendo todo lo demás. Genera un token de **System User** (Business Manager → Usuarios del sistema → Generar
 token) con los permisos que ya usas más `instagram_content_publish`; no vence. Reemplaza
 `META_ACCESS_TOKEN` en `~/carrusel/.env` y aplica con `docker compose up -d`. `npm run meta:check`
 (córrelo como `CALENDARIO_MODO=aviso npm run meta:check`, sin dejar la variable en el `.env` del Mac) exige `instagram_content_publish` y muestra el vencimiento. Si el token es inválido o le falta el permiso, el scheduler no

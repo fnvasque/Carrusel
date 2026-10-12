@@ -348,7 +348,7 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
           const comentarios = await (deps.fetchComentarios ?? ((id: string) => fetchMediaComments(id)))(post.mediaId);
           escribirAtomico(ruta, JSON.stringify({ piezaId: post.piezaId, mediaId: post.mediaId, semana: post.semana, ventana, tomadaEn: i.tomadaEn, comentarios }, null, 2) + "\n");
         } catch (err) {
-          console.warn(`⚠️  Comentarios de ${post.mediaId} (${ventana}): ${msgOf(err)} (si es un permiso, el token necesita instagram_manage_comments).`);
+          console.warn(`⚠️  Comentarios de ${post.mediaId} (${ventana}): ${msgOf(err)} (si es un error de permiso, agrega instagram_manage_comments al token).`);
         }
       }
     }
