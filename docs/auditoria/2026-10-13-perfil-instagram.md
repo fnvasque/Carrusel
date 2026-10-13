@@ -40,19 +40,20 @@ Conclusión: la gente llega (150 cuentas nuevas por semana ven algo y 146 pasan 
 perfil) y no encuentra una razón para quedarse. Arreglar el perfil convierte el tráfico
 que **ya** existe; mejorar hooks viene después.
 
-## Estado al 2026-10-13 (tarde)
+## Estado al 2026-10-13 (noche): perfil cambiado
 
-- **Bio: aplicada** (opción A, guardada desde Chrome y verificada en el perfil público).
-- **Recurso del enlace: publicado en Gumroad** a $0+ (pide correo al descargar):
-  <https://saifnvasque.gumroad.com/l/kit-arranque-ia>. Fuente en `promo/kit-arranque-ia/`
-  (12 páginas, ver README). El usuario pidió "algo mucho mejor que 10 prompts": es un plan de
-  7 días con tarea, herramienta, prompt, qué esperar y trampa, más un bonus de estafas de
-  inversión con IA y un mapa de herramientas. Falta cambiar el enlace de la bio desde la app
-  móvil (Instagram no deja editar enlaces desde la web) y fijar publicaciones (también solo móvil).
-- Cuando el enlace apunte al kit, la 3.ª línea de la bio debería decir **"👇 Kit gratis: 7
-  días para usar IA de verdad"** en vez de "10 prompts" (142 caracteres; se cambia desde
-  la web en 10 segundos).
-- Pendientes del usuario: seguidos 263 → <60, tres fijados, cuatro destacados.
+Verificado en el perfil público:
+
+- **Bio** (143 caracteres): "IA que puedes usar hoy, sin saber programar / Prompts y herramientas
+  gratis, explicados en 30 s 🇨🇱 / 👇 Kit gratis: 7 días para usar IA de verdad".
+- **Enlace**: <https://saifnvasque.gumroad.com/l/kit-arranque-ia> (el kit, a $0+, pide correo).
+  El usuario lo cambió desde la app móvil.
+- **Fijados** (por el usuario, desde el móvil): reel de gastos del mes, carrusel del mito del
+  prompt perfecto y carrusel de 6 preguntas; se ven con el pin en la grilla.
+- **Pendiente**: destacados (4), el post "Empieza aquí" y la decisión sobre los 263 seguidos.
+- **Medición**: código listo en esta rama (`visitasPerfil7d`, `clicsEnlace7d`, línea de
+  conversión en el resumen); falta desplegar al servidor. Primera lectura comparable: resumen
+  del domingo 2026-10-19 (antes: 146 visitas → 1 seguidor, 0,7 %).
 
 ## Cambios al perfil (los aplica el usuario en la app)
 
