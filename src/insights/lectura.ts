@@ -102,7 +102,7 @@ const num = (v: unknown): number | undefined => (typeof v === "number" ? v : und
 /** Instantáneas guardadas (SQLite), opcionalmente solo las tomadas desde `desdeIso`. */
 export function leerInstantaneas(registro: Record<string, unknown>[], desdeIso?: string, mediaId?: string): Instantanea[] {
   const filas = openDb().prepare(
-    `SELECT media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms
+    `SELECT media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms, profile_visits, follows
      FROM insights WHERE tomada_en >= ? AND (? IS NULL OR media_id = ?) ORDER BY tomada_en ASC`,
   ).all(desdeIso ?? "", mediaId ?? null, mediaId ?? null) as Record<string, string | number | null>[];
   const porMedia = new Map(registro.map((r) => [String(r.mediaId), r]));
@@ -110,7 +110,8 @@ export function leerInstantaneas(registro: Record<string, unknown>[], desdeIso?:
     const r = porMedia.get(String(f.media_id));
     const m = {
       reach: num(f.reach), saved: num(f.saved), shares: num(f.shares), likes: num(f.likes), comments: num(f.comments),
-      views: num(f.views), avg_watch_ms: num(f.avg_watch_ms), total_watch_ms: num(f.total_watch_ms), descartadas: [] as string[],
+      views: num(f.views), avg_watch_ms: num(f.avg_watch_ms), total_watch_ms: num(f.total_watch_ms),
+      profile_visits: num(f.profile_visits), follows: num(f.follows), descartadas: [] as string[],
     };
     return {
       ...m, mediaId: String(f.media_id), ventana: f.ventana as Instantanea["ventana"], tomadaEn: String(f.tomada_en),

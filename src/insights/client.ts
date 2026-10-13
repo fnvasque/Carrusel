@@ -33,6 +33,10 @@ export interface MediaInsights {
   total_interactions?: number;
   avg_watch_ms?: number;
   total_watch_ms?: number;
+  /** Visitas al perfil desde el post (Meta: `profile_visits`; solo posts de feed, no reels). */
+  profile_visits?: number;
+  /** Seguidores ganados desde el post (Meta: `follows`; solo posts de feed, no reels). */
+  follows?: number;
   /** Métricas que Meta rechazó y se pidieron de nuevo sin ellas. */
   descartadas: string[];
 }
@@ -50,8 +54,10 @@ export interface AccountInsights {
   errores: string[];
 }
 
-export const POST_METRICS: string[] = ["reach", "saved", "shares", "likes", "comments", "views", "total_interactions"];
-export const REEL_METRICS: string[] = [...POST_METRICS, "ig_reels_avg_watch_time", "ig_reels_video_view_total_time"];
+const BASE_METRICS: string[] = ["reach", "saved", "shares", "likes", "comments", "views", "total_interactions"];
+/** Posts de feed (carruseles, imágenes): Meta da `profile_visits` y `follows` solo aquí, no en reels (comprobado 2026-10-13). */
+export const POST_METRICS: string[] = [...BASE_METRICS, "profile_visits", "follows"];
+export const REEL_METRICS: string[] = [...BASE_METRICS, "ig_reels_avg_watch_time", "ig_reels_video_view_total_time"];
 
 /** Tope de páginas al listar posts: una cuenta sin fin de páginas no debe colgar el proceso. */
 const MAX_PAGES = 20;
@@ -194,7 +200,8 @@ export async function fetchMediaInsights(id: string, productType: string, get: G
       return {
         reach: raw.reach, saved: raw.saved, shares: raw.shares, likes: raw.likes, comments: raw.comments,
         views: raw.views, total_interactions: raw.total_interactions,
-        avg_watch_ms: raw.ig_reels_avg_watch_time, total_watch_ms: raw.ig_reels_video_view_total_time, descartadas,
+        avg_watch_ms: raw.ig_reels_avg_watch_time, total_watch_ms: raw.ig_reels_video_view_total_time,
+        profile_visits: raw.profile_visits, follows: raw.follows, descartadas,
       };
     } catch (err) {
       const malas = invalidMetrics(err, metrics);

@@ -59,6 +59,12 @@ export interface Derivadas {
   shares_por_alcance?: number;
   comments_por_alcance?: number;
   views_por_alcance?: number;
+  /** Visitas al perfil por persona alcanzada. */
+  profile_visits_por_alcance?: number;
+  /** Seguidores nuevos por persona alcanzada. */
+  follows_por_alcance?: number;
+  /** Conversión visita al perfil → seguidor (umbral sano ≥ 0,02). */
+  follows_por_visita?: number;
   retencion?: number;
 }
 
@@ -75,7 +81,10 @@ export function derivar(m: MediaInsights, duracionMs?: number): Derivadas {
     if (esNum(m.shares)) d.shares_por_alcance = m.shares / m.reach;
     if (esNum(m.comments)) d.comments_por_alcance = m.comments / m.reach;
     if (esNum(m.views)) d.views_por_alcance = m.views / m.reach;
+    if (esNum(m.profile_visits)) d.profile_visits_por_alcance = m.profile_visits / m.reach;
+    if (esNum(m.follows)) d.follows_por_alcance = m.follows / m.reach;
   }
+  if (esNum(m.profile_visits) && m.profile_visits > 0 && esNum(m.follows)) d.follows_por_visita = m.follows / m.profile_visits;
   if (esNum(m.avg_watch_ms) && esNum(duracionMs) && duracionMs > 0) d.retencion = m.avg_watch_ms / duracionMs;
   return d;
 }

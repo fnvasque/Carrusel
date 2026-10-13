@@ -54,6 +54,15 @@ check("derivar: tasas por alcance y solo de lo que hay", () => {
   assert.deepEqual(derivar({ reach: 200, saved: 10, shares: 4, descartadas: [] }), { saved_por_alcance: 0.05, shares_por_alcance: 0.02 });
   assert.deepEqual(derivar({ reach: 100, comments: 1, views: 250, descartadas: [] }), { comments_por_alcance: 0.01, views_por_alcance: 2.5 });
 });
+check("derivar: visitas al perfil y follows: por alcance y conversión visita → seguidor", () => {
+  assert.deepEqual(derivar({ reach: 100, profile_visits: 10, follows: 2, descartadas: [] }), {
+    profile_visits_por_alcance: 0.1, follows_por_alcance: 0.02, follows_por_visita: 0.2,
+  });
+  // Sin visitas no hay conversión (ni NaN ni Infinity); sin alcance tampoco hay tasas por alcance.
+  assert.deepEqual(derivar({ reach: 100, profile_visits: 0, follows: 0, descartadas: [] }), { profile_visits_por_alcance: 0, follows_por_alcance: 0 });
+  assert.deepEqual(derivar({ profile_visits: 5, follows: 1, descartadas: [] }), { follows_por_visita: 0.2 });
+  assert.deepEqual(derivar({ reach: 100, follows: 1, descartadas: [] }), { follows_por_alcance: 0.01 });
+});
 check("derivar: retención solo con duración conocida", () => {
   const d = derivar({ reach: 10, avg_watch_ms: 6000, descartadas: [] }, 20000);
   assert.equal(d.retencion, 0.3);

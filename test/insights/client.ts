@@ -78,6 +78,32 @@ await checkAsync("fetchMediaInsights: post usa POST_METRICS y no pide métricas 
   assert.deepEqual(r.descartadas, []);
   assert.ok(REEL_METRICS.includes("ig_reels_avg_watch_time") && REEL_METRICS.includes("ig_reels_video_view_total_time"));
 });
+await checkAsync("fetchMediaInsights: pide profile_visits y follows en posts de feed (no en reels) y los mapea", async () => {
+  const { get, calls } = fake((_p, params) => insightsBody(String(params.metric).split(",")));
+  const r = await fetchMediaInsights("3", "FEED", get);
+  const ms = metricsOf(calls[0]!);
+  assert.ok(ms.includes("profile_visits") && ms.includes("follows"));
+  assert.equal(r.profile_visits, ms.indexOf("profile_visits") + 1);
+  assert.equal(r.follows, ms.indexOf("follows") + 1);
+  // Meta rechaza ambas en reels: no se piden, para no gastar dos reintentos por instantánea.
+  const reel = await fetchMediaInsights("4", "REELS", get);
+  const msReel = metricsOf(calls[1]!);
+  assert.ok(!msReel.includes("profile_visits") && !msReel.includes("follows"));
+  assert.equal(reel.profile_visits, undefined);
+  assert.equal(reel.follows, undefined);
+});
+await checkAsync("fetchMediaInsights: si Meta rechaza follows, la instantánea sigue sin él", async () => {
+  const { get, calls } = fake((_p, params) => {
+    const ms = String(params.metric).split(",");
+    if (ms.includes("follows")) throw new GraphError("(#100) follows is not supported for this media", 100);
+    return insightsBody(ms);
+  });
+  const r = await fetchMediaInsights("3", "FEED", get);
+  assert.deepEqual(r.descartadas, ["follows"]);
+  assert.equal(calls.length, 2);
+  assert.equal(r.follows, undefined);
+  assert.equal(typeof r.profile_visits, "number");
+});
 await checkAsync("fetchMediaInsights: dos métricas inválidas → dos reintentos", async () => {
   const bad = new Set(["views", "shares"]);
   const { get, calls } = fake((_p, params) => {
