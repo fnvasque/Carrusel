@@ -7,7 +7,8 @@ sale de `referencias/` de la base (sección "Para la audiencia"), no de inventos
 
 - `kit.html`: contenido y estilo (sistema visual lima; fuentes de `src/fonts/`).
 - `render.mjs`: HTML → `salida/kit-arranque-con-ia.pdf` + `portada.png` + `dia-1.png`.
-- `salida/`: lo que se sube a Gumroad (portada como imagen del producto).
+- `cover-horizontal.html`: portada 1920×1080 para Gumroad (exige horizontal); `salida/miniatura.png` es el recorte cuadrado.
+- `salida/`: lo que se sube a Gumroad. Publicado el 2026-10-13: <https://saifnvasque.gumroad.com/l/kit-arranque-ia> ($0+).
 
 ```bash
 CHROMIUM_PATH=~/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell \
@@ -18,8 +19,8 @@ Sin `CHROMIUM_PATH` usa el Chromium que Playwright tenga instalado.
 
 ## Publicar
 
-1. Gumroad → nuevo producto digital, precio **$0 con "pagar lo que quieras"** (así pide
-   correo al descargar y queda la lista). Subir el PDF; `portada.png` como imagen.
+1. Gumroad → producto digital a **$0+** (pide correo al descargar y queda la lista). Hecho:
+   portada horizontal, miniatura cuadrada y el PDF en Content.
 2. En la app de Instagram (solo móvil): editar perfil → enlaces → reemplazar el enlace del
    producto CÉLULAS por el del kit. CÉLULAS puede quedar como segundo enlace.
 3. Nueva edición: editar `kit.html`, renderizar, reemplazar el archivo en Gumroad (mismo

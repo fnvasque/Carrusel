@@ -43,11 +43,12 @@ que **ya** existe; mejorar hooks viene después.
 ## Estado al 2026-10-13 (tarde)
 
 - **Bio: aplicada** (opción A, guardada desde Chrome y verificada en el perfil público).
-- **Recurso del enlace: producido.** `promo/kit-arranque-ia/salida/kit-arranque-con-ia.pdf`
-  (12 páginas, ver README de la carpeta). El usuario pidió "algo mucho mejor que 10 prompts":
-  es un plan de 7 días con tarea, herramienta, prompt, qué esperar y trampa, más un bonus
-  de estafas de inversión con IA y un mapa de herramientas. Falta subirlo a Gumroad a $0 y
-  cambiar el enlace desde la app móvil (Instagram no deja editar enlaces desde la web).
+- **Recurso del enlace: publicado en Gumroad** a $0+ (pide correo al descargar):
+  <https://saifnvasque.gumroad.com/l/kit-arranque-ia>. Fuente en `promo/kit-arranque-ia/`
+  (12 páginas, ver README). El usuario pidió "algo mucho mejor que 10 prompts": es un plan de
+  7 días con tarea, herramienta, prompt, qué esperar y trampa, más un bonus de estafas de
+  inversión con IA y un mapa de herramientas. Falta cambiar el enlace de la bio desde la app
+  móvil (Instagram no deja editar enlaces desde la web) y fijar publicaciones (también solo móvil).
 - Cuando el enlace apunte al kit, la 3.ª línea de la bio debería decir **"👇 Kit gratis: 7
   días para usar IA de verdad"** en vez de "10 prompts" (142 caracteres; se cambia desde
   la web en 10 segundos).
