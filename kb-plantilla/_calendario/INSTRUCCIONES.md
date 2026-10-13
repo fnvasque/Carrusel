@@ -123,8 +123,12 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   publicó), `predictedScore`, `valor` y `modo` (lo que el bucle compara),
   `reach`, `saved`, `shares`, `comments`, `views`, `likes`, `avgWatchMs`,
   `retencion`, `guardadosPorAlcance`, `enviosPorAlcance`,
-  `comentariosPorAlcance`, `seguidoresDiaSiguiente` y `comentariosTexto` (los
-  10 comentarios más recientes del post, texto; el bot los guarda completos en
+  `comentariosPorAlcance`, `visitasPerfil`, `follows` y `followsPorVisita`
+  (visitas al perfil y seguidores ganados desde el post, y su conversión:
+  sana ≥ 0,02; bajo 0,01 el problema es la bio o el posicionamiento, no el
+  contenido; Meta las da solo en carruseles y posts de feed, no en reels),
+  `seguidoresDiaSiguiente` y `comentariosTexto` (los 10
+  comentarios más recientes del post, texto; el bot los guarda completos en
   `_metricas/comentarios/<semana>/<id>.json`). Es la tabla del Paso 2: no
   busques las instantáneas a mano en `_metricas/instantaneas/`. Los comentarios
   son la única señal cualitativa: una pregunta que se repite ("¿y en Android?",
@@ -169,8 +173,8 @@ Con `bucle.json` y las instantáneas de 7 días (si no hay datos, salta este pas
 
 - **Mejor y peor pieza** por su señal objetivo, en la ventana de 7 días
   (`bucle.json → piezas`: `valor` y `modo`, ya calculados; mira también
-  `hookTexto`, `retencion`, `seguidoresDiaSiguiente` y el alcance para
-  entender *por qué*). Con alcance < `umbralAlcanceTasas` se comparan
+  `hookTexto`, `retencion`, `followsPorVisita`, `seguidoresDiaSiguiente` y el
+  alcance para entender *por qué*). Con alcance < `umbralAlcanceTasas` se comparan
   conteos absolutos; desde ese umbral, tasas por alcance.
 - **Cerrar experimentos** que cumplen 4 semanas: completa su entrada en
   `experimentos.md` con el resultado y el dato. Formato de cada entrada (la

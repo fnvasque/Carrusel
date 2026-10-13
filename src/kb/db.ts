@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS insights (
   media_id TEXT NOT NULL, ventana TEXT NOT NULL, tomada_en TEXT NOT NULL,
   reach INTEGER, saved INTEGER, shares INTEGER, likes INTEGER, comments INTEGER, views INTEGER,
   avg_watch_ms INTEGER, total_watch_ms INTEGER,
+  profile_visits INTEGER, follows INTEGER,
   PRIMARY KEY (media_id, ventana)
 );
 CREATE TABLE IF NOT EXISTS publicaciones (
@@ -81,8 +82,19 @@ export function openDb(): DatabaseSync {
     db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
   db.exec(SCHEMA);
+  migrarInsights(db);
   openedFor = dir;
   return db;
+}
+
+/** Columnas agregadas a `insights` después de su creación: una base vieja las recibe con ALTER TABLE. */
+const COLUMNAS_INSIGHTS: [string, string][] = [["profile_visits", "INTEGER"], ["follows", "INTEGER"]];
+
+function migrarInsights(db: DatabaseSync): void {
+  const actuales = new Set((db.prepare("PRAGMA table_info(insights)").all() as { name: string }[]).map((c) => c.name));
+  for (const [col, tipo] of COLUMNAS_INSIGHTS) {
+    if (!actuales.has(col)) db.exec(`ALTER TABLE insights ADD COLUMN ${col} ${tipo}`);
+  }
 }
 
 export function closeDb(): void {

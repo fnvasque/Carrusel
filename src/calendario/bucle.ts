@@ -44,6 +44,8 @@ export interface Medicion {
   views?: number;
   likes?: number;
   avgWatchMs?: number;
+  profileVisits?: number;
+  follows?: number;
   publicadoEn?: string;
   formato?: string;
   predictedScore?: number;
@@ -489,6 +491,8 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     if (esNum(i.views)) m.views = i.views;
     if (esNum(i.likes)) m.likes = i.likes;
     if (esNum(i.avg_watch_ms)) m.avgWatchMs = i.avg_watch_ms;
+    if (esNum(i.profile_visits)) m.profileVisits = i.profile_visits;
+    if (esNum(i.follows)) m.follows = i.follows;
     out.push(m);
   }
   return out;
@@ -572,6 +576,11 @@ export interface PiezaBucle {
   guardadosPorAlcance?: number;
   enviosPorAlcance?: number;
   comentariosPorAlcance?: number;
+  /** Visitas al perfil y seguidores ganados desde el post (`profile_visits` y `follows` de Meta; solo posts de feed, no reels). */
+  visitasPerfil?: number;
+  follows?: number;
+  /** Conversión visita al perfil → seguidor; sano ≥ 0,02, < 0,01 apunta a bio/posicionamiento. */
+  followsPorVisita?: number;
   /** Seguidores nuevos del día siguiente (aproximación, ver `seguidoresPorPieza`). */
   seguidoresDiaSiguiente?: number;
   /** Los 10 comentarios más recientes guardados en `_metricas/comentarios/` (texto, ≤ 200 caracteres). */
@@ -730,6 +739,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
         reach: x.reach, saved: x.saved, shares: x.shares, comments: x.comments, views: x.views, likes: x.likes, avgWatchMs: x.avgWatchMs,
         retencion: esNum(x.retencion) ? r4(x.retencion) : undefined,
         guardadosPorAlcance: tasa(x.saved, x.reach), enviosPorAlcance: tasa(x.shares, x.reach), comentariosPorAlcance: tasa(x.comments, x.reach),
+        visitasPerfil: x.profileVisits, follows: x.follows, followsPorVisita: tasa(x.follows, x.profileVisits),
         seguidoresDiaSiguiente: seguidoresPieza[claveDe(x)],
         comentariosTexto: comentariosRecientes(esObj(e.comentarios) ? e.comentarios[claveDe(x)] : undefined),
       };

@@ -84,14 +84,15 @@ function leerPostsJson(ruta: string, conocidos: Map<string, PostInfo>): Record<s
   console.warn("⚠️  posts.json ilegible: lo reconstruyo desde la tabla insights.");
   const out: Record<string, unknown> = {};
   const filas = openDb().prepare(
-    "SELECT media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms FROM insights ORDER BY tomada_en ASC",
+    "SELECT media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms, profile_visits, follows FROM insights ORDER BY tomada_en ASC",
   ).all() as Record<string, string | number | null>[];
   for (const f of filas) {
     const p = conocidos.get(String(f.media_id));
     const num = (k: string): number | undefined => (typeof f[k] === "number" ? (f[k] as number) : undefined);
     const m: MediaInsights = {
       reach: num("reach"), saved: num("saved"), shares: num("shares"), likes: num("likes"), comments: num("comments"),
-      views: num("views"), avg_watch_ms: num("avg_watch_ms"), total_watch_ms: num("total_watch_ms"), descartadas: [],
+      views: num("views"), avg_watch_ms: num("avg_watch_ms"), total_watch_ms: num("total_watch_ms"),
+      profile_visits: num("profile_visits"), follows: num("follows"), descartadas: [],
     };
     out[String(f.media_id)] = {
       ...m, mediaId: f.media_id, ventana: f.ventana, tomadaEn: f.tomada_en,
@@ -312,11 +313,12 @@ export async function tomarInstantaneas(now: Date, deps: DepsInstantaneas = {}):
       piezaId: post.piezaId, origen: post.origen, derivadas: derivar(m, post.duracionMs),
     };
     const r = db.prepare(
-      `INSERT OR IGNORE INTO insights (media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO insights (media_id, ventana, tomada_en, reach, saved, shares, likes, comments, views, avg_watch_ms, total_watch_ms, profile_visits, follows)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       i.mediaId, i.ventana, i.tomadaEn, i.reach ?? null, i.saved ?? null, i.shares ?? null, i.likes ?? null,
       i.comments ?? null, i.views ?? null, i.avg_watch_ms ?? null, i.total_watch_ms ?? null,
+      i.profile_visits ?? null, i.follows ?? null,
     );
     // Otra llamada simultánea ya la guardó: no se repite nada más.
     if (Number(r.changes) === 0) continue;
