@@ -34,6 +34,12 @@ export interface ResumenSemana {
   seguidoresGanados?: number;
   horaTop?: string;
   noSeguidores?: number;
+  /** Visitas al perfil en 7 d (`cuenta.json → visitasPerfil7d`). */
+  visitasPerfil?: number;
+  /** Toques al enlace de la bio en 7 d. */
+  clicsEnlace?: number;
+  /** Seguidores ganados / visitas al perfil (0–1). Solo con visitas > 0 y seguidores ganados conocidos. */
+  conversionPerfil?: number;
   avisos: string[];
   /** Diagnóstico mensual (últimas 4 semanas) del bucle de feedback; solo en el resumen del domingo. */
   diagnostico?: string[];
@@ -195,8 +201,28 @@ export function resumirSemana(
     seguidoresGanados: ganados,
     horaTop: horaTop(c, hasta, zonaOnline),
     noSeguidores: esNum(c.reachNoSeguidores7d) ? c.reachNoSeguidores7d : undefined,
+    visitasPerfil: esNum(c.visitasPerfil7d) ? c.visitasPerfil7d : undefined,
+    clicsEnlace: esNum(c.clicsEnlace7d) ? c.clicsEnlace7d : undefined,
+    conversionPerfil: esNum(c.visitasPerfil7d) && c.visitasPerfil7d > 0 && ganados !== undefined ? ganados / c.visitasPerfil7d : undefined,
     avisos,
   };
+}
+
+/** Umbrales de conversión visitas → seguidores del skill de crecimiento: sano ≥ 2 %, bajo 1 % es la bio. */
+export const CONVERSION_PERFIL_SANA = 0.02;
+export const CONVERSION_PERFIL_BAJA = 0.01;
+
+const pct = (x: number): string => `${(x * 100).toFixed(1).replace(".", ",")} %`;
+
+/** Línea del resumen con visitas y conversión; sin visitas no hay línea. */
+export function lineaVisitasPerfil(r: Pick<ResumenSemana, "visitasPerfil" | "conversionPerfil">): string | undefined {
+  if (r.visitasPerfil === undefined) return undefined;
+  let out = `Visitas al perfil (7 d): ${r.visitasPerfil}`;
+  if (r.conversionPerfil !== undefined) {
+    out += ` · conversión a seguidores ${pct(r.conversionPerfil)} (sano ≥ 2 %)`;
+    if (r.conversionPerfil < CONVERSION_PERFIL_BAJA) out += " ⚠️ bajo 1 %: revisar bio y enlace antes que el contenido";
+  }
+  return out;
 }
 
 type Estilo = { b: (s: string) => string; esc: (s: string) => string };
@@ -229,6 +255,9 @@ function cuerpo(r: ResumenSemana, e: Estilo): string {
   if (r.seguidoresGanados !== undefined) out.push(`Seguidores ganados: ${r.seguidoresGanados >= 0 ? "+" : ""}${r.seguidoresGanados}`);
   if (r.horaTop) out.push(`Hora con más audiencia: ${e.esc(r.horaTop)}${/^\d{2}:\d{2}$/.test(r.horaTop) ? " (hora de Chile)" : ""}`);
   if (r.noSeguidores !== undefined) out.push(`Alcance a no seguidores (7 d): ${r.noSeguidores}`);
+  const visitas = lineaVisitasPerfil(r);
+  if (visitas) out.push(e.esc(visitas));
+  if (r.clicsEnlace !== undefined) out.push(`Clics al enlace de la bio (7 d): ${r.clicsEnlace}`);
   if (r.diagnostico?.length) out.push("", e.b("Diagnóstico (últimas 4 semanas)"), ...r.diagnostico.map((d) => `• ${e.esc(d)}`));
   if (r.avisos.length) out.push("", ...r.avisos.map((a) => `⚠️ ${e.esc(a)}`));
   return out.join("\n").trimEnd() + "\n";

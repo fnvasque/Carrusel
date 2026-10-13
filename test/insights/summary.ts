@@ -27,6 +27,8 @@ const cuenta = {
   porDia: { "2026-09-26": 9, "2026-09-28": 3, "2026-10-01": 4, "2026-10-04": 2, "2026-10-05": 50 },
   onlineFollowers: { "9": 10, "20": 80, "21": 60 },
   reachNoSeguidores7d: 1234,
+  visitasPerfil7d: 146,
+  clicsEnlace7d: 3,
 };
 
 check("resumirSemana: mejor y peor por señal objetivo usando solo 7d", () => {
@@ -96,6 +98,29 @@ check("resumirSemana: seguidores ganados, hora top y no seguidores", () => {
   assert.equal(r.horaTop, "00:00");
   assert.equal(r.noSeguidores, 1234);
   assert.match(formatResumen(r), /Hora con más audiencia: 00:00 \(hora de Chile\)/);
+});
+
+check("resumirSemana: visitas al perfil, clics al enlace y conversión visitas→seguidores con umbral del 2 %", () => {
+  const r = resumirSemana([inst("a")], cuenta, [reg("a")], HASTA, 50);
+  assert.equal(r.visitasPerfil, 146);
+  assert.equal(r.clicsEnlace, 3);
+  // 9 seguidores ganados / 146 visitas = 6,16 %
+  assert.ok(Math.abs((r.conversionPerfil ?? 0) - 9 / 146) < 1e-9);
+  const md = formatResumen(r);
+  assert.match(md, /Visitas al perfil \(7 d\): 146 · conversión a seguidores 6,2 % \(sano ≥ 2 %\)/);
+  assert.match(md, /Clics al enlace de la bio \(7 d\): 3/);
+  // Bajo el 1 % el resumen lo dice: es problema de bio, no de contenido.
+  const bajo = resumirSemana([inst("a")], { ...cuenta, porDia: { "2026-10-01": 1 } }, [reg("a")], HASTA, 50);
+  assert.match(formatResumen(bajo), /0,7 % \(sano ≥ 2 %\) ⚠️ bajo 1 %: revisar bio y enlace antes que el contenido/);
+  // Sin visitas no se inventa la tasa; sin seguidores ganados tampoco.
+  const sin = resumirSemana([inst("a")], { ...cuenta, visitasPerfil7d: undefined }, [reg("a")], HASTA, 50);
+  assert.equal(sin.visitasPerfil, undefined);
+  assert.equal(sin.conversionPerfil, undefined);
+  assert.doesNotMatch(formatResumen(sin), /Visitas al perfil/);
+  const cero = resumirSemana([inst("a")], { ...cuenta, visitasPerfil7d: 0 }, [reg("a")], HASTA, 50);
+  assert.equal(cero.visitasPerfil, 0);
+  assert.equal(cero.conversionPerfil, undefined);
+  assert.match(formatResumen(cero), /Visitas al perfil \(7 d\): 0\n/);
 });
 
 check("resumirSemana: hora top con la zona de config y con cambio de hora en cada zona", () => {

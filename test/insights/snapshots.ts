@@ -230,11 +230,13 @@ await checkAsync("postsConocidos: sin registro.jsonl todo es manual", () =>
 await checkAsync("guardarCuenta: fusiona porDia con lo anterior y anota errores", () =>
   conBase(async (dir) => {
     const ahora = new Date("2026-10-14T05:00:00Z");
-    const fetch = async () => ({ followers: 4, followerCount: [{ dia: "2026-10-12", valor: 1 }, { dia: "2026-10-13", valor: 0 }], reach7d: 30, errores: ["online_followers no disponible"] });
+    const fetch = async () => ({ followers: 4, followerCount: [{ dia: "2026-10-12", valor: 1 }, { dia: "2026-10-13", valor: 0 }], reach7d: 30, visitasPerfil7d: 146, clicsEnlace7d: 3, errores: ["online_followers no disponible"] });
     await guardarCuenta(ahora, { fetch });
     const f = join(dir, "_metricas", "cuenta.json");
     const a = JSON.parse(readFileSync(f, "utf8"));
     assert.equal(a.seguidores, 4);
+    assert.equal(a.visitasPerfil7d, 146);
+    assert.equal(a.clicsEnlace7d, 3);
     assert.equal(a.actualizado, ahora.toISOString());
     assert.equal(a.onlineFollowers, undefined);
     assert.deepEqual(a.errores, ["online_followers no disponible"]);

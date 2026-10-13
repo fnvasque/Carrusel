@@ -446,6 +446,8 @@ export async function guardarCuenta(now: Date, deps: { fetch?: typeof fetchAccou
     reach7d: a.reach7d,
     engaged7d: a.engaged7d,
     reachNoSeguidores7d: a.reachNoSeguidores7d,
+    visitasPerfil7d: a.visitasPerfil7d,
+    clicsEnlace7d: a.clicsEnlace7d,
     errores: a.errores,
   };
   escribirAtomico(ruta, JSON.stringify(cuenta, null, 2) + "\n");

@@ -46,6 +46,10 @@ export interface AccountInsights {
   reach7d?: number;
   engaged7d?: number;
   reachNoSeguidores7d?: number;
+  /** Visitas al perfil en 7 d (`profile_views`): denominador de la conversión visitas → seguidores. */
+  visitasPerfil7d?: number;
+  /** Toques al enlace de la bio en 7 d (`website_clicks`). */
+  clicsEnlace7d?: number;
   /** Consultas que fallaron (la instantánea sigue con lo demás). */
   errores: string[];
 }
@@ -289,6 +293,16 @@ export async function fetchAccountInsights(
     res.reachNoSeguidores7d = nonFollowerReach(await get(insights, { ...ventana, metric: "reach", breakdown: "follow_type" }));
   } catch (err) {
     res.errores.push(`reach por tipo de seguidor: ${msgOf(err)}`);
+  }
+
+  try {
+    // Visitas al perfil y toques al enlace de la bio: con los seguidores ganados dan la
+    // conversión del perfil (sano ≥ 2 %; bajo 1 % el problema es la bio, no el contenido).
+    const raw = parseInsights(await get(insights, { ...ventana, metric: "profile_views,website_clicks" }));
+    res.visitasPerfil7d = raw.profile_views;
+    res.clicsEnlace7d = raw.website_clicks;
+  } catch (err) {
+    res.errores.push(`profile_views/website_clicks: ${msgOf(err)}`);
   }
 
   return res;

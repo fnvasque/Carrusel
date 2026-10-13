@@ -182,6 +182,7 @@ function accountFake(overrides: { online?: () => unknown } = {}) {
     if (params.breakdown === "follow_type") {
       return { data: [{ name: "reach", total_value: { value: 100, breakdowns: [{ dimension_keys: ["follow_type"], results: [{ dimension_values: ["FOLLOWER"], value: 30 }, { dimension_values: ["NON_FOLLOWER"], value: 70 }] }] } }] };
     }
+    if (metric === "profile_views,website_clicks") return { data: [{ name: "profile_views", total_value: { value: 146 } }, { name: "website_clicks", total_value: { value: 3 } }] };
     return { data: [{ name: "reach", total_value: { value: 100 } }, { name: "accounts_engaged", total_value: { value: 9 } }] };
   });
 }
@@ -211,7 +212,12 @@ await checkAsync("fetchAccountInsights: arma todos los campos", async () => {
   assert.equal(r.reach7d, 100);
   assert.equal(r.engaged7d, 9);
   assert.equal(r.reachNoSeguidores7d, 70);
+  assert.equal(r.visitasPerfil7d, 146);
+  assert.equal(r.clicsEnlace7d, 3);
   assert.deepEqual(r.errores, []);
+  const pv = calls.find((c) => c.params.metric === "profile_views,website_clicks")!;
+  assert.equal(pv.params.metric_type, "total_value");
+  assert.equal(Number(pv.params.until) - Number(pv.params.since), 7 * 86400);
   const fc = calls.find((c) => c.params.metric === "follower_count")!;
   assert.equal(Number(fc.params.until) - Number(fc.params.since), 30 * 86400);
   assert.equal(fc.params.period, "day");
@@ -230,7 +236,20 @@ await checkAsync("fetchAccountInsights: todo falla → sin lanzar, con errores",
   const r = await fetchAccountInsights(NOW, get, "IG");
   assert.equal(r.followers, undefined);
   assert.deepEqual(r.followerCount, []);
-  assert.ok(r.errores.length >= 4);
+  assert.ok(r.errores.length >= 5);
+  assert.ok(r.errores.some((e) => e.startsWith("profile_views/website_clicks")));
+});
+await checkAsync("fetchAccountInsights: profile_views falla y el resto sigue (sin visitas no hay conversión, pero sí alcance)", async () => {
+  const { get } = fake((path, params) => {
+    if (String(params.metric) === "profile_views,website_clicks") throw new GraphError("(#100) Invalid metric", 100);
+    if (path === "IG") return { followers_count: 42 };
+    return { data: [{ name: "reach", total_value: { value: 100 } }] };
+  });
+  const r = await fetchAccountInsights(NOW, get, "IG");
+  assert.equal(r.visitasPerfil7d, undefined);
+  assert.equal(r.clicsEnlace7d, undefined);
+  assert.equal(r.reach7d, 100);
+  assert.ok(r.errores.some((e) => e.startsWith("profile_views/website_clicks")));
 });
 await checkAsync("fetchAccountInsights: respuestas raras (data vacío, value null) no rompen", async () => {
   const { get } = fake(() => ({ data: [{ name: "reach", total_value: { value: null, breakdowns: [] } }, { name: "follower_count", values: [] }] }));
