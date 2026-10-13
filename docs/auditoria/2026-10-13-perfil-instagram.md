@@ -40,6 +40,19 @@ Conclusión: la gente llega (150 cuentas nuevas por semana ven algo y 146 pasan 
 perfil) y no encuentra una razón para quedarse. Arreglar el perfil convierte el tráfico
 que **ya** existe; mejorar hooks viene después.
 
+## Estado al 2026-10-13 (tarde)
+
+- **Bio: aplicada** (opción A, guardada desde Chrome y verificada en el perfil público).
+- **Recurso del enlace: producido.** `promo/kit-arranque-ia/salida/kit-arranque-con-ia.pdf`
+  (12 páginas, ver README de la carpeta). El usuario pidió "algo mucho mejor que 10 prompts":
+  es un plan de 7 días con tarea, herramienta, prompt, qué esperar y trampa, más un bonus
+  de estafas de inversión con IA y un mapa de herramientas. Falta subirlo a Gumroad a $0 y
+  cambiar el enlace desde la app móvil (Instagram no deja editar enlaces desde la web).
+- Cuando el enlace apunte al kit, la 3.ª línea de la bio debería decir **"👇 Kit gratis: 7
+  días para usar IA de verdad"** en vez de "10 prompts" (142 caracteres; se cambia desde
+  la web en 10 segundos).
+- Pendientes del usuario: seguidos 263 → <60, tres fijados, cuatro destacados.
+
 ## Cambios al perfil (los aplica el usuario en la app)
 
 ### 1. Bio nueva (≤ 150 caracteres, una promesa + un CTA)

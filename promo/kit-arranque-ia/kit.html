@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Kit de arranque con IA · 7 días · ia.punto.es</title>
+<style>
+  @font-face { font-family: "Anton"; src: url("../../src/fonts/Anton-400.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Inter"; src: url("../../src/fonts/Inter-400.woff2") format("woff2"); font-weight: 400; }
+  @font-face { font-family: "Inter"; src: url("../../src/fonts/Inter-600.woff2") format("woff2"); font-weight: 600; }
+  @font-face { font-family: "Inter"; src: url("../../src/fonts/Inter-700.woff2") format("woff2"); font-weight: 700; }
+  @font-face { font-family: "JetBrainsMono"; src: url("../../src/fonts/JetBrainsMono-500.woff2") format("woff2"); font-weight: 500; }
+
+  :root {
+    --bg: #06060A; --card: #13131A; --line: #23232E; --lime: #C6FF3D; --violet: #7C5CFF; --pink: #FF3D7F;
+    --text: #F4F4F6; --soft: #D8D8E0; --muted: #8A8A99;
+  }
+  @page { size: 1080px 1620px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page {
+    position: relative; width: 1080px; height: 1620px; padding: 76px 88px 110px; overflow: hidden; page-break-after: always; break-after: page;
+    background:
+      radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(0,0,0,0.75) 100%),
+      repeating-linear-gradient(0deg, rgba(198,255,61,0.07) 0 2px, transparent 2px 120px),
+      repeating-linear-gradient(90deg, rgba(198,255,61,0.07) 0 2px, transparent 2px 120px),
+      var(--bg);
+  }
+  .page:last-child { page-break-after: auto; break-after: auto; }
+  .eyebrow { font-family: JetBrainsMono, monospace; font-variant-ligatures: none; font-size: 24px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .chip { display: inline-block; font-family: JetBrainsMono, monospace; font-size: 22px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--bg); background: var(--lime); padding: 8px 18px; border-radius: 999px; }
+  .chip.v { background: var(--violet); color: var(--text); }
+  .chip.p { background: var(--pink); color: var(--text); }
+  h1 { font-family: Anton, Impact, sans-serif; font-weight: 400; text-transform: uppercase; font-size: 132px; line-height: 0.95; letter-spacing: 0.005em; margin: 28px 0 0; }
+  h2 { font-family: Anton, Impact, sans-serif; font-weight: 400; text-transform: uppercase; font-size: 76px; line-height: 0.98; margin: 20px 0 0; }
+  h3 { font-family: Anton, Impact, sans-serif; font-weight: 400; text-transform: uppercase; font-size: 40px; line-height: 1; margin: 0 0 14px; color: var(--soft); letter-spacing: 0.02em; }
+  .lime { color: var(--lime); }
+  .lead { font-size: 36px; line-height: 1.3; font-weight: 600; margin: 26px 0 0; color: var(--text); }
+  p, li { font-size: 27px; line-height: 1.36; color: var(--soft); margin: 0; }
+  ul { margin: 0; padding-left: 36px; }
+  li + li { margin-top: 10px; }
+  .card { background: var(--card); border: 2px solid var(--line); border-radius: 40px; padding: 32px 38px; }
+  .prompt { font-family: JetBrainsMono, monospace; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; font-size: 25px; line-height: 1.42; color: var(--text); white-space: pre-wrap; }
+  .prompt .hole { color: var(--lime); }
+  .day { display: grid; grid-template-columns: 1fr; gap: 18px; margin-top: 22px; }
+  .row { display: grid; grid-template-columns: 230px 1fr; gap: 22px; align-items: start; }
+  .row .k { font-family: JetBrainsMono, monospace; font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--lime); padding-top: 8px; }
+  .row .k.pink { color: var(--pink); }
+  .foot { position: absolute; left: 88px; right: 88px; bottom: 48px; display: flex; justify-content: space-between; font-family: JetBrainsMono, monospace; font-size: 20px; color: var(--muted); letter-spacing: 0.06em; }
+  .big { font-family: Anton, Impact, sans-serif; font-size: 170px; line-height: 0.9; color: var(--lime); }
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; }
+  th, td { text-align: left; padding: 15px 14px; border-bottom: 2px solid var(--line); font-size: 25px; line-height: 1.3; vertical-align: top; }
+  th { font-family: JetBrainsMono, monospace; font-size: 21px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  td:first-child { color: var(--text); font-weight: 600; width: 300px; }
+  .check { list-style: none; padding: 0; }
+  .check li { position: relative; padding-left: 64px; }
+  .check li::before { content: ""; position: absolute; left: 0; top: 4px; width: 38px; height: 38px; border: 3px solid var(--lime); border-radius: 10px; }
+  .src { font-family: JetBrainsMono, monospace; font-size: 20px; color: var(--muted); margin-top: 24px; line-height: 1.5; }
+  .toc { margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 36px; }
+  .toc div { display: flex; gap: 18px; align-items: baseline; font-size: 30px; }
+  .toc b { font-family: Anton, Impact, sans-serif; font-weight: 400; color: var(--lime); font-size: 44px; min-width: 64px; }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<section class="page">
+  <div class="eyebrow">ia.punto.es · guía gratis · edición 2026-10</div>
+  <h1>Kit de<br>arranque<br>con <span class="lime">IA</span></h1>
+  <p class="lead">7 días, 7 cosas resueltas. Cada día: una tarea real, una herramienta gratis, el prompt exacto para copiar, qué esperar y la trampa que evitar.</p>
+  <div class="card" style="margin-top:56px">
+    <h3>Para quién</h3>
+    <p>Para quien usa ChatGPT, Gemini o Claude de vez en cuando y siente que le responde cosas genéricas. No hay que saber programar. Todo funciona con planes gratis, desde Chile y en español.</p>
+  </div>
+  <div class="card" style="margin-top:28px">
+    <h3>Cómo usarlo</h3>
+    <p>Un día, una página. Copia el prompt, cambia lo que va en <span class="lime">verde</span> por tus datos y revisa el resultado: la IA se equivoca y la regla es que tú decides. Si algo sale mal, la página dice dónde mirar.</p>
+  </div>
+  <div class="foot"><span>@ia.punto.es</span><span>IA que puedes usar hoy, sin saber programar</span></div>
+</section>
+
+<!-- EL ÚNICO TRUCO -->
+<section class="page">
+  <span class="chip">antes de empezar</span>
+  <h2>El único truco que hay que saber</h2>
+  <p class="lead">Las guías oficiales de OpenAI, Anthropic y Google coinciden en tres cosas. Ningún "prompt mágico" las reemplaza.</p>
+  <div class="day">
+    <div class="row"><div class="k">1 · Contexto</div><p>Antes de pedir, di para quién es y para qué sirve. Google midió que los prompts que mejor funcionan rondan las 21 palabras; la mayoría escribe menos de 9.</p></div>
+    <div class="row"><div class="k">2 · Ejemplo</div><p>Pega algo que te guste (un correo, un título, un cuadro) y pide que siga ese estilo. Un ejemplo bueno vale más que tres adjetivos.</p></div>
+    <div class="row"><div class="k">3 · Corrección</div><p>El primer intento rara vez sale bien. No abras otro chat: corrige en el mismo con pedidos concretos ("más corto", "en tabla", "sin la parte de X").</p></div>
+  </div>
+  <div class="card" style="margin-top:28px">
+    <div class="prompt">Soy <span class="hole">[quién eres]</span> y necesito <span class="hole">[qué]</span> para <span class="hole">[para quién / para qué]</span>.
+Aquí va un ejemplo de lo que me gusta: <span class="hole">[pega el ejemplo]</span>.
+Antes de responder, hazme hasta 3 preguntas si te falta información.</div>
+  </div>
+  <p class="src">Fuentes: guías de prompting de Anthropic, OpenAI y Google (2025-2026). Límite: ejemplos muy parecidos entre sí hacen que la IA copie patrones que no querías.</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 0/7</span></div>
+</section>
+
+<!-- DÍA 1 -->
+<section class="page">
+  <span class="chip">día 1 · finanzas</span>
+  <h2>Tus gastos del mes, <span class="lime">ordenados</span> en 5 minutos</h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>ChatGPT (plan gratis: hasta 3 archivos al día). Sirve también Claude o Gemini.</p></div>
+    <div class="row"><div class="k">Antes</div><p>Descarga la cartola del banco en Excel o CSV, o usa tu planilla. En ChatGPT, apaga "Mejorar el modelo para todos" (Configuración → Controles de datos) antes de subir datos de dinero.</p></div>
+    <div class="card"><div class="prompt">Te subo mis gastos de <span class="hole">[mes]</span>. Mi sueldo líquido es <span class="hole">[$ monto]</span>.
+1. Agrupa cada gasto en categorías y dame el total por categoría en una tabla.
+2. Marca los gastos fuera de lo normal o repetidos (suscripciones).
+3. Compara con la regla 50/30/20 (necesidades / gustos / ahorro y deudas) y dime en qué bolsa me paso.
+Si no estás seguro de una categoría, pregúntame en vez de adivinar.</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Una tabla por categoría, 3 a 5 gastos marcados y tres números frente al 50/30/20. Si el 50 % de necesidades no alcanza, pide la variante 60/30/10.</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>Clasifica mal transferencias y pagos de tarjeta: revísalos a mano. No le preguntes qué hacer con tu plata: ordena, no asesora. Fotos o PDF escaneados no garantizan montos exactos.</p></div>
+  </div>
+  <p class="src">Fuentes: OpenAI (ChatGPT, análisis de archivos; la función "Finances" con cuentas conectadas solo existe en EE.UU.), regla 50/30/20 (Warren). Límite: 3 archivos al día en el plan gratis.</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 1/7</span></div>
+</section>
+
+<!-- DÍA 2 -->
+<section class="page">
+  <span class="chip">día 2 · productividad</span>
+  <h2>Tus pendientes en <span class="lime">4 cajas</span></h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>Cualquier chat de IA. El método es la matriz de Eisenhower: urgente/importante.</p></div>
+    <div class="row"><div class="k">Antes</div><p>Escribe tu lista de pendientes de hoy tal cual, sin ordenar. Y una línea con tu meta principal del mes: sin ella la IA no puede saber qué es "importante" para ti.</p></div>
+    <div class="card"><div class="prompt">Mi meta principal este mes es <span class="hole">[meta]</span>.
+Estos son mis pendientes de hoy:
+<span class="hole">[pega la lista]</span>
+Clasifícalos en 4 cajas: (1) urgente e importante, (2) importante pero no urgente, (3) urgente pero no importante, (4) ni lo uno ni lo otro.
+Para la caja 2 proponme un bloque de 60 minutos hoy. Para la 3 dime qué podría delegar o hacer en 2 minutos. La 4 va a una lista de "quizás nunca".
+Explica en una línea cada decisión dudosa.</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Cuatro listas cortas y una hora agendada para lo que importa y nadie te pide. Lo normal es descubrir que el día se iba en la caja 3.</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>"Importante" depende de tus metas, no de la IA: corrige la clasificación la primera vez y pídele que recuerde tu criterio. La matriz dice qué priorizar, no cómo hacerlo.</p></div>
+  </div>
+  <p class="src">Fuentes: matriz de Eisenhower (Covey); Todoist, guía de prioridades por cuadrante.</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 2/7</span></div>
+</section>
+
+<!-- DÍA 3 -->
+<section class="page">
+  <span class="chip">día 3 · aprender</span>
+  <h2>Estudiar sin que te <span class="lime">regale</span> la respuesta</h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>ChatGPT (modo Estudio: <b>@study</b> o menú +), Gemini ("Aprendizaje guiado") o Claude (instrucción permanente). Los tres, gratis y en Chile.</p></div>
+    <div class="row"><div class="k">Por qué</div><p>La mejor evidencia disponible dice que pedir las respuestas a la IA te hace rendir peor cuando ya no la tienes; un tutor que da pistas evita esa caída. Es la diferencia entre aprender y copiar.</p></div>
+    <div class="card"><div class="prompt">Regla permanente (pégala en "Instrucciones personalizadas" o al inicio del chat):
+
+Cuando te pida ayuda con una tarea o un tema de estudio, no me des la respuesta. Hazme preguntas, dame pistas de a una y comprueba que entendí antes de seguir. Si te pido la respuesta directa, recuérdame esta regla una vez y sigue con pistas.
+Hoy quiero entender: <span class="hole">[tema o foto del ejercicio]</span>.</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Una conversación con preguntas, no un bloque de texto. Antes de una prueba: "tómame un cuestionario de a una pregunta y dime qué repasar".</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>Los modos de estudio todavía regalan respuestas a veces, y la regla funciona solo si tú no la pides. En ChatGPT no funciona en Proyectos ni chats temporales. Los estudios son de matemáticas y física, no de todo.</p></div>
+  </div>
+  <p class="src">Fuentes: OpenAI (Study mode), Google (Guided Learning), Anthropic (Learning mode); estudios de tutoría socrática con IA (2024-2025).</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 3/7</span></div>
+</section>
+
+<!-- DÍA 4 -->
+<section class="page">
+  <span class="chip">día 4 · aprender</span>
+  <h2>Tus apuntes convertidos en <span class="lime">podcast</span> y tarjetas</h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>NotebookLM de Google (gratis con cuenta de Google; hasta 50 fuentes por cuaderno).</p></div>
+    <div class="row"><div class="k">Antes</div><p>Junta los PDF, apuntes o enlaces de un ramo o curso. Crea un cuaderno y súbelos como fuentes. Todo lo que genere va a citar esas fuentes, no internet.</p></div>
+    <div class="card"><div class="prompt">1. Audio Overview → idioma: español latinoamericano. Indicación:
+"Para alguien que rinde prueba el <span class="hole">[día]</span>; prioriza <span class="hole">[los 3 temas]</span> y explica con ejemplos cotidianos."
+
+2. Flashcards → tema: <span class="hole">[tema]</span>, dificultad: media, 20 tarjetas.
+
+3. Chat → modo "Learning Guide":
+"Hazme 5 preguntas sobre <span class="hole">[tema]</span> y corrígeme citando la fuente."</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Un audio de 10 a 20 minutos para escuchar en la micro, tarjetas con explicación citada y un chat que te examina con tus propios materiales.</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>Las tarjetas pueden traer errores: revísalas contra los apuntes. El modo interactivo del audio solo funciona en inglés. Varias funciones nuevas llegan primero a planes pagos; si no ves una opción, no es tu cuenta, es el despliegue.</p></div>
+  </div>
+  <p class="src">Fuentes: Google, NotebookLM (ayuda oficial y notas de versión 2026-09).</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 4/7</span></div>
+</section>
+
+<!-- DÍA 5 -->
+<section class="page">
+  <span class="chip">día 5 · automatizar</span>
+  <h2>Un resumen que <span class="lime">llega solo</span> cada mañana</h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>Tareas programadas de ChatGPT (gratis: 3 tareas activas, máximo una vez al día). Crea la tarea desde la app del celular si quieres el aviso push.</p></div>
+    <div class="row"><div class="k">Antes</div><p>Elige una sola cosa que hoy revisas a mano: noticias de tu rubro, el dólar, una fecha que siempre olvidas. Una tarea, una cosa.</p></div>
+    <div class="card"><div class="prompt">Crea una tarea programada: cada mañana, envíame 3 titulares sobre <span class="hole">[tema]</span> con una línea de por qué le importan a <span class="hole">[quién eres]</span>, en español y sin repetir los de ayer.
+
+Y otra tarea: el <span class="hole">[fecha]</span> recuérdame que vence <span class="hole">[trámite]</span> y qué documentos necesito.</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Una notificación o un correo por la mañana, sin abrir nada. Cuando te canses del tema, pídele que pause o cambie la tarea desde el mismo chat.</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>En el plan gratis la hora es una ventana flexible, no exacta. No funciona en chats de voz ni en GPTs. Las tareas que reaccionan a correos o Slack son solo de pago.</p></div>
+  </div>
+  <p class="src">Fuentes: OpenAI, ayuda de Tareas programadas (2026). Alternativa sin programar: Zapier gratis arma flujos de 2 pasos describiéndolos en palabras (100 tareas al mes, solo en inglés).</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 5/7</span></div>
+</section>
+
+<!-- DÍA 6 -->
+<section class="page">
+  <span class="chip">día 6 · finanzas</span>
+  <h2>Una <span class="lime">calculadora</span> de ahorro dentro del chat</h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>ChatGPT gratis: las respuestas pueden traer gráficos y herramientas que se usan dentro del chat (despliegue escalonado; si no te aparece, vuelve a probar en unos días).</p></div>
+    <div class="row"><div class="k">Antes</div><p>Ten dos números: cuánto puedes ahorrar al mes y qué interés anual te da tu cuenta, depósito o fondo (está en la cartola o en la app del banco).</p></div>
+    <div class="card"><div class="prompt">Hazme una calculadora interactiva para ver cuánto tendría en 5 años si ahorro <span class="hole">[$ monto]</span> al mes con un interés anual de <span class="hole">[x]</span> %. Que pueda mover el monto, la tasa y los años, y que muestre el gráfico de cómo crece.
+
+Después: hazme un divisor de cuentas para <span class="hole">[n]</span> personas con propina incluida.</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Controles que se mueven y un gráfico que cambia al instante. Verás, con tus números, cuánto pesan los años frente al monto mensual.</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>Es una calculadora, no un consejo: ningún chatbot reemplaza a un asesor habilitado. Si ves una "oportunidad de inversión" en redes, usa la página 9 antes de mover un peso.</p></div>
+  </div>
+  <p class="src">Fuentes: OpenAI, Intelligent UI (2026-10). Límite: no funciona en apps de escritorio antiguas ni en modo voz; el diseño varía de una vez a otra.</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 6/7</span></div>
+</section>
+
+<!-- DÍA 7 -->
+<section class="page">
+  <span class="chip p">día 7 · cabeza</span>
+  <h2>15 minutos para <span class="lime">preocuparte</span>, y listo</h2>
+  <div class="day">
+    <div class="row"><div class="k">Herramienta</div><p>Las notas del celular, un recordatorio diario y cualquier chat de IA el domingo. El método: postergación de la preocupación (terapia cognitiva) y ponerle nombre a lo que sientes.</p></div>
+    <div class="row"><div class="k">Antes</div><p>Durante la semana, cada vez que aparezca una preocupación, anótala en una nota y vuelve a lo tuyo. Fija 15 minutos al día, a la misma hora, para leerlas.</p></div>
+    <div class="card"><div class="prompt">Esta semana anoté estas preocupaciones:
+<span class="hole">[pega la lista]</span>
+1. Sepáralas en dos columnas: las que tienen una acción posible y las que no.
+2. Para las primeras, un primer paso de 10 minutos para cada una.
+3. Para las segundas, no me des consejos: dame 10 palabras precisas en español para nombrar lo que siento con cada una.</div></div>
+    <div class="row"><div class="k">Qué esperar</div><p>Menos vueltas de noche. En estudios, quien posterga la preocupación a una ventana fija reporta menos episodios tras una semana, y nombrar la emoción con una palabra precisa baja la reacción del cuerpo.</p></div>
+    <div class="row"><div class="k pink">La trampa</div><p>El efecto es pequeño y la evidencia es de laboratorio. Si la ansiedad te afecta la vida diaria, esto no reemplaza un tratamiento: habla con un profesional.</p></div>
+  </div>
+  <p class="src">Fuentes: ensayos de postergación de la preocupación; revisión de 43 estudios sobre etiquetado afectivo (Lieberman y otros).</p>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque · 7/7</span></div>
+</section>
+
+<!-- BONUS: ESTAFAS -->
+<section class="page">
+  <span class="chip v">bonus · seguridad</span>
+  <h2>Cómo detectar una <span class="lime">estafa</span> de inversión hecha con IA</h2>
+  <p class="lead">Circulan videos falsos de famosos y autoridades recomendando inversiones; supervisores de más de 115 países dedicaron la Semana Mundial del Inversionista 2026 a esto. Antes de mover un peso, pasa la lista.</p>
+  <div class="card" style="margin-top:28px">
+    <ul class="check">
+      <li>La boca no calza con la voz, parpadea poco, la luz de la cara no calza con el fondo o la voz suena demasiado pulida (señales que usa FINRA).</li>
+      <li>Te contactaron sin pedirlo, o te invitan a un grupo de WhatsApp o Telegram "exclusivo".</li>
+      <li>Promete rentabilidad fija, rápida o "sin riesgo". Nadie serio promete eso.</li>
+      <li>Te apuran: "solo hoy", "quedan 3 cupos".</li>
+      <li>La empresa o persona no aparece en el registro del regulador (en Chile, el buscador de la CMF; cada país tiene el suyo).</li>
+    </ul>
+  </div>
+  <div class="card" style="margin-top:28px"><div class="prompt">Pega el texto de la oferta en un chat de IA:
+"Esta es una oferta de inversión que me llegó: <span class="hole">[texto]</span>. Lista qué señales de estafa tiene según las guías de FINRA y la CMF, y qué tendría que verificar antes de responder. No me digas si invertir o no."</div></div>
+  <p class="src" style="margin-top:30px">Fuentes: IOSCO (World Investor Week 2026), FINRA (señales de deepfakes), CMF Chile. Límite: las señales visuales no bastan; lo que confirma es verificar con el regulador. Ningún chatbot reemplaza a un asesor habilitado.</p>
+  <div class="foot"><span>@ia.punto.es</span><span>bonus</span></div>
+</section>
+
+<!-- MAPA DE HERRAMIENTAS -->
+<section class="page">
+  <span class="chip">mapa</span>
+  <h2>Qué herramienta <span class="lime">para qué</span></h2>
+  <p class="lead">Plan gratis y en español salvo donde se indica. Límites revisados el 2026-10-11; cambian seguido.</p>
+  <table>
+    <tr><th>Quiero…</th><th>Usa</th><th>Ojo con</th></tr>
+    <tr><td>Ordenar gastos</td><td>ChatGPT + tu cartola (día 1)</td><td>3 archivos al día gratis; apaga "mejorar el modelo"</td></tr>
+    <tr><td>Estudiar con tutor</td><td>ChatGPT @study · Gemini Aprendizaje guiado · Claude</td><td>A veces regalan la respuesta</td></tr>
+    <tr><td>Apuntes → audio y tarjetas</td><td>NotebookLM</td><td>Audio interactivo solo en inglés</td></tr>
+    <tr><td>Algo que llegue solo</td><td>Tareas programadas de ChatGPT</td><td>3 tareas, 1 vez al día, hora flexible</td></tr>
+    <tr><td>Correos → planilla</td><td>Zapier (Copilot gratis)</td><td>100 tareas al mes, 2 pasos, en inglés</td></tr>
+    <tr><td>Diseñar un post o reel</td><td>Canva (IA en español) · Edits (gratis, sin marca de agua)</td><td>Canva: 20 usos de IA al mes gratis; Edits: asistente de IA solo EE.UU.</td></tr>
+    <tr><td>Narrar un video con voz</td><td>Kokoro (demo en Hugging Face)</td><td>Solo 3 voces en español</td></tr>
+    <tr><td>Ensayar una presentación</td><td>Yoodli (español, 5 ensayos gratis)</td><td>Speaker Coach de PowerPoint no funciona en español</td></tr>
+    <tr><td>Gráfico o calculadora al vuelo</td><td>ChatGPT (Intelligent UI)</td><td>Despliegue escalonado</td></tr>
+  </table>
+  <div class="foot"><span>@ia.punto.es</span><span>mapa</span></div>
+</section>
+
+<!-- CIERRE -->
+<section class="page">
+  <div class="eyebrow">eso es todo</div>
+  <h2 style="margin-top:36px">Lo que viene <span class="lime">cada semana</span></h2>
+  <p class="lead">En @ia.punto.es publicamos una herramienta o un prompt que puedes copiar, en 30 segundos, sin hype y en español. Todo sale de una base de conocimiento propia con fuentes, no de lo que "dicen en TikTok".</p>
+  <div class="toc">
+    <div><b>Lun</b><span>Tutorial paso a paso</span></div>
+    <div><b>Mar</b><span>Lista o comparativa para guardar</span></div>
+    <div><b>Mié</b><span>Algo para mandarle a alguien</span></div>
+    <div><b>Jue</b><span>Demo con el prompt copiable</span></div>
+    <div><b>Vie</b><span>Mito vs realidad</span></div>
+    <div><b>Sáb</b><span>Un atemporal</span></div>
+  </div>
+  <div class="card" style="margin-top:44px">
+    <h3>Si solo haces una cosa</h3>
+    <p>El día 3. Dejar escrita la regla de "pistas, no respuestas" cambia cómo usas la IA para siempre, y cuesta 30 segundos.</p>
+  </div>
+  <div class="card" style="margin-top:24px">
+    <h3>Un favor</h3>
+    <p>Si el kit te sirvió, cuéntame en un mensaje qué día te resolvió algo. Eso decide qué viene en la próxima edición.</p>
+  </div>
+  <div style="position:absolute; left:88px; bottom:130px">
+    <div class="big">ia.es</div>
+    <p class="eyebrow" style="margin-top:12px">instagram.com/ia.punto.es</p>
+  </div>
+  <div class="foot"><span>@ia.punto.es</span><span>kit de arranque con IA · 2026-10</span></div>
+</section>
+
+</body>
+</html>
