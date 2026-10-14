@@ -20,8 +20,36 @@ export const VENTANAS: { ventana: Ventana; horas: number }[] = [
 
 /** Tolerancia de las ventanas: ± 1 h. */
 export const TOLERANCIA_MS = 3_600_000;
-/** Desvío máximo para que una instantánea de 7 d entre a la comparación entre piezas. */
+/** Desvío máximo para que la instantánea de la ventana de medición entre a la comparación entre piezas. */
 export const DESVIO_COMPARABLE_7D_MS = 6 * 3_600_000;
+/** Alias: el desvío vale para cualquier ventana de medición (`ventanaMedicion`). */
+export const DESVIO_COMPARABLE_MS = DESVIO_COMPARABLE_7D_MS;
+
+/** Ventana con que se comparan las piezas si `config.json` no dice otra. */
+export const VENTANA_MEDICION_POR_DEFECTO: Ventana = "7d";
+
+/** Horas de una ventana. */
+export function horasDeVentana(v: Ventana): number {
+  return VENTANAS.find((x) => x.ventana === v)!.horas;
+}
+
+/** Etiqueta legible de una ventana: "72 h", "7 d". */
+export function etiquetaVentana(v: Ventana): string {
+  return v.replace(/(\d+)([hd])/, "$1 $2");
+}
+
+/**
+ * Ventana de medición de `_calendario/config.json → ventanaMedicion` (`"72h"` o
+ * `{ "valor": "72h", … }`): la instantánea con que el bucle, el resumen y el
+ * diagnóstico comparan las piezas. Con alcance bajo, 24 h y 72 h ya dicen lo mismo
+ * que 7 d, así que medir a 72 h adelanta el aprendizaje 4 días. Valor ausente o
+ * inválido → `VENTANA_MEDICION_POR_DEFECTO`.
+ */
+export function ventanaMedicion(config: unknown): Ventana {
+  const c = typeof config === "object" && config !== null ? (config as Record<string, unknown>).ventanaMedicion : undefined;
+  const v = typeof c === "object" && c !== null ? (c as Record<string, unknown>).valor : c;
+  return VENTANAS.some((x) => x.ventana === v) ? (v as Ventana) : VENTANA_MEDICION_POR_DEFECTO;
+}
 
 const HORA_MS = 3_600_000;
 
@@ -39,8 +67,8 @@ export function desvioVentana(publicado: Date, ventana: Ventana, tomada: Date): 
  * se saltan (si el bot estuvo caído, medir "24 h" a los 5 días no sirve). Si esa
  * más reciente ya se tomó, no hay nada que tomar. Nada después de 28 d + 1 h.
  * Si se toma con más de 1 h de desvío, `tomadaEn` refleja la hora real y el
- * resumen la marca "(tardía)". La comparación entre piezas usa solo `7d` con
- * desvío ≤ 6 h (`DESVIO_COMPARABLE_7D_MS`).
+ * resumen la marca "(tardía)". La comparación entre piezas usa solo la ventana de
+ * medición (`ventanaMedicion`, por defecto `7d`) con desvío ≤ 6 h (`DESVIO_COMPARABLE_MS`).
  */
 export function ventanaDebida(publicado: Date, ahora: Date, tomadas: Set<Ventana>): Ventana | undefined {
   const pub = publicado.getTime();

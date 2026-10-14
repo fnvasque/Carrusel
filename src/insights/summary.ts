@@ -2,7 +2,7 @@ import { addDays, horaOnlineALocal, localParts, ZONA_ONLINE_FOLLOWERS } from "..
 import type { Senal } from "../calendario/plan.ts";
 import { escapeHtml } from "../kb/telegram.ts";
 import { shortcodeFromUrl } from "../kb/shortcode.ts";
-import { DESVIO_COMPARABLE_7D_MS, TOLERANCIA_MS, VENTANAS, modoComparacion, valorSenal } from "./derive.ts";
+import { DESVIO_COMPARABLE_MS, TOLERANCIA_MS, VENTANAS, etiquetaVentana, horasDeVentana, modoComparacion, valorSenal, type Ventana } from "./derive.ts";
 import type { Instantanea } from "./snapshots.ts";
 
 /**
@@ -18,18 +18,20 @@ export interface FilaPieza {
   senal?: Senal;
   valor?: number;
   modo: "absoluto" | "tasa";
-  /** La instantánea de 7 d se tomó con más de 1 h de desvío. */
+  /** La instantánea de la ventana de medición se tomó con más de 1 h de desvío. */
   tardia?: boolean;
 }
 
 export interface ResumenSemana {
   desde: string;
   hasta: string;
+  /** Ventana con que se compararon las piezas (`config.json → ventanaMedicion`). */
+  ventana: Ventana;
   mejor?: FilaPieza;
   peor?: FilaPieza;
   /** Posts publicados a mano: se muestran aparte, no compiten. */
   manuales: FilaPieza[];
-  /** Piezas del motor con 7 d comparable (las que compiten). */
+  /** Piezas del motor con la ventana de medición comparable (las que compiten). */
   medidas: number;
   seguidoresGanados?: number;
   horaTop?: string;
@@ -84,12 +86,12 @@ function indexarRegistro(registro: unknown[]): Map<string, DatosRegistro> {
   return out;
 }
 
-/** Horas de desvío de la toma de una ventana de 7 d (null si no se conoce la publicación). */
-function desvioMs(i: Instantanea, publicadoEn: string | undefined): number | undefined {
+/** Milisegundos de desvío de la toma respecto de la hora nominal de `ventana` (undefined si no se conoce la publicación). */
+function desvioMs(i: Instantanea, publicadoEn: string | undefined, ventana: Ventana): number | undefined {
   const pub = new Date(publicadoEn ?? (i as { publicado?: string }).publicado ?? "").getTime();
   const tomada = new Date(i.tomadaEn).getTime();
   if (!Number.isFinite(pub) || !Number.isFinite(tomada)) return undefined;
-  return tomada - (pub + 168 * HORA_MS);
+  return tomada - (pub + horasDeVentana(ventana) * HORA_MS);
 }
 
 /** Etiqueta de un valor: tasas en % con un decimal, conteos enteros. */
@@ -120,13 +122,13 @@ function horaTop(c: Record<string, unknown>, dia: string, zonaOnline: string): s
 
 /**
  * Resumen de la semana `[hasta − 6 d, hasta]` (7 días, ambos extremos incluidos): mejor y peor pieza del motor por su
- * señal objetivo con la instantánea de 7 d (solo las tomadas con desvío ≤ 6 h),
+ * señal objetivo con la instantánea de la ventana de medición (`ventana`, por defecto 7 d; solo las tomadas con desvío ≤ 6 h),
  * seguidores ganados, hora con más audiencia y alcance de no seguidores. Cada
  * señal se compara contra su propio grupo (nunca retención contra guardados, ni
  * conteos contra tasas): se ordena por valor relativo a la media del grupo.
  */
 export function resumirSemana(
-  inst: Instantanea[], cuenta: unknown, registro: unknown[], hasta: string, umbral: number, zonaOnline: string = ZONA_ONLINE_FOLLOWERS,
+  inst: Instantanea[], cuenta: unknown, registro: unknown[], hasta: string, umbral: number, zonaOnline: string = ZONA_ONLINE_FOLLOWERS, ventana: Ventana = "7d",
 ): ResumenSemana {
   const desde = addDays(hasta, -6); // primer día incluido: la ventana es desde … hasta (7 días)
   const reg = indexarRegistro(registro);
@@ -138,7 +140,7 @@ export function resumirSemana(
   const vistas = new Set<string>();
 
   for (const i of Array.isArray(inst) ? inst : []) {
-    if (!i || i.ventana !== "7d" || typeof i.mediaId !== "string" || vistas.has(i.mediaId)) continue;
+    if (!i || i.ventana !== ventana || typeof i.mediaId !== "string" || vistas.has(i.mediaId)) continue;
     const t = new Date(i.tomadaEn);
     if (Number.isNaN(t.getTime())) continue;
     const dia = localParts(t).dia;
@@ -149,7 +151,7 @@ export function resumirSemana(
     const esMotor = i.origen === "motor";
     const senal = esMotor ? (r?.senal ?? "guardados") : "guardados";
     const valor = valorSenal(senal, i, i.derivadas ?? {}, umbral);
-    const desvio = desvioMs(i, r?.publicadoEn);
+    const desvio = desvioMs(i, r?.publicadoEn, ventana);
     const fila: FilaPieza = {
       piezaId: i.piezaId ?? r?.piezaId, mediaId: i.mediaId, permalink: r?.permalink, senal, valor,
       modo: senal === "retencion" ? "tasa" : modoComparacion(i.reach, umbral),
@@ -159,8 +161,8 @@ export function resumirSemana(
       manuales.push(fila);
       continue;
     }
-    if (desvio === undefined || Math.abs(desvio) > DESVIO_COMPARABLE_7D_MS) {
-      avisos.push(`${fila.piezaId ?? i.mediaId}: la instantánea de 7 d ${desvio === undefined ? "no tiene fecha de publicación" : "se tomó tarde"}; no entra en la comparación.`);
+    if (desvio === undefined || Math.abs(desvio) > DESVIO_COMPARABLE_MS) {
+      avisos.push(`${fila.piezaId ?? i.mediaId}: la instantánea de ${etiquetaVentana(ventana)} ${desvio === undefined ? "no tiene fecha de publicación" : "se tomó tarde"}; no entra en la comparación.`);
       continue;
     }
     if (!esNum(valor)) {
@@ -189,7 +191,7 @@ export function resumirSemana(
   }
 
   return {
-    desde, hasta, manuales, medidas: candidatas.length,
+    desde, hasta, ventana, manuales, medidas: candidatas.length,
     mejor: candidatas[0] ? limpiar(candidatas[0]) : undefined,
     peor: candidatas.length > 1 ? limpiar(candidatas[candidatas.length - 1]!) : undefined,
     seguidoresGanados: ganados,
@@ -217,9 +219,9 @@ function cuerpo(r: ResumenSemana, e: Estilo): string {
     out.push(lineaFila("Mejor", r.mejor, e));
     if (r.peor) out.push(lineaFila("Peor", r.peor, e));
   } else if (!r.manuales.length) {
-    out.push("Sin datos todavía: ninguna pieza cumplió 7 días de publicada en esta semana.");
+    out.push(`Sin datos todavía: ninguna pieza cumplió ${etiquetaVentana(r.ventana ?? "7d")} de publicada en esta semana.`);
   } else {
-    out.push("Sin piezas del motor con 7 días cumplidos esta semana.");
+    out.push(`Sin piezas del motor con ${etiquetaVentana(r.ventana ?? "7d")} cumplidas esta semana.`);
   }
   if (r.manuales.length) {
     out.push("", e.b("Posts manuales (no compiten)"));

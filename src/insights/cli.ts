@@ -6,7 +6,7 @@ import { formatResumen, hastaDesdeDesde } from "./summary.ts";
 
 /**
  * Espejo de `/metricas` en la terminal:
- *   npm run insights                          (últimos 7 días, hasta hoy)
+ *   npm run insights                          (la semana hasta hoy, con la ventana de medición de config.json)
  *   npm run insights -- --desde=2026-09-28    (la semana que empieza ese día)
  *   npm run insights -- --post=<id|url|piezaId>
  *   npm run insights -- --ahora               (toma instantáneas y cuenta en el acto; útil para probar)

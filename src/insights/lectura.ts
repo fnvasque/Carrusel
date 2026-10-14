@@ -6,7 +6,7 @@ import { calendarioDir } from "../calendario/plan.ts";
 import { openDb } from "../kb/db.ts";
 import { kbDir } from "../kb/store.ts";
 import { fetchOwnMedia } from "./client.ts";
-import { derivar } from "./derive.ts";
+import { derivar, ventanaMedicion } from "./derive.ts";
 import type { Instantanea } from "./snapshots.ts";
 import {
   domingoDeResumen, formatPost, formatResumen, formatResumenTelegram, parsearReferencia, resumirSemana, type Referencia, type ResumenSemana,
@@ -126,7 +126,8 @@ export function resumenDeLaSemana(hasta: string): ResumenSemana {
   const registro = leerRegistroPublicados();
   // Margen de 10 días hacia atrás: sobra para cubrir (hasta − 7 d, hasta] en cualquier zona horaria.
   const desdeIso = new Date(new Date(`${hasta}T00:00:00Z`).getTime() - 10 * DIA_MS).toISOString();
-  return resumirSemana(leerInstantaneas(registro, desdeIso), leerCuenta(), registro, hasta, leerUmbral(), zonaOnlineFollowers(leerConfig()));
+  const config = leerConfig();
+  return resumirSemana(leerInstantaneas(registro, desdeIso), leerCuenta(), registro, hasta, leerUmbral(), zonaOnlineFollowers(config), ventanaMedicion(config));
 }
 
 /** Resumen de los últimos 7 días contados hasta hoy (hora de Chile). */
@@ -141,7 +142,7 @@ export function resumenDelDomingo(now: Date): { domingo: string; md: string; htm
   try {
     // Diagnóstico mensual del bucle (necesita toda la historia, no solo la semana).
     const registro = leerRegistroPublicados();
-    r.diagnostico = diagnosticoDeDatos(now, leerInstantaneas(registro), registro, leerCuenta(), leerUmbral());
+    r.diagnostico = diagnosticoDeDatos(now, leerInstantaneas(registro), registro, leerCuenta(), leerUmbral(), ventanaMedicion(leerConfig()));
   } catch (err) {
     r.avisos.push(`No pude calcular el diagnóstico mensual: ${err instanceof Error ? err.message : String(err)}`);
   }

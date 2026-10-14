@@ -224,3 +224,15 @@ check("resumirSemana: el permalink de una línea `permalink` del registro se aso
   assert.equal(r.mejor?.mediaId, "a");
   assert.equal(r.mejor?.permalink, "https://www.instagram.com/reel/AAA/");
 });
+
+check("resumirSemana: con ventana 72h compara la instantánea de 72 h y el texto lo dice", () => {
+  const pub = "2026-10-01T14:00:00.000Z";
+  const i72 = { ...inst("a", { saved: 7 }), ventana: "72h", tomadaEn: "2026-10-04T14:10:00.000Z" } as Instantanea;
+  const r = resumirSemana([i72, inst("b", { saved: 9 })], cuenta, [reg("a", "guardados", { publicadoEn: pub }), reg("b")], HASTA, 50, undefined, "72h");
+  assert.equal(r.ventana, "72h");
+  assert.equal(r.mejor?.mediaId, "a", "la de 7 d no compite con ventana 72h");
+  assert.equal(r.medidas, 1);
+  const vacio = resumirSemana([], cuenta, [], HASTA, 50, undefined, "72h");
+  assert.match(formatResumen(vacio), /cumplió 72 h/);
+  assert.match(formatResumen(resumirSemana([], cuenta, [], HASTA, 50)), /cumplió 7 d/);
+});
