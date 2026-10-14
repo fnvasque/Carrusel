@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium, type Browser, type Page } from "playwright";
 import { buildReelPage } from "../src/reel/page.ts";
 import { createElement } from "react";
-import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, type ReelTiming } from "../src/reel/timing.ts";
+import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GANCHO, type ReelTiming } from "../src/reel/timing.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
 import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
 import { forceCaretsOn } from "../src/reel/capture.ts";
@@ -679,6 +679,55 @@ try {
     assert.ok(lis.length === 4 && lis.every((o) => o === 1), `--seconds corto: todos los bullets enteros antes de la salida: ${lis}`);
     await r.close();
     console.log(`✓ ritmo ensenar: hook intacto, entradas 1.3× más lentas, bullets cada 1.8 s con su ✓, barra en sincronía (${t.total}s)`);
+  }
+
+  // Ritmo gancho (experimento ritmoReel, semana 2026-10-19): hook ≤ 3 s en
+  // movimiento desde el cuadro 0 (escala 1.12 y desplazado, se asienta en
+  // 0.7 s) pero completo y legible (la portada sale del cuadro 0), palabra
+  // clave en acento antes de 0.5 s, transición 0.3, bullets casi seguidos y
+  // la curva: arranque corto, medio más largo, cierre más lento.
+  {
+    const { page: g, timing: t } = await open(browser, spec, "gancho");
+    assert.equal(t.pace, "gancho");
+    assert.deepEqual([t.transition, t.entranceSlow, t.stagger, t.bulletTail], [0.3, 1, 0.45, 0]);
+    const duration = await g.evaluate(() => (window as any).__reel.duration as number);
+    assert.ok(Math.abs(duration - t.total) <= 1 / t.fps, `gancho: duración ${duration} vs ${t.total}`);
+    assert.ok(t.scenes[0].dur <= HOOK_MAX_SECONDS_GANCHO, `gancho: el hook dura ≤ 3 s: ${t.scenes[0].dur}`);
+    const last = t.scenes[t.scenes.length - 1];
+    assert.ok(last.dur > t.scenes[1].dur, `gancho: el cierre (${last.dur}) es más lento que el arranque (${t.scenes[1].dur})`);
+    const h0 = await hookState(g, 0);
+    assert.equal(h0.split, 0, "gancho: el titular no se divide en palabras");
+    assert.deepEqual([h0.opacity, h0.visibility], [1, "visible"], "gancho: titular completo y visible en el cuadro 0 (portada)");
+    assert.ok(Math.abs(h0.scale - 1.12) < 1e-3, `gancho: titular a 1.12 en el cuadro 0: ${h0.scale}`);
+    const y0 = await g.evaluate(() => {
+      (window as any).__reel.seek(0);
+      const h1 = document.querySelector('[data-scene="0"] h1') as HTMLElement;
+      return { y: new DOMMatrix(getComputedStyle(h1).transform).f, marca: h1.dataset.reelHookGancho };
+    });
+    assert.ok(Math.abs(y0.y - 40) < 1e-3 && y0.marca === "1", `gancho: titular desplazado 40 px en el cuadro 0 (${y0.y})`);
+    assert.equal(h0.pop, h0.parent, "gancho: palabra clave aún en el color del titular en el cuadro 0");
+    const h03 = await hookState(g, 0.3);
+    assert.ok(h03.scale < 1.12 && h03.scale > 1, `gancho: el titular se está asentando a los 0.3 s (${h03.scale})`);
+    const h05 = await hookState(g, 0.49);
+    assert.equal(h05.pop, h05.accent, "gancho: palabra clave en acento antes de 0.5 s");
+    const h08 = await hookState(g, 0.75);
+    assert.ok(Math.abs(h08.scale - 1) < 1e-3, `gancho: titular asentado a los 0.75 s (${h08.scale})`);
+    // Entradas: nunca más lentas (slow 1) y comprimidas solo si no caben.
+    const scales = await g.evaluate(() =>
+      Array.from(document.querySelectorAll("[data-scene]")).map((s) => ({ natural: Number((s as HTMLElement).dataset.reelNatural), scale: Number((s as HTMLElement).dataset.reelScale) })),
+    );
+    scales.forEach((r, i) => {
+      const expected = r.natural > t.scenes[i].budget ? r.natural / t.scenes[i].budget : 1;
+      assert.ok(Math.abs(r.scale - expected) < 1e-3, `gancho: escala de la escena ${i} = ${r.scale} (esperada ${expected})`);
+    });
+    // Bullets (escena 2) a 0.45 s o menos (si la sub se comprime), parejos.
+    const starts = await bulletStarts(g, t, 2);
+    const gaps = starts.slice(1).map((b, j) => b.li - starts[j].li);
+    assert.ok(gaps.length > 0 && gaps.every((x) => x <= t.stagger + 1 / t.fps && Math.abs(x - gaps[0]) <= 1 / t.fps + 1e-6), `gancho: bullets casi seguidos y parejos: ${gaps.map((x) => x.toFixed(3))}`);
+    await assertSeekStable(g, t.total, 0.35, '[data-scene="0"] h1', "hook gancho");
+    await g.close();
+    assert.equal(GANCHO.arranque, 0.2);
+    console.log(`✓ ritmo gancho: hook ≤ 3 s en movimiento desde el cuadro 0, transición 0.3, cierre lento (${t.total}s)`);
   }
 
   // Logo tardío (logoEnCuadro0: false): el wordmark de la escena 0 está oculto

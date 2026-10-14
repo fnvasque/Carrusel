@@ -13,6 +13,7 @@ import { renderCarousel } from "../render/renderCarousel.ts";
 import { Renderer } from "../render/renderSlide.ts";
 import { resolveBackground } from "../render/background.ts";
 import { renderReelResult } from "../reel/renderReel.ts";
+import { maxSecondsError, specTiming } from "../reel/timing.ts";
 import { FORMATS } from "../templates/types.ts";
 import { borradorASpec, parseBorrador, storySpec, type Borrador } from "./draft.ts";
 import {
@@ -335,19 +336,33 @@ export async function leerBorradorSeguro(semana: string, nombre: string): Promis
   return readFile(real, "utf8");
 }
 
-/** Ritmo de lectura del QA desde `_calendario/config.json → puerta.<clave>.valor` (por defecto 2.5 y 1.5). */
+/**
+ * Ritmo de lectura del QA y tope de duración del reel desde
+ * `_calendario/config.json → puerta.<clave>.valor` (por defecto 2.5, 1.5 y 60).
+ */
 export async function leerPuerta(): Promise<Puerta> {
-  const puerta: Puerta = { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5 };
+  const puerta: Puerta = { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5, duracionMaxSegundos: 60 };
   try {
     const cfg = JSON.parse(await readFile(join(calendarioDir(), "config.json"), "utf8"));
     const wps = cfg?.puerta?.lecturaPalabrasPorSegundo?.valor;
     const min = cfg?.puerta?.lecturaMinSegundos?.valor;
+    const max = cfg?.puerta?.duracionMaxSegundos?.valor;
     if (typeof wps === "number" && wps > 0) puerta.lecturaPalabrasPorSegundo = wps;
     if (typeof min === "number" && min >= 0) puerta.lecturaMinSegundos = min;
+    if (typeof max === "number" && Number.isFinite(max) && max > 0) puerta.duracionMaxSegundos = max;
   } catch {
     // Sin config o corrupta: valores por defecto.
   }
   return puerta;
+}
+
+/**
+ * Tope de duración (s) de un reel: `parametros.duracionMaxSegundos` de la pieza
+ * (`plan.json`, experimento) si es un número > 0; si no, el de la puerta.
+ */
+export function topeDuracion(parametros: Record<string, unknown> | undefined, puerta: Puerta): number {
+  const v = parametros?.duracionMaxSegundos;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : puerta.duracionMaxSegundos;
 }
 
 /** Ejecuta ffmpeg (sin shell, timeout 2 min). Lanza un Error en español si falla. */
@@ -473,7 +488,11 @@ export async function renderPieza(
     const audio = join(opts.audioDir, b.audio);
     if (!existsSync(audio)) throw new ErrorContenido([`No existe la pista de audio ${b.audio} en promo/audio/.`]);
     const spec = borradorASpec(b, { format: "reel" });
-    const r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0 });
+    // Tope de duración (experimento duracionMaxSegundos): se comprueba antes de abrir Chromium.
+    const tope = topeDuracion(p.pieza.parametros, opts.puerta);
+    const exceso = maxSecondsError(specTiming(spec, { pace: b.pace }).total, tope);
+    if (exceso) throw new ErrorContenido([exceso]);
+    const r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope });
     await rename(r.path, join(tmp, "reel.mp4"));
     ffmpeg(["-ss", "0", "-i", join(tmp, "reel.mp4"), "-frames:v", "1", "-q:v", "2", join(tmp, "cover.jpg")]);
     archivos.push("reel.mp4", "cover.jpg");

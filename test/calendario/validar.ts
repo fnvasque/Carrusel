@@ -14,6 +14,10 @@ import {
   contarFondosIA,
   reglasDeTexto,
   segundosEscena,
+  segundosEscenas,
+  duracionReel,
+  erroresDeRetencion,
+  DESDE_PALANCAS_RETENCION,
   textoPastilla,
   textosLector,
   validarBorrador,
@@ -25,7 +29,7 @@ import {
   validarCandidatos,
   motivoReferenciaNoLista,
 } from "../../kb-plantilla/_calendario/validar.mjs";
-import { sceneSeconds } from "../../src/reel/timing.ts";
+import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
@@ -337,6 +341,155 @@ check("calendario/validar: pace inválido → error", () => {
   const b = borrador();
   b.pace = "lento";
   assertHas(vb(pieza(), b), /pace/);
+});
+
+// --- palancas de retención (2026-10-19 ritmoReel, 2026-10-26 duracionMaxSegundos) ---
+
+check("calendario/validar: config.json trae ritmoReel (ensenar, base) y duracionMaxSegundos (60) con respaldo", () => {
+  assert.deepEqual(CONFIG_BASE.puerta.ritmoReel, { valor: "ensenar", respaldo: "base" });
+  assert.deepEqual(CONFIG_BASE.puerta.duracionMaxSegundos, { valor: 60, respaldo: "supuesto" });
+  assert.equal(DESDE_PALANCAS_RETENCION, "2026-10-19");
+  // Un ritmo desconocido en la puerta es error de config; un tope no numérico también.
+  assertHas(validarConfig({ ...CONFIG_BASE, puerta: { ...CONFIG_BASE.puerta, ritmoReel: { valor: "turbo", respaldo: "base" } } }), /puerta\.ritmoReel/);
+  assertHas(validarConfig({ ...CONFIG_BASE, puerta: { ...CONFIG_BASE.puerta, duracionMaxSegundos: { valor: "20", respaldo: "base" } } }), /duracionMaxSegundos/);
+});
+
+check("calendario/validar: pace gancho es válido y segundosEscenas coincide con sceneDurations del motor (20 reels, 3 ritmos)", () => {
+  const b = borrador();
+  b.pace = "gancho";
+  assert.ok(!has(vb(pieza({ parametros: { ...PARAMETROS, ritmoReel: "gancho" } }), b), /pace/));
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+  const palabra = () => "abcdefghij".slice(0, 1 + Math.floor(rnd() * 9));
+  const frase = (n: number) => Array.from({ length: n }, palabra).join(" ");
+  for (let i = 0; i < 20; i++) {
+    const slides = Array.from({ length: 1 + Math.floor(rnd() * 7) }, () => {
+      const props: Record<string, unknown> = { title: frase(1 + Math.floor(rnd() * 14)) };
+      if (rnd() < 0.5) props.body = frase(Math.floor(rnd() * 30));
+      if (rnd() < 0.4) props.bullets = Array.from({ length: 1 + Math.floor(rnd() * 5) }, () => frase(4));
+      return { template: "Step", props };
+    });
+    for (const pace of ["ensenar", "rapido", "gancho"] as const) {
+      const motor = sceneDurations(slides.map((x) => x.props), pace);
+      assert.deepEqual(segundosEscenas(slides, pace), motor, JSON.stringify({ pace, slides }));
+      const T = () => null;
+      const t = specTiming({ name: "x", pace, slides: slides.map((x) => ({ template: T, props: x.props })) } as any);
+      assert.equal(duracionReel({ pace, slides }), t.total, `duracionReel ${pace}`);
+    }
+  }
+  // Sin pace válido el borrador va en ensenar (como el motor).
+  assert.equal(duracionReel({ slides: borrador().slides }), duracionReel({ pace: "ensenar", slides: borrador().slides }));
+  assert.equal(duracionReel({ pace: "x", slides: [] }), 0);
+});
+
+check("calendario/validar: ritmoReel — el pace del borrador debe coincidir con parametros.ritmoReel (solo reels)", () => {
+  const p = pieza({ parametros: { ...PARAMETROS, ritmoReel: "gancho" } });
+  assertHas(vb(p, borrador()), /pace "ensenar" del borrador no coincide con parametros\.ritmoReel "gancho"/);
+  const b = borrador();
+  b.pace = "gancho";
+  assert.ok(!has(vb(p, b), /ritmoReel/), "con el mismo ritmo en los dos no hay error de ritmoReel");
+  // Sin pace en el borrador cuenta como ensenar.
+  const sin = borrador();
+  delete sin.pace;
+  assertNone(vb(pieza(), sin));
+  assertHas(vb(p, sin), /ritmoReel/);
+  // En carrusel no se mira.
+  assertNone(vb(pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-10-13", parametros: { ...PARAMETROS, ritmoReel: "gancho" } }), borrador()));
+  // parametros.ritmoReel debe ser un ritmo conocido; un texto cualquiera no.
+  assertHas(validarPieza(pieza({ parametros: { ...PARAMETROS, ritmoReel: "turbo" } }), config), /parametros\.ritmoReel "turbo" inválido/);
+  assertHas(validarPieza(pieza({ parametros: { ...PARAMETROS, ritmoReel: 1 } }), config), /parametros\.ritmoReel debe ser un texto/);
+});
+
+check("calendario/validar: duracionMaxSegundos — el reel que se pasa del tope (puerta o parametros) es error con la duración", () => {
+  const b = borrador();
+  const total = duracionReel(b);
+  assert.ok(total > 10 && total < 60, `duración del borrador de prueba: ${total}`);
+  assertNone(vb(pieza(), b));
+  // Tope de la pieza (experimento): 20 s → el borrador de ~16-18 s pasa; 10 s no.
+  const e = vb(pieza({ parametros: { ...PARAMETROS, duracionMaxSegundos: 10 } }), b);
+  assertHas(e, new RegExp(`el reel dura ${String(total).replace(".", "\\.")} s \\(ritmo ensenar\\) y el tope es 10 s \\(parametros\\.duracionMaxSegundos\\)`));
+  // Tope de la puerta cuando la pieza no trae uno propio.
+  const c = { ...config, puerta: { ...config.puerta, duracionMaxSegundos: { valor: 10, respaldo: "supuesto" } } };
+  const sinTope = clone(PARAMETROS);
+  delete sinTope.duracionMaxSegundos;
+  assertHas(validarBorrador(pieza({ dia: "2026-10-12", parametros: sinTope }), b, c), /puerta\.duracionMaxSegundos/);
+  // parametros manda sobre la puerta (aunque sea mayor).
+  assertNone(validarBorrador(pieza({ parametros: { ...PARAMETROS, duracionMaxSegundos: 60 } }), b, c));
+  // Tope inválido en parametros → error de pieza.
+  assertHas(validarPieza(pieza({ parametros: { ...PARAMETROS, duracionMaxSegundos: 0 } }), config), /duracionMaxSegundos debe ser mayor que 0/);
+  // En carrusel no hay tope de tiempo.
+  assertNone(vb(pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-10-13", parametros: { ...PARAMETROS, duracionMaxSegundos: 1 } }), borrador()));
+  // erroresDeRetencion con entradas raras no lanza.
+  for (const x of [null, 1, "x", [], { slides: "no" }, { slides: [1, 2] }]) assert.ok(Array.isArray(erroresDeRetencion(x, pieza(), config)));
+});
+
+check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas cabe; el borrador ensenar de 4 escenas también", () => {
+  const corto = {
+    name: "lun-reel-resumir-pdfs",
+    angle: "a",
+    pillar: "herramienta",
+    pace: "gancho",
+    audio: "lima-01.mp3",
+    slides: [
+      { template: "Hook", props: { title: "Convierte tus PDFs en un podcast", highlight: "podcast" } },
+      { template: "Lead", props: { text: "Sin leer una página.", highlight: "Sin leer" } },
+      { template: "Step", props: { step: "1", heading: "Sube tus PDFs", body: "Crea un cuaderno y arrastra." } },
+      { template: "Step", props: { step: "2", heading: "Pide el resumen en audio", body: "Elige la versión corta." } },
+      { template: "Step", props: { step: "3", heading: "Escúchalo caminando", body: "Diez minutos y listo." } },
+      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "Fuente: notebooklm.google.com" } },
+    ],
+  };
+  const p = pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, ritmoReel: "gancho", duracionMaxSegundos: 20 } });
+  assertNone(vb(p, corto));
+  assert.ok(duracionReel(corto) <= 20, `gancho 6 escenas: ${duracionReel(corto)} s`);
+  // En ensenar, el borrador de prueba (un Step con 2 bullets, ~12 palabras por escena) se pasa: ~22 s.
+  const ens = borrador();
+  assert.ok(duracionReel(ens) > 20, `ensenar con bullets: ${duracionReel(ens)} s`);
+  assertHas(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens), /tope es 20 s/);
+  // Cabe con 4 escenas de ≤ 6 palabras y sin bullets (lo que dice el manual).
+  ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast" };
+  ens.slides[1].props = { step: "1", heading: "Sube tus PDFs", body: "Arrastra los archivos." };
+  ens.slides[2].props = { step: "2", heading: "Pide el resumen en audio", body: "Versión corta." };
+  ens.slides[3].props = { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "x" };
+  assert.ok(duracionReel(ens) <= 20 && duracionReel(ens) >= 15, `ensenar 4 escenas cortas: ${duracionReel(ens)} s`);
+  assertNone(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens));
+});
+
+check("calendario/validar: presupuesto de lectura en gancho — 7 palabras en el Hook, 5 en el arranque y 10 en el medio pasan; de más fallan", () => {
+  const segundos = (b: any) => reglasDeTexto(b, config, "reel").filter((e) => /segundos/.test(e));
+  const g = borrador();
+  g.pace = "gancho";
+  g.slides[0].props = { title: "Convierte tus PDFs en un podcast gratis", highlight: "podcast" }; // 7
+  g.slides[1].props = { step: "1", heading: "Sube tus PDFs aquí", body: "" }; // 4 (arranque)
+  g.slides[2].props = { step: "2", heading: "Pide el resumen en audio", body: "Elige la versión corta y listo." }; // 5 + 6 = 11? no: 5 + 6 = 11 → se prueba con 10
+  g.slides[2].props.body = "Elige la versión corta ya."; // 5 + 5 = 10
+  g.slides[3].props = { title: "Guárdalo para tu próxima pila de lectura", highlight: "Guárdalo", reason: "Lo usas hoy.", source: "x" }; // 7 + 3 = 10
+  assertNone(segundos(g));
+  const hook = clone(g);
+  hook.slides[0].props.subtitle = "sin leer una sola página"; // 7 + 5 = 12 > 7 (tope 3 s)
+  assert.ok(segundos(hook).some((e: string) => e.startsWith("slide 1")), JSON.stringify(segundos(hook)));
+  const medio = clone(g);
+  medio.slides[2].props.body = "Crea un cuaderno nuevo, arrastra los archivos pendientes y espera a que termine."; // 5 + 13 = 18
+  assert.ok(segundos(medio).some((e: string) => e.startsWith("slide 3")), JSON.stringify(segundos(medio)));
+  // INSTRUCCIONES.md documenta la curva, los topes de palabras y las semanas de cada experimento.
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const re of [/tope de 3 s/, /≤ 7 palabras en el Hook/, /Semana 2026-10-19 → `ritmoReel`/, /Semana 2026-10-26 → `duracionMaxSegundos`/, /### Tope de duración del reel/, /`ritmoReel`: ritmo del reel/, /`duracionMaxSegundos`: tope de duración/]) {
+    assert.match(md, re);
+  }
+});
+
+check("calendario/validar: parametros — ritmoReel y duracionMaxSegundos solo se exigen desde 2026-10-19", () => {
+  const sin = clone(PARAMETROS);
+  delete sin.ritmoReel;
+  delete sin.duracionMaxSegundos;
+  assertNone(validarPieza(pieza({ dia: "2026-10-12", parametros: sin }), config));
+  const e = validarPieza(pieza({ dia: "2026-10-19", parametros: sin }), config);
+  assertHas(e, /falta parametros\.ritmoReel/);
+  assertHas(e, /falta parametros\.duracionMaxSegundos/);
+  // Las demás claves se exigen siempre.
+  const sinHook = clone(sin);
+  delete sinHook.hookUmbral;
+  assertHas(validarPieza(pieza({ dia: "2026-10-12", parametros: sinHook }), config), /falta parametros\.hookUmbral/);
 });
 
 // --- adversarial: entradas raras dan error, nunca excepción ---

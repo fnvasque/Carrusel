@@ -34,7 +34,22 @@ export const PACES = {
     budgetRatio: 0.45,
     budgetMax: 2.4,
   },
+  /**
+   * Experimento de retención (referencias/hook-de-video.md, escalera-de-la-dopamina.md):
+   * entradas rápidas, bullets casi seguidos y transición corta; la curva de
+   * tempo (GANCHO) la aplica `sceneDurations`.
+   */
+  gancho: {
+    transition: 0.3,
+    entranceSlow: 1,
+    stagger: 0.45,
+    budgetRatio: 0.45,
+    budgetMax: 1.6,
+  },
 } as const satisfies Record<Pace, unknown>;
+
+/** Los ritmos válidos, en el orden en que los nombran los mensajes de error. */
+export const PACE_NAMES = ["ensenar", "rapido", "gancho"] as const satisfies readonly Pace[];
 
 /** Ritmo por defecto (si ni el carrusel ni `--pace` lo fijan). */
 export const DEFAULT_PACE: Pace = "ensenar";
@@ -46,10 +61,32 @@ export const DEFAULT_TRANSITION = PACES.rapido.transition;
 export const BULLET_LEAD = 1.0;
 export const BULLET_TAIL = 2.5;
 
+/**
+ * Curva de tempo del ritmo `gancho`, sobre la duración base de cada escena
+ * (`sceneSeconds`): el hook queda como está (≤ HOOK_MAX_SECONDS_GANCHO), las
+ * escenas que empiezan antes del `arranque` del reel se acortan
+ * (`factorArranque`), las del medio se alargan (`factorMedio`: el ritmo frena
+ * pasado el 20 %) y la última se alarga más (`factorCierre`: cierre lento).
+ * Ninguna baja de `minSeconds` ni de lo que piden sus bullets
+ * (bulletLead + stagger × (n − 1) + bulletTail).
+ */
+export const GANCHO = {
+  arranque: 0.2,
+  factorArranque: 0.85,
+  factorMedio: 1.2,
+  factorCierre: 1.5,
+  minSeconds: 1.6,
+  bulletLead: 0.6,
+  bulletTail: 1.2,
+} as const;
+
+/** Tope (s) de la escena 0 en `gancho`: la promesa completa antes de los 3 s (hook-de-video.md). */
+export const HOOK_MAX_SECONDS_GANCHO = 3.0;
+
 /** Valida un ritmo (del carrusel o de `--pace`); lanza un error claro en español. */
 export function parsePace(value: unknown, origin = "--pace"): Pace {
-  if (value === "ensenar" || value === "rapido") return value;
-  throw new Error(`El ritmo ${JSON.stringify(value)} no es válido: ${origin} debe ser "ensenar" o "rapido".`);
+  if ((PACE_NAMES as readonly unknown[]).includes(value)) return value as Pace;
+  throw new Error(`El ritmo ${JSON.stringify(value)} no es válido: ${origin} debe ser "ensenar", "rapido" o "gancho".`);
 }
 
 /**
@@ -84,12 +121,19 @@ function textChars(props: Record<string, unknown>): number {
  *    BULLET_LEAD + stagger × (bullets − 1) + BULLET_TAIL (uno cada 1.8 s y
  *    tiempo para leer el último). Si `hook` (escena 0), tope HOOK_MAX_SECONDS
  *    (también cuando manda la fórmula de bullets: el runtime los acerca).
+ *  - gancho: base clamp(1.6 + chars/28, 2.0, 4.5), sin respiro por `hold` (la
+ *    curva GANCHO alarga el cierre); si `hook`, tope HOOK_MAX_SECONDS_GANCHO.
+ *    Es la duración base: la definitiva la da `sceneDurations`.
  */
 export function sceneSeconds(props: Record<string, unknown>, hold: boolean, pace: Pace = DEFAULT_PACE, hook = false): number {
   const chars = textChars(props);
   if (pace === "rapido") {
     const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
     return +(s + (hold ? 0.7 : 0)).toFixed(2);
+  }
+  if (pace === "gancho") {
+    const s = Math.min(4.5, Math.max(2.0, 1.6 + chars / 28));
+    return +(hook ? Math.min(HOOK_MAX_SECONDS_GANCHO, s) : s).toFixed(2);
   }
   const text = Math.min(8, Math.max(3.5, 2.4 + chars / 16)) + (hold ? 1.0 : 0);
   const bullets = Array.isArray(props.bullets) ? props.bullets.filter((x) => typeof x === "string").length : 0;
@@ -104,14 +148,57 @@ export function specPace(spec: CarouselSpec, pace?: Pace): Pace {
   return spec.pace === undefined ? DEFAULT_PACE : parsePace(spec.pace, `el campo pace de "${spec.name}"`);
 }
 
+/** Bullets (textos) de una escena. */
+function bulletCount(props: Record<string, unknown>): number {
+  return Array.isArray(props.bullets) ? props.bullets.filter((x) => typeof x === "string").length : 0;
+}
+
+/**
+ * Duración de cada escena a partir de las props de todas (ya con `defaults`).
+ * En `ensenar` y `rapido` es `sceneSeconds` escena a escena (respiro en la
+ * primera y la última, tope del hook en la 0). En `gancho` aplica la curva
+ * GANCHO sobre las bases: la escena i empieza (en bases) en Σ base[j<i]; si
+ * eso cae antes de `arranque` × Σ base va rápida, si no, frena; la última
+ * cierra lenta; el hook no se toca. validar.mjs lleva una copia
+ * (`segundosEscenas`).
+ */
+export function sceneDurations(propsList: Record<string, unknown>[], pace: Pace = DEFAULT_PACE): number[] {
+  const last = propsList.length - 1;
+  if (pace !== "gancho") return propsList.map((props, i) => sceneSeconds(props, i === 0 || i === last, pace, i === 0));
+  const base = propsList.map((props, i) => sceneSeconds(props, false, "gancho", i === 0));
+  const total = base.reduce((a, b) => a + b, 0);
+  let cursor = 0;
+  return base.map((b, i) => {
+    const start = cursor;
+    cursor += b;
+    let d = b;
+    if (i === 0) d = b;
+    else if (i === last) d = b * GANCHO.factorCierre;
+    else if (start < total * GANCHO.arranque) d = b * GANCHO.factorArranque;
+    else d = b * GANCHO.factorMedio;
+    const n = bulletCount(propsList[i]);
+    const forBullets = n > 0 ? GANCHO.bulletLead + PACES.gancho.stagger * (n - 1) + GANCHO.bulletTail : 0;
+    return +Math.max(GANCHO.minSeconds, forBullets, d).toFixed(2);
+  });
+}
+
 /** Duración de cada escena del carrusel; `seconds` la fija para todas. */
 export function specDurations(spec: CarouselSpec, seconds?: number, pace?: Pace): number[] {
   const p = specPace(spec, pace);
-  const last = spec.slides.length - 1;
-  return spec.slides.map((slide, i) => {
-    const props = { ...spec.defaults, ...slide.props } as Record<string, unknown>;
-    return seconds ?? sceneSeconds(props, i === 0 || i === last, p, i === 0);
-  });
+  if (seconds !== undefined) return spec.slides.map(() => seconds);
+  return sceneDurations(spec.slides.map((slide) => ({ ...spec.defaults, ...slide.props }) as Record<string, unknown>), p);
+}
+
+/**
+ * Motivo (en español) por el que un reel de `total` s se pasa del tope `max`
+ * (s), o undefined si cabe. Lo usan el calendario (`duracionMaxSegundos` de la
+ * puerta o de `parametros`) y `--max-seconds` del CLI.
+ */
+export function maxSecondsError(total: number, max: number | undefined): string | undefined {
+  if (max === undefined) return undefined;
+  if (!Number.isFinite(max) || max <= 0) return `El tope de duración (${max}) no es válido: debe ser un número de segundos mayor que 0.`;
+  if (total <= max + 1e-9) return undefined;
+  return `El reel dura ${total} s y el tope es ${max} s (duracionMaxSegundos): quita escenas o acorta el texto.`;
 }
 
 /** Tiempo máximo (s) que pueden ocupar las entradas de una escena. */

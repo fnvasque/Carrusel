@@ -46,6 +46,12 @@ document.fonts.ready.then(function () {
     const HOOK_ZOOM = 1.2; // s del acercamiento 1.04 → 1 del titular del hook
     const HOOK_POP_AT = 0.2; // s en que la palabra clave del hook empieza a pasar al acento
     const POP_DUR = 0.3;
+    // Ritmo "gancho" (experimento de retención): el titular del hook arranca más
+    // grande y desplazado y se asienta en HOOK_GANCHO.zoom s (nada estático en el
+    // primer cuadro, pero completo y legible: la portada sale del cuadro 0); la
+    // palabra clave pasa al acento antes.
+    const HOOK_GANCHO = { scale: 1.12, y: 40, zoom: 0.7, popAt: 0.15 };
+    const gancho = T.pace === "gancho";
     const ENTER = 0.45; // s de una entrada rise (y de cada bullet)
     const COUNT_DUR = 1.2; // s que el número de un Stat tarda en contar desde 0
     // Separación entre bullets de un stagger: fuente única para los bullets y
@@ -197,11 +203,21 @@ document.fonts.ready.then(function () {
         ctx.hookTitle = false;
         el.dataset.reelHook = "1";
         el.dataset.reelH0 = String(el.getBoundingClientRect().height);
-        master.fromTo(el, { scale: 1.04 }, { scale: 1, transformOrigin: "50% 50%", duration: HOOK_ZOOM, ease: "power2.out", immediateRender: true }, 0);
+        if (gancho) {
+          el.dataset.reelHookGancho = "1";
+          master.fromTo(
+            el,
+            { scale: HOOK_GANCHO.scale, y: HOOK_GANCHO.y },
+            { scale: 1, y: 0, transformOrigin: "50% 50%", duration: HOOK_GANCHO.zoom, ease: "power3.out", immediateRender: true },
+            0,
+          );
+        } else {
+          master.fromTo(el, { scale: 1.04 }, { scale: 1, transformOrigin: "50% 50%", duration: HOOK_ZOOM, ease: "power2.out", immediateRender: true }, 0);
+        }
         const pop = el.querySelector('[data-anim="pop"]');
         if (pop) {
           pop.dataset.accent = pop.style.color;
-          master.fromTo(pop, { color: getComputedStyle(el).color }, { color: pop.style.color, duration: POP_DUR, ease: "power2.out", immediateRender: true }, HOOK_POP_AT);
+          master.fromTo(pop, { color: getComputedStyle(el).color }, { color: pop.style.color, duration: POP_DUR, ease: "power2.out", immediateRender: true }, gancho ? HOOK_GANCHO.popAt : HOOK_POP_AT);
         }
         return POP_DUR;
       }

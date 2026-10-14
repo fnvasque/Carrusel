@@ -49,7 +49,9 @@ const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "ti
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion"];
 const FORMATOS = ["reel", "carrusel"];
-const PACES = ["ensenar", "rapido"];
+const PACES = ["ensenar", "rapido", "gancho"];
+/** Transición (s) entre escenas de cada ritmo (copia de `PACES[pace].transition`, timing.ts). */
+const TRANSICION = { ensenar: 0.5, rapido: 0.35, gancho: 0.3 };
 const RESPALDOS = ["skill", "supuesto", "base"];
 const CAMPOS_BORRADOR = new Set(["name", "angle", "pillar", "slides", "pace", "audio", "logoEnCuadro0", "hookVideo"]);
 const CAMPOS_SLIDE = new Set(["template", "props", "pillar", "background"]);
@@ -99,7 +101,16 @@ const PUERTA_DEFECTO = {
   lecturaMinSegundos: 1.5,
   reescriturasMax: 3,
   logoEnCuadro0: true,
+  ritmoReel: "ensenar",
+  duracionMaxSegundos: 60,
 };
+/**
+ * Desde esta semana `parametros` debe traer también `ritmoReel` y
+ * `duracionMaxSegundos` (palancas de retención); las semanas anteriores no las
+ * conocían y siguen válidas sin ellas.
+ */
+export const DESDE_PALANCAS_RETENCION = "2026-10-19";
+const PARAMETROS_DESDE = { ritmoReel: DESDE_PALANCAS_RETENCION, duracionMaxSegundos: DESDE_PALANCAS_RETENCION };
 
 // --- utilidades -------------------------------------------------------------
 
@@ -248,6 +259,10 @@ const PACE_ENSENAR = { stagger: 1.8 };
 const HOOK_MAX_SECONDS = 5.0;
 const BULLET_LEAD = 1.0;
 const BULLET_TAIL = 2.5;
+/** Ritmo gancho: copia de `PACES.gancho.stagger`, `HOOK_MAX_SECONDS_GANCHO` y `GANCHO` (timing.ts). */
+const PACE_GANCHO = { stagger: 0.45 };
+const HOOK_MAX_SECONDS_GANCHO = 3.0;
+const GANCHO = { arranque: 0.2, factorArranque: 0.85, factorMedio: 1.2, factorCierre: 1.5, minSeconds: 1.6, bulletLead: 0.6, bulletTail: 1.2 };
 
 function textChars(props) {
   let chars = 0;
@@ -266,11 +281,58 @@ export function segundosEscena(props, hold, pace = "ensenar", hook = false) {
     const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
     return +(s + (hold ? 0.7 : 0)).toFixed(2);
   }
+  if (pace === "gancho") {
+    const s = Math.min(4.5, Math.max(2.0, 1.6 + chars / 28));
+    return +(hook ? Math.min(HOOK_MAX_SECONDS_GANCHO, s) : s).toFixed(2);
+  }
   const text = Math.min(8, Math.max(3.5, 2.4 + chars / 16)) + (hold ? 1.0 : 0);
   const bullets = Array.isArray(props.bullets) ? props.bullets.filter((x) => typeof x === "string").length : 0;
   const forBullets = bullets > 0 ? BULLET_LEAD + PACE_ENSENAR.stagger * (bullets - 1) + BULLET_TAIL : 0;
   const s = Math.max(text, forBullets);
   return +(hook ? Math.min(HOOK_MAX_SECONDS, s) : s).toFixed(2);
+}
+
+/** Ritmo efectivo de un borrador (el del campo `pace`, o "ensenar"). */
+export function ritmoDelBorrador(borrador) {
+  return esObj(borrador) && PACES.includes(borrador.pace) ? borrador.pace : "ensenar";
+}
+
+/**
+ * COPIA de `sceneDurations` (timing.ts): segundos de cada escena del reel. En
+ * ensenar y rapido es `segundosEscena` escena a escena; en gancho aplica la
+ * curva GANCHO sobre las bases (hook intacto, arranque × 0.85 antes del 20 %
+ * del total, medio × 1.2, última × 1.5; piso de 1.6 s y de los bullets).
+ */
+export function segundosEscenas(slides, pace = "ensenar") {
+  const props = slides.map((s) => (esObj(s) && esObj(s.props) ? s.props : {}));
+  const last = props.length - 1;
+  if (pace !== "gancho") return props.map((p, i) => segundosEscena(p, i === 0 || i === last, pace, i === 0));
+  const base = props.map((p, i) => segundosEscena(p, false, "gancho", i === 0));
+  const total = base.reduce((a, b) => a + b, 0);
+  let cursor = 0;
+  return base.map((b, i) => {
+    const start = cursor;
+    cursor += b;
+    let d = b;
+    if (i === 0) d = b;
+    else if (i === last) d = b * GANCHO.factorCierre;
+    else if (start < total * GANCHO.arranque) d = b * GANCHO.factorArranque;
+    else d = b * GANCHO.factorMedio;
+    const n = Array.isArray(props[i].bullets) ? props[i].bullets.filter((x) => typeof x === "string").length : 0;
+    const forBullets = n > 0 ? GANCHO.bulletLead + PACE_GANCHO.stagger * (n - 1) + GANCHO.bulletTail : 0;
+    return +Math.max(GANCHO.minSeconds, forBullets, d).toFixed(2);
+  });
+}
+
+/**
+ * Duración total (s) del reel de un borrador, como la calcula el motor
+ * (`reelTiming`): Σ escenas − (n − 1) × transición del ritmo. 0 si no hay slides.
+ */
+export function duracionReel(borrador) {
+  if (!esObj(borrador) || !Array.isArray(borrador.slides) || borrador.slides.length === 0) return 0;
+  const pace = ritmoDelBorrador(borrador);
+  const d = segundosEscenas(borrador.slides, pace);
+  return +(d.reduce((a, b) => a + b, 0) - (d.length - 1) * TRANSICION[pace]).toFixed(3);
 }
 
 /** Palabras que hay que leer en una escena (las mismas props que mide el motor). */
@@ -394,15 +456,15 @@ export function reglasDeTexto(borrador, config, formato) {
       errs.push(`la pieza usa ${terminos.size} términos técnicos (${[...terminos].join(", ")}); máximo ${maxTerminos} (puerta.terminosTecnicosMax), explicado en 3 palabras`);
     }
     if (formato === "reel") {
-      const pace = PACES.includes(borrador.pace) ? borrador.pace : "ensenar";
+      const pace = ritmoDelBorrador(borrador);
       const wps = puerta(config, "lecturaPalabrasPorSegundo");
       const minS = puerta(config, "lecturaMinSegundos");
-      const ultima = slides.length - 1;
+      const duraciones = segundosEscenas(slides, pace);
       slides.forEach((slide, i) => {
         if (!esObj(slide) || !esObj(slide.props)) return;
         const n = palabrasEscena(slide.props);
         const necesita = Math.max(minS, n / wps);
-        const da = segundosEscena(slide.props, i === 0 || i === ultima, pace, i === 0);
+        const da = duraciones[i];
         if (necesita > da + 1e-9) {
           errs.push(
             `slide ${i + 1}: ${n} palabras necesitan ${necesita.toFixed(1)} segundos de lectura y el reel la muestra ${da} s (puerta.lecturaPalabrasPorSegundo = ${wps}; acorta el texto)`,
@@ -497,7 +559,7 @@ export function contarFondosIA(borradores) {
  * lista). Sin esto el bucle no puede comparar parámetros de la puerta. Se permiten
  * claves extra (la variable del experimento, `tituloPalabras`…).
  */
-function erroresDeParametros(parametros, config) {
+function erroresDeParametros(parametros, config, dia) {
   if (parametros === undefined || parametros === null) {
     return ["falta parametros (cada clave de config.puerta con el valor que usaste; ver INSTRUCCIONES.md, \"Fuente y parámetros\")"];
   }
@@ -507,6 +569,8 @@ function erroresDeParametros(parametros, config) {
   for (const k of claves) {
     const ref = puerta(config, k);
     if (!Object.hasOwn(parametros, k)) {
+      // Palancas nuevas: solo se exigen desde su semana (las anteriores no las conocían).
+      if (PARAMETROS_DESDE[k] && typeof dia === "string" && dia < PARAMETROS_DESDE[k]) continue;
       errs.push(`falta parametros.${k} (el valor de puerta.${k} que usaste)`);
       continue;
     }
@@ -517,9 +581,40 @@ function erroresDeParametros(parametros, config) {
       if (typeof v !== "boolean") errs.push(`parametros.${k} debe ser true o false (como puerta.${k})`);
     } else if (typeof ref === "number") {
       if (typeof v !== "number" || !Number.isFinite(v)) errs.push(`parametros.${k} debe ser un número (como puerta.${k})`);
+      else if (k === "duracionMaxSegundos" && v <= 0) errs.push(`parametros.${k} debe ser mayor que 0 (segundos)`);
+    } else if (typeof ref === "string") {
+      if (typeof v !== "string") errs.push(`parametros.${k} debe ser un texto (como puerta.${k})`);
+      else if (k === "ritmoReel" && !PACES.includes(v)) errs.push(`parametros.ritmoReel ${q(v)} inválido (usa: ${PACES.join(", ")})`);
     }
   }
   return errs;
+}
+
+/**
+ * Palancas de retención del reel (experimentos 2026-10-19 y 2026-10-26): el
+ * `pace` del borrador debe coincidir con `parametros.ritmoReel` de su pieza, y
+ * el reel completo (como lo calcula el motor) no puede pasar de
+ * `duracionMaxSegundos` (el de `parametros` si viene; si no, el de la puerta).
+ * Solo en reels; en un carrusel `pace` se ignora.
+ */
+export function erroresDeRetencion(borrador, pieza, config) {
+  return seguro(() => {
+    if (!esObj(borrador) || !esObj(pieza) || pieza.formato !== "reel") return [];
+    const errs = [];
+    const params = esObj(pieza.parametros) ? pieza.parametros : {};
+    const pace = ritmoDelBorrador(borrador);
+    if (typeof params.ritmoReel === "string" && PACES.includes(params.ritmoReel) && params.ritmoReel !== pace) {
+      errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con parametros.ritmoReel ${q(params.ritmoReel)} (pon el mismo en los dos)`);
+    }
+    const tope = typeof params.duracionMaxSegundos === "number" && params.duracionMaxSegundos > 0 ? params.duracionMaxSegundos : puerta(config, "duracionMaxSegundos");
+    if (!Array.isArray(borrador.slides) || !borrador.slides.every((s) => esObj(s) && esObj(s.props))) return errs;
+    const total = duracionReel(borrador);
+    if (typeof tope === "number" && Number.isFinite(tope) && tope > 0 && total > tope + 1e-9) {
+      const origen = typeof params.duracionMaxSegundos === "number" ? "parametros.duracionMaxSegundos" : "puerta.duracionMaxSegundos";
+      errs.push(`el reel dura ${total} s (ritmo ${pace}) y el tope es ${tope} s (${origen}): quita escenas o acorta el texto`);
+    }
+    return errs;
+  });
 }
 
 /** Una duda no bloqueante bien escrita: `NB: «cita textual» → regla` (la regla hasta el fin de línea, "; NB:" o el final). */
@@ -581,7 +676,7 @@ function erroresDePieza(p, config) {
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
-  errs.push(...erroresDeParametros(p.parametros, config));
+  errs.push(...erroresDeParametros(p.parametros, config, p.dia));
   errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined));
   return errs;
 }
@@ -742,6 +837,7 @@ export function validarBorrador(pieza, borrador, config) {
     if (!esObj(borrador)) return [...errs, "el borrador no es un objeto JSON"];
     errs.push(...erroresDeBorrador(borrador, pieza, config));
     errs.push(...reglasDeTexto(borrador, config, pieza.formato));
+    errs.push(...erroresDeRetencion(borrador, pieza, config));
     return errs;
   });
 }
@@ -1214,6 +1310,7 @@ export function validarConfig(config) {
             ? typeof p.valor === "number" && Number.isFinite(p.valor) && p.valor > 0
             : typeof p.valor === typeof d;
         if (!ok) errs.push(`puerta.${k}.valor tiene un tipo inválido`);
+        else if (k === "ritmoReel" && !PACES.includes(p.valor)) errs.push(`puerta.ritmoReel.valor ${q(p.valor)} inválido (usa: ${PACES.join(", ")})`);
       }
     }
     return errs;
@@ -1344,6 +1441,8 @@ export const EJEMPLO = {
           lecturaMinSegundos: 1.5,
           reescriturasMax: 3,
           logoEnCuadro0: true,
+          ritmoReel: "ensenar",
+          duracionMaxSegundos: 60,
           tituloPalabras: 7,
           hook: "curiosidad",
         },

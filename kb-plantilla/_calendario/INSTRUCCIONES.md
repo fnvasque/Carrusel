@@ -271,12 +271,37 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   permitidas: `tema`, `arquetipo`, `hora`, `duracion`, `hook` (tipo de hook),
   `hookVideo` (clip de video detrás del hook, ver Paso 5) o
   un parámetro de `puerta` (por su nombre, p. ej. `tituloMaxPalabras` o
-  `logoEnCuadro0`). Va en `plan.json → experimento` (`variable`, `hipotesis`,
+  `logoEnCuadro0`, `ritmoReel`, `duracionMaxSegundos`). Va en
+  `plan.json → experimento` (`variable`, `hipotesis`,
   `piezas` con los ids afectados) y como entrada nueva en `experimentos.md` con
   `- Resultado: pendiente (se evalúa el <lunes + 4 semanas>)`. Solo si la
   variable es `arquetipo`, las piezas del experimento pueden salirse del
   arquetipo del mix. Para probar `logoEnCuadro0`, pon `"logoEnCuadro0": false`
   en los borradores de esas piezas.
+- **Palancas de retención de los reels** (diagnóstico del 2026-10-13: el 89 %
+  del alcance es de no seguidores, pero ningún reel pasa del 30 % de
+  finalización y los últimos tres se abandonan a 1,8–4,7 s con reels de 36–49 s;
+  falla el primer segundo y el largo, no el tema). Son dos variables distintas y
+  van en semanas distintas, **una por semana**:
+  - **Semana 2026-10-19 → `ritmoReel`** (ritmo `gancho`). Hipótesis sugerida:
+    "un hook en movimiento de ≤ 3 s, arranque rápido hasta el 20 % del reel y
+    cierre lento retienen más que el ritmo enseñar". En `plan.json`:
+    `"experimento": {"variable": "ritmoReel", …}`; en las piezas del
+    experimento `"parametros": {…, "ritmoReel": "gancho"}` y en su borrador
+    `"pace": "gancho"` (el validador exige que coincidan). Las demás piezas
+    siguen con `"ritmoReel": "ensenar"` y `"pace": "ensenar"`. Deja
+    `duracionMaxSegundos` en el valor de `config.json` en todas.
+  - **Semana 2026-10-26 → `duracionMaxSegundos`** (reels cortos, valor
+    sugerido 20). Hipótesis sugerida: "un reel de ≤ 20 s se termina de ver más
+    veces que uno de 36–49 s". En las piezas del experimento
+    `"parametros": {…, "duracionMaxSegundos": 20}` y un borrador que quepa (el
+    validador suma las escenas como el motor y rechaza el que se pase; ver
+    "Tope de duración del reel"). Las demás piezas quedan con el valor de
+    `config.json`. Deja `ritmoReel` en `ensenar` en todas (no mezcles con el
+    experimento anterior, que sigue abierto hasta evaluarse).
+  Si el experimento de la semana anterior sigue "pendiente", no lo vuelvas a
+  declarar: la variable de la semana es la nueva. Registra en `experimentos.md`
+  qué piezas llevan el valor probado.
 - **Un experimento se declara una sola vez** (la semana en que empieza) y se
   evalúa a las 4 semanas (Paso 2). Las semanas siguientes no vuelvas a
   declararlo: mientras haya uno abierto en `experimentos.md` (con "Resultado:
@@ -347,6 +372,14 @@ Los lee el validador; no los copies a mano, léelos de `config.json` cada semana
   texto por escena de reel".
 - `reescriturasMax`: vueltas máximas por pieza (lector frío + validador).
 - `logoEnCuadro0`: marca en el primer cuadro (por defecto sí).
+- `ritmoReel`: ritmo del reel (`ensenar` por defecto, `rapido` o `gancho`).
+  Es el `pace` que debe llevar el borrador de cada reel; se declara en
+  `parametros` para que el bucle compare ritmos. Ver "Presupuesto de texto por
+  escena de reel".
+- `duracionMaxSegundos`: tope de duración del reel completo (60 por defecto).
+  El validador calcula la duración como el motor y rechaza el borrador que se
+  pase; en `parametros` puede ir un valor menor para la pieza (experimento).
+  Ver "Tope de duración del reel".
 
 El prompt copiable (`prompt` de la plantilla Prompt) y la cita (`source`) no
 pasan por las reglas de siglas, relleno y términos: son para copiar y para
@@ -378,6 +411,35 @@ palabras muy cortas ("de", "la", "y") el tope baja. Si una idea no cabe,
 pártela en dos escenas o pasa el detalle al caption. En carruseles no hay
 presupuesto de tiempo (rigen solo las longitudes de la puerta).
 
+Con `"pace": "gancho"` (experimento `ritmoReel`) el motor da menos tiempo y lo
+reparte en curva (`sceneDurations` en `src/reel/timing.ts`): cada escena parte
+de una base `min(4.5, max(2, 1.6 + caracteres / 28))`; el Hook se queda en su
+base con **tope de 3 s**; las escenas que empiezan antes del 20 % del reel van
+× 0,85 (arranque rápido); las del medio × 1,2 (el ritmo frena); la última × 1,5
+(cierre lento); ninguna baja de 1,6 s ni de `0,6 + 0,45 × (bullets − 1) + 1,2`.
+Regla práctica en gancho: **≤ 7 palabras en el Hook** (3 s), **≤ 5 en las
+escenas del arranque** y **≤ 10 en las del medio y la última**; la promesa del
+reel debe estar completa en el titular del Hook, sin `subtitle` largo. El
+titular arranca en movimiento (más grande y desplazado) desde el cuadro 0 y se
+asienta en 0,7 s: igual se lee completo en la portada.
+
+### Tope de duración del reel
+
+El validador suma las escenas como el motor (`reelTiming`: Σ escenas − (n − 1) ×
+transición: 0,5 s en enseñar, 0,35 en rápido, 0,3 en gancho) y rechaza el
+borrador si el total pasa de `duracionMaxSegundos` (`parametros` de la pieza, o
+la puerta). El Mac hace la misma comprobación antes de renderizar. Orientación
+para que quepa un reel de **20 s** (experimento de la semana 2026-10-26):
+
+- En `ensenar`: 4 escenas con **≤ 6 palabras cada una y sin bullets** (Hook
+  ≤ 5 s + 2 del medio de ~3,5 s + Cta ~5 s ≈ 15–17 s). Con 10–12 palabras por
+  escena o un Step con bullets, 4 escenas ya dan ~22 s (cada bullet suma 1,8 s;
+  un Step con 3 bullets dura 7,1 s).
+- En `gancho`: 5 a 6 escenas (Hook 3 s + 1 de arranque ~1,7 s + 2 o 3 del medio
+  de ~2,4–3,6 s + Cta ~3–4,5 s ≈ 13–18 s).
+- Si no cabe: quita una escena antes que apretar texto; el detalle va al
+  caption. El Cta no se quita.
+
 ### Lo que revisa el validador además
 
 - Máximo 10 slides (límite de la API). La primera es un `Hook` (con
@@ -395,9 +457,12 @@ presupuesto de tiempo (rigen solo las longitudes de la puerta).
 - Hook con video IA: `"hookVideo": { "prompt": "…", "segundos": 5 }` en el
   borrador, solo en reels, **máximo `hookVideoMaxSemana` (1) en toda la
   semana**, y el `Hook` de ese reel sin `background`. Ver "Hook con video IA".
-- Reel: `"pace": "ensenar"` y `"audio"` con el nombre exacto de una pista de
+- Reel: `"pace"` igual a `parametros.ritmoReel` de la pieza (`ensenar` salvo
+  experimento) y `"audio"` con el nombre exacto de una pista de
   `config.audios` (sin rutas; si la lista está vacía, no hay reels: ver Paso 4).
   Carrusel: `pace` y `audio` no hacen falta.
+- Reel: duración total ≤ `duracionMaxSegundos` (el de `parametros` de la pieza
+  si viene; si no, el de la puerta). Ver "Tope de duración del reel".
 - `plan.json` y los borradores son archivos normales de la carpeta (no enlaces
   simbólicos) y JSON válido en UTF-8 sin BOM.
 - `name` del borrador = `id` de la pieza; `pillar` = `pilar` de la pieza.
@@ -561,7 +626,7 @@ hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
       "caption": "Automatización para estudiar: 6 PDFs convertidos en un podcast gratis.\n\nGuárdalo para tu próxima semana de lectura.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "lun-reel-pdfs-a-podcast.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "ensenar", "duracionMaxSegundos": 60}
     },
     {
       "id": "mar-carrusel-estudio-pdfs",
@@ -582,7 +647,7 @@ hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
       "caption": "Estudio en 10 minutos: 5 preguntas para repasar cualquier PDF.\n\nGuárdalo para tu próxima prueba.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "mar-carrusel-estudio-pdfs.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "ensenar", "duracionMaxSegundos": 60}
     },
     {
       "id": "mie-reel-podcast-amigo",
@@ -603,7 +668,7 @@ hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
       "caption": "Podcasts hechos con tus propios documentos, gratis.\n\nMándaselo a quien tiene la pila de lectura más alta.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "mie-reel-podcast-amigo.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "ensenar", "duracionMaxSegundos": 60}
     },
     {
       "id": "jue-reel-lectura-audio",
@@ -624,7 +689,7 @@ hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
       "caption": "Lectura en audio: un PDF de 40 páginas en 3 minutos.\n\nMíralo hasta el final para ver el resultado.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "jue-reel-lectura-audio.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "ensenar", "duracionMaxSegundos": 60}
     },
     {
       "id": "vie-carrusel-resumenes",
@@ -645,7 +710,7 @@ hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
       "caption": "Resúmenes en audio: cuándo sirven y cuándo no.\n\n¿Tú los usas para estudiar? Cuéntalo en los comentarios.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "vie-carrusel-resumenes.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "ensenar", "duracionMaxSegundos": 60}
     },
     {
       "id": "sab-reel-productividad",
@@ -666,7 +731,7 @@ hooks, captions, `origen` y `parametros` con los valores que de verdad usaste:
       "caption": "Productividad al caminar: tu pila de lectura convertida en un podcast.\n\nGuárdalo para tu próxima caminata.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "sab-reel-productividad.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "ensenar", "duracionMaxSegundos": 60}
     }
   ]
 }
@@ -746,6 +811,8 @@ Una entrada de `plan.json → piezas`:
     "lecturaMinSegundos": 1.5,
     "reescriturasMax": 3,
     "logoEnCuadro0": true,
+    "ritmoReel": "ensenar",
+    "duracionMaxSegundos": 60,
     "tituloPalabras": 7,
     "hook": "curiosidad"
   }

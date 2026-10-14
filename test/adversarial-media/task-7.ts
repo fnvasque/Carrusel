@@ -15,7 +15,7 @@ import { renderReelResult } from "../../src/reel/renderReel.ts";
  * Las carpetas temporales no se borran a propósito, para poder mirar los cuadros.
  */
 
-const puerta: Puerta = { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5 };
+const puerta: Puerta = { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5, duracionMaxSegundos: 60 };
 const dir = await mkdtemp(join(tmpdir(), "adv-t7-"));
 
 function ffmpeg(args: string[]): void {

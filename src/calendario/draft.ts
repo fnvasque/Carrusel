@@ -22,7 +22,11 @@ export interface BorradorBackground extends LogicalBackground {
 
 /** Borrador = VariationDraft del remix + ritmo, pista de audio y logo en el cuadro 0. */
 export interface Borrador extends VariationDraft {
-  /** Ritmo del reel (por defecto el del motor, "ensenar"). El carrusel lo ignora. */
+  /**
+   * Ritmo del reel (por defecto el del motor, "ensenar"; "gancho" es el
+   * experimento de retención y debe coincidir con `parametros.ritmoReel` de la
+   * pieza, lo exige validar.mjs). El carrusel lo ignora.
+   */
   pace?: Pace;
   /** Nombre de una pista de `promo/audio/` (solo reels). */
   audio?: string;
