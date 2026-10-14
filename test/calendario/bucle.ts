@@ -671,3 +671,75 @@ await checkAsync("escribirBucle: con deps inyectadas escribe en la ruta pedida",
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// --- ventana de medición y semanas de experimento (ajuste 2026-10-14) ---
+
+check("medicionesDe: con ventana 72h entra la instantánea de 72 h tomada a ≤ 6 h de pub + 72 h, y no la de 7 d", () => {
+  const t72 = "2026-10-15T17:30:00.000Z"; // pub 2026-10-12T17:00Z + 72 h + 30 min
+  const ii = [{ ...inst("1", {}, t72), ventana: "72h" } as Instantanea, inst("2")];
+  const reg = [regl("1"), regl("2")];
+  assert.deepEqual(medicionesDe(ii, reg, [], 50, "72h").map((x) => x.mediaId), ["1"]);
+  assert.deepEqual(medicionesDe(ii, reg, [], 50).map((x) => x.mediaId), ["2"], "sin ventana sigue siendo 7d");
+  const tarde = { ...inst("1", {}, "2026-10-16T03:00:00.000Z"), ventana: "72h" } as Instantanea; // 10 h tarde
+  assert.deepEqual(medicionesDe([tarde], reg, [], 50, "72h"), []);
+});
+
+check("construirBucle: config.ventanaMedicion y semanasExperimento salen en bucle.json y mandan en sinMedir, evaluarDesde y parametros", () => {
+  const t72 = "2026-10-15T17:30:00.000Z";
+  const ii = [{ ...inst("1", {}, t72), ventana: "72h" } as Instantanea];
+  const reg = [regl("1"), regl("2", { piezaId: "pz-2", publicadoEn: "2026-10-16T17:00:00.000Z" })];
+  const plan: Plan = {
+    semana: "2026-10-05", zona: "America/Santiago", experimento: { variable: "hook", hipotesis: "h", piezas: ["x"] }, piezas: [],
+  };
+  const config = { ventanaMedicion: { valor: "72h", respaldo: "base" }, semanasExperimento: { valor: 2, respaldo: "supuesto" } };
+  const b = construirBucle({ ahora: AHORA, instantaneas: ii, registro: reg, semanas: [{ semana: plan.semana, plan, render: {}, estado: {} }], cuenta: {}, config });
+  assert.equal(b.ventanaMedicion, "72h");
+  assert.equal(b.semanasExperimento, 2);
+  assert.deepEqual(b.piezas.map((p) => p.piezaId), ["pz-1"]);
+  assert.deepEqual(b.sinMedir, [{ piezaId: "pz-2", semana: "2026-10-12", mediaId: "2", motivo: "pendiente: cumple 72 h el 2026-10-19" }]);
+  assert.equal(b.experimentos[0]!.evaluarDesde, "2026-10-19", "lunes + 2 semanas");
+  // Valores raros: se cae a 7d y 4 semanas.
+  const raro = construirBucle({ ahora: AHORA, instantaneas: ii, registro: reg, semanas: [], cuenta: {}, config: { ventanaMedicion: "3d", semanasExperimento: 0 } });
+  assert.equal(raro.ventanaMedicion, "7d");
+  assert.equal(raro.semanasExperimento, 4);
+  assert.deepEqual(raro.piezas, [], "la de 72h no cuenta como 7d");
+});
+
+check("compararParametro: el mínimo de semanas sigue a semanasExperimento", () => {
+  const dos = (logo: boolean, semana: string): Medicion[] => Array.from({ length: 6 }, () => med({ parametros: { logoEnCuadro0: logo }, valor: logo ? 2 : 1, semana }));
+  const m = [...dos(true, "2026-10-05"), ...dos(false, "2026-10-12")];
+  assert.equal(compararParametro(m, "logoEnCuadro0"), undefined, "con 2 semanas y el mínimo por defecto (4) no compara");
+  const r = compararParametro(m, "logoEnCuadro0", 2)!;
+  assert.deepEqual(r.map((x) => [x.valor, x.n]), [["true", 6], ["false", 6]]);
+});
+
+check("construirBucle: con una variable de la puerta el control suma las piezas de semanas anteriores con otro valor (control.historico)", () => {
+  const pieza = (id: string, ritmo: string): Plan["piezas"][number] => ({ id, formato: "reel", parametros: { ritmoReel: ritmo } } as unknown as Plan["piezas"][number]);
+  const planA: Plan = { semana: "2026-10-05", zona: "America/Santiago", experimento: null, piezas: [pieza("pz-1", "ensenar"), pieza("pz-2", "ensenar")] };
+  const planB: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: { variable: "ritmoReel", hipotesis: "h", piezas: ["pz-3", "pz-4"] },
+    piezas: [pieza("pz-3", "gancho"), pieza("pz-4", "gancho"), { id: "pz-5", formato: "carrusel", parametros: { ritmoReel: "ensenar" } } as unknown as Plan["piezas"][number]],
+  };
+  const pubA = "2026-10-06T17:00:00.000Z";
+  const reg = [
+    regl("1", { semana: "2026-10-05", publicadoEn: pubA, senal: "retencion" }), regl("2", { piezaId: "pz-2", semana: "2026-10-05", publicadoEn: pubA, senal: "retencion" }),
+    regl("3", { piezaId: "pz-3", senal: "retencion" }), regl("4", { piezaId: "pz-4", senal: "retencion" }), regl("5", { piezaId: "pz-5", formato: "carrusel" }),
+  ];
+  const ii = [
+    inst("1", { avg_watch_ms: 2000 }, "2026-10-13T17:05:00.000Z"), inst("2", { avg_watch_ms: 4000 }, "2026-10-13T17:05:00.000Z"),
+    inst("3", { avg_watch_ms: 8000 }), inst("4", { avg_watch_ms: 10000 }), inst("5"),
+  ];
+  const config = { puerta: { ritmoReel: { valor: "gancho", respaldo: "base" } } };
+  const semanas: SemanaLeida[] = [{ semana: planA.semana, plan: planA, render: {}, estado: {} }, { semana: planB.semana, plan: planB, render: {}, estado: {} }];
+  const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config });
+  const e = b.experimentos[0]!;
+  assert.equal(e.experimento.n, 2);
+  // Control: pz-5 (misma semana, otra señal: cuenta en su propio índice) + pz-1 y pz-2 (semana anterior, ensenar). El carrusel pz-5 no entra en el histórico, pero sí como resto de su semana.
+  assert.equal(e.control.historico, 2);
+  assert.equal(e.control.n, 3);
+  assert.ok(e.experimento.media! > e.control.media!, "gancho retiene más que enseñar");
+  // Sin variable de la puerta no hay histórico.
+  const sinPuerta = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} });
+  assert.equal(sinPuerta.experimentos[0]!.control.historico, undefined);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});

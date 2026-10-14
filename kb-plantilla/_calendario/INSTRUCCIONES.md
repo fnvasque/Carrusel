@@ -56,7 +56,7 @@ métricas):
    puerta en `puerta`, `terminosTecnicos`, `audios`) y `_calendario/lector-frio.md`.
 2. `_metricas/bucle.json`: el bucle de feedback ya calculado por el bot (pesos
    por tema, arquetipo y categoría de hook con ≥ 3 piezas medidas; ganadores
-   del 20 % superior de su señal a 7 días; derivados pendientes; horas desde
+   del 20 % superior de su señal en la ventana de medición; derivados pendientes; horas desde
    `online_followers` cuando la cuenta pase los 100 seguidores; diagnóstico
    mensual; comparaciones de parámetros de la puerta). No recalcules
    estadística: úsalo tal cual.
@@ -78,10 +78,17 @@ métricas):
 El bot lo escribe cada domingo entre las 05:30 y las 06:00 (o, si estuvo
 caído, más tarde ese domingo o el lunes). Mira `generado`: si es de hace más
 de 8 días, trátalo como "sin métricas" y anótalo en `plan.json → motivo` solo
-si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
-7 días comparable; los posts manuales y las pruebas no cuentan. Campos:
+si te impidió decidir algo. Solo entran piezas del motor con su instantánea de la
+**ventana de medición** comparable (`ventanaMedicion`: `72h` o `7d`, la fija el
+usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
 
 - `semana`: el lunes que vas a planificar (debe coincidir con `$SEMANA`).
+- `ventanaMedicion`: la instantánea con que se midió todo lo que sigue (`72h`
+  mientras el alcance sea bajo: a esa escala 24 h, 72 h y 7 d dicen lo mismo y
+  medir a 72 h adelanta el aprendizaje 4 días). Donde este manual dice "ventana
+  de medición" es esta.
+- `semanasExperimento`: semanas que espera un experimento antes de evaluarse
+  (`2` mientras la cuenta cuente en conteos de un dígito; `4` con tasas).
 - `escala`: `absoluto` (conteos, alcance < `umbralAlcanceTasas`) o `tasa`
   (por alcance). Cuando la cuenta cruza el umbral, los pesos y ganadores usan
   solo las piezas medidas en tasa: no se mezclan conteos con tasas.
@@ -95,7 +102,7 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
 - Una pieza se identifica por `"<semana>/<id>"` (el mismo `id` puede repetirse
   en otra semana); así vienen las claves de `ganadoresVistos` y
   `seguidoresPorPieza`.
-- `ganadores`: piezas en el 20 % superior de su señal a 7 días, cada una
+- `ganadores`: piezas en el 20 % superior de su señal en la ventana de medición, cada una
   comparada solo con las de su misma escala (`piezaId`, `senal`, `valor`,
   `modo`, `semana`, `tema`). Hay ganadores desde la primera semana medida: con
   2 a 4 piezas medidas de una señal gana la mejor; con 5 o más, el 20 %
@@ -117,8 +124,8 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
 - `seguidoresPorPieza`: seguidores nuevos del día siguiente a cada pieza
   (aproximación: también cuentan los de otras causas; bajo 100 seguidores
   sale de la diferencia diaria del total, `cuenta.json → historial`).
-- `piezas`: **una fila por pieza medida**, con todo lo de su instantánea de
-  7 días en un solo lugar: `piezaId`, `semana`, `formato`, `tema`,
+- `piezas`: **una fila por pieza medida**, con todo lo de su instantánea de la
+  ventana de medición en un solo lugar: `piezaId`, `semana`, `formato`, `tema`,
   `arquetipo`, `senal`, `hookCategoria`, `hookTexto` (el título que se
   publicó), `predictedScore`, `valor` y `modo` (lo que el bucle compara),
   `reach`, `saved`, `shares`, `comments`, `views`, `likes`, `avgWatchMs`,
@@ -136,30 +143,35 @@ si te impidió decidir algo. Solo entran piezas del motor con su instantánea de
   `candidatos.json` (Paso 8); un malentendido repetido es una mejora para el
   próximo hook o para `aprendizajes.md`.
 - `sinMedir`: piezas publicadas por el motor que todavía no tienen su
-  instantánea de 7 días comparable, con `motivo` (`pendiente: cumple 7 d el
-  …` o `sin instantánea de 7 d comparable`). Las pendientes entran el domingo
-  siguiente: la pieza del domingo siempre se mide una semana después.
+  instantánea de la ventana comparable, con `motivo` (`pendiente: cumple 72 h el
+  …` o `sin instantánea de 72 h comparable`). Las pendientes entran el domingo
+  siguiente: con `72h` el domingo ya están medidas lunes, martes y miércoles;
+  jueves a domingo se miden una semana después.
 - `borradas`: piezas que Instagram ya no devuelve (las borró el usuario a
   mano). Nunca tendrán métricas: no las cuentes como "sin datos por bot
   caído" ni las uses de ganador o derivado.
 - `cuenta`: `seguidoresNuevos28d` y `alcance28d` (últimos 28 días; el alcance
-  suma el de cada post a 7 días) y `seguidoresNuevosPrevios28d` (los 28
-  anteriores), la base del diagnóstico.
+  suma el de cada post en la ventana de medición) y `seguidoresNuevosPrevios28d`
+  (los 28 anteriores), la base del diagnóstico.
 - `diagnostico`: frases del diagnóstico mensual (sale solo con ≥ 4 semanas de
   datos). Úsalas como dice el Paso 2.
 - `parametros`: por parámetro de `plan.json → parametros`, una lista con un
   elemento por valor: `valor` (como texto, p. ej. `"true"` o `"12"`), `n`
-  (piezas) y `media` (media relativa, 1 = la media de la cuenta). Solo aparece con ≥ 4
-  semanas y ≥ 6 piezas por valor: es la base de una `Propuesta:` en
-  `aprendizajes.md`.
+  (piezas) y `media` (media relativa, 1 = la media de la cuenta). Solo aparece con
+  ≥ `semanasExperimento` semanas y ≥ 6 piezas por valor: es la base de una
+  `Propuesta:` en `aprendizajes.md`.
 - `experimentos`: cada experimento declarado en las últimas semanas, con
-  `evaluarDesde` (lunes + 4 semanas), `evaluable` y la media relativa de las
-  piezas del experimento contra el resto de su semana (`experimento`,
-  `control`). `variableValida: false` significa que la variable no es una de
+  `evaluarDesde` (lunes + `semanasExperimento` semanas), `evaluable` y la media
+  relativa de las piezas del experimento (`experimento`) contra el control
+  (`control`): el resto de su semana y, si la variable es un parámetro de la
+  puerta, también las piezas de semanas anteriores producidas con otro valor
+  (`control.historico` dice cuántas). Así un experimento que abarca todos los
+  reels de la semana se compara contra las semanas previas, no contra los
+  carruseles. `variableValida: false` significa que la variable no es una de
   las permitidas (Paso 4). `borradas` lista las piezas del experimento que
   se borraron de Instagram: si **todas** sus piezas están ahí, ciérralo ya en
   `experimentos.md` con `Resultado: sin datos suficientes (pieza borrada)`,
-  sin esperar las 4 semanas, y la variable queda libre para un experimento nuevo.
+  sin esperar las semanas del experimento, y la variable queda libre para uno nuevo.
 - `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
   arregles tú: son zona del bot o del usuario.
 
@@ -169,29 +181,32 @@ diagnóstico sugieren mover un parámetro, lo **propones** en `aprendizajes.md`
 
 ## Paso 2 — Evaluar la semana pasada
 
-Con `bucle.json` y las instantáneas de 7 días (si no hay datos, salta este paso):
+Con `bucle.json` (si no hay datos, salta este paso). Todo se mide en la ventana
+de medición (`bucle.json → ventanaMedicion`):
 
-- **Mejor y peor pieza** por su señal objetivo, en la ventana de 7 días
+- **Mejor y peor pieza** por su señal objetivo, en la ventana de medición
   (`bucle.json → piezas`: `valor` y `modo`, ya calculados; mira también
   `hookTexto`, `retencion`, `followsPorVisita`, `seguidoresDiaSiguiente` y el
   alcance para entender *por qué*). Con alcance < `umbralAlcanceTasas` se comparan
   conteos absolutos; desde ese umbral, tasas por alcance.
-- **Cerrar experimentos** que cumplen 4 semanas: completa su entrada en
-  `experimentos.md` con el resultado y el dato. Formato de cada entrada (la
-  fecha es el lunes de la semana en que se declaró):
+- **Cerrar experimentos** que cumplen `semanasExperimento` semanas
+  (`bucle.json → experimentos[].evaluable`): completa su entrada en
+  `experimentos.md` con el resultado y el dato (`experimento` contra `control`,
+  incluido el control histórico). Formato de cada entrada (la fecha es el lunes
+  de la semana en que se declaró):
 
   ```markdown
   ## 2026-10-12 · hook
   - Hipótesis: en tutoriales, un hook de curiosidad retiene más que uno de lista.
   - Resultado: se consolida | se descarta | sin datos suficientes
-  - Dato: retención media 0,41 (curiosidad, 4 piezas) vs. 0,33 (lista, 4 piezas), ventana 7 d.
+  - Dato: retención media 0,41 (curiosidad, 4 piezas) vs. 0,33 (lista, 4 piezas), ventana 72 h.
   ```
 
 - **Aprendizajes:** agrega a `aprendizajes.md` **a lo más 3 frases nuevas**,
   cada una con el dato que la respalda (`- 2026-10-11 · <frase>. Dato: <número
-  y ventana>`). Si un parámetro de la puerta merece cambiar (≥ 4 semanas y ≥ 6
-  piezas por valor en `bucle.json`), escríbelo como `Propuesta:` con el dato;
-  no lo apliques.
+  y ventana>`). Si un parámetro de la puerta merece cambiar (≥ `semanasExperimento`
+  semanas y ≥ 6 piezas por valor en `bucle.json → parametros`), escríbelo como
+  `Propuesta:` con el dato; no lo apliques.
 - **Diagnóstico mensual** de `bucle.json`: si dice "cambiar la categoría de
   hook" de un arquetipo, hazlo esta semana; si dice "falta entregable o
   destinatario", revisa la recompensa de cada pieza antes de escribir.
@@ -267,6 +282,16 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   `retencion`. Sin señal no hay pieza. Orientación: tutorial y lista →
   guardados; compartible → envíos; opinión → comentarios; demo y atemporal →
   retención.
+- **Mientras `bucle.json → escala` sea `absoluto`** (alcance bajo el umbral):
+  guardados, envíos y comentarios son 0 en casi todas las piezas y no enseñan
+  nada; la única señal con información es la **retención** (y el alcance que
+  trae). En esa fase el experimento de la semana **solo** prueba variables que
+  mueven la retención (`hook`, `hookVideo`, `ritmoReel`, `duracionMaxSegundos`,
+  `logoEnCuadro0`, `duracion`), se aplica a **todos los reels de la semana**
+  (no a 2) y se evalúa por retención contra las semanas anteriores
+  (`control.historico`). Las señales de cada pieza siguen siendo las del mix
+  (el Cta pide el gesto), pero no declares experimentos sobre guardados, envíos
+  o comentarios hasta que `escala` sea `tasa`.
 - **Un experimento por semana**, declarado antes de escribir. Variables
   permitidas: `tema`, `arquetipo`, `hora`, `duracion`, `hook` (tipo de hook),
   `hookVideo` (clip de video detrás del hook, ver Paso 5) o
@@ -274,40 +299,37 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   `logoEnCuadro0`, `ritmoReel`, `duracionMaxSegundos`). Va en
   `plan.json → experimento` (`variable`, `hipotesis`,
   `piezas` con los ids afectados) y como entrada nueva en `experimentos.md` con
-  `- Resultado: pendiente (se evalúa el <lunes + 4 semanas>)`. Solo si la
+  `- Resultado: pendiente (se evalúa el <lunes + semanasExperimento semanas>)`. Solo si la
   variable es `arquetipo`, las piezas del experimento pueden salirse del
   arquetipo del mix. Para probar `logoEnCuadro0`, pon `"logoEnCuadro0": false`
   en los borradores de esas piezas.
-- **Palancas de retención de los reels** (diagnóstico del 2026-10-13: el 89 %
-  del alcance es de no seguidores, pero ningún reel pasa del 30 % de
-  finalización y los últimos tres se abandonan a 1,8–4,7 s con reels de 36–49 s;
-  falla el primer segundo y el largo, no el tema). Son dos variables distintas y
-  van en semanas distintas, **una por semana**:
-  - **Semana 2026-10-19 → `ritmoReel`** (ritmo `gancho`). Hipótesis sugerida:
-    "un hook en movimiento de ≤ 3 s, arranque rápido hasta el 20 % del reel y
-    cierre lento retienen más que el ritmo enseñar". En `plan.json`:
-    `"experimento": {"variable": "ritmoReel", …}`; en las piezas del
-    experimento `"parametros": {…, "ritmoReel": "gancho"}` y en su borrador
-    `"pace": "gancho"` (el validador exige que coincidan). Las demás piezas
-    siguen con `"ritmoReel": "ensenar"` y `"pace": "ensenar"`. Deja
-    `duracionMaxSegundos` en el valor de `config.json` en todas.
-  - **Semana 2026-10-26 → `duracionMaxSegundos`** (reels cortos, valor
-    sugerido 20). Hipótesis sugerida: "un reel de ≤ 20 s se termina de ver más
-    veces que uno de 36–49 s". En las piezas del experimento
-    `"parametros": {…, "duracionMaxSegundos": 20}` y un borrador que quepa (el
-    validador suma las escenas como el motor y rechaza el que se pase; ver
-    "Tope de duración del reel"). Las demás piezas quedan con el valor de
-    `config.json`. Deja `ritmoReel` en `ensenar` en todas (no mezcles con el
-    experimento anterior, que sigue abierto hasta evaluarse).
+- **Palancas de retención de los reels** (diagnóstico del 2026-10-13/14: el
+  alcance es casi todo de no seguidores, pero los reels se abandonan antes del
+  segundo 3 y a los 20 s no queda nadie en reels de 36–49 s). Desde el
+  2026-10-14 la puerta trae `ritmoReel: "gancho"` y `duracionMaxSegundos: 20`:
+  **todo reel** va con `"pace": "gancho"` en el borrador y
+  `"ritmoReel": "gancho"`, `"duracionMaxSegundos": 20` en `parametros` (el
+  validador exige que `pace` y `ritmoReel` coincidan y suma las escenas como el
+  motor; ver "Presupuesto de texto" y "Tope de duración"). El experimento
+  `ritmoReel` de la semana 2026-10-12 (jue, sáb y dom reescritos a mitad de
+  semana) sigue abierto hasta evaluarse; no lo vuelvas a declarar.
+  - **Semana 2026-10-19 → `hook`**: titular en forma de pregunta de ≤ 7
+    palabras en todos los reels (dato del 2026-10-14: un hook de controversia
+    con pregunta retuvo 38 % a 3 s, el doble que identificación y curiosidad).
+    Hipótesis sugerida: "un hook de pregunta retiene más a 3 s que los hooks
+    de afirmación de las semanas anteriores". Solo si el experimento `hook` del
+    2026-10-05 ya se cerró en el Paso 2 (cumple sus semanas ese domingo); si
+    sigue pendiente, `"experimento": null` y anota el motivo.
   Si el experimento de la semana anterior sigue "pendiente", no lo vuelvas a
   declarar: la variable de la semana es la nueva. Registra en `experimentos.md`
   qué piezas llevan el valor probado.
 - **Un experimento se declara una sola vez** (la semana en que empieza) y se
-  evalúa a las 4 semanas (Paso 2). Las semanas siguientes no vuelvas a
+  evalúa a las `semanasExperimento` semanas (Paso 2). Las semanas siguientes no vuelvas a
   declararlo: mientras haya uno abierto en `experimentos.md` (con "Resultado:
   pendiente"), declara uno **nuevo** sobre otra variable, o
   `"experimento": null` si no cabe otro sin mezclar efectos. Nunca dos
-  experimentos sobre la misma variable a la vez.
+  experimentos sobre la misma variable a la vez. En `experimentos.md` escribe
+  `Resultado: pendiente (se evalúa el <lunes + semanasExperimento semanas>)`.
 
 ## Paso 5 — Escribir cada pieza
 
@@ -411,7 +433,7 @@ palabras muy cortas ("de", "la", "y") el tope baja. Si una idea no cabe,
 pártela en dos escenas o pasa el detalle al caption. En carruseles no hay
 presupuesto de tiempo (rigen solo las longitudes de la puerta).
 
-Con `"pace": "gancho"` (experimento `ritmoReel`) el motor da menos tiempo y lo
+Con `"pace": "gancho"` (el ritmo de la puerta desde el 2026-10-14) el motor da menos tiempo y lo
 reparte en curva (`sceneDurations` en `src/reel/timing.ts`): cada escena parte
 de una base `min(4.5, max(2, 1.6 + caracteres / 28))`; el Hook se queda en su
 base con **tope de 3 s**; las escenas que empiezan antes del 20 % del reel van
@@ -429,7 +451,7 @@ El validador suma las escenas como el motor (`reelTiming`: Σ escenas − (n −
 transición: 0,5 s en enseñar, 0,35 en rápido, 0,3 en gancho) y rechaza el
 borrador si el total pasa de `duracionMaxSegundos` (`parametros` de la pieza, o
 la puerta). El Mac hace la misma comprobación antes de renderizar. Orientación
-para que quepa un reel de **20 s** (experimento de la semana 2026-10-26):
+para que quepa un reel de **20 s** (el tope de la puerta desde el 2026-10-14):
 
 - En `ensenar`: 4 escenas con **≤ 6 palabras cada una y sin bullets** (Hook
   ≤ 5 s + 2 del medio de ~3,5 s + Cta ~5 s ≈ 15–17 s). Con 10–12 palabras por

@@ -507,7 +507,9 @@ En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --des
   entrega las horas; se leen como `America/Los_Angeles` (por defecto; se cambia con la clave opcional
   `zonaOnlineFollowers` de `_calendario/config.json`, p. ej. `{ "valor": "America/Santiago" }`). **Al cruzar los 100 seguidores, compara las horas con tu app de Instagram**; si salen
   corridas 4-5 h, corrige `zonaOnlineFollowers`.
-- **Comparar piezas**: siempre con la instantánea de 7 días (también hay 24 h, 72 h, 14 d, 21 d y 28 d).
+- **Comparar piezas**: siempre con la misma instantánea, la **ventana de medición** (`_calendario/config.json →
+  ventanaMedicion`: `7d` por defecto; `72h` mientras el alcance sea bajo, porque a esa escala 24 h, 72 h y 7 d
+  dicen lo mismo y medir a 72 h adelanta el aprendizaje 4 días). Se toman 24 h, 72 h, 7 d, 14 d, 21 d y 28 d.
   Con alcance menor a 50 se comparan conteos absolutos; desde 50, tasas.
 
 ### Bucle de feedback
@@ -517,11 +519,14 @@ ganadores (20 % superior), derivados pendientes, un diagnóstico mensual y la ta
 pieza medida: hook publicado, alcance, guardados, envíos, comentarios, retención, seguidores del día
 siguiente y los últimos comentarios en texto, que el bot guarda en `_metricas/comentarios/` a los 7 y 28 días;
 con los permisos de lectura del token actual), más `sinMedir` (publicadas sin 7 días todavía) y `borradas` (posts que Instagram ya no
-devuelve; el bot lo anota en `registro.jsonl` como `tipo: "borrado"`). Bajo 100 seguidores Meta no da
+devuelve; el bot lo anota en `registro.jsonl` como `tipo: "borrado"`); `sinMedir` y `piezas` usan la ventana de medición. Bajo 100 seguidores Meta no da
 `follower_count`, así que `cuenta.json` guarda `historial` (total por día) y deriva los seguidores nuevos. El planificador lo **lee** y
 decide; no cambia solo los pesos de `virality.ts`, el mix, la zona ni los parámetros de la puerta: si
 propone un cambio, lo anota en `aprendizajes.md` y lo aplicas tú en `config.json`. Cada semana declara
-**un** experimento (tema, arquetipo, hora, duración o tipo de hook) que se evalúa a las 4 semanas.
+**un** experimento (tema, arquetipo, hora, duración, tipo de hook o un parámetro de la puerta) que se evalúa a las
+`semanasExperimento` semanas (`config.json`; 4 por defecto, 2 mientras la cuenta cuente en conteos de un dígito).
+Si la variable es un parámetro de la puerta, el control incluye las piezas de semanas anteriores producidas con otro
+valor (`control.historico`), así que el experimento puede abarcar todos los reels de la semana.
 
 ## Tests
 

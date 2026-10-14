@@ -17,6 +17,8 @@
   "hashtagsBase": ["#ia", "#inteligenciaartificial", "#herramientasia"],
   "fondosIAMaxSemana": 3,
   "hookVideoMaxSemana": 1,
+  "ventanaMedicion": { "valor": "7d", "respaldo": "skill", "nota": "instantánea con que el bucle y el resumen comparan piezas; con alcance bajo, 72h adelanta el aprendizaje 4 días" },
+  "semanasExperimento": { "valor": 4, "respaldo": "skill", "nota": "semanas hasta evaluar un experimento y mínimo para comparar un parámetro de la puerta; con conteos de un dígito, 2" },
   "scoreMin": 75,
   "umbralAlcanceTasas": 50,
   "puerta": {

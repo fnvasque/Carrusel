@@ -1,6 +1,6 @@
 import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DESVIO_COMPARABLE_7D_MS, modoComparacion, valorSenal } from "../insights/derive.ts";
+import { DESVIO_COMPARABLE_MS, etiquetaVentana, horasDeVentana, modoComparacion, valorSenal, ventanaMedicion, type Ventana } from "../insights/derive.ts";
 import type { Instantanea } from "../insights/snapshots.ts";
 import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
@@ -9,15 +9,16 @@ import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLe
 import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
 /**
- * Bucle de feedback: con las instantáneas de 7 d ya medidas calcula pesos por
+ * Bucle de feedback: con las instantáneas de la ventana de medición (`config.json →
+ * ventanaMedicion`, por defecto 7 d) ya tomadas calcula pesos por
  * tema/arquetipo/hook (con encogimiento), ganadores, derivados pendientes, horas
  * desde `online_followers`, seguidores por pieza, comparaciones de parámetros de
  * la puerta, experimentos y el diagnóstico mensual. Todo es puro salvo
  * `escribirBucle`, que lee la base y escribe `_metricas/bucle.json`; el agente
  * planificador lo lee el domingo en vez de recalcular estadística en la nube.
  *
- * Solo entran piezas del motor con instantánea `7d` tomada a ≤ 6 h de su hora
- * nominal (`DESVIO_COMPARABLE_7D_MS`). Los posts manuales y las piezas del modo
+ * Solo entran piezas del motor con la instantánea de esa ventana tomada a ≤ 6 h de su
+ * hora nominal (`DESVIO_COMPARABLE_MS`). Los posts manuales y las piezas del modo
  * de prueba (`mediaId` que empieza con `aviso-`) nunca entran.
  */
 
@@ -28,7 +29,7 @@ export interface Medicion {
   arquetipo: string;
   hookCategoria: string;
   senal: Senal;
-  /** Valor de la señal objetivo a 7 d (`valorSenal`): conteo o tasa según `modo`. Siempre finito. */
+  /** Valor de la señal objetivo en la ventana de medición (`valorSenal`): conteo o tasa según `modo`. Siempre finito. */
   valor: number;
   /** Con qué escala se midió `valor` (la retención siempre es razón: "tasa"). */
   modo: "absoluto" | "tasa";
@@ -65,8 +66,11 @@ const GRUPO_20_POR_CIENTO = 5;
 const FRACCION_GANADORES = 0.2;
 const SEMANAS_DERIVADO = 2;
 const MAX_DERIVADOS = 2;
-const SEMANAS_EXPERIMENTO = 4;
-const MIN_SEMANAS_PARAMETRO = 4;
+/** Semanas hasta evaluar un experimento (y mínimo de semanas para comparar un parámetro) si `config.json` no dice otra cosa. */
+export const SEMANAS_EXPERIMENTO_POR_DEFECTO = 4;
+const MAX_SEMANAS_EXPERIMENTO = 12;
+/** El diagnóstico mensual siempre mira 4 semanas (ciclos del skill), diga lo que diga `semanasExperimento`. */
+const SEMANAS_DIAGNOSTICO = 4;
 const MIN_PIEZAS_POR_VALOR = 6;
 const SEGUIDORES_PARA_HORAS = 100;
 const RETENCION_MIN = 0.3;
@@ -343,8 +347,8 @@ export interface CuentaDiagnostico {
  */
 export function diagnostico(m: Medicion[], cuenta: CuentaDiagnostico): string[] {
   const semanas = [...new Set(m.filter((x) => x && typeof x.semana === "string").map((x) => x.semana))].sort();
-  if (semanas.length < SEMANAS_EXPERIMENTO) return [];
-  const ultimas = semanas.slice(-SEMANAS_EXPERIMENTO);
+  if (semanas.length < SEMANAS_DIAGNOSTICO) return [];
+  const ultimas = semanas.slice(-SEMANAS_DIAGNOSTICO);
   const mes = m.filter((x) => ultimas.includes(x.semana));
   const out: string[] = [];
 
@@ -406,12 +410,13 @@ const valorTexto = (v: unknown): string => (typeof v === "string" ? v : JSON.str
 /**
  * Comparación de un parámetro de la puerta (o variable de experimento) por valor:
  * media del índice relativo (1 = media de la cuenta) de las piezas producidas con
- * cada valor. Solo con ≥ 4 semanas de piezas con ese parámetro y ≥ 6 piezas por valor;
- * los valores con menos piezas no se muestran y con menos de 2 valores no hay comparación.
+ * cada valor. Solo con ≥ `minSemanas` semanas (por defecto `semanasExperimento`, 4) de
+ * piezas con ese parámetro y ≥ 6 piezas por valor; los valores con menos piezas no se
+ * muestran y con menos de 2 valores no hay comparación.
  */
-export function compararParametro(m: Medicion[], parametro: string): { valor: string; n: number; media: number }[] | undefined {
+export function compararParametro(m: Medicion[], parametro: string, minSemanas = SEMANAS_EXPERIMENTO_POR_DEFECTO): { valor: string; n: number; media: number }[] | undefined {
   const con = indices(m).filter(({ m: x }) => esObj(x.parametros) && Object.hasOwn(x.parametros, parametro) && x.parametros[parametro] !== undefined);
-  if (new Set(con.map(({ m: x }) => x.semana)).size < MIN_SEMANAS_PARAMETRO) return undefined;
+  if (new Set(con.map(({ m: x }) => x.semana)).size < minSemanas) return undefined;
   const grupos = new Map<string, number[]>();
   for (const { m: x, rel } of con) {
     const v = valorTexto(x.parametros![parametro]);
@@ -427,12 +432,14 @@ export function compararParametro(m: Medicion[], parametro: string): { valor: st
 // --- mediciones desde lo guardado ---
 
 /**
- * Mediciones comparables: instantáneas `7d` de piezas del motor (con línea `publicado`
- * en el registro), tomadas a ≤ 6 h de su hora nominal, con señal válida y valor finito.
- * Los `parametros` salen del `plan.json` de la pieza; sin ellos la pieza no cuenta para
- * parámetros. Una instantánea por `mediaId`.
+ * Mediciones comparables: instantáneas de la ventana de medición (`ventana`, por
+ * defecto `7d`) de piezas del motor (con línea `publicado` en el registro), tomadas a
+ * ≤ 6 h de su hora nominal, con señal válida y valor finito. Los `parametros` salen del
+ * `plan.json` de la pieza; sin ellos la pieza no cuenta para parámetros. Una
+ * instantánea por `mediaId`.
  */
-export function medicionesDe(inst: Instantanea[], registro: Record<string, unknown>[], semanas: SemanaLeida[], umbral: number): Medicion[] {
+export function medicionesDe(inst: Instantanea[], registro: Record<string, unknown>[], semanas: SemanaLeida[], umbral: number, ventana: Ventana = "7d"): Medicion[] {
+  const horasVentana = horasDeVentana(ventana);
   const reg = new Map<string, Record<string, unknown>>();
   for (const r of Array.isArray(registro) ? registro : []) {
     if (esObj(r) && r.tipo === "publicado" && typeof r.mediaId === "string" && !r.mediaId.startsWith("aviso-")) reg.set(r.mediaId, r);
@@ -454,7 +461,7 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
   const vistos = new Set<string>();
   const claves = new Set<string>();
   for (const i of Array.isArray(inst) ? inst : []) {
-    if (!i || i.ventana !== "7d" || i.origen !== "motor" || typeof i.mediaId !== "string" || i.mediaId.startsWith("aviso-") || vistos.has(i.mediaId)) continue;
+    if (!i || i.ventana !== ventana || i.origen !== "motor" || typeof i.mediaId !== "string" || i.mediaId.startsWith("aviso-") || vistos.has(i.mediaId)) continue;
     const r = reg.get(i.mediaId);
     if (!r) continue;
     const senal = SENALES.find((s) => s === r.senal);
@@ -462,7 +469,7 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     const pub = new Date(texto(r.publicadoEn)).getTime();
     const tomada = new Date(i.tomadaEn).getTime();
     if (!senal || !piezaId || !Number.isFinite(pub) || !Number.isFinite(tomada)) continue;
-    if (Math.abs(tomada - (pub + 168 * HORA_MS)) > DESVIO_COMPARABLE_7D_MS) continue;
+    if (Math.abs(tomada - (pub + horasVentana * HORA_MS)) > DESVIO_COMPARABLE_MS) continue;
     const d = i.derivadas ?? {};
     const valor = valorSenal(senal, i, d, umbral);
     if (!esNum(valor)) continue;
@@ -544,12 +551,18 @@ export interface Experimento {
   evaluarDesde: string;
   evaluable: boolean;
   experimento: { n: number; media?: number };
-  control: { n: number; media?: number };
+  /**
+   * Control: las piezas de la misma semana fuera del experimento y, si la variable es un
+   * parámetro de la puerta, también las piezas de semanas anteriores producidas con otro
+   * valor (`historico` = cuántas de esas). Así un experimento que abarca todos los reels
+   * de la semana se compara contra las semanas previas, no contra los carruseles.
+   */
+  control: { n: number; media?: number; historico?: number };
   /** Piezas del experimento que el bot dio por borradas de Instagram: no tendrán métricas. */
   borradas: string[];
 }
 
-/** Fila de `bucle.json → piezas`: todo lo medido a 7 d de una pieza, en un solo lugar. */
+/** Fila de `bucle.json → piezas`: todo lo medido en la ventana de medición de una pieza, en un solo lugar. */
 export interface PiezaBucle {
   piezaId: string;
   semana: string;
@@ -591,6 +604,10 @@ export interface BucleJson {
   generado: string;
   /** Lunes de la semana que se va a planificar. */
   semana: string;
+  /** Ventana con que se midió cada pieza (`config.json → ventanaMedicion`; "7d" si no se fija). */
+  ventanaMedicion: Ventana;
+  /** Semanas hasta evaluar un experimento (`config.json → semanasExperimento`; 4 si no se fija). */
+  semanasExperimento: number;
   umbralAlcanceTasas: number;
   /** Escala de comparación vigente: "tasa" si la cuenta ya cruzó el umbral. */
   escala: "absoluto" | "tasa";
@@ -602,9 +619,9 @@ export interface BucleJson {
   derivados: { de: string; tema: string; hasta: string }[];
   horas?: Record<string, string>;
   seguidoresPorPieza: Record<string, number>;
-  /** Una fila por pieza medida (7 d comparable): la tabla que el planificador lee en el Paso 2. */
+  /** Una fila por pieza medida (ventana comparable): la tabla que el planificador lee en el Paso 2. */
   piezas: PiezaBucle[];
-  /** Publicadas por el motor que todavía no tienen 7 d comparable, con el motivo. */
+  /** Publicadas por el motor que todavía no tienen la ventana de medición comparable, con el motivo. */
   sinMedir: { piezaId: string; semana: string; mediaId: string; motivo: string }[];
   /** Piezas que Instagram ya no devuelve (borradas a mano): nunca tendrán métricas. */
   borradas: { piezaId: string; semana: string; mediaId: string; en: string }[];
@@ -622,14 +639,25 @@ function umbralDe(config: unknown): number {
   return esNum(v) && v > 0 ? v : UMBRAL_POR_DEFECTO;
 }
 
+/**
+ * `config.json → semanasExperimento` (`2` o `{ "valor": 2, … }`): semanas hasta evaluar
+ * un experimento y mínimo de semanas para comparar un parámetro de la puerta. Entero de
+ * 1 a 12; ausente o raro → 4.
+ */
+export function semanasExperimento(config: unknown): number {
+  const c = esObj(config) ? config.semanasExperimento : undefined;
+  const v = esObj(c) ? c.valor : c;
+  return Number.isInteger(v) && (v as number) >= 1 && (v as number) <= MAX_SEMANAS_EXPERIMENTO ? (v as number) : SEMANAS_EXPERIMENTO_POR_DEFECTO;
+}
+
 /** Lunes de la semana que se planifica: el de mañana si hoy es domingo; si no, el próximo lunes. */
 export function semanaAPlanificar(now: Date): string {
   const l = localParts(now);
   return l.weekday === 0 ? addDays(l.dia, 1) : addDays(weekMonday(now), 7);
 }
 
-/** Seguidores nuevos (28 d y los 28 anteriores) y alcance aproximado de 28 d. */
-export function cuentaDiagnostico(ahora: Date, inst: Instantanea[], cuenta: unknown): CuentaDiagnostico {
+/** Seguidores nuevos (28 d y los 28 anteriores) y alcance aproximado de 28 d (suma del alcance de cada post en la ventana de medición). */
+export function cuentaDiagnostico(ahora: Date, inst: Instantanea[], cuenta: unknown, ventana: Ventana = "7d"): CuentaDiagnostico {
   const hoy = localParts(ahora).dia;
   const out: CuentaDiagnostico = {};
   const porDia = esObj(cuenta) && esObj(cuenta.porDia) ? cuenta.porDia : undefined;
@@ -642,11 +670,11 @@ export function cuentaDiagnostico(ahora: Date, inst: Instantanea[], cuenta: unkn
   const previos = suma(addDays(hoy, -55), addDays(hoy, -28));
   if (nuevos !== undefined) out.seguidoresNuevos28d = nuevos;
   if (previos !== undefined) out.seguidoresNuevosPrevios28d = previos;
-  // Aproximación: suma del alcance a 7 d de todos los posts (motor y manuales) medidos en los últimos 28 días.
+  // Aproximación: suma del alcance (ventana de medición) de todos los posts (motor y manuales) medidos en los últimos 28 días.
   let alcance: number | undefined;
   const vistos = new Set<string>();
   for (const i of Array.isArray(inst) ? inst : []) {
-    if (!i || i.ventana !== "7d" || typeof i.mediaId !== "string" || i.mediaId.startsWith("aviso-") || vistos.has(i.mediaId) || !esNum(i.reach)) continue;
+    if (!i || i.ventana !== ventana || typeof i.mediaId !== "string" || i.mediaId.startsWith("aviso-") || vistos.has(i.mediaId) || !esNum(i.reach)) continue;
     const t = new Date(i.tomadaEn);
     if (Number.isNaN(t.getTime())) continue;
     const dia = localParts(t).dia;
@@ -659,15 +687,17 @@ export function cuentaDiagnostico(ahora: Date, inst: Instantanea[], cuenta: unkn
 }
 
 /** Diagnóstico mensual a partir de lo guardado (lo usa también el resumen del domingo). */
-export function diagnosticoDeDatos(ahora: Date, inst: Instantanea[], registro: Record<string, unknown>[], cuenta: unknown, umbral: number): string[] {
-  return diagnostico(medicionesDe(inst, registro, [], umbral), cuentaDiagnostico(ahora, inst, cuenta));
+export function diagnosticoDeDatos(ahora: Date, inst: Instantanea[], registro: Record<string, unknown>[], cuenta: unknown, umbral: number, ventana: Ventana = "7d"): string[] {
+  return diagnostico(medicionesDe(inst, registro, [], umbral, ventana), cuentaDiagnostico(ahora, inst, cuenta, ventana));
 }
 
 /** Arma `bucle.json` con todo lo anterior. Puro: no lee disco ni reloj. */
 export function construirBucle(e: EntradasBucle): BucleJson {
   const umbral = umbralDe(e.config);
+  const ventanaMed = ventanaMedicion(e.config);
+  const semanasExp = semanasExperimento(e.config);
   const semanas = Array.isArray(e.semanas) ? e.semanas : [];
-  const m = medicionesDe(e.instantaneas, e.registro, semanas, umbral);
+  const m = medicionesDe(e.instantaneas, e.registro, semanas, umbral, ventanaMed);
   const semana = semanaAPlanificar(e.ahora);
   const avisos = [...(e.avisos ?? [])];
 
@@ -718,12 +748,12 @@ export function construirBucle(e: EntradasBucle): BucleJson {
       continue;
     }
     if (medidas.has(clave)) continue;
-    const cumple7d = t.getTime() + 168 * HORA_MS;
+    const cumple = t.getTime() + horasDeVentana(ventanaMed) * HORA_MS;
     sinMedir.push({
       piezaId: texto(r.piezaId), semana: sem, mediaId: r.mediaId,
-      motivo: hoyMs < cumple7d + DESVIO_COMPARABLE_7D_MS
-        ? `pendiente: cumple 7 d el ${localParts(new Date(cumple7d)).dia}`
-        : "sin instantánea de 7 d comparable (bot caído a su hora)",
+      motivo: hoyMs < cumple + DESVIO_COMPARABLE_MS
+        ? `pendiente: cumple ${etiquetaVentana(ventanaMed)} el ${localParts(new Date(cumple)).dia}`
+        : `sin instantánea de ${etiquetaVentana(ventanaMed)} comparable (bot caído a su hora)`,
     });
   }
   const seguidoresPieza = seguidoresPorPieza(esObj(cuenta.porDia) ? (cuenta.porDia as Record<string, number>) : {}, publicadas);
@@ -748,12 +778,12 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     });
   const borradasIds = new Set(borradas.map((b) => clavePieza(b.semana, b.piezaId)));
 
-  const cuentaDiag = cuentaDiagnostico(e.ahora, e.instantaneas, e.cuenta);
+  const cuentaDiag = cuentaDiagnostico(e.ahora, e.instantaneas, e.cuenta, ventanaMed);
 
   const claves = [...new Set(m.flatMap((x) => (esObj(x.parametros) ? Object.keys(x.parametros) : [])))].sort();
   const parametros: BucleJson["parametros"] = {};
   for (const k of claves) {
-    const c = compararParametro(m, k);
+    const c = compararParametro(m, k, semanasExp);
     if (c) parametros[k] = c;
   }
 
@@ -763,17 +793,40 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     const rels = xs.map((id) => relPorClave.get(clavePieza(semanaExp, id))).filter(esNum);
     return rels.length ? { n: rels.length, media: r4(media(rels)) } : { n: 0 };
   };
+  const puertaKeys = esObj(config.puerta) ? Object.keys(config.puerta) : [];
   const experimentos: Experimento[] = [];
   for (const s of semanas) {
     const x = s.plan?.experimento;
     if (!esObj(x) || typeof x.variable !== "string") continue;
     const piezas = Array.isArray(x.piezas) ? x.piezas.filter((p): p is string => typeof p === "string") : [];
-    const deLaSemana = (s.plan.piezas ?? []).map((p) => p.id);
-    const evaluarDesde = addDays(s.semana, 7 * SEMANAS_EXPERIMENTO);
+    const planPiezas = s.plan.piezas ?? [];
+    const deLaSemana = planPiezas.map((p) => p.id);
+    const evaluarDesde = addDays(s.semana, 7 * semanasExp);
+    const control: Experimento["control"] = resumen(s.semana, deLaSemana.filter((id) => !piezas.includes(id)));
+    // Control histórico: con una variable de la puerta, las piezas medidas de semanas
+    // anteriores producidas con otro valor del mismo parámetro (y el mismo formato).
+    if (puertaKeys.includes(x.variable)) {
+      const primera = planPiezas.find((p) => piezas.includes(p.id) && esObj(p.parametros) && p.parametros[x.variable] !== undefined);
+      const valorExp = primera ? valorTexto(primera.parametros![x.variable]) : undefined;
+      const formatos = new Set(planPiezas.filter((p) => piezas.includes(p.id)).map((p) => texto(p.formato)).filter(Boolean));
+      if (valorExp !== undefined) {
+        const historicos = idx.filter(
+          ({ m: y }) =>
+            y.semana < s.semana && esObj(y.parametros) && y.parametros[x.variable] !== undefined && valorTexto(y.parametros[x.variable]) !== valorExp &&
+            (!formatos.size || !y.formato || formatos.has(y.formato)),
+        );
+        if (historicos.length) {
+          const rels = [...deLaSemana.filter((id) => !piezas.includes(id)).map((id) => relPorClave.get(clavePieza(s.semana, id))).filter(esNum), ...historicos.map((h) => h.rel)];
+          control.n = rels.length;
+          control.media = r4(media(rels));
+          control.historico = historicos.length;
+        }
+      }
+    }
     experimentos.push({
       semana: s.semana, variable: x.variable, variableValida: variables.includes(x.variable), hipotesis: texto(x.hipotesis), piezas,
       evaluarDesde, evaluable: semana >= evaluarDesde,
-      experimento: resumen(s.semana, piezas), control: resumen(s.semana, deLaSemana.filter((id) => !piezas.includes(id))),
+      experimento: resumen(s.semana, piezas), control,
       borradas: piezas.filter((id) => borradasIds.has(clavePieza(s.semana, id))),
     });
   }
@@ -781,6 +834,8 @@ export function construirBucle(e: EntradasBucle): BucleJson {
   return {
     generado: e.ahora.toISOString(),
     semana,
+    ventanaMedicion: ventanaMed,
+    semanasExperimento: semanasExp,
     umbralAlcanceTasas: umbral,
     escala: cruzoUmbral(m) ? "tasa" : "absoluto",
     medidas: m.length,
@@ -825,7 +880,7 @@ export interface DepsBucle {
   ruta?: string;
 }
 
-/** Semanas de historia que se leen (4 de experimentos + margen). */
+/** Semanas de historia que se leen (hasta 12 de experimentos). */
 const SEMANAS_LEIDAS = 12;
 
 async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahora">> {

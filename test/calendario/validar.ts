@@ -343,7 +343,7 @@ check("calendario/validar: pace inválido → error", () => {
   assertHas(vb(pieza(), b), /pace/);
 });
 
-// --- palancas de retención (2026-10-19 ritmoReel, 2026-10-26 duracionMaxSegundos) ---
+// --- palancas de retención (ritmoReel y duracionMaxSegundos; en la puerta desde el 2026-10-14) ---
 
 check("calendario/validar: config.json trae ritmoReel (ensenar, base) y duracionMaxSegundos (60) con respaldo", () => {
   assert.deepEqual(CONFIG_BASE.puerta.ritmoReel, { valor: "ensenar", respaldo: "base" });
@@ -473,7 +473,7 @@ check("calendario/validar: presupuesto de lectura en gancho — 7 palabras en el
   assert.ok(segundos(medio).some((e: string) => e.startsWith("slide 3")), JSON.stringify(segundos(medio)));
   // INSTRUCCIONES.md documenta la curva, los topes de palabras y las semanas de cada experimento.
   const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
-  for (const re of [/tope de 3 s/, /≤ 7 palabras en el Hook/, /Semana 2026-10-19 → `ritmoReel`/, /Semana 2026-10-26 → `duracionMaxSegundos`/, /### Tope de duración del reel/, /`ritmoReel`: ritmo del reel/, /`duracionMaxSegundos`: tope de duración/]) {
+  for (const re of [/tope de 3 s/, /≤ 7 palabras en el Hook/, /Semana 2026-10-19 → `hook`/, /puerta trae `ritmoReel: "gancho"` y `duracionMaxSegundos: 20`/, /solo\*\* prueba variables que\n  mueven la retención/, /### Tope de duración del reel/, /`ritmoReel`: ritmo del reel/, /`duracionMaxSegundos`: tope de duración/]) {
     assert.match(md, re);
   }
 });
@@ -1383,4 +1383,14 @@ check("calendario/validar: validarSemana — 2 reels con hookVideo → error (m�
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+check("calendario/validar: ventanaMedicion y semanasExperimento son opcionales y se validan si vienen", () => {
+  assert.deepEqual(CONFIG_BASE.ventanaMedicion.valor, "7d");
+  assert.equal(CONFIG_BASE.semanasExperimento.valor, 4);
+  assertNone(validarConfig({ ...CONFIG_BASE, ventanaMedicion: "72h", semanasExperimento: 2 }));
+  assertNone(validarConfig({ ...CONFIG_BASE, ventanaMedicion: { valor: "72h", respaldo: "base" }, semanasExperimento: { valor: 2, respaldo: "supuesto" } }));
+  assertHas(validarConfig({ ...CONFIG_BASE, ventanaMedicion: "3d" }), /ventanaMedicion/);
+  assertHas(validarConfig({ ...CONFIG_BASE, semanasExperimento: 0 }), /semanasExperimento/);
+  assertHas(validarConfig({ ...CONFIG_BASE, semanasExperimento: { valor: 2.5 } }), /semanasExperimento/);
 });

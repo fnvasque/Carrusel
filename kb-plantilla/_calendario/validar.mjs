@@ -48,6 +48,8 @@ const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title" };
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion"];
+/** Ventanas con que el bot puede comparar piezas (`config.ventanaMedicion`; el bot usa 7d si falta). */
+const VENTANAS_MEDICION = ["24h", "72h", "7d", "14d", "21d", "28d"];
 const FORMATOS = ["reel", "carrusel"];
 const PACES = ["ensenar", "rapido", "gancho"];
 /** Transición (s) entre escenas de cada ritmo (copia de `PACES[pace].transition`, timing.ts). */
@@ -591,7 +593,7 @@ function erroresDeParametros(parametros, config, dia) {
 }
 
 /**
- * Palancas de retención del reel (experimentos 2026-10-19 y 2026-10-26): el
+ * Palancas de retención del reel (`ritmoReel` y `duracionMaxSegundos`, en la puerta desde el 2026-10-14): el
  * `pace` del borrador debe coincidir con `parametros.ritmoReel` de su pieza, y
  * el reel completo (como lo calcula el motor) no puede pasar de
  * `duracionMaxSegundos` (el de `parametros` si viene; si no, el de la puerta).
@@ -1285,6 +1287,17 @@ export function validarConfig(config) {
     }
     if (config.hookVideoMaxSemana !== undefined && !(Number.isInteger(config.hookVideoMaxSemana) && config.hookVideoMaxSemana >= 0)) {
       errs.push("hookVideoMaxSemana debe ser un entero ≥ 0 (0 = sin clips de video)");
+    }
+    // Ventana de medición y semanas de experimento (opcionales; las lee el bot para el bucle y el resumen).
+    const vm = config.ventanaMedicion;
+    const vmValor = esObj(vm) ? vm.valor : vm;
+    if (vm !== undefined && !VENTANAS_MEDICION.includes(vmValor)) {
+      errs.push(`ventanaMedicion.valor ${q(vmValor)} inválido (usa: ${VENTANAS_MEDICION.join(", ")})`);
+    }
+    const se = config.semanasExperimento;
+    const seValor = esObj(se) ? se.valor : se;
+    if (se !== undefined && !(Number.isInteger(seValor) && seValor >= 1 && seValor <= 12)) {
+      errs.push("semanasExperimento.valor debe ser un entero entre 1 y 12 (semanas hasta evaluar un experimento)");
     }
     if (!Array.isArray(config.pilares) || !config.pilares.length || !config.pilares.every(esTexto)) errs.push("pilares debe ser una lista de textos");
     if (!Array.isArray(config.hashtagsBase) || !config.hashtagsBase.every((h) => typeof h === "string" && HASHTAG_RE.test(h))) {
