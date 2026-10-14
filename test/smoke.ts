@@ -17,7 +17,7 @@ import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
-import { sceneSeconds, HOOK_MAX_SECONDS, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
+import { sceneSeconds, sceneDurations, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GANCHO, PACE_NAMES, maxSecondsError, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 
 /**
@@ -372,16 +372,76 @@ check("entranceBudget/entranceScale (rapido): comprime solo si hace falta", () =
   assert.equal(entranceScale(2.4, 1.2), 2);
 });
 
+// Ritmo gancho (experimento de retención 2026-10-19): hook ≤ 3 s, arranque rápido, frena pasado el 20 %, cierre lento.
+check("pace gancho: válido en parsePace y PACES; valores de la curva", () => {
+  assert.equal(parsePace("gancho"), "gancho");
+  assert.deepEqual([...PACE_NAMES], ["ensenar", "rapido", "gancho"]);
+  assert.deepEqual(PACES.gancho, { transition: 0.3, entranceSlow: 1, stagger: 0.45, budgetRatio: 0.45, budgetMax: 1.6 });
+  assert.equal(HOOK_MAX_SECONDS_GANCHO, 3);
+  assert.deepEqual(GANCHO, { arranque: 0.2, factorArranque: 0.85, factorMedio: 1.2, factorCierre: 1.5, minSeconds: 1.6, bulletLead: 0.6, bulletTail: 1.2 });
+  // El carrusel puede fijarlo y --pace lo sobrescribe.
+  const T = () => null;
+  const spec = { name: "g", pace: "gancho", slides: [{ template: T, props: { title: "A" } }, { template: T, props: { title: "B" } }] };
+  assert.equal(specTiming(spec as any).pace, "gancho");
+  assert.equal(specTiming(spec as any, { pace: "rapido" }).pace, "rapido");
+});
+
+check("sceneSeconds (gancho): base clamp(1.6 + chars/28, 2.0, 4.5), sin respiro por hold; hook con tope 3 s", () => {
+  assert.equal(sceneSeconds({ title: "Hola" }, false, "gancho"), 2);
+  assert.equal(sceneSeconds({ title: "Hola" }, true, "gancho"), 2, "hold no suma en gancho (la curva alarga el cierre)");
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "gancho"), 4.5);
+  assert.equal(sceneSeconds({ body: "x".repeat(56) }, false, "gancho"), 3.6);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "gancho", true), 3, "hook: tope 3 s");
+  assert.equal(sceneSeconds({ title: "x".repeat(28) }, true, "gancho", true), 2.6);
+  // En gancho los bullets no alargan la base (lo hace sceneDurations).
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "gancho"), 2);
+});
+
+check("sceneDurations (gancho): hook intacto, arranque × 0.85 antes del 20 %, medio × 1.2, cierre × 1.5, piso de bullets", () => {
+  // Bases: 3 (hook, tope), 2, 2, 2, 2 → total 11; el 20 % son 2.2 s: solo la escena 1 empieza antes (en 3? no: empieza en 3 ≥ 2.2).
+  const corto = { title: "Hola" };
+  const hook = { body: "x".repeat(500) };
+  assert.deepEqual(sceneDurations([hook, corto, corto, corto, corto], "gancho"), [3, 2.4, 2.4, 2.4, 3]);
+  // Hook breve (base 2): la escena 1 empieza en 2 < 0.2 × 10 = 2 → no; con hook de 1.6… el piso es 2.0, así que el arranque
+  // aplica cuando el hook es corto respecto del total: bases 2, 2, 4.5, 4.5, 4.5 → total 17.5; 20 % = 3.5: la escena 1 (empieza en 2) va × 0.85.
+  const largo = { body: "x".repeat(500) };
+  assert.deepEqual(sceneDurations([corto, corto, largo, largo, largo], "gancho"), [2, 1.7, 5.4, 5.4, 6.75]);
+  // Piso: nunca menos de 1.6 s ni de lo que piden los bullets (0.6 + 0.45 × (n − 1) + 1.2).
+  assert.deepEqual(sceneDurations([corto, { bullets: ["a", "b", "c", "d"] }, largo, largo, largo], "gancho"), [2, 3.15, 5.4, 5.4, 6.75]);
+  // Una sola escena: es hook y última a la vez; manda el hook.
+  assert.deepEqual(sceneDurations([largo], "gancho"), [3]);
+  // En ensenar y rapido es sceneSeconds escena a escena.
+  assert.deepEqual(sceneDurations([corto, corto, corto], "rapido"), [3.1, 2.4, 3.1]);
+  assert.deepEqual(sceneDurations([corto, corto, corto], "ensenar"), [4.5, 3.5, 4.5]);
+  const T = () => null;
+  const spec = { name: "g", pace: "gancho", slides: [corto, corto, largo, largo, largo].map((props) => ({ template: T, props })) };
+  assert.deepEqual(specDurations(spec as any), [2, 1.7, 5.4, 5.4, 6.75]);
+  const t = specTiming(spec as any);
+  assert.equal(t.transition, 0.3);
+  assert.equal(t.total, +(2 + 1.7 + 5.4 + 5.4 + 6.75 - 4 * 0.3).toFixed(3));
+  assert.deepEqual([t.entranceSlow, t.stagger, t.bulletTail], [1, 0.45, 0]);
+  // Las escenas del arranque caben con la transición (0.3 × 2 < 1.6).
+  assert.ok(GANCHO.minSeconds > 2 * PACES.gancho.transition);
+});
+
+check("maxSecondsError: sin tope no dice nada; tope inválido o superado → mensaje claro", () => {
+  assert.equal(maxSecondsError(30, undefined), undefined);
+  assert.equal(maxSecondsError(20, 20), undefined);
+  assert.equal(maxSecondsError(19.999999999, 20), undefined);
+  assert.match(maxSecondsError(24.5, 20)!, /dura 24\.5 s y el tope es 20 s \(duracionMaxSegundos\)/);
+  for (const m of [0, -1, NaN, Infinity]) assert.match(maxSecondsError(10, m)!, /tope de duración .* no es válido/, `tope ${m}`);
+});
+
 // Ritmo enseñar (por defecto): valores de la spec "Reel: estilo y ritmo".
 check("pace: ensenar por defecto; valores inválidos → error claro en español", () => {
   assert.equal(DEFAULT_PACE, "ensenar");
   assert.equal(parsePace("rapido"), "rapido");
   assert.equal(parsePace("ensenar"), "ensenar");
   for (const v of ["lento", "", "Ensenar", undefined]) {
-    assert.throws(() => parsePace(v), /--pace debe ser "ensenar" o "rapido"/, `pace ${v}`);
+    assert.throws(() => parsePace(v), /--pace debe ser "ensenar", "rapido" o "gancho"/, `pace ${v}`);
   }
   const T = () => null;
-  assert.throws(() => specDurations({ name: "x", pace: "turbo", slides: [{ template: T, props: {} }] } as any), /pace de "x" debe ser "ensenar" o "rapido"/);
+  assert.throws(() => specDurations({ name: "x", pace: "turbo", slides: [{ template: T, props: {} }] } as any), /pace de "x" debe ser "ensenar", "rapido" o "gancho"/);
   assert.deepEqual(PACES.ensenar, { transition: 0.5, entranceSlow: 1.3, stagger: 1.8, budgetRatio: 0.45, budgetMax: 2.4 });
 });
 

@@ -30,7 +30,9 @@
     "lecturaPalabrasPorSegundo": { "valor": 2.5, "respaldo": "supuesto" },
     "lecturaMinSegundos": { "valor": 1.5, "respaldo": "supuesto" },
     "reescriturasMax": { "valor": 3, "respaldo": "supuesto" },
-    "logoEnCuadro0": { "valor": true, "respaldo": "base" }
+    "logoEnCuadro0": { "valor": true, "respaldo": "base" },
+    "ritmoReel": { "valor": "ensenar", "respaldo": "base" },
+    "duracionMaxSegundos": { "valor": 60, "respaldo": "supuesto" }
   },
   "terminosTecnicos": ["api", "llm", "token", "modelo", "prompt engineering", "embedding", "mcp", "agente", "fine-tuning", "rag", "open source"],
   "audios": []

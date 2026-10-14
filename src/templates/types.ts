@@ -84,9 +84,11 @@ export interface SlideSpec<P extends BaseSlideProps = BaseSlideProps> {
 /**
  * Ritmo del reel animado: `ensenar` (por defecto) deja leer, con escenas más
  * largas, entradas más lentas y bullets de a uno cada 1.8 s; `rapido` es el
- * ritmo ágil original. No afecta al carrusel estático.
+ * ritmo ágil original; `gancho` (experimento de retención) arranca con el hook
+ * en movimiento y ≤ 3 s, va rápido hasta el 20 % del reel, frena en el medio y
+ * cierra más lento. No afecta al carrusel estático.
  */
-export type Pace = "ensenar" | "rapido";
+export type Pace = "ensenar" | "rapido" | "gancho";
 
 /** Un carrusel completo. `name` define la carpeta de salida en output/. */
 export interface CarouselSpec {

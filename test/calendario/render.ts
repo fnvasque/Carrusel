@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorContenido, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar,
+  ErrorContenido, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
   sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
@@ -409,12 +409,20 @@ await checkAsync("leerBorradorSeguro: rechaza rutas fuera de la carpeta de la se
 
 await checkAsync("leerPuerta: config.json de la base o 2.5 / 1.5 por defecto", () =>
   conBase(async (dir) => {
-    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5 });
+    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5, duracionMaxSegundos: 60 });
     mkdirSync(join(dir, "_calendario"), { recursive: true });
-    writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify({ puerta: { lecturaPalabrasPorSegundo: { valor: 3 }, lecturaMinSegundos: { valor: "x" } } }));
-    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 3, lecturaMinSegundos: 1.5 });
+    writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify({ puerta: { lecturaPalabrasPorSegundo: { valor: 3 }, lecturaMinSegundos: { valor: "x" }, duracionMaxSegundos: { valor: 20 } } }));
+    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 3, lecturaMinSegundos: 1.5, duracionMaxSegundos: 20 });
+    writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify({ puerta: { duracionMaxSegundos: { valor: -5 } } }));
+    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5, duracionMaxSegundos: 60 }, "un tope ≤ 0 se ignora");
     writeFileSync(join(dir, "_calendario", "config.json"), "{roto");
-    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5 });
+    assert.deepEqual(await leerPuerta(), { lecturaPalabrasPorSegundo: 2.5, lecturaMinSegundos: 1.5, duracionMaxSegundos: 60 });
+    // topeDuracion: parametros de la pieza manda si es un número > 0; si no, la puerta.
+    const puerta = await leerPuerta();
+    assert.equal(topeDuracion(undefined, puerta), 60);
+    assert.equal(topeDuracion({ duracionMaxSegundos: 20 }, puerta), 20);
+    assert.equal(topeDuracion({ duracionMaxSegundos: 0 }, puerta), 60);
+    assert.equal(topeDuracion({ duracionMaxSegundos: "20" }, puerta), 60);
   }),
 );
 

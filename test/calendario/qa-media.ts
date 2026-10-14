@@ -14,7 +14,7 @@ import { renderReelResult } from "../../src/reel/renderReel.ts";
  * con texto oscuro y archivos truncados o inexistentes (ok:false, sin lanzar).
  */
 
-const puerta: Puerta = { lecturaPalabrasPorSegundo: 3, lecturaMinSegundos: 2 };
+const puerta: Puerta = { lecturaPalabrasPorSegundo: 3, lecturaMinSegundos: 2, duracionMaxSegundos: 60 };
 
 function ffmpeg(args: string[]): void {
   const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", ...args]);
@@ -74,7 +74,7 @@ try {
   });
 
   await checkAsync("qaReel: tiempos de lectura insuficientes se reportan", async () => {
-    const r = await qaReel(reel, portada, spec, { lecturaPalabrasPorSegundo: 0.5, lecturaMinSegundos: 2 });
+    const r = await qaReel(reel, portada, spec, { lecturaPalabrasPorSegundo: 0.5, lecturaMinSegundos: 2, duracionMaxSegundos: 60 });
     assert.equal(r.ok, false);
     assert.ok(r.motivos.some((m) => m.includes("escena")), r.motivos.join(" | "));
   });

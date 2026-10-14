@@ -4,7 +4,7 @@ import { resolveBackground } from "../render/background.ts";
 import type { CarouselSpec, Pace } from "../templates/types.ts";
 import { buildReelPage } from "./page.ts";
 import { captureReel, captureStills, assertFfmpeg } from "./capture.ts";
-import { specTiming } from "./timing.ts";
+import { maxSecondsError, specTiming } from "./timing.ts";
 
 export interface RenderReelOptions {
   /** Carpeta base de salida (por defecto "output"). El reel va en <outDir>/<name>/. */
@@ -15,6 +15,12 @@ export interface RenderReelOptions {
   fade?: number;
   /** Ritmo del reel; sobrescribe el `pace` del carrusel (por defecto "ensenar"). */
   pace?: Pace;
+  /**
+   * Tope de duración del reel (s): si los tiempos calculados lo superan, falla
+   * antes de abrir Chromium con un mensaje claro (`duracionMaxSegundos` del
+   * calendario, `--max-seconds` del CLI).
+   */
+  maxSeconds?: number;
   /** Pista de audio opcional a muxear. */
   audio?: string;
   /** Solo exportar un PNG por escena (estado final), sin componer el video. */
@@ -49,6 +55,8 @@ export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {
 export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptions = {}): Promise<RenderReelResult> {
   const base = join(process.cwd(), opts.outDir ?? "output", spec.name);
   const timing = specTiming(spec, { seconds: opts.seconds, fade: opts.fade, pace: opts.pace });
+  const exceso = maxSecondsError(timing.total, opts.maxSeconds);
+  if (exceso) throw new Error(exceso);
   if (!opts.framesOnly) assertFfmpeg();
 
   // Fondos `ai`/`image` resueltos a data URI antes de armar la página.

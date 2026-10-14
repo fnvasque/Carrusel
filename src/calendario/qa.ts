@@ -19,6 +19,8 @@ export interface QaResultado {
 export interface Puerta {
   lecturaPalabrasPorSegundo: number;
   lecturaMinSegundos: number;
+  /** Tope de duración del reel (s) si la pieza no trae `parametros.duracionMaxSegundos` (por defecto 60). */
+  duracionMaxSegundos: number;
 }
 
 /** Luminancia media (0..1) del buffer en escala de grises. Vacío → 0. */
