@@ -326,7 +326,8 @@ export function modoCalendario(v: string | undefined): "auto" | "aviso" | undefi
 export function previewsPendientes(
   semanas: SemanaLeida[],
   ahora: Date,
-  enviado: (clave: string) => boolean,
+  /** ¿Ya se entregó el preview de esta pieza para el render hecho en `renderEn`? Un re-render posterior vuelve a avisar. */
+  enviado: (clave: string, renderEn: string) => boolean,
 ): { semana: string; pieza: Pieza; medios: MediosRender; nueva: boolean }[] {
   const t = ahora.getTime();
   const out: { semana: string; pieza: Pieza; medios: MediosRender; nueva: boolean }[] = [];
@@ -337,7 +338,7 @@ export function previewsPendientes(
       const h = horaDe(p);
       if (r?.estado !== "renderizado" || !r.medios || h === undefined || h <= t) continue;
       if (est && est.estado !== "programado") continue;
-      if (enviado(claveFila(s.semana, p.id))) continue;
+      if (enviado(claveFila(s.semana, p.id), r.en)) continue;
       out.push({ semana: s.semana, pieza: p, medios: r.medios, nueva: !est });
     }
   }

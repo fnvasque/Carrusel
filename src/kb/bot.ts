@@ -1215,7 +1215,12 @@ async function revisarCalendario(): Promise<void> {
   try {
     const ahora = new Date();
     const { semanas } = await semanasActivas();
-    for (const x of previewsPendientes(semanas, ahora, (k) => Boolean(leerClaveDb(K_PREVIEW + k)))) {
+    // El preview guardado vale solo para ese render: si la pieza se volvió a renderizar después (`render.en` posterior), se avisa de nuevo.
+    const previewEntregado = (k: string, renderEn: string): boolean => {
+      const v = leerClaveDb(K_PREVIEW + k);
+      return Boolean(v) && !(typeof renderEn === "string" && renderEn > v!);
+    };
+    for (const x of previewsPendientes(semanas, ahora, previewEntregado)) {
       const s = semanas.find((y) => y.semana === x.semana)!;
       if (x.nueva) {
         await programarPieza(x.semana, x.pieza.id);
