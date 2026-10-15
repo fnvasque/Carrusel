@@ -48,6 +48,10 @@ const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title" };
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion"];
+/** Veces que un tema puede salir en la semana sin ser derivado (con 2 reels por día no alcanzan los temas elegibles). */
+const MAX_PIEZAS_POR_TEMA = 2;
+/** Entradas del mix por día (piezas que se publican ese día). */
+const MAX_ENTRADAS_MIX_DIA = 3;
 /** Ventanas con que el bot puede comparar piezas (`config.ventanaMedicion`; el bot usa 7d si falta). */
 const VENTANAS_MEDICION = ["24h", "72h", "7d", "14d", "21d", "28d"];
 const FORMATOS = ["reel", "carrusel"];
@@ -1193,8 +1197,11 @@ export function validarPlan(plan, config) {
       vistos.add(id);
     }
     const mix = esObj(config) && Array.isArray(config.mix) ? config.mix.filter(esObj) : [];
+    // Entradas del mix ya usadas por una pieza (varias piezas por día: cada una toma una entrada distinta).
+    const usadas = new Set();
     const [desde, hasta] = esObj(config) && Array.isArray(config.ventanaHoras) ? config.ventanaHoras : ["08:00", "23:00"];
     const conHora = [];
+    /** Por tema (clave normalizada): piezas que lo usan, con su día. */
     const temas = new Map();
     plan.piezas.forEach((p, i) => {
       if (!esObj(p)) {
@@ -1211,19 +1218,38 @@ export function validarPlan(plan, config) {
       // Tiempo real (con el cambio de hora de Chile), no reloj local.
       if (diaOk && horaOk) conHora.push({ id, min: instanteSeguro(p.dia, p.hora, esObj(config) ? config.zona : undefined) });
       if (diaOk) {
-        const m = mix.find((x) => x.dia === diaSemana(p.dia));
-        if (!m) errs.push(`${id}: config.mix no tiene entrada para ese día`);
+        const dia = diaSemana(p.dia);
+        const delDia = mix.map((x, k) => ({ x, k })).filter(({ x }) => x.dia === dia);
+        const libres = delDia.filter(({ k }) => !usadas.has(k));
+        const enExperimento = esObj(exp) && exp.variable === "arquetipo" && Array.isArray(exp.piezas) && exp.piezas.includes(p.id);
+        if (!delDia.length) errs.push(`${id}: config.mix no tiene entrada para ese día`);
+        else if (!libres.length) errs.push(`${id}: config.mix solo tiene ${delDia.length} entrada(s) para ese día y ya están tomadas por otras piezas`);
         else {
-          if (p.formato !== m.formato) errs.push(`${id}: formato ${q(p.formato)} no sigue el mix (ese día va ${m.formato})`);
-          const enExperimento = esObj(exp) && exp.variable === "arquetipo" && Array.isArray(exp.piezas) && exp.piezas.includes(p.id);
-          if (p.arquetipo !== m.arquetipo && !enExperimento) errs.push(`${id}: arquetipo ${q(p.arquetipo)} no sigue el mix (ese día va ${m.arquetipo})`);
+          // La entrada que mejor calza: misma hora y formato y arquetipo; luego formato y arquetipo;
+          // luego misma hora y formato; luego mismo formato; si no, la primera libre.
+          const calza = (f) => libres.find(({ x }) => f(x));
+          const m =
+            calza((x) => x.hora === p.hora && x.formato === p.formato && x.arquetipo === p.arquetipo) ??
+            calza((x) => x.formato === p.formato && x.arquetipo === p.arquetipo) ??
+            calza((x) => x.hora === p.hora && x.formato === p.formato) ??
+            calza((x) => x.formato === p.formato) ??
+            libres[0];
+          usadas.add(m.k);
+          const slot = typeof m.x.hora === "string" ? ` (${m.x.hora})` : "";
+          if (p.formato !== m.x.formato) errs.push(`${id}: formato ${q(p.formato)} no sigue el mix (ese día va ${m.x.formato}${slot})`);
+          if (p.arquetipo !== m.x.arquetipo && !enExperimento) errs.push(`${id}: arquetipo ${q(p.arquetipo)} no sigue el mix (ese día va ${m.x.arquetipo}${slot})`);
         }
       }
       if (typeof p.tema === "string") {
         const clave = tokens(p.tema).join(" ");
         const esDerivado = esTexto(p.derivadoDe);
-        if (temas.has(clave) && !esDerivado) errs.push(`${id}: tema repetido en la semana (${p.tema}); solo se repite un tema con derivadoDe`);
-        if (!temas.has(clave)) temas.set(clave, id);
+        const previas = temas.get(clave) ?? [];
+        if (previas.length && !esDerivado) {
+          // Con varias piezas por día un tema puede salir 2 veces en la semana (otro ángulo), nunca el mismo día.
+          if (previas.length >= MAX_PIEZAS_POR_TEMA) errs.push(`${id}: tema repetido en la semana (${p.tema}); un tema sale a lo más ${MAX_PIEZAS_POR_TEMA} veces (salvo derivados con derivadoDe)`);
+          else if (diaOk && previas.some((v) => v.dia === p.dia)) errs.push(`${id}: tema repetido el mismo día (${p.tema}, también en ${previas.find((v) => v.dia === p.dia).id}); la segunda pieza de un tema va otro día`);
+        }
+        temas.set(clave, [...previas, { id, dia: p.dia }]);
       }
     });
     if (semanaOk && semana >= DESDE_REFERENCIAS) {
@@ -1267,15 +1293,30 @@ export function validarConfig(config) {
     if (!esObj(config)) return ["config.json debe ser un objeto"];
     const errs = [];
     if (!esTexto(config.zona)) errs.push("zona debe ser un texto (America/Santiago)");
-    if (!Array.isArray(config.mix) || config.mix.length < 6 || config.mix.length > 7) errs.push("mix debe tener 6 o 7 entradas (lunes a sábado, y domingo si se publica)");
-    else {
-      const dias = new Set();
+    if (!Array.isArray(config.mix) || config.mix.length < 6 || config.mix.length > 7 * MAX_ENTRADAS_MIX_DIA) {
+      errs.push(`mix debe tener de 6 a ${7 * MAX_ENTRADAS_MIX_DIA} entradas (una por pieza y día: lunes a sábado, domingo si se publica; hasta ${MAX_ENTRADAS_MIX_DIA} por día)`);
+    } else {
+      const porDia = new Map();
+      const horas = new Set();
       config.mix.forEach((m, i) => {
         if (!esObj(m) || !Number.isInteger(m.dia) || m.dia < 0 || m.dia > 6 || !FORMATOS.includes(m.formato) || !esTexto(m.arquetipo)) {
-          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo }`);
-        } else if (dias.has(m.dia)) errs.push(`mix: día ${m.dia} repetido`);
-        else dias.add(m.dia);
+          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo, hora? }`);
+          return;
+        }
+        if (m.hora !== undefined && !(typeof m.hora === "string" && HORA_RE.test(m.hora))) errs.push(`mix[${i}].hora ${q(m.hora)} inválida (HH:MM en :00 o :30)`);
+        const n = (porDia.get(m.dia) ?? 0) + 1;
+        porDia.set(m.dia, n);
+        if (n > MAX_ENTRADAS_MIX_DIA) errs.push(`mix: día ${m.dia} tiene más de ${MAX_ENTRADAS_MIX_DIA} entradas`);
+        if (typeof m.hora === "string") {
+          const k = `${m.dia}|${m.hora}`;
+          if (horas.has(k)) errs.push(`mix: día ${m.dia} repite la hora ${m.hora}`);
+          horas.add(k);
+        }
       });
+      // Con más de una entrada el mismo día, cada una lleva su hora (si no, el planificador no sabe cuál va primero).
+      for (const [dia, n] of porDia) {
+        if (n > 1 && config.mix.some((m) => esObj(m) && m.dia === dia && typeof m.hora !== "string")) errs.push(`mix: día ${dia} tiene ${n} entradas y alguna sin hora (con varias piezas por día, cada entrada lleva su hora)`);
+      }
     }
     if (!esObj(config.horasPorDefecto) || !Object.values(config.horasPorDefecto).every((h) => typeof h === "string" && HORA_RE.test(h))) {
       errs.push("horasPorDefecto: cada hora en HH:MM con :00 o :30");

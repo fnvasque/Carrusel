@@ -552,10 +552,68 @@ function plan(over: Record<string, unknown> = {}): any {
 
 check("calendario/validar: plan válido → []", () => assertNone(validarPlan(plan(), config)));
 
-check("calendario/validar: plan — dos piezas a menos de 20 h → error", () => {
+check("calendario/validar: plan — dos piezas a menos de separacionMinHoras → error", () => {
   const p = plan();
   p.piezas[1].hora = "08:30"; // lun 14:00 → mar 08:30 = 18,5 h
-  assertHas(validarPlan(p, config), /20/);
+  assertHas(validarPlan(p, { ...config, separacionMinHoras: 20 }), /20/);
+  assert.deepEqual(validarPlan(p, config).filter((e: string) => /separacionMinHoras/.test(e)), [], "con 4 h de separación pasa");
+  const q = plan();
+  q.piezas[1] = pieza({ id: "lun-pm-reel-x", dia: "2026-10-12", hora: "17:00", arquetipo: "compartible", tema: "[[Otro tema]]", borrador: "lun-pm-reel-x.json" });
+  assertHas(validarPlan(q, config), /está a 3 h de lun-reel-a \(mínimo 4 h/);
+});
+
+check("calendario/validar: plan — varias piezas por día toman entradas distintas del mix (por hora, formato y arquetipo)", () => {
+  const dos = plan();
+  dos.piezas.push(pieza({ id: "lun-pm-reel-x", dia: "2026-10-12", hora: "19:00", arquetipo: "compartible", tema: "[[Otro tema]]", borrador: "lun-pm-reel-x.json" }));
+  assertNone(validarPlan(dos, config));
+  // Una tercera pieza el lunes: el mix solo tiene 2 entradas ese día.
+  const tres = clone(dos);
+  tres.piezas.push(pieza({ id: "lun-reel-y", dia: "2026-10-12", hora: "23:00", arquetipo: "tutorial", tema: "[[Tercer tema]]", borrador: "lun-reel-y.json" }));
+  assertHas(validarPlan(tres, config), /config\.mix solo tiene 2 entrada\(s\) para ese día/);
+  // Dos tutoriales el lunes: el segundo no calza con la entrada libre (compartible, 19:00).
+  const rep2 = clone(dos);
+  rep2.piezas[3].arquetipo = "tutorial";
+  assertHas(validarPlan(rep2, config), /lun-pm-reel-x: arquetipo "tutorial" no sigue el mix \(ese día va compartible \(19:00\)\)/);
+  // Martes: carrusel 14:00 + 2 reels (09:00 demo, 19:00 atemporal) → 3 piezas válidas.
+  const martes = plan();
+  martes.piezas = [
+    pieza({ id: "mar-am-reel-a", dia: "2026-10-13", hora: "09:00", arquetipo: "demo", senal: "retencion", tema: "[[Tema A]]", borrador: "mar-am-reel-a.json" }),
+    pieza({ id: "mar-carrusel-b", dia: "2026-10-13", hora: "14:00", formato: "carrusel", arquetipo: "lista", tema: "[[Tema B]]", borrador: "mar-carrusel-b.json" }),
+    pieza({ id: "mar-pm-reel-c", dia: "2026-10-13", hora: "19:00", arquetipo: "atemporal", senal: "retencion", tema: "[[Tema C]]", borrador: "mar-pm-reel-c.json" }),
+  ];
+  martes.experimento = null;
+  assertNone(validarPlan(martes, config).filter((e: string) => !/experimento/.test(e)));
+});
+
+check("calendario/validar: plan — un tema sale a lo más 2 veces en la semana y nunca el mismo día (derivados aparte)", () => {
+  const p = plan();
+  p.piezas[2].tema = p.piezas[0].tema; // lunes y miércoles: permitido
+  assertNone(validarPlan(p, config));
+  const mismoDia = plan();
+  mismoDia.piezas.push(pieza({ id: "lun-pm-reel-x", dia: "2026-10-12", hora: "19:00", arquetipo: "compartible", tema: mismoDia.piezas[0].tema, borrador: "lun-pm-reel-x.json" }));
+  assertHas(validarPlan(mismoDia, config), /tema repetido el mismo día/);
+  const tres = plan();
+  tres.piezas[1].tema = tres.piezas[0].tema;
+  tres.piezas[2].tema = tres.piezas[0].tema;
+  assertHas(validarPlan(tres, config), /un tema sale a lo más 2 veces/);
+  tres.piezas[2].derivadoDe = "lun-reel-a";
+  assertNone(validarPlan(tres, config));
+});
+
+check("calendario/validar: config — mix con varias entradas por día: hasta 3, cada una con hora distinta", () => {
+  assert.equal(CONFIG_BASE.mix.length, 16);
+  assert.equal(CONFIG_BASE.separacionMinHoras, 4);
+  const lun = CONFIG_BASE.mix.filter((m: { dia: number }) => m.dia === 1);
+  const cuatro = { ...CONFIG_BASE, mix: [...CONFIG_BASE.mix, ...lun.map((m: object, i: number) => ({ ...m, hora: `2${i}:00` }))] };
+  assertHas(validarConfig(cuatro), /día 1 tiene más de 3 entradas/);
+  const sinHora = { ...CONFIG_BASE, mix: CONFIG_BASE.mix.map((m: { dia: number; hora?: string }) => (m.dia === 1 ? { ...m, hora: undefined } : m)) };
+  assertHas(validarConfig(sinHora), /día 1 tiene 2 entradas y alguna sin hora/);
+  const repetida = { ...CONFIG_BASE, mix: CONFIG_BASE.mix.map((m: { dia: number }) => (m.dia === 1 ? { ...m, hora: "09:00" } : m)) };
+  assertHas(validarConfig(repetida), /día 1 repite la hora 09:00/);
+  assertHas(validarConfig({ ...CONFIG_BASE, mix: CONFIG_BASE.mix.map((m: object) => ({ ...m, hora: "9:00" })) }), /hora "9:00" inválida/);
+  // Un mix de una pieza por día sin horas sigue siendo válido.
+  const unoPorDia = { ...CONFIG_BASE, mix: [1, 2, 3, 4, 5, 6, 0].map((dia) => ({ dia, formato: "reel", arquetipo: "tutorial" })) };
+  assertNone(validarConfig(unoPorDia));
 });
 
 check("calendario/validar: plan — hora fuera de 08:00–23:00 o sin :00/:30 → error", () => {
@@ -573,7 +631,7 @@ check("calendario/validar: plan — día fuera de la semana → error; el doming
   const q = plan();
   q.piezas[0].dia = "2026-10-18";
   q.piezas[0].formato = "carrusel";
-  assertHas(validarPlan(q, config), /no sigue el mix \(ese día va reel\)/);
+  assertHas(validarPlan(q, config), /no sigue el mix \(ese día va reel \(09:00\)\)/);
   const ok = plan();
   Object.assign(ok.piezas[0], { dia: "2026-10-18", arquetipo: "compartible" });
   assert.deepEqual(validarPlan(ok, config).filter((e: string) => /mix|domingo|semana/.test(e)), []);
@@ -622,9 +680,10 @@ check("calendario/validar: plan — ids repetidos y dos piezas del mismo tema �
   p.piezas[1].id = "lun-reel-a";
   assertHas(validarPlan(p, config), /repetido/);
   const q = plan();
-  q.piezas[1].tema = "automatizacion con ia"; // mismo tema sin [[ ]] ni tildes
+  q.piezas[1].tema = "automatizacion con ia"; // mismo tema sin [[ ]] ni tildes: 2.ª vez, otro día → permitido
+  q.piezas[2].tema = "Automatización con IA"; // 3.ª vez → error
   assertHas(validarPlan(q, config), /tema/);
-  q.piezas[1].derivadoDe = "lun-reel-a";
+  q.piezas[2].derivadoDe = "lun-reel-a";
   assert.ok(!has(validarPlan(q, config), /tema/));
 });
 
@@ -863,7 +922,7 @@ check("calendario/validar: separación entre piezas medida en tiempo real (UTC d
     pieza({ id: "sab-reel-b", dia: "2026-09-05", hora: "18:30", formato: "reel", arquetipo: "atemporal", tema: "otro tema", borrador: "sab-reel-b.json" }),
   ];
   p.experimento = { variable: "hora", hipotesis: "x", piezas: ["sab-reel-b"] };
-  assertHas(validarPlan(p, config), /sab-reel-b: está a 19\.5 h/);
+  assertHas(validarPlan(p, { ...config, separacionMinHoras: 20 }), /sab-reel-b: está a 19\.5 h/);
 });
 
 check("calendario/validar: la palabra clave en mayúsculas solo vale tras \"Comenta\" en el Cta, y solo una", () => {
