@@ -391,6 +391,13 @@ check("telegram: previewsPendientes — render con medios, sin estado o programa
   const r = previewsPendientes([s], Z("2026-10-12T15:00:00Z"), (k) => k === "2026-10-12/con-preview");
   assert.deepEqual(r.map((x) => [x.pieza.id, x.nueva]), [["lun-reel-agentes", true], ["ya-programada", false]]);
   assert.equal(r[0].medios.cover, medios.cover);
+  // Re-render: `enviado` recibe la fecha del render para decidir si el preview guardado sigue valiendo.
+  const vistos: [string, string][] = [];
+  previewsPendientes([s], Z("2026-10-12T15:00:00Z"), (k, en) => {
+    vistos.push([k, en]);
+    return false;
+  });
+  assert.ok(vistos.every(([, en]) => en === "2026-10-11T10:00:00Z"), "pasa render.en a `enviado`");
 });
 
 check("telegram: publicadas — solo estado publicado con fecha", () => {
