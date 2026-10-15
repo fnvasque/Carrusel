@@ -715,7 +715,8 @@ export function construirBucle(e: EntradasBucle): BucleJson {
 
   const config = esObj(e.config) ? e.config : {};
   const cuenta = esObj(e.cuenta) ? e.cuenta : {};
-  const dias = Array.isArray(config.mix) ? config.mix.map((x) => (esObj(x) ? x.dia : undefined)).filter((d): d is number => esNum(d) && d >= 1 && d <= 7) : [];
+  // Días del mix sin repetir (con varias piezas por día, `horas` da la mejor hora del día; las demás entradas llevan la suya en `config.mix[].hora`).
+  const dias = Array.isArray(config.mix) ? [...new Set(config.mix.map((x) => (esObj(x) ? x.dia : undefined)).filter((d): d is number => esNum(d) && d >= 1 && d <= 7))] : [];
   const vh = config.ventanaHoras;
   const ventana: [string, string] =
     Array.isArray(vh) && vh.length === 2 && vh.every((h) => typeof h === "string" && /^\d{2}:\d{2}$/.test(h)) ? [vh[0], vh[1]] : ["08:00", "23:00"];
