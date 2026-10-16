@@ -57,6 +57,9 @@ ni lo completes con lo que sabes.
 4. ¿Qué sentiste al ver la primera slide? (lista abierta)
 5. ¿Qué harías al terminar? (guardar / enviárselo a alguien / comentar / nada)
 6. ¿Algo te confundió, se contradijo o prometió algo que no llegó?
+7. Mira **solo la Slide 1** (en el video es lo único que alcanzas a ver en los
+   primeros 2 segundos). Solo con eso: ¿qué vas a conseguir si sigues mirando?
+   Si no lo sabes, responde "no sé".
 
 ### Formato de respuesta
 
@@ -64,7 +67,7 @@ Responde **solo** este JSON, sin texto antes ni después. Si en la 3 o la 6 no
 hay nada, deja el texto vacío (`""`).
 
 ```json
-{ "1": "...", "2": "...", "3": "...", "4": "...", "5": "...", "6": "..." }
+{ "1": "...", "2": "...", "3": "...", "4": "...", "5": "...", "6": "...", "7": "..." }
 ```
 
 ## Para el planificador: criterio de paso
@@ -90,10 +93,19 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
 6. La respuesta 6 no señala una **contradicción**, una **promesa** que la pieza
    no cumple, ni que **no pudo seguir los pasos** para obtener el entregable.
    Cualquier otra duda (quería más detalle, un ejemplo extra) no bloquea.
+7. La respuesta 7 nombra un **resultado concreto** que coincide con el
+   entregable declarado ("ordenar mis pendientes con ChatGPT", "narrar un video
+   sin grabar mi voz"). "No sé", una pregunta, el tema a secas ("algo de
+   hábitos") o una promesa vaga ("un truco", "mejorar mis textos") **no
+   pasan**. Motivo: seguidores avisaron el 2026-10-15 que no se entiende el
+   propósito de los reels; hooks como «¿Por qué tu texto se olvida?» nombran un
+   problema sin decir qué te llevas, y con 3 s de visionado medio nadie llega
+   a la respuesta.
 
-- **Lector completo:** deben cumplirse las seis (1–6), con la 3 y la 6 como
+- **Lector completo:** deben cumplirse las siete (1–7), con la 3 y la 6 como
   están escritas arriba.
-- **Lector con prisa:** cuentan solo la 1, la 2 y la 5. Sus respuestas 3, 4 y 6
+- **Lector con prisa:** cuentan solo la 1, la 2, la 5 y la 7. La 7 nunca va
+  como `NB`. Sus respuestas 3, 4 y 6
   **no bloquean**. El lector con prisa no ve el cuerpo a propósito; echarlo de
   menos es esperable.
 
