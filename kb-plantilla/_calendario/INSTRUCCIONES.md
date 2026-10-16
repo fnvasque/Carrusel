@@ -32,12 +32,78 @@ curiosa de la IA, **no técnica**, en el celular y distraída. Todo el copy va e
 3. **Validar antes de subir.** `node _calendario/validar.mjs <semana>` debe
    terminar con ✓. Nunca subas una semana que no pase.
 4. **Fechas absolutas** (AAAA-MM-DD) y horas de Chile (`America/Santiago`).
-5. **Nada inventado: la sustancia sale de una referencia.** Cada pieza se apoya
-   en al menos una **referencia lista** (ver Paso 3) y de ella saca sus datos,
-   capacidades y el entregable. Una ficha de `fuentes/` es lo que otro creador
-   afirmó, sin verificar: úsala para el **ángulo y el formato** (qué hook
-   funcionó, cómo lo contó), nunca como única fuente de un dato. Lo que no está
-   en una referencia, no lo afirmas.
+5. **Nada inventado: cada afirmación tiene respaldo.** Cada pieza se apoya en
+   al menos una **referencia lista** (ver Paso 3) del tema de la pieza, y de
+   ella salen el entregable y los pasos. Lo que la pieza afirma se respalda
+   según su tipo:
+   - **Capacidades de una herramienta** (qué hace, si está en el plan gratis,
+     precio, países, pasos): solo de una referencia. La audiencia repite lo
+     que ve; si un reel dice "gratis" y era de pago, la cuenta pierde confianza.
+   - **Datos de terceros** (estudios, encuestas, cifras de una industria o de
+     otra empresa): solo de una referencia que cite la fuente original. No
+     basta que lo diga alguien conocido: si Jensen Huang dice "hay 20 % más
+     radiólogos", la cifra necesita referencia.
+   - **Lo que dice una persona reconocible** puede salir de una ficha de
+     `fuentes/` (la ficha del video) si se cumplen las cuatro condiciones:
+     (a) es **reconocible en su campo por su trabajo**: fundador, ejecutivo,
+         investigador o profesor (Sam Altman, Jensen Huang, Ethan Mollick).
+         Un creador de contenido que divulga lo que otros hicieron no cuenta;
+     (b) habla de **lo suyo**: su práctica, su opinión, su predicción o cifras
+         de su propia empresa, producto o experiencia ("Stripe saca 1.300
+         cambios de código por semana", dicho por un ingeniero de Stripe;
+         "creé un fondo de 20 millones y no alcanza", dicho por el CEO de
+         Verizon);
+     (c) se **atribuye con nombre en la misma escena o slide** que la
+         afirmación ("Sam Altman cuenta que…", "Para Jensen Huang…"), y la
+         opinión o la predicción se presenta como tal, nunca como un hecho;
+     (d) la frase **no viene de un pasaje dudoso**: la ficha no está marcada
+         `parcial: true` y el pasaje no tiene nombres raros, cifras cortadas
+         ni errores evidentes de transcripción o doblaje (en la duda, no se
+         usa).
+   - Una ficha de cualquier otro autor sirve solo para el **ángulo y el
+     formato** (qué gancho funcionó, cómo lo contó), nunca como fuente de un
+     dato.
+   Lo que no tiene respaldo, no lo afirmas. Motivo: en las fichas de video
+   aparecieron "$547" por US$5,47, modelos que no existen y un estudio citado
+   que no se encontró; una promesa de OpenAI ("Dots llegará gratis") no era
+   cierta al 2026-10-16.
+6. **Cada pieza es de IA y la IA se ve.** Desde 2026-10-19, toda pieza trata
+   de IA de una de estas dos formas, y "IA" o la herramienta aparece en el
+   `Hook` (título, subtítulo o fondo):
+   - **Herramienta:** nombra una IA concreta (ChatGPT, Gemini, NotebookLM,
+     CapCut…) y la muestra haciendo algo en al menos una escena del medio. Un
+     tema de productividad, finanzas o marketing entra como "X **con**
+     [herramienta]".
+   - **Impacto:** en los temas de `_investigacion/alcance.json → enfoqueIA`
+     (liderazgo, modelos mentales, hábitos y decisiones, productividad), la
+     pieza cuenta **cómo la IA cambia ese tema** según su ángulo, con el dato
+     de una referencia ("Los equipos que usan IA hacen reuniones más cortas: el
+     dato", "Qué le pasa a tu memoria si la IA te recuerda todo").
+   Si el ángulo se sostiene sin la IA (el mito de los 21 días, lenguaje
+   corporal, presupuesto 50-30-20), no es para esta cuenta: elige otro. Motivo:
+   en la semana del 2026-10-12 la mitad de las piezas no trataba de IA y la
+   cuenta ganó 1 seguidor con 188 de alcance (87 % no seguidores): quien llega
+   por un reel genérico no sigue una cuenta de IA.
+7. **En reels, el gesto se pide antes del segundo 5.** El destinatario del envío
+   ("para tu amigo que…", "si estudias…") va en el `subtitle` del `Hook` o en la
+   primera escena, no solo en el `Cta`: con 3 a 5 s de visionado medio, más del
+   90 % de la audiencia nunca llega al `Cta` (0 envíos en 9 piezas al
+   2026-10-15). El `Cta` sigue cerrando igual.
+8. **El `Hook` dice qué te llevas.** Desde 2026-10-19, el `title` o el
+   `subtitle` del `Hook` nombra el **resultado concreto** de ver la pieza y con
+   qué IA se logra: `[resultado] + [con qué]`, opcionalmente `+ [cuánto]`. Una
+   pregunta o una curiosidad puede ir en el título solo si el `subtitle` da esa
+   promesa. La segunda escena (`Lead`) confirma la promesa, no la esconde
+   detrás de un acertijo. El caption abre con la misma promesa.
+   - Mal: «¿Por qué tu texto se olvida?» + «El truco: no decirlo». Bien:
+     «Haz que tu texto se recuerde» + subtítulo «1 prompt de ChatGPT».
+   - Mal: «¿3 voces en español, gratis?». Bien: «Narra tu video sin grabar tu
+     voz» + subtítulo «Kokoro, gratis».
+   - Mal: «¿Por qué no aprendes con ChatGPT?». Bien: «ChatGPT te pregunta hasta
+     que entiendes» + subtítulo «Modo estudio, 3 pasos».
+   Lo comprueba la pregunta 7 del lector frío (solo la Slide 1). Motivo:
+   seguidores avisaron el 2026-10-15 que no queda claro el propósito de los
+   reels.
 
 ## Paso 0 — Preparación
 
@@ -632,10 +698,12 @@ de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
 ### Fuente y parámetros
 
 - `source` al pie de alguna slide (normalmente el `Cta`): cita la referencia
-  de origen ("Fuente: notebooklm.google.com"). `origen` en `plan.json` lista
-  las rutas de la base que usaste: `referencias` con **al menos una referencia
-  lista** del tema de la pieza (de ella salen los datos y el entregable) y
-  `fichas` con las que te dieron el ángulo (puede ir vacía).
+  de origen ("Fuente: notebooklm.google.com"); si la pieza cita a una persona
+  (regla 5), nombra también a la persona y el video ("Sam Altman en How I
+  Write, de David Perell"). `origen` en `plan.json` lista las rutas de la base
+  que usaste: `referencias` con **al menos una referencia lista** del tema de
+  la pieza (de ella salen el entregable y los pasos) y `fichas` con las que te
+  dieron el ángulo o la cita (obligatoria si la pieza cita a una persona).
 - `parametros` es obligatorio en cada pieza de `plan.json`: lleva **todas** las
   claves de `config.json → puerta` con el valor que usaste al producir la pieza,
   del mismo tipo que en `config.json` (número, `true`/`false` o lista). Si no
