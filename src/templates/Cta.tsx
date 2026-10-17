@@ -59,7 +59,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
           if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
           return h + c.gap + c.pill * 1.2 + 44;
         },
-        contentHeight(format, base.source),
+        contentHeight(format, base.source, base.narracion),
         format,
       )
     : post;

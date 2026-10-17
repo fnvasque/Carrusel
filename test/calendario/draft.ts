@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { check } from "../_check.ts";
-import { parseBorrador, borradorASpec, storySpec, duracionReelMs, type Borrador } from "../../src/calendario/draft.ts";
+import { parseBorrador, borradorASpec, storySpec, duracionReelMs, narracionError, type Borrador } from "../../src/calendario/draft.ts";
 import { Hook, Step, Cta, StoryCover } from "../../src/templates/index.ts";
 import { specTiming } from "../../src/reel/timing.ts";
 
@@ -184,4 +184,27 @@ check("borradorASpec quita las @ iniciales de handle (el Cta ya dibuja una: nunc
     const cta = borradorASpec(b).slides.find((s) => s.template === Cta)!;
     assert.equal(cta.props.handle, "ia.punto.es", h);
   }
+});
+
+check("borrador: narracion por slide pasa a props solo en el reel; forma validada por parseBorrador", () => {
+  const b = base();
+  b.slides[0].narracion = "Esto lo hace  NotebookLM solo,  con tus apuntes.";
+  b.slides[1].narracion = "Sube tus PDFs y listo.";
+  const reel = borradorASpec(b, { format: "reel" });
+  assert.equal(reel.slides[0].props.narracion, "Esto lo hace NotebookLM solo, con tus apuntes.", "espacios colapsados");
+  assert.equal(reel.slides[1].props.narracion, "Sube tus PDFs y listo.");
+  assert.equal(reel.slides[2].props.narracion, undefined);
+  const post = borradorASpec(b);
+  assert.equal("narracion" in post.slides[0].props, false, "el carrusel no la lleva");
+  assert.equal(narracionError("Tres palabras aquí"), undefined);
+  assert.match(narracionError("Dos palabras")!, /2 palabras/);
+  assert.match(narracionError(Array.from({ length: 25 }, () => "x").join(" "))!, /25 palabras/);
+  assert.match(narracionError("")!, /no vacío/);
+  assert.match(narracionError(7)!, /no vacío/);
+  const malo = base() as any;
+  malo.slides[0].narracion = "corta";
+  assert.throws(() => parseBorrador(JSON.stringify(malo)), /slide 1 \(Hook\): narracion tiene 1 palabras/);
+  // Round-trip: parseBorrador conserva la narración y el render del reel la usa.
+  const ok = parseBorrador(JSON.stringify(b));
+  assert.equal(borradorASpec(ok, { format: "reel" }).slides[1].props.narracion, "Sube tus PDFs y listo.");
 });

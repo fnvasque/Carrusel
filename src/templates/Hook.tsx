@@ -49,7 +49,7 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
               if (subtitle) h += 36 + interHeight(subtitle, subSize, 820, 1.3);
               return h;
             },
-            contentHeight(format, base.source),
+            contentHeight(format, base.source, base.narracion),
             format,
           ),
         )

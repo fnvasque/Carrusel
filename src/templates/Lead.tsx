@@ -30,7 +30,7 @@ export function Lead({ kicker, text, highlight, accent, format, ...base }: LeadP
   const size = pickFill(
     [116, 108, 100, 92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
     (s) => (lines(s) > maxLines ? Infinity : 48 + lines(s) * s * 1.18),
-    contentHeight(format, base.source),
+    contentHeight(format, base.source, base.narracion),
     format,
   );
   return (

@@ -39,7 +39,7 @@ export function MythReality({
   const size = pickFill(
     [104, 96, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44].filter((s) => s <= max),
     (s) => cardH(myth, s) + cardH(reality, s) + 28,
-    contentHeight(format, base.source),
+    contentHeight(format, base.source, base.narracion),
     format,
   );
   return (

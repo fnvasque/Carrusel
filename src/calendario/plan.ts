@@ -30,6 +30,7 @@ export interface Pieza {
   lectorFrio: { intentos: number; resultado: string; notas: string };
   origen: { fichas: string[]; referencias: string[] };
   derivadoDe: string | null;
+  serie?: string | null;
   caption: string;
   borrador: string;
   estado: Estado;
@@ -110,6 +111,8 @@ const PiezaSchema = z.object({
   origen: z.object({ fichas: z.array(z.string()), referencias: z.array(z.string()) }),
   // Opcionales en validar.mjs: sin derivadoDe la pieza no deriva de nadie; sin estado, está planificada.
   derivadoDe: z.string().nullable().default(null),
+  /** Serie fija del reel (pivote 2026-10-17): hazlo-con-ia, gratis-vs-pago, lo-probe-por-ti. */
+  serie: z.string().nullable().optional(),
   caption: z.string(),
   borrador: z.string(),
   estado: estadoEnum.default("planificado"),

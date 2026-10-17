@@ -70,12 +70,24 @@ export function pickFill<T>(candidates: T[], height: (c: T) => number, available
   return pickFit(candidates, height, available);
 }
 
-/** Alto disponible para el bloque de contenido (descontando cabecera, pie y alza óptica). */
-export function contentHeight(format: Format = "post", source?: string): number {
+/**
+ * Alto (px) que el subtítulo de la narración ocupa sobre la fuente al pie en el
+ * reel (pastilla de ≤ 2 líneas a 44 px + separación): el contenido se centra
+ * por encima para no pisarlo. Solo cuando la escena lleva `narracion`.
+ */
+export const SUBTITULO_RESERVA = 170;
+
+/** Reserva del subtítulo para una escena (0 en post o sin narración). */
+export function subtituloReserve(format: Format = "post", narracion?: string): number {
+  return format === "reel" && typeof narracion === "string" && narracion.trim() ? SUBTITULO_RESERVA : 0;
+}
+
+/** Alto disponible para el bloque de contenido (descontando cabecera, pie, subtítulo y alza óptica). */
+export function contentHeight(format: Format = "post", source?: string, narracion?: string): number {
   const h = FORMATS[format].height;
   const padTop = format === "reel" ? REEL_SAFE_TOP : POST_PAD_Y;
   const padBottom = format === "reel" ? REEL_SAFE_BOTTOM : POST_PAD_Y;
-  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - opticalLift(format);
+  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - subtituloReserve(format, narracion) - opticalLift(format);
 }
 
 /**

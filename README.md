@@ -73,6 +73,7 @@ Plantillas de marca (sistema visual **ia.es**, ver más abajo), una por rol de s
 - **Lead** — promesa en 1 frase: `kicker`, `text`, `highlight`
 - **Step** — paso del desarrollo: `step`, `heading`, `highlight`, `body`, `bullets[]`
 - **Prompt** — prompt copiable (mono): `heading`, `prompt`, `note`
+- **Screen** — la IA en pantalla (ventana de chat): `app`, `prompt` (se teclea en el reel), `respuesta`, `heading`, `nota`
 - **MythReality** — mito vs realidad: `myth`, `reality`, `mythLabel`, `realityLabel`
 - **Stat** — dato grande con contexto: `value`, `label`, `context` (el número cuenta desde 0 en el reel)
 - **Cta** — funnel al newsletter: `title`, `highlight`, `reason`, `handle`, `cta`
@@ -83,6 +84,22 @@ Plantillas originales **Cover** / **Bullet** / **Quote** siguen disponibles.
 Props comunes a todas (en `src/templates/types.ts`): `background`, `fontFamily`,
 `color`, `accent`, y los elementos de marca que pinta `Frame`: `pillar` (chip de
 color), `index`/`total` (progreso `NN/MM`), `source` (fuente al pie), `showLogo`.
+
+### Reels con voz (narración)
+
+En un reel, cada slide puede llevar `narracion`: lo que dice la voz mientras se
+ve esa escena. El motor la sintetiza en local con **Kokoro-82M** (voz en
+español, gratis; instala el venv con `scripts/kokoro-install.sh`), alarga la
+escena hasta que quepa la voz, la pinta como subtítulo sobre la fuente al pie y
+la mezcla con la música, que baja mientras se habla. Caché en `.cache/voz/`.
+
+```bash
+npm run reel carousels/demo-chatgpt-pagos.ts -- --pace=gancho --audio=promo/audio/digital-clouds.mp3
+# --voz=em_alex|em_santa|ef_dora (por defecto em_alex) · --sin-voz para omitir la narración
+```
+
+En el calendario, la voz se elige en `_calendario/config.json → voz` y el
+planificador escribe `narracion` en cada slide del reel (manual: regla 9).
 
 ### Marca (sistema visual ia.es)
 

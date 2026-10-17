@@ -13,3 +13,6 @@ keys/
 # La base vive en su propio repo privado (ver deploy/README.md)
 knowledge/
 knowledge.antes-de-migrar/
+# Muestras de voz y demos de reel generadas en sesión (pesadas): se ven en la app, no se versionan
+informes/muestras-voz/
+informes/demo/

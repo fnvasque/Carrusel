@@ -1,4 +1,4 @@
-import { Hook, Lead, Step, Stat, Prompt, MythReality, Cta } from "../src/templates/index.ts";
+import { Hook, Lead, Step, Stat, Prompt, Screen, MythReality, Cta } from "../src/templates/index.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
@@ -47,6 +47,10 @@ const carousel: CarouselSpec = {
     {
       template: MythReality,
       props: { pillar: "curiosidad", index: 6, total: 7, myth: "La IA piensa y decide sola.", reality: "Hace lo que tú le pides. Tú revisas y decides." },
+    },
+    {
+      template: Screen,
+      props: { pillar: "herramienta", index: 7, total: 8, app: "ChatGPT", prompt: "Avísame cada 1 del mes: pagar la luz", respuesta: "Listo. Te recordaré pagar la luz el día 1 de cada mes a las 9:00.", nota: "Tareas de ChatGPT, gratis.", narracion: "Le escribes esto una vez y te lo recuerda todos los meses." },
     },
     {
       template: Cta,

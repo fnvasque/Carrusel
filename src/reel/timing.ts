@@ -94,7 +94,7 @@ export function parsePace(value: unknown, origin = "--pace"): Pace {
  * citas, mito/realidad, el dato de Stat (valor, etiqueta, contexto) y el
  * prompt copiable.
  */
-const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt"];
+const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
 
 /**
  * Tope (s) de la escena 0 (hook) en `ensenar`: la promesa llega en 3 s y se
@@ -284,10 +284,33 @@ export interface SpecTimingOptions {
   fade?: number;
   /** Ritmo, `--pace` (sobrescribe el del carrusel). */
   pace?: Pace;
+  /**
+   * Duración (s) de la narración de cada escena (`undefined` donde no hay voz):
+   * la escena dura al menos lo que se tarda en decirla (`conNarracion`).
+   */
+  narracion?: (number | undefined)[];
+}
+
+/** Segundos que se suman a una narración (entrada de la escena + silencio final) para fijar su escena. */
+export const NARRACION_MARGEN = 0.75;
+
+/**
+ * Alarga cada escena con narración hasta que quepa su voz: max(duración por
+ * texto, narración + NARRACION_MARGEN). Ninguna se acorta y el tope del hook
+ * no aplica (la voz no se corta). Las escenas sin narración no cambian.
+ */
+export function conNarracion(durations: number[], narracion?: (number | undefined)[]): number[] {
+  if (!narracion) return durations;
+  return durations.map((d, i) => {
+    const n = narracion[i];
+    if (n === undefined) return d;
+    if (!Number.isFinite(n) || n <= 0) throw new Error(`La narración de la escena ${i + 1} dura ${n} s: debe ser un número mayor que 0.`);
+    return +Math.max(d, n + NARRACION_MARGEN).toFixed(2);
+  });
 }
 
 /** Tiempos del reel de un carrusel: resuelve el ritmo y aplica los overrides. */
 export function specTiming(spec: CarouselSpec, opts: SpecTimingOptions = {}): ReelTiming {
   const pace = specPace(spec, opts.pace);
-  return reelTiming(specDurations(spec, opts.seconds, pace), opts.fade, pace);
+  return reelTiming(conNarracion(specDurations(spec, opts.seconds, pace), opts.narracion), opts.fade, pace);
 }

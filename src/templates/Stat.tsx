@@ -71,7 +71,7 @@ export function Stat({ value: rawValue, label, context, accent, format = "post",
   const parsed = parseStatValue(value);
   const percent = parsed && /^\s*%/.test(parsed.suffix) && parsed.number >= 0 && parsed.number <= 100 ? parsed.number : null;
   const reel = format === "reel";
-  const sc = pickFill(scales(reel), (c) => statHeight(c, { value, label, context, percent: percent !== null }, reel), contentHeight(format, base.source), format);
+  const sc = pickFill(scales(reel), (c) => statHeight(c, { value, label, context, percent: percent !== null }, reel), contentHeight(format, base.source, base.narracion), format);
   const v = valueFit(value, sc.valueMax);
   return (
     <Frame format={format} {...base}>

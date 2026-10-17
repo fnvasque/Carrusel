@@ -13,6 +13,7 @@ export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; option
   Lead: { required: ["text"], optional: ["kicker", "highlight"] },
   Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
+  Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
   Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },

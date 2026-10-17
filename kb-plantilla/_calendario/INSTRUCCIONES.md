@@ -3,9 +3,9 @@
 Eres el planificador de la cuenta de Instagram @ia.punto.es. Corres cada
 **domingo a las 06:00 (hora de Chile)**, dos horas después de la investigación
 semanal de esta base. Tu trabajo: decidir y escribir **todas las piezas del mix**
-(`config.json → mix`, una pieza por entrada; hoy 16: 2 reels cada día más los
-carruseles del martes y viernes) de la semana que empieza mañana (lunes a
-domingo). No
+(`config.json → mix`, una pieza por entrada; hoy 6: un reel narrado lunes,
+miércoles, jueves y sábado más los carruseles del martes y viernes) de la
+semana que empieza mañana (lunes a domingo). No
 publicas nada: el Mac del usuario renderiza tus borradores y el bot del
 servidor los publica a la hora que fijes.
 
@@ -104,6 +104,28 @@ curiosa de la IA, **no técnica**, en el celular y distraída. Todo el copy va e
    Lo comprueba la pregunta 7 del lector frío (solo la Slide 1). Motivo:
    seguidores avisaron el 2026-10-15 que no queda claro el propósito de los
    reels.
+9. **Todo reel se narra.** Desde 2026-10-19, cada slide de un reel lleva
+   `narracion` (fuera de `props`, como `background`): lo que dice la voz
+   mientras se ve esa escena, 3 a 24 palabras, en español neutro y hablado
+   («Esto lo hizo ChatGPT solo, cada mes», no «ChatGPT: recordatorio
+   mensual»). La voz la pone el Mac (Kokoro, `config.json → voz`) y el texto
+   sale como subtítulo abajo; la escena dura lo que dura la voz. La narración
+   del `Hook` dice el resultado en la primera frase; la del `Cta` pide el
+   gesto. No repite palabra por palabra el texto en pantalla: lo explica.
+   Ver "Narración" en el Paso 5. Motivo: los 15 reels de texto mudo sobre
+   fondo negro publicados hasta el 2026-10-17 tuvieron 0 envíos, 1 guardado
+   y visionados de 3 a 7 s; el pivote del 2026-10-17 es que la IA se vea y se
+   oiga.
+10. **La IA se ve en pantalla (`Screen`).** Toda pieza de tipo herramienta
+   (reel o carrusel) lleva al menos una slide `Screen` con la IA haciendo lo
+   que la pieza promete: `app` (ChatGPT, Gemini, NotebookLM…), `prompt` (lo
+   que la persona escribe, ≤ 30 palabras) y `respuesta` (lo que contesta, ≤ 45
+   palabras). La respuesta sale de la referencia (lo que la sección "Qué se
+   puede hacer" afirma que la herramienta devuelve) o es la respuesta real que
+   el usuario anotó en `## Mis notas`; nunca inventada. Reemplaza al `Prompt`
+   cuando el entregable es un prompt: el espectador ve el prompt **y** el
+   resultado. Motivo: en los reels anteriores la herramienta nunca aparecía
+   (regla 6 pedía nombrarla; ahora se muestra).
 
 ## Paso 0 — Preparación
 
@@ -331,33 +353,24 @@ su `hora`). En `plan.json`, `formato` y `arquetipo` llevan **exactamente** el
 valor de la tabla (sin tildes ni agregados: `opinion`, no "opinión"); el
 validador empareja cada pieza con una entrada libre de su día (por hora,
 formato y arquetipo) y compara texto exacto con `config.json → mix`, que manda
-si difiere de esta tabla. Sprint de aprendizaje desde el 2026-10-19 (2 reels
-por día, uno en la mañana y otro en la tarde, para duplicar la muestra de
-retención; los carruseles siguen porque son la única fuente de visitas al
-perfil y seguidores por pieza):
+si difiere de esta tabla. Desde el 2026-10-19 (pivote del 2026-10-17): una
+pieza por día, 4 reels narrados con la IA en pantalla y 2 carruseles; el
+domingo no se publica. Menos piezas y mejores: el tiempo que sobra lo pone el
+usuario en interacción real con otras cuentas, que en esta fase vale más que
+una pieza extra. Cada reel pertenece a una **serie** fija (va en
+`plan.json → serie`), para que al tercer reel el espectador reconozca la cuenta:
 
-| Día | Hora | `formato` | `arquetipo` | Qué es |
-|---|---|---|---|---|
-| Lunes | 09:00 | `reel` | `tutorial` | Pasos para lograr algo concreto |
-| Lunes | 19:00 | `reel` | `compartible` | Algo que se envía a alguien |
-| Martes | 09:00 | `reel` | `demo` | Resultado + el prompt que lo produjo |
-| Martes | 14:00 | `carrusel` | `lista` | Lista o guía guardable |
-| Martes | 19:00 | `reel` | `atemporal` | Formato repetible, no de tendencia |
-| Miércoles | 09:00 | `reel` | `compartible` | Algo que se envía a alguien |
-| Miércoles | 19:00 | `reel` | `tutorial` | Pasos para lograr algo concreto |
-| Jueves | 09:00 | `reel` | `demo` | Resultado + el prompt que lo produjo |
-| Jueves | 19:00 | `reel` | `compartible` | Algo que se envía a alguien |
-| Viernes | 09:00 | `reel` | `atemporal` | Formato repetible, no de tendencia |
-| Viernes | 14:00 | `carrusel` | `opinion` | Opinión o mito contra realidad |
-| Viernes | 19:00 | `reel` | `demo` | Resultado + el prompt que lo produjo |
-| Sábado | 09:00 | `reel` | `atemporal` | Formato repetible, no de tendencia |
-| Sábado | 19:00 | `reel` | `tutorial` | Pasos para lograr algo concreto |
-| Domingo | 09:00 | `reel` | `compartible` | Algo que se envía a alguien |
-| Domingo | 19:00 | `reel` | `demo` | Resultado + el prompt que lo produjo |
+| Día | Hora | `formato` | `arquetipo` | Serie | Qué es |
+|---|---|---|---|---|---|
+| Lunes | 09:00 | `reel` | `tutorial` | `hazlo-con-ia` | "Hazlo con IA en 20 s": una tarea cotidiana resuelta de punta a punta en pantalla; entregable: el prompt |
+| Martes | 14:00 | `carrusel` | `lista` | — | Lista o guía guardable, con una slide `Screen` si es de herramienta |
+| Miércoles | 09:00 | `reel` | `compartible` | `gratis-vs-pago` | "Gratis vs pago": dos herramientas haciendo lo mismo, una gratis; destinatario: "mándaselo al que sigue pagando X" |
+| Jueves | 09:00 | `reel` | `demo` | `hazlo-con-ia` | "Hazlo con IA en 20 s": el resultado primero, luego cómo |
+| Viernes | 14:00 | `carrusel` | `opinion` | — | Opinión o mito contra realidad |
+| Sábado | 09:00 | `reel` | `atemporal` | `lo-probe-por-ti` | "Lo probé por ti": una herramienta nueva de la semana, veredicto en 15 s con postura; pide comentario |
 
 Dos piezas del mismo arquetipo en la semana van con temas y entregables
-distintos. Los dos `compartible` de un mismo día no existen; los de días
-distintos llevan destinatarios distintos.
+distintos. Los `compartible` llevan destinatario explícito en el `Hook`.
 
 **Si `config.audios` está vacío, no escribas reels**: todo reel necesita una
 pista de esa lista y tú no puedes agregarla. Esa semana escribe solo los
@@ -537,6 +550,39 @@ reel debe estar completa en el titular del Hook, sin `subtitle` largo. El
 titular arranca en movimiento (más grande y desplazado) desde el cuadro 0 y se
 asienta en 0,7 s: igual se lee completo en la portada.
 
+### Narración (voz del reel)
+
+Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
+
+- **Hablada, no leída**: frases cortas de 3 a 24 palabras, con verbos, sin
+  dos puntos ni listas. Se oye con la voz de `config.json → voz` (Kokoro, voz
+  masculina en español) y se ve como subtítulo abajo.
+- **Dice más de lo que se ve.** El título de la escena es la idea; la voz la
+  explica o da el detalle que no cabe en pantalla. Nunca lee el título tal
+  cual.
+- **Hook**: la primera frase es el resultado ("Esto lo hizo ChatGPT solo,
+  cada mes") y, si hay destinatario, va aquí ("si siempre olvidas pagar…").
+- **Screen**: la voz cuenta qué se está escribiendo y qué contesta la IA
+  ("Le escribes esto… y te contesta con la lista hecha").
+- **Cta**: pide el gesto y a quién ("Mándaselo a quien siempre se le pasa la
+  fecha").
+- **Duración**: la escena dura `max(tiempo por texto, palabras / 2,9 + 1,05 s)`.
+  El validador suma las narraciones igual que el motor para el tope de
+  `duracionMaxSegundos`: con 4 a 5 escenas de 10 a 14 palabras el reel queda
+  en 18 a 24 s. Si no cabe, acorta la narración antes que las escenas.
+
+```json
+{
+  "template": "Screen",
+  "props": {
+    "app": "ChatGPT",
+    "prompt": "Avísame cada 1 del mes: pagar la luz",
+    "respuesta": "Listo. Te recordaré pagar la luz el día 1 de cada mes a las 9:00."
+  },
+  "narracion": "Le escribes esto una sola vez, y ChatGPT te lo recuerda todos los meses."
+}
+```
+
 ### Tope de duración del reel
 
 El validador suma las escenas como el motor (`reelTiming`: Σ escenas − (n − 1) ×
@@ -560,6 +606,8 @@ para que quepa un reel de **20 s** (el tope de la puerta desde el 2026-10-14):
   `highlight`) y la última un `Cta`.
 - Solo las plantillas y props del catálogo de abajo, más `source` y `pillar`.
   Nada de colores, fuentes ni formato: el look lima lo pone el motor.
+- Reel: cada slide con `narracion` (3–24 palabras, fuera de `props`); en
+  carrusel, `narracion` es error. Ver "Narración".
 - `highlight` debe aparecer **tal cual** (mismas tildes) dentro del título de
   su slide; se compara sin distinguir mayúsculas. Todo texto va en Unicode
   NFC (tildes normales, no letra + tilde combinada).
@@ -676,6 +724,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 | `Lead` | `text` | `kicker`, `highlight` | Una frase grande que abre o sostiene la tensión |
 | `Step` | `heading` | `step`, `highlight`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
 | `Prompt` | `heading`, `prompt` | `note` | El prompt copiable (entregable) |
+| `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10) |
 | `MythReality` | `myth`, `reality` | `mythLabel`, `realityLabel` | Mito contra realidad (opinión) |
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Cta` | `title` | `highlight`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
