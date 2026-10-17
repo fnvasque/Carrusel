@@ -22,7 +22,7 @@ export interface PromptProps extends BaseSlideProps {
 export function Prompt({ heading, prompt, note, accent, format = "post", ...base }: PromptProps) {
   const lime = accent ?? theme.colors.accent;
   const reel = format === "reel";
-  const available = contentHeight(format, base.source);
+  const available = contentHeight(format, base.source, base.narracion);
   // De la más grande a la más chica: las primeras llenan el área con un prompt
   // corto (heading mayor, ventana con más líneas de alto mínimo); las últimas
   // achican el código para que un prompt largo quepa.

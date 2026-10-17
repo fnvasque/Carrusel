@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { renderReel } from "./renderReel.ts";
 import { parsePace } from "./timing.ts";
+import { parseVoz } from "./voz.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 
 /**
@@ -31,7 +32,7 @@ function strFlag(name: string): string | undefined {
 async function main() {
   const file = process.argv[2];
   if (!file) {
-    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --pace=ensenar|rapido|gancho --seconds=N --fade=N (transición) --max-seconds=N (tope) --frames-only --audio=ruta]");
+    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --pace=ensenar|rapido|gancho --seconds=N --fade=N (transición) --max-seconds=N (tope) --frames-only --audio=ruta --voz=em_alex|em_santa|ef_dora --sin-voz]");
     process.exit(1);
   }
   const seconds = numFlag("seconds"); // override opcional: duración uniforme
@@ -39,6 +40,9 @@ async function main() {
   const maxSeconds = numFlag("max-seconds"); // tope opcional: falla si el reel se pasa
   const audio = strFlag("audio"); // pista opcional; por defecto sin audio
   const framesOnly = process.argv.includes("--frames-only");
+  // Voz de la narración (escenas con `narracion`): --voz=em_alex|em_santa|ef_dora, --sin-voz la omite.
+  const vozFlag = strFlag("voz");
+  const voz = process.argv.includes("--sin-voz") ? false : vozFlag === undefined ? undefined : parseVoz(vozFlag);
   // Ritmo: sobrescribe el `pace` del carrusel; un valor inválido falla con un mensaje claro.
   const paceFlag = process.argv.includes("--pace") ? "" : strFlag("pace");
   if (paceFlag === "") throw new Error("falta el valor de --pace (ensenar | rapido | gancho)");
@@ -50,7 +54,7 @@ async function main() {
     throw new Error(`El archivo ${file} no exporta por defecto un carrusel con slides.`);
   }
 
-  await renderReel(spec, { seconds, fade, pace, audio, framesOnly, maxSeconds });
+  await renderReel(spec, { seconds, fade, pace, audio, framesOnly, maxSeconds, voz });
 }
 
 main().catch((err) => {

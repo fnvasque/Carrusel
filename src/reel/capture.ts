@@ -74,17 +74,55 @@ export async function forceCaretsOn(page: Page): Promise<void> {
 
 /** Segundos de fade-out del audio al final del reel (como el motor anterior). */
 const AUDIO_FADE = 0.6;
+/** Volumen de la música cuando hay voz encima (≈ −15 dB): se oye de fondo, no compite. */
+export const MUSICA_BAJO_VOZ = 0.18;
+/** Ganancia de la voz (Kokoro sale algo bajo frente a las pistas de promo/audio). */
+export const GANANCIA_VOZ = 1.6;
 
-/** Argumentos de ffmpeg: PNG por stdin → h264/yuv420p; audio opcional recortado al video. */
-export function ffmpegArgs(timing: ReelTiming, outPath: string, audio?: string): string[] {
+/** Una narración a mezclar: archivo y segundo del reel en que empieza. */
+export interface VozEnReel {
+  path: string;
+  start: number;
+}
+
+/**
+ * Argumentos de ffmpeg: PNG por stdin → h264/yuv420p; audio opcional recortado
+ * al video; voces opcionales (una por escena narrada) colocadas en su segundo
+ * con `adelay` y mezcladas sobre la música, que baja a MUSICA_BAJO_VOZ.
+ */
+export function ffmpegArgs(timing: ReelTiming, outPath: string, audio?: string, voces: VozEnReel[] = []): string[] {
   const args = ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(timing.fps), "-c:v", "png", "-i", "-"];
-  if (audio) {
+  const dur = timing.frames / timing.fps;
+  const st = Math.max(0, dur - AUDIO_FADE).toFixed(2);
+  if (voces.some((v) => !Number.isFinite(v.start) || v.start < 0)) throw new Error("Una narración empieza en un segundo inválido (debe ser ≥ 0).");
+  if (audio && voces.length === 0) {
     // El audio se recorta a la duración del video con fade-out; nunca al revés
     // (sin -shortest: un audio corto no trunca el video).
-    const dur = timing.frames / timing.fps;
-    const st = Math.max(0, dur - AUDIO_FADE).toFixed(2);
     args.push("-i", audio, "-filter_complex", `[1:a]afade=t=out:st=${st}:d=${AUDIO_FADE},atrim=0:${dur.toFixed(3)}[aud]`);
     args.push("-map", "0:v", "-map", "[aud]", "-c:a", "aac", "-b:a", "128k");
+  } else if (voces.length) {
+    const filtros: string[] = [];
+    const entradas: string[] = [];
+    let k = 1;
+    if (audio) {
+      args.push("-i", audio);
+      filtros.push(`[${k}:a]volume=${MUSICA_BAJO_VOZ},afade=t=out:st=${st}:d=${AUDIO_FADE},atrim=0:${dur.toFixed(3)}[mus]`);
+      entradas.push("[mus]");
+      k++;
+    }
+    voces.forEach((v, i) => {
+      args.push("-i", v.path);
+      const ms = Math.round(v.start * 1000);
+      filtros.push(`[${k}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${GANANCIA_VOZ},adelay=${ms}:all=1[v${i}]`);
+      entradas.push(`[v${i}]`);
+      k++;
+    });
+    // amix sin normalizar (cada pista conserva su volumen); la duración la fija
+    // la música recortada si la hay, si no la voz más larga; luego se recorta
+    // al video y, si la voz termina antes, apad rellena con silencio.
+    filtros.push(`${entradas.join("")}amix=inputs=${entradas.length}:duration=longest:dropout_transition=0:normalize=0,apad,atrim=0:${dur.toFixed(3)}[aud]`);
+    args.push("-filter_complex", filtros.join(";"));
+    args.push("-map", "0:v", "-map", "[aud]", "-c:a", "aac", "-b:a", "160k");
   }
   args.push("-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-r", String(timing.fps), "-movflags", "+faststart", outPath);
   return args;
@@ -94,10 +132,10 @@ export function ffmpegArgs(timing: ReelTiming, outPath: string, audio?: string):
  * Captura el reel cuadro a cuadro y lo codifica con ffmpeg (PNG por stdin →
  * h264/yuv420p 30 fps, +faststart). Si ffmpeg falla, borra el mp4 parcial.
  */
-export async function captureReel(html: string, timing: ReelTiming, outPath: string, opts: { audio?: string } = {}): Promise<void> {
+export async function captureReel(html: string, timing: ReelTiming, outPath: string, opts: { audio?: string; voces?: VozEnReel[] } = {}): Promise<void> {
   assertFfmpeg();
   const { browser, page } = await openReel(html, timing);
-  const args = ffmpegArgs(timing, outPath, opts.audio);
+  const args = ffmpegArgs(timing, outPath, opts.audio, opts.voces);
   const ff = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
   let stderr = "";
   ff.stderr.on("data", (d) => (stderr += d));

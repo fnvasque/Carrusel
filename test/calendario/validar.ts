@@ -45,6 +45,17 @@ const DIR = "kb-plantilla/_calendario";
 const CONFIG_BASE = JSON.parse(readFileSync(join(DIR, "config.json"), "utf8"));
 /** Config con una pista registrada (la instalada trae `audios: []`). */
 const config = { ...CONFIG_BASE, audios: ["lima-01.mp3"] };
+/** Mix del sprint de 2 reels al día (2026-10-15 → 2026-10-18): varias entradas por día, con hora. Prueba el emparejamiento por entrada. */
+const MIX_SPRINT = [
+  { dia: 1, formato: "reel", arquetipo: "tutorial", hora: "09:00" }, { dia: 1, formato: "reel", arquetipo: "compartible", hora: "19:00" },
+  { dia: 2, formato: "carrusel", arquetipo: "lista", hora: "14:00" }, { dia: 2, formato: "reel", arquetipo: "demo", hora: "09:00" }, { dia: 2, formato: "reel", arquetipo: "atemporal", hora: "19:00" },
+  { dia: 3, formato: "reel", arquetipo: "compartible", hora: "09:00" }, { dia: 3, formato: "reel", arquetipo: "tutorial", hora: "19:00" },
+  { dia: 4, formato: "reel", arquetipo: "demo", hora: "09:00" }, { dia: 4, formato: "reel", arquetipo: "compartible", hora: "19:00" },
+  { dia: 5, formato: "carrusel", arquetipo: "opinion", hora: "14:00" }, { dia: 5, formato: "reel", arquetipo: "atemporal", hora: "09:00" }, { dia: 5, formato: "reel", arquetipo: "demo", hora: "19:00" },
+  { dia: 6, formato: "reel", arquetipo: "atemporal", hora: "09:00" }, { dia: 6, formato: "reel", arquetipo: "tutorial", hora: "19:00" },
+  { dia: 0, formato: "reel", arquetipo: "compartible", hora: "09:00" }, { dia: 0, formato: "reel", arquetipo: "demo", hora: "19:00" },
+];
+const configSprint = { ...config, mix: MIX_SPRINT, separacionMinHoras: 4 };
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 /** `parametros` completo (R52): cada clave de config.puerta con el valor usado. */
@@ -99,7 +110,7 @@ const vb = (p = pieza(), b = borrador(), c = config) => validarBorrador(p, b, c)
 // --- catálogo y config ---
 
 check("calendario/validar: PLANTILLAS es el catálogo del remix, sin StoryCover", () => {
-  assert.deepEqual([...PLANTILLAS].sort(), ["Cta", "Hook", "Lead", "MythReality", "Prompt", "Stat", "Step"]);
+  assert.deepEqual([...PLANTILLAS].sort(), ["Cta", "Hook", "Lead", "MythReality", "Prompt", "Screen", "Stat", "Step"]);
   assert.deepEqual(CATALOGO, TEMPLATE_CATALOG);
 });
 
@@ -431,23 +442,26 @@ check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas c
     pace: "gancho",
     audio: "lima-01.mp3",
     slides: [
-      { template: "Hook", props: { title: "Convierte tus PDFs en un podcast", highlight: "podcast" } },
-      { template: "Lead", props: { text: "Sin leer una página.", highlight: "Sin leer" } },
-      { template: "Step", props: { step: "1", heading: "Sube tus PDFs", body: "Crea un cuaderno y arrastra." } },
-      { template: "Step", props: { step: "2", heading: "Pide el resumen en audio", body: "Elige la versión corta." } },
-      { template: "Step", props: { step: "3", heading: "Escúchalo caminando", body: "Diez minutos y listo." } },
-      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "Fuente: notebooklm.google.com" } },
+      { template: "Hook", props: { title: "Convierte tus PDFs en un podcast", highlight: "podcast", app: "NotebookLM", resultado: "Podcast listo: 10 minutos." }, narracion: "NotebookLM convierte tus PDFs en podcast." },
+      { template: "Lead", props: { text: "Sin leer una página.", highlight: "Sin leer" }, narracion: "Sin leer ni una página." },
+      { template: "Step", props: { step: "1", heading: "Sube tus PDFs", body: "Crea un cuaderno y arrastra." }, narracion: "Creas un cuaderno y arrastras los PDFs." },
+      { template: "Step", props: { step: "2", heading: "Pide el resumen en audio", body: "Elige la versión corta." }, narracion: "Pides el resumen en audio, versión corta." },
+      { template: "Step", props: { step: "3", heading: "Escúchalo caminando", body: "Diez minutos y listo." }, narracion: "Lo escuchas caminando, diez minutos." },
+      { template: "Cta", props: { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "Fuente: notebooklm.google.com" }, narracion: "Guárdalo para tu próxima lectura." },
     ],
   };
+  // Semana con narración obligatoria (≥ DESDE_NARRACION): narraciones cortas que caben en 20 s.
   const p = pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, ritmoReel: "gancho", duracionMaxSegundos: 20 } });
   assertNone(vb(p, corto));
   assert.ok(duracionReel(corto) <= 20, `gancho 6 escenas: ${duracionReel(corto)} s`);
   // En ensenar, el borrador de prueba (un Step con 2 bullets, ~12 palabras por escena) se pasa: ~22 s.
   const ens = borrador();
   assert.ok(duracionReel(ens) > 20, `ensenar con bullets: ${duracionReel(ens)} s`);
+  ens.slides.forEach((x: any) => (x.narracion = "Sube tus apuntes y pide el audio."));
+  Object.assign(ens.slides[0].props, { app: "NotebookLM", resultado: "Podcast listo." });
   assertHas(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens), /tope es 20 s/);
   // Cabe con 4 escenas de ≤ 6 palabras y sin bullets (lo que dice el manual).
-  ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast" };
+  ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast", app: "NotebookLM", resultado: "Podcast listo." };
   ens.slides[1].props = { step: "1", heading: "Sube tus PDFs", body: "Arrastra los archivos." };
   ens.slides[2].props = { step: "2", heading: "Pide el resumen en audio", body: "Versión corta." };
   ens.slides[3].props = { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "x" };
@@ -555,25 +569,25 @@ check("calendario/validar: plan válido → []", () => assertNone(validarPlan(pl
 check("calendario/validar: plan — dos piezas a menos de separacionMinHoras → error", () => {
   const p = plan();
   p.piezas[1].hora = "08:30"; // lun 14:00 → mar 08:30 = 18,5 h
-  assertHas(validarPlan(p, { ...config, separacionMinHoras: 20 }), /20/);
-  assert.deepEqual(validarPlan(p, config).filter((e: string) => /separacionMinHoras/.test(e)), [], "con 4 h de separación pasa");
+  assertHas(validarPlan(p, { ...configSprint, separacionMinHoras: 20 }), /20/);
+  assert.deepEqual(validarPlan(p, configSprint).filter((e: string) => /separacionMinHoras/.test(e)), [], "con 4 h de separación pasa");
   const q = plan();
   q.piezas[1] = pieza({ id: "lun-pm-reel-x", dia: "2026-10-12", hora: "17:00", arquetipo: "compartible", tema: "[[Otro tema]]", borrador: "lun-pm-reel-x.json" });
-  assertHas(validarPlan(q, config), /está a 3 h de lun-reel-a \(mínimo 4 h/);
+  assertHas(validarPlan(q, configSprint), /está a 3 h de lun-reel-a \(mínimo 4 h/);
 });
 
 check("calendario/validar: plan — varias piezas por día toman entradas distintas del mix (por hora, formato y arquetipo)", () => {
   const dos = plan();
   dos.piezas.push(pieza({ id: "lun-pm-reel-x", dia: "2026-10-12", hora: "19:00", arquetipo: "compartible", tema: "[[Otro tema]]", borrador: "lun-pm-reel-x.json" }));
-  assertNone(validarPlan(dos, config));
+  assertNone(validarPlan(dos, configSprint));
   // Una tercera pieza el lunes: el mix solo tiene 2 entradas ese día.
   const tres = clone(dos);
   tres.piezas.push(pieza({ id: "lun-reel-y", dia: "2026-10-12", hora: "23:00", arquetipo: "tutorial", tema: "[[Tercer tema]]", borrador: "lun-reel-y.json" }));
-  assertHas(validarPlan(tres, config), /config\.mix solo tiene 2 entrada\(s\) para ese día/);
+  assertHas(validarPlan(tres, configSprint), /config\.mix solo tiene 2 entrada\(s\) para ese día/);
   // Dos tutoriales el lunes: el segundo no calza con la entrada libre (compartible, 19:00).
   const rep2 = clone(dos);
   rep2.piezas[3].arquetipo = "tutorial";
-  assertHas(validarPlan(rep2, config), /lun-pm-reel-x: arquetipo "tutorial" no sigue el mix \(ese día va compartible \(19:00\)\)/);
+  assertHas(validarPlan(rep2, configSprint), /lun-pm-reel-x: arquetipo "tutorial" no sigue el mix \(ese día va compartible \(19:00\)\)/);
   // Martes: carrusel 14:00 + 2 reels (09:00 demo, 19:00 atemporal) → 3 piezas válidas.
   const martes = plan();
   martes.piezas = [
@@ -582,37 +596,42 @@ check("calendario/validar: plan — varias piezas por día toman entradas distin
     pieza({ id: "mar-pm-reel-c", dia: "2026-10-13", hora: "19:00", arquetipo: "atemporal", senal: "retencion", tema: "[[Tema C]]", borrador: "mar-pm-reel-c.json" }),
   ];
   martes.experimento = null;
-  assertNone(validarPlan(martes, config).filter((e: string) => !/experimento/.test(e)));
+  assertNone(validarPlan(martes, configSprint).filter((e: string) => !/experimento/.test(e)));
 });
 
 check("calendario/validar: plan — un tema sale a lo más 2 veces en la semana y nunca el mismo día (derivados aparte)", () => {
   const p = plan();
   p.piezas[2].tema = p.piezas[0].tema; // lunes y miércoles: permitido
-  assertNone(validarPlan(p, config));
+  assertNone(validarPlan(p, configSprint));
   const mismoDia = plan();
   mismoDia.piezas.push(pieza({ id: "lun-pm-reel-x", dia: "2026-10-12", hora: "19:00", arquetipo: "compartible", tema: mismoDia.piezas[0].tema, borrador: "lun-pm-reel-x.json" }));
-  assertHas(validarPlan(mismoDia, config), /tema repetido el mismo día/);
+  assertHas(validarPlan(mismoDia, configSprint), /tema repetido el mismo día/);
   const tres = plan();
   tres.piezas[1].tema = tres.piezas[0].tema;
   tres.piezas[2].tema = tres.piezas[0].tema;
-  assertHas(validarPlan(tres, config), /un tema sale a lo más 2 veces/);
+  assertHas(validarPlan(tres, configSprint), /un tema sale a lo más 2 veces/);
   tres.piezas[2].derivadoDe = "lun-reel-a";
-  assertNone(validarPlan(tres, config));
+  assertNone(validarPlan(tres, configSprint));
 });
 
 check("calendario/validar: config — mix con varias entradas por día: hasta 3, cada una con hora distinta", () => {
-  assert.equal(CONFIG_BASE.mix.length, 16);
-  assert.equal(CONFIG_BASE.separacionMinHoras, 4);
-  const lun = CONFIG_BASE.mix.filter((m: { dia: number }) => m.dia === 1);
-  const cuatro = { ...CONFIG_BASE, mix: [...CONFIG_BASE.mix, ...lun.map((m: object, i: number) => ({ ...m, hora: `2${i}:00` }))] };
+  // Instalado (pivote 2026-10-17): 4 reels + 2 carruseles, uno por día, 20 h de separación, voz em_alex.
+  assert.equal(CONFIG_BASE.mix.length, 6);
+  assert.equal(CONFIG_BASE.separacionMinHoras, 20);
+  assert.equal(CONFIG_BASE.voz, "em_alex");
+  assert.deepEqual(CONFIG_BASE.mix.map((m: { dia: number }) => m.dia), [1, 2, 3, 4, 5, 6]);
+  const SPRINT = { ...CONFIG_BASE, mix: MIX_SPRINT, separacionMinHoras: 4 };
+  assertNone(validarConfig(SPRINT));
+  const lun = SPRINT.mix.filter((m: { dia: number }) => m.dia === 1);
+  const cuatro = { ...SPRINT, mix: [...SPRINT.mix, ...lun.map((m: object, i: number) => ({ ...m, hora: `2${i}:00` }))] };
   assertHas(validarConfig(cuatro), /día 1 tiene más de 3 entradas/);
-  const sinHora = { ...CONFIG_BASE, mix: CONFIG_BASE.mix.map((m: { dia: number; hora?: string }) => (m.dia === 1 ? { ...m, hora: undefined } : m)) };
+  const sinHora = { ...SPRINT, mix: SPRINT.mix.map((m: { dia: number; hora?: string }) => (m.dia === 1 ? { ...m, hora: undefined } : m)) };
   assertHas(validarConfig(sinHora), /día 1 tiene 2 entradas y alguna sin hora/);
-  const repetida = { ...CONFIG_BASE, mix: CONFIG_BASE.mix.map((m: { dia: number }) => (m.dia === 1 ? { ...m, hora: "09:00" } : m)) };
+  const repetida = { ...SPRINT, mix: SPRINT.mix.map((m: { dia: number }) => (m.dia === 1 ? { ...m, hora: "09:00" } : m)) };
   assertHas(validarConfig(repetida), /día 1 repite la hora 09:00/);
-  assertHas(validarConfig({ ...CONFIG_BASE, mix: CONFIG_BASE.mix.map((m: object) => ({ ...m, hora: "9:00" })) }), /hora "9:00" inválida/);
+  assertHas(validarConfig({ ...SPRINT, mix: SPRINT.mix.map((m: object) => ({ ...m, hora: "9:00" })) }), /hora "9:00" inválida/);
   // Un mix de una pieza por día sin horas sigue siendo válido.
-  const unoPorDia = { ...CONFIG_BASE, mix: [1, 2, 3, 4, 5, 6, 0].map((dia) => ({ dia, formato: "reel", arquetipo: "tutorial" })) };
+  const unoPorDia = { ...SPRINT, mix: [1, 2, 3, 4, 5, 6, 0].map((dia) => ({ dia, formato: "reel", arquetipo: "tutorial" })) };
   assertNone(validarConfig(unoPorDia));
 });
 
@@ -631,15 +650,18 @@ check("calendario/validar: plan — día fuera de la semana → error; el doming
   const q = plan();
   q.piezas[0].dia = "2026-10-18";
   q.piezas[0].formato = "carrusel";
-  assertHas(validarPlan(q, config), /no sigue el mix \(ese día va reel \(09:00\)\)/);
+  assertHas(validarPlan(q, configSprint), /no sigue el mix \(ese día va reel \(09:00\)\)/);
   const ok = plan();
   Object.assign(ok.piezas[0], { dia: "2026-10-18", arquetipo: "compartible" });
-  assert.deepEqual(validarPlan(ok, config).filter((e: string) => /mix|domingo|semana/.test(e)), []);
-  const sinDomingo = { ...config, mix: config.mix.filter((m: { dia: number }) => m.dia !== 0) };
+  assert.deepEqual(validarPlan(ok, configSprint).filter((e: string) => /mix|domingo|semana/.test(e)), []);
+  // El mix instalado no publica el domingo.
+  const sinDomingo = { ...configSprint, mix: configSprint.mix.filter((m: { dia: number }) => m.dia !== 0) };
   assert.deepEqual(validarConfig(sinDomingo), []);
+  assert.deepEqual(validarConfig(config), []);
   const d = plan();
   d.piezas[0].dia = "2026-10-18";
   assertHas(validarPlan(d, sinDomingo), /config\.mix no tiene entrada para ese día/);
+  assertHas(validarPlan(d, config), /config\.mix no tiene entrada para ese día/);
   const r = plan();
   r.piezas[0].dia = "2026-02-30";
   assertHas(validarPlan(r, config), /dia/);
@@ -1452,4 +1474,120 @@ check("calendario/validar: ventanaMedicion y semanasExperimento son opcionales y
   assertHas(validarConfig({ ...CONFIG_BASE, ventanaMedicion: "3d" }), /ventanaMedicion/);
   assertHas(validarConfig({ ...CONFIG_BASE, semanasExperimento: 0 }), /semanasExperimento/);
   assertHas(validarConfig({ ...CONFIG_BASE, semanasExperimento: { valor: 2.5 } }), /semanasExperimento/);
+});
+
+// --- pivote 2026-10-17: narración, Screen, voz y series ---
+
+check("calendario/validar: narracion — obligatoria en cada escena del reel desde 2026-10-19, 3–24 palabras, nunca en carrusel", () => {
+  const antes = vb(); // semana 2026-10-12: aún no se exige
+  assertNone(antes);
+  const p19 = pieza({ dia: "2026-10-19" });
+  const faltan = vb(p19, borrador());
+  assert.equal(faltan.filter((e: string) => /falta narracion/.test(e)).length, 4, "una por slide");
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  assertHas(vb(p19, b), /slide 1 \(Hook\): falta resultado/);
+  Object.assign(b.slides[0].props, { app: "NotebookLM", modo: "respuesta", resultado: "Resumen en audio listo: 10 minutos." });
+  assertNone(vb(p19, b));
+  const corta = clone(b);
+  corta.slides[1].narracion = "Sube todo";
+  assertHas(vb(p19, corta), /slide 2 \(Step\): narracion tiene 2 palabras/);
+  const larga = clone(b);
+  larga.slides[2].narracion = Array.from({ length: 25 }, (_, i) => `palabra${i}`).join(" ");
+  assertHas(vb(p19, larga), /narracion tiene 25 palabras/);
+  const nfd = clone(b);
+  nfd.slides[0].narracion = "Sube tus apuntes y la IA te explica cada página".normalize("NFD");
+  assertHas(vb(p19, nfd), /narracion no está en Unicode NFC/);
+  const vacia = clone(b);
+  vacia.slides[0].narracion = "   ";
+  assertHas(vb(p19, vacia), /narracion debe ser un texto no vacío/);
+  // Carrusel: narracion es error aunque sea válida.
+  const carrusel = pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-10-20", id: "mar-carrusel-x", borrador: "mar-carrusel-x.json" });
+  const bc = clone(b);
+  bc.name = "mar-carrusel-x";
+  delete bc.pace;
+  delete bc.audio;
+  assertHas(vb(carrusel, bc), /narracion solo va en reels/);
+});
+
+check("calendario/validar: narracion alarga la escena como el motor (voz + margen) y cuenta para el tope de duración", () => {
+  const b = borrador();
+  const base = segundosEscenas(b.slides, "ensenar");
+  b.slides[1].narracion = Array.from({ length: 24 }, () => "palabra").join(" "); // 24 / 2,9 + 0,3 = 8,58 s + 0,75
+  const con = segundosEscenas(b.slides, "ensenar");
+  assert.equal(con[0], base[0]);
+  assert.equal(con[1], +(Math.max(base[1], 24 / 2.9 + 0.3 + 0.75)).toFixed(2));
+  assert.ok(con[1] > base[1]);
+  assert.equal(con[2], base[2]);
+  // Coincide con el motor: specTiming con esas narraciones.
+  const spec = { name: "x", pace: "ensenar" as const, slides: b.slides.map((s: any) => ({ template: Step, props: s.props })) };
+  const motor = specTiming(spec, { narracion: [undefined, 24 / 2.9 + 0.3, undefined, undefined] }).scenes.map((s) => s.dur);
+  assert.deepEqual(con.map((x: number) => +x.toFixed(1)), motor.map((x) => +x.toFixed(1)));
+  // Tope: con narraciones largas en gancho el reel de 20 s no cabe.
+  const p = pieza({ dia: "2026-10-19", parametros: { ...clone(PARAMETROS), ritmoReel: "gancho", duracionMaxSegundos: 20 } });
+  const g = borrador();
+  g.pace = "gancho";
+  Object.assign(g.slides[0].props, { app: "NotebookLM", resultado: "Resumen en audio listo." });
+  g.slides.forEach((s: any) => (s.narracion = Array.from({ length: 24 }, () => "palabra").join(" ")));
+  assertHas(vb(p, g), /el reel dura .* y el tope es 20 s/);
+});
+
+check("calendario/validar: Screen — plantilla del catálogo con app, prompt y respuesta; el lector frío ve Tú/IA y oye la voz", () => {
+  assert.deepEqual(CATALOGO.Screen, { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] });
+  const p19 = pieza({ dia: "2026-10-19" });
+  const b = borrador();
+  b.slides.splice(2, 0, {
+    template: "Screen",
+    props: { app: "NotebookLM", prompt: "Resume estos 6 PDFs en un podcast corto", respuesta: "Listo: resumen en audio de 10 minutos con las ideas clave." },
+  });
+  b.slides.forEach((s: any) => (s.narracion = "Le escribes esto y te contesta con el audio listo."));
+  Object.assign(b.slides[0].props, { app: "NotebookLM", resultado: "Resumen en audio listo." });
+  assertNone(vb(p19, b));
+  const sinApp = clone(b);
+  delete sinApp.slides[2].props.app;
+  assertHas(vb(p19, sinApp), /slide 3 \(Screen\): falta app/);
+  const t = textosLector(b, "reel");
+  assert.ok(t.completo.includes("Tú: Resume estos 6 PDFs en un podcast corto"));
+  assert.ok(t.completo.includes("NotebookLM: Listo: resumen en audio"));
+  assert.ok(t.conPrisa.includes("Tú: Resume estos 6 PDFs"), "con prisa también ve el prompt");
+  assert.ok(t.completo.includes("Voz: «Le escribes esto y te contesta con el audio listo.»"));
+  assert.ok(t.conPrisa.includes("Voz: «"), "con prisa también oye la voz");
+  assert.ok(!textosLector(b, "carrusel").completo.includes("Voz:"), "el carrusel no tiene voz");
+});
+
+check("calendario/validar: config.voz es una voz de Kokoro o false; serie de la pieza es un slug", () => {
+  assertNone(validarConfig({ ...CONFIG_BASE, voz: "ef_dora" }));
+  assertNone(validarConfig({ ...CONFIG_BASE, voz: false }));
+  assertHas(validarConfig({ ...CONFIG_BASE, voz: "onyx" }), /voz "onyx" inválida/);
+  assertHas(validarConfig({ ...CONFIG_BASE, voz: true }), /voz/);
+  assertNone(validarPieza(pieza({ serie: "hazlo-con-ia" }), config));
+  assertNone(validarPieza(pieza({ serie: null }), config));
+  assertHas(validarPieza(pieza({ serie: "Hazlo con IA" }), config), /serie debe ser un slug/);
+});
+
+check("calendario/validar: Hook — resultado en el primer cuadro: obligatorio en reels desde 2026-10-19, con app, ≤ 20 palabras, modo aviso|respuesta; el lector lo ve", () => {
+  const p19 = pieza({ dia: "2026-10-19" });
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  const sinApp = clone(b);
+  sinApp.slides[0].props.resultado = "Podcast listo.";
+  assertHas(vb(p19, sinApp), /con resultado va app/);
+  const largo = clone(b);
+  Object.assign(largo.slides[0].props, { app: "NotebookLM", resultado: Array.from({ length: 21 }, () => "x").join(" ") });
+  assertHas(vb(p19, largo), /resultado tiene 21 palabras/);
+  const modo = clone(b);
+  Object.assign(modo.slides[0].props, { app: "NotebookLM", resultado: "Listo.", modo: "ventana" });
+  assertHas(vb(p19, modo), /modo "ventana" inválido/);
+  // Antes del 2026-10-19 y en carrusel no se exige, pero si viene se valida.
+  assertNone(vb());
+  const carrusel = pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-10-20", id: "mar-carrusel-x", borrador: "mar-carrusel-x.json" });
+  const bc = borrador();
+  bc.name = "mar-carrusel-x";
+  delete bc.pace;
+  delete bc.audio;
+  assert.deepEqual(vb(carrusel, bc).filter((e: string) => /resultado/.test(e)), []);
+  Object.assign(bc.slides[0].props, { app: "NotebookLM", resultado: "Podcast listo: 10 minutos.", modo: "aviso" });
+  assertNone(vb(carrusel, bc));
+  const t = textosLector(bc, "carrusel");
+  assert.ok(t.conPrisa.includes("NotebookLM (aviso, ahora): Podcast listo: 10 minutos."), "con prisa ve la tarjeta de resultado");
 });

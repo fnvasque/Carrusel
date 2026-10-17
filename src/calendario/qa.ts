@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { specDurations, specTiming } from "../reel/timing.ts";
+import { specDurations, specTiming, type ReelTiming } from "../reel/timing.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 
 /**
@@ -65,7 +65,7 @@ export function hayTextoEnZona(gray: Uint8Array, width: number, height: number, 
 }
 
 /** Props cuyo texto hay que leer (las mismas que alargan la escena en el motor). */
-const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt"];
+const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
 
 function palabras(props: Record<string, unknown>): number {
   let n = 0;
@@ -211,7 +211,7 @@ function motivosDeCuadro(gray: Uint8Array, w: number, h: number, que: string): s
  * QA de un reel: cuadro 0 no negro, portada con texto en zona segura, audio
  * presente y audible, y tiempos de lectura de cada escena. Nunca lanza.
  */
-export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, puerta: Puerta): Promise<QaResultado> {
+export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, puerta: Puerta, tiempos?: ReelTiming): Promise<QaResultado> {
   const motivos: string[] = [];
   if (!existsSync(mp4)) return resultado([`No existe el reel ${mp4}.`]);
   try {
@@ -233,7 +233,8 @@ export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, pue
       motivos.push(`Archivo dañado: ffmpeg informa errores al decodificar el reel (${dano}).`);
     }
     const real = duracionReal(mp4);
-    const esperada = specTiming(spec).total;
+    // Con narración el motor alarga escenas: se comparan los tiempos reales del render si vienen.
+    const esperada = (tiempos ?? specTiming(spec)).total;
     if (real === undefined) {
       motivos.push("Archivo dañado: no se pudo leer la duración del reel.");
     } else if (Math.abs(real - esperada) > DURACION_TOLERANCIA_S) {
@@ -255,7 +256,7 @@ export async function qaReel(mp4: string, cover: string, spec: CarouselSpec, pue
   }
   try {
     // La duración real frente a la esperada ya se reportó arriba (si es menor, los textos finales no se ven).
-    motivos.push(...tiemposDeLectura(spec, puerta.lecturaPalabrasPorSegundo, puerta.lecturaMinSegundos));
+    motivos.push(...tiemposDeLectura(spec, puerta.lecturaPalabrasPorSegundo, puerta.lecturaMinSegundos, tiempos?.scenes.map((s) => s.dur)));
   } catch (e) {
     motivos.push(`No se pudieron comprobar los tiempos de lectura: ${razon(e)}`);
   }

@@ -9,10 +9,11 @@ import type { TemplateName } from "./types.ts";
  * Debe mantenerse alineado con src/templates/index.ts.
  */
 export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; optional: string[] }> = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
   Lead: { required: ["text"], optional: ["kicker", "highlight"] },
   Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
+  Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
   Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },

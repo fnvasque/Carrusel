@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { abortStaleRebase, pullKb, setSyncErrorHandler } from "../kb/store.ts";
 import { leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "./plan.ts";
 import {
-  clonKbCalendario, copiarCalibracion, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
+  clonKbCalendario, copiarCalibracion, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, leerVoz, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
   verificarReal,
   type EnvRender,
 } from "./render.ts";
@@ -153,9 +153,10 @@ try {
   } else {
     console.log(`🎬 ${pend.length} pieza(s) por renderizar (${new Date().toISOString()}).`);
     const puerta = await leerPuerta();
+    const voz = await leerVoz(avisar);
     const escritor = crearEscritorRender({ avisar });
     const r = await procesar(pend, outRoot, env, {
-      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, avisar }),
+      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, avisar }),
       rsync: rsyncReal,
       verificar: verificarReal,
       escribirRender: escritor.escribirRender,

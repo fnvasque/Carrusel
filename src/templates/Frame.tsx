@@ -2,7 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Background, Pillar, Format } from "./types.ts";
 import { FORMATS } from "./types.ts";
 import { theme, pillarColor, monoText } from "../theme.ts";
-import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP, POST_PAD_Y, HEADER_HEIGHT, CONTENT_GAP_TOP, SOURCE_SIZE, sourceReserve, opticalLift } from "./layout.ts";
+import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP, POST_PAD_Y, HEADER_HEIGHT, CONTENT_GAP_TOP, SOURCE_SIZE, sourceReserve, subtituloReserve, opticalLift } from "./layout.ts";
 
 export { REEL_SAFE_BOTTOM, HEADER_HEIGHT };
 
@@ -38,6 +38,7 @@ export function Frame({
   showLogo = true,
   logoEnCuadro0 = true,
   format = "post",
+  narracion,
   style,
   children,
 }: {
@@ -51,6 +52,8 @@ export function Frame({
   showLogo?: boolean;
   logoEnCuadro0?: boolean;
   format?: Format;
+  /** Reel: la escena lleva subtítulo de narración; el contenido deja su espacio (`SUBTITULO_RESERVA`). */
+  narracion?: string;
   style?: CSSProperties;
   children: ReactNode;
 }) {
@@ -136,7 +139,7 @@ export function Frame({
           )}
         </div>
         {/* Contenido del slide */}
-        <div data-content="" style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + opticalLift(format) }}>
+        <div data-content="" style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + subtituloReserve(format, narracion) + opticalLift(format) }}>
           {children}
         </div>
         {/* Marca: fuente al pie */}

@@ -23,10 +23,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * `StoryCover` no está: la usa solo el motor, nunca el agente.
  */
 export const CATALOGO = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
   Lead: { required: ["text"], optional: ["kicker", "highlight"] },
   Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
+  Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
   Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
@@ -60,8 +61,17 @@ const PACES = ["ensenar", "rapido", "gancho"];
 const TRANSICION = { ensenar: 0.5, rapido: 0.35, gancho: 0.3 };
 const RESPALDOS = ["skill", "supuesto", "base"];
 const CAMPOS_BORRADOR = new Set(["name", "angle", "pillar", "slides", "pace", "audio", "logoEnCuadro0", "hookVideo"]);
-const CAMPOS_SLIDE = new Set(["template", "props", "pillar", "background"]);
+const CAMPOS_SLIDE = new Set(["template", "props", "pillar", "background", "narracion"]);
 const CAMPOS_FONDO = new Set(["ai", "overlay", "brandStyle"]);
+/** Voces en español de Kokoro (`src/reel/voz.ts`): `config.voz` debe ser una de ellas o `false` (sin narración). */
+const VOCES = ["em_alex", "em_santa", "ef_dora"];
+/** Narración por escena (`slide.narracion`, solo reels): palabras mínimas y máximas (`NARRACION_PALABRAS` en draft.ts). */
+const NARRACION_PALABRAS = [3, 24];
+/** Palabras por segundo de la voz y margen (s) por escena narrada (`PALABRAS_POR_SEGUNDO` en voz.ts, `NARRACION_MARGEN` en timing.ts). */
+const NARRACION_PPS = 2.9;
+const NARRACION_MARGEN = 0.75;
+/** Desde esta semana todo reel lleva `narracion` en cada slide (pivote del 2026-10-17: la IA se ve y se oye). */
+export const DESDE_NARRACION = "2026-10-19";
 /** Variables de experimento fijas (más cualquier parámetro de `config.puerta`). */
 const VARIABLES_FIJAS = ["tema", "arquetipo", "hora", "duracion", "hook", "hookVideo"];
 /** Clip de video IA detrás del hook (Kling vía Higgsfield, lo aplica el Mac): forma y tope por semana. */
@@ -260,7 +270,7 @@ function seguro(fn) {
  * cuántos segundos muestra el motor cada escena del reel. Si cambias allá,
  * cambia aquí; `test/calendario/validar.ts` compara ambas en 20 escenas.
  */
-const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt"];
+const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
 const PACE_ENSENAR = { stagger: 1.8 };
 const HOOK_MAX_SECONDS = 5.0;
 const BULLET_LEAD = 1.0;
@@ -309,7 +319,25 @@ export function ritmoDelBorrador(borrador) {
  * curva GANCHO sobre las bases (hook intacto, arranque × 0.85 antes del 20 %
  * del total, medio × 1.2, última × 1.5; piso de 1.6 s y de los bullets).
  */
+export function segundosNarracion(texto) {
+  if (typeof texto !== "string" || !texto.trim()) return undefined;
+  return +Math.max(1.0, palabras(texto).length / NARRACION_PPS + 0.3).toFixed(2);
+}
+
+/** Alarga cada escena con `narracion` hasta que quepa su voz (`conNarracion` en timing.ts). */
+function conNarracion(durs, slides) {
+  return durs.map((d, i) => {
+    const n = segundosNarracion(esObj(slides[i]) ? slides[i].narracion : undefined);
+    return n === undefined ? d : +Math.max(d, n + NARRACION_MARGEN).toFixed(2);
+  });
+}
+
 export function segundosEscenas(slides, pace = "ensenar") {
+  return conNarracion(segundosEscenasTexto(slides, pace), slides);
+}
+
+/** Duración de cada escena solo por su texto (sin narración). */
+function segundosEscenasTexto(slides, pace = "ensenar") {
   const props = slides.map((s) => (esObj(s) && esObj(s.props) ? s.props : {}));
   const last = props.length - 1;
   if (pace !== "gancho") return props.map((p, i) => segundosEscena(p, i === 0 || i === last, pace, i === 0));
@@ -681,6 +709,7 @@ function erroresDePieza(p, config) {
     errs.push("origen inválido: { fichas: [...], referencias: [...] }");
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
+  if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (hazlo-con-ia, gratis-vs-pago, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
   errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined));
@@ -730,6 +759,43 @@ function erroresDePastilla(props, senal) {
       errs.push(`la pastilla ${q(props.cta)} no pide el gesto de la señal ${senal} (p. ej. "${sugerida}")`);
     }
   }
+  return errs;
+}
+
+/** Palabras máximas del `resultado` del Hook (una notificación o una respuesta corta, legible en 1 s). */
+const RESULTADO_MAX_PALABRAS = 20;
+const MODOS_RESULTADO = ["aviso", "respuesta"];
+
+/**
+ * `resultado` del Hook (el resultado en el primer cuadro): en reels, obligatorio
+ * desde DESDE_NARRACION, con `app`; ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta.
+ */
+function erroresDeResultado(props, p) {
+  const errs = [];
+  const r = props.resultado;
+  const exigido = p.formato === "reel" && typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION;
+  if (r === undefined) return exigido ? [`falta resultado: desde el ${DESDE_NARRACION} el Hook del reel muestra en el primer cuadro lo que la IA ya hizo (resultado + app)`] : [];
+  if (!esTexto(r)) errs.push("resultado debe ser un texto no vacío (lo que se ve en pantalla cuando la IA terminó)");
+  else if (palabras(r).length > RESULTADO_MAX_PALABRAS) errs.push(`resultado tiene ${palabras(r).length} palabras (máximo ${RESULTADO_MAX_PALABRAS}: se lee de un vistazo)`);
+  if (!esTexto(props.app)) errs.push("con resultado va app (la IA que lo produjo: ChatGPT, NotebookLM…)");
+  if (props.modo !== undefined && !MODOS_RESULTADO.includes(props.modo)) errs.push(`modo ${q(props.modo)} inválido (usa: ${MODOS_RESULTADO.join(", ")})`);
+  return errs;
+}
+
+/**
+ * `narracion` de un slide: solo en reels; desde DESDE_NARRACION, obligatoria en
+ * cada escena del reel (3–24 palabras, NFC). El carrusel no la lleva.
+ */
+function erroresDeNarracion(s, p) {
+  const v = s.narracion;
+  if (p.formato !== "reel") return v === undefined ? [] : ["narracion solo va en reels (el carrusel no tiene voz)"];
+  const exigida = typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION;
+  if (v === undefined) return exigida ? [`falta narracion: desde el ${DESDE_NARRACION} cada escena del reel dice en voz lo que se ve (${NARRACION_PALABRAS[0]}–${NARRACION_PALABRAS[1]} palabras)`] : [];
+  if (typeof v !== "string" || !v.trim()) return ["narracion debe ser un texto no vacío (lo que dice la voz en esa escena)"];
+  const errs = [];
+  const n = palabras(v).length;
+  if (n < NARRACION_PALABRAS[0] || n > NARRACION_PALABRAS[1]) errs.push(`narracion tiene ${n} palabras (debe tener de ${NARRACION_PALABRAS[0]} a ${NARRACION_PALABRAS[1]})`);
+  if (v !== v.normalize("NFC")) errs.push("narracion no está en Unicode NFC (tildes compuestas): reescríbela con tildes normales");
   return errs;
 }
 
@@ -797,6 +863,7 @@ function erroresDeBorrador(b, p, config) {
       if (v === undefined || (typeof v === "string" && !v.trim())) errs.push(`${donde} (${t}): falta ${k}`);
     }
     if (esTexto(s.props.source)) hayFuente = true;
+    errs.push(...erroresDeNarracion(s, p).map((e) => `${donde} (${t}): ${e}`));
     if (t === "Cta") errs.push(...erroresDePastilla(s.props, p.senal).map((e) => `${donde} (Cta): ${e}`));
     // highlight: el motor lo busca sin distinguir mayúsculas, pero con tildes exactas.
     const campo = DONDE_HIGHLIGHT[t];
@@ -807,6 +874,7 @@ function erroresDeBorrador(b, p, config) {
         errs.push(`${donde} (${t}): el highlight ${q(hl)} no aparece tal cual en ${campo} (mismas tildes)`);
       }
     }
+    if (t === "Hook") errs.push(...erroresDeResultado(s.props, p).map((e) => `${donde} (Hook): ${e}`));
     if (s.background !== undefined) {
       const bg = s.background;
       if (!esObj(bg)) errs.push(`${donde} (${t}): background debe ser un objeto { ai }`);
@@ -1033,6 +1101,8 @@ const ETIQUETA_MITO = "El mito";
 const ETIQUETA_REALIDAD = "La realidad";
 /** Ventana de `Prompt`: título mono y botón (`src/templates/Prompt.tsx`). */
 const VENTANA_PROMPT = ["Copia este prompt", "Copiar"];
+/** Etiqueta del mensaje de la persona en `Screen` (`src/templates/Screen.tsx`). */
+const ETIQUETA_TU = "Tú";
 /** "DESLIZA →" del Hook, solo en carrusel (`src/templates/Hook.tsx`). */
 const DESLIZA = "Desliza →";
 
@@ -1084,6 +1154,7 @@ function lineasSlide(template, p, prisa, formato) {
   switch (template) {
     case "Hook":
       if (!prisa) add(p.eyebrow);
+      if (txt(p.resultado)) add(`${txt(p.app) ?? "IA"} (${p.modo === "respuesta" ? "respuesta" : "aviso, ahora"}): ${txt(p.resultado)}`);
       add(conDestacado(txt(p.title), p.highlight));
       if (!prisa) {
         add(p.subtitle);
@@ -1103,6 +1174,11 @@ function lineasSlide(template, p, prisa, formato) {
       if (!prisa) add(VENTANA_PROMPT);
       add(p.prompt);
       if (!prisa) add(p.note);
+      break;
+    case "Screen":
+      if (!prisa) add(p.heading, p.app);
+      add(`${ETIQUETA_TU}: ${txt(p.prompt) ?? ""}`.trim(), `${txt(p.app) ?? "IA"}: ${txt(p.respuesta) ?? ""}`.trim());
+      if (!prisa) add(p.nota);
       break;
     case "MythReality":
       add(conEtiqueta(p.mythLabel, ETIQUETA_MITO, p.myth), conEtiqueta(p.realityLabel, ETIQUETA_REALIDAD, p.reality));
@@ -1135,6 +1211,8 @@ export function textosLector(borrador, formato) {
       return borrador.slides
         .map((s, i) => {
           const lineas = esObj(s) && esObj(s.props) && typeof s.template === "string" ? lineasSlide(s.template, s.props, prisa, formato) : [];
+          // En el reel la voz se oye en los dos perfiles (con prisa también escucha).
+          if (formato === "reel" && esObj(s) && txt(s.narracion)) lineas.push(`Voz: «${txt(s.narracion)}»`);
           return [`Slide ${i + 1}:`, ...lineas].join("\n");
         })
         .join("\n\n");
@@ -1347,6 +1425,9 @@ export function validarConfig(config) {
     if (!Array.isArray(config.terminosTecnicos) || !config.terminosTecnicos.every(esTexto)) errs.push("terminosTecnicos debe ser una lista de textos");
     if (!Array.isArray(config.audios) || !config.audios.every((a) => typeof a === "string" && AUDIO_RE.test(a) && !a.includes(".."))) {
       errs.push("audios debe ser una lista de nombres de pista (sin rutas)");
+    }
+    if (config.voz !== undefined && config.voz !== false && !VOCES.includes(config.voz)) {
+      errs.push(`voz ${q(config.voz)} inválida (usa: ${VOCES.join(", ")}, o false para reels sin narración)`);
     }
     if (!esObj(config.puerta)) errs.push("falta puerta");
     else {

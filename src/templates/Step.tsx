@@ -94,7 +94,7 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
   const lime = accent ?? theme.colors.accent;
   const hasBullets = !!bullets && bullets.length > 0;
   const hasCard = !!body || hasBullets;
-  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, body, bullets }, format === "reel"), contentHeight(format, base.source), format, STEP_REEL_FILL);
+  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, body, bullets }, format === "reel"), contentHeight(format, base.source, base.narracion), format, STEP_REEL_FILL);
   const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: format === "reel", keep: [highlight] });
   return (
     <Frame format={format} {...base}>

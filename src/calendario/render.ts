@@ -14,6 +14,7 @@ import { Renderer } from "../render/renderSlide.ts";
 import { resolveBackground } from "../render/background.ts";
 import { renderReelResult } from "../reel/renderReel.ts";
 import { maxSecondsError, specTiming } from "../reel/timing.ts";
+import { parseVoz, VOZ_DEFECTO, type Voz } from "../reel/voz.ts";
 import { FORMATS } from "../templates/types.ts";
 import { borradorASpec, parseBorrador, storySpec, type Borrador } from "./draft.ts";
 import {
@@ -357,6 +358,23 @@ export async function leerPuerta(): Promise<Puerta> {
 }
 
 /**
+ * Voz de la narración desde `_calendario/config.json → voz` (por defecto
+ * VOZ_DEFECTO; `false` apaga la narración). Una voz desconocida se avisa y cae
+ * a la de defecto: el reel sale igual.
+ */
+export async function leerVoz(avisar?: (texto: string) => Promise<void>): Promise<Voz | false> {
+  try {
+    const cfg = JSON.parse(await readFile(join(calendarioDir(), "config.json"), "utf8"));
+    if (cfg?.voz === false) return false;
+    if (cfg?.voz === undefined) return VOZ_DEFECTO;
+    return parseVoz(cfg.voz);
+  } catch (e) {
+    if (e instanceof Error && /La voz/.test(e.message) && avisar) await avisar(`${e.message} Uso ${VOZ_DEFECTO}.`).catch(() => {});
+    return VOZ_DEFECTO;
+  }
+}
+
+/**
  * Tope de duración (s) de un reel: `parametros.duracionMaxSegundos` de la pieza
  * (`plan.json`, experimento) si es un número > 0; si no, el de la puerta.
  */
@@ -442,7 +460,7 @@ export async function fondosIaQuitados(semana: string): Promise<Map<string, { sl
 export async function renderPieza(
   p: PiezaPendiente,
   tmp: string,
-  opts: { audioDir: string; puerta: Puerta; avisar?: (texto: string) => Promise<void> },
+  opts: { audioDir: string; puerta: Puerta; voz?: Voz | false; avisar?: (texto: string) => Promise<void> },
 ): Promise<{ archivos: string[]; duracionMs?: number }> {
   const texto = await leerBorradorSeguro(p.semana, p.pieza.borrador);
   let b: Borrador;
@@ -492,12 +510,19 @@ export async function renderPieza(
     const tope = topeDuracion(p.pieza.parametros, opts.puerta);
     const exceso = maxSecondsError(specTiming(spec, { pace: b.pace }).total, tope);
     if (exceso) throw new ErrorContenido([exceso]);
-    const r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope });
+    let r: Awaited<ReturnType<typeof renderReelResult>>;
+    try {
+      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz });
+    } catch (e) {
+      // Con narración las escenas se alargan: pasarse del tope es un problema del borrador, no del Mac.
+      if (e instanceof Error && /duracionMaxSegundos/.test(e.message)) throw new ErrorContenido([e.message]);
+      throw e;
+    }
     await rename(r.path, join(tmp, "reel.mp4"));
     ffmpeg(["-ss", "0", "-i", join(tmp, "reel.mp4"), "-frames:v", "1", "-q:v", "2", join(tmp, "cover.jpg")]);
     archivos.push("reel.mp4", "cover.jpg");
     duracionMs = r.durationMs;
-    const qa = await qaReel(join(tmp, "reel.mp4"), join(tmp, "cover.jpg"), spec, opts.puerta);
+    const qa = await qaReel(join(tmp, "reel.mp4"), join(tmp, "cover.jpg"), spec, opts.puerta, r.timing);
     motivos.push(...qa.motivos);
   }
 

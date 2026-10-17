@@ -34,7 +34,22 @@ export interface Borrador extends VariationDraft {
   logoEnCuadro0?: boolean;
   /** Reel: clip de video IA detrás del hook (lo aplica `hook-video.ts` después del render). */
   hookVideo?: HookVideo;
-  slides: (LogicalSlide & { background?: BorradorBackground })[];
+  /**
+   * Slides del borrador. `narracion` (solo reels): lo que dice la voz en esa
+   * escena; el motor la sintetiza y la pinta como subtítulo (`voz.ts`).
+   */
+  slides: (LogicalSlide & { background?: BorradorBackground; narracion?: string })[];
+}
+
+/** Palabras mínimas y máximas de la narración de una escena (validar.mjs usa las mismas). */
+export const NARRACION_PALABRAS = [3, 24] as const;
+
+/** Forma de `narracion` de un slide; devuelve el motivo del rechazo o undefined. */
+export function narracionError(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v.trim()) return "narracion debe ser un texto no vacío (lo que dice la voz en esa escena)";
+  const n = v.trim().split(/\s+/).length;
+  if (n < NARRACION_PALABRAS[0] || n > NARRACION_PALABRAS[1]) return `narracion tiene ${n} palabras (debe tener de ${NARRACION_PALABRAS[0]} a ${NARRACION_PALABRAS[1]})`;
+  return undefined;
 }
 
 const PILARES: readonly Pillar[] = ["herramienta", "noticia", "prompt", "curiosidad"];
@@ -91,6 +106,10 @@ export function parseBorrador(text: string): Borrador {
       const err = backgroundError(s.background);
       if (err) throw new Error(`El ${at} (${s.template}): ${err}.`);
     }
+    if (s.narracion !== undefined) {
+      const err = narracionError(s.narracion);
+      if (err) throw new Error(`El ${at} (${s.template}): ${err}.`);
+    }
   });
   if (data.pace !== undefined) parsePace(data.pace, "el campo `pace` del borrador");
   if (data.audio !== undefined && (typeof data.audio !== "string" || !data.audio.trim())) throw new Error("El campo `audio` debe ser el nombre de una pista (texto).");
@@ -132,7 +151,10 @@ export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): Caro
     const background = toBackground(validated.slides[i].background);
     // El Cta dibuja "@{handle}": un handle con @ inicial saldría "@@cuenta".
     const handle = typeof s.props.handle === "string" ? { handle: s.props.handle.replace(/^@+/, "") } : {};
-    return { ...s, props: { ...s.props, ...handle, ...(background ? { background } : {}) } };
+    // La narración solo tiene sentido en el reel (voz + subtítulo); el carrusel la ignora.
+    const n = validated.slides[i].narracion;
+    const narracion = opts.format === "reel" && typeof n === "string" && n.trim() ? { narracion: n.replace(/\s+/g, " ").trim() } : {};
+    return { ...s, props: { ...s.props, ...handle, ...narracion, ...(background ? { background } : {}) } };
   });
   return {
     name: slugify(validated.name),

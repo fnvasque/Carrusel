@@ -73,6 +73,12 @@ export interface BaseSlideProps {
   logoEnCuadro0?: boolean;
   /** Formato de salida: "post" (4:5, por defecto) o "reel" (9:16). */
   format?: Format;
+  /**
+   * Reel: lo que la voz dice mientras se ve esta escena (6–18 palabras). El
+   * motor la sintetiza (Kokoro), alarga la escena hasta que quepa y la pinta
+   * como subtítulo abajo. Las plantillas no la dibujan; en el carrusel se ignora.
+   */
+  narracion?: string;
 }
 
 /** Un slide = una plantilla + sus props. */
