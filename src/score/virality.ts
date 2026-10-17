@@ -37,7 +37,7 @@ const CLICKBAIT = ["no vas a creer", "esto lo cambia todo", "el truco que nadie"
 const CONTENT_KEYS = [
   "title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker",
   "quote", "author", "myth", "reality", "reason", "note", "cta",
-  "value", "label", "context", "prompt", "respuesta", "nota", "app",
+  "value", "label", "context", "prompt", "respuesta", "nota", "app", "resultado",
 ];
 
 function templateName(slide: SlideSpec): string {

@@ -106,7 +106,9 @@ export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptio
       }),
     ),
   };
-  const html = await buildReelPage(resolved, timing);
+  const html = await buildReelPage(resolved, timing, {
+    voces: narraciones.map((n, i) => (n ? { start: inicios[i], segundos: n.segundos } : undefined)),
+  });
   const durationMs = Math.round(timing.total * 1000);
 
   if (opts.framesOnly) {

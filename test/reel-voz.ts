@@ -4,7 +4,7 @@ import { conNarracion, NARRACION_MARGEN, reelTiming, specTiming } from "../src/r
 import { ffmpegArgs, GANANCIA_VOZ, MUSICA_BAJO_VOZ } from "../src/reel/capture.ts";
 import { inicioVoces, VOZ_ENTRADA } from "../src/reel/renderReel.ts";
 import { parseVoz, segundosEstimados, VOCES, VOZ_DEFECTO } from "../src/reel/voz.ts";
-import { subtitulo, SUBTITULO_BOTTOM } from "../src/reel/page.ts";
+import { subtitulo, SUBTITULO_BOTTOM, SUBTITULO_COLA, SUBTITULO_MAX_CHARS, SUBTITULO_MAX_PALABRAS, SUBTITULO_SIZE, tiemposTrozos, trozosSubtitulo } from "../src/reel/page.ts";
 import { Hook, Screen, Cta } from "../src/templates/index.ts";
 import { REEL_SAFE_BOTTOM, SUBTITULO_RESERVA, contentHeight, subtituloReserve } from "../src/templates/layout.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
@@ -75,19 +75,55 @@ check("ffmpegArgs: sin voces es el mux de siempre; con voces baja la música, re
   assert.throws(() => ffmpegArgs(t, "out.mp4", "m.mp3", [{ path: "v.wav", start: -1 }]), /segundo inválido/);
 });
 
-check("subtitulo: pastilla con el texto solo si hay narración, escapado y sobre la zona segura", () => {
+check("trozosSubtitulo: una frase por trozo (como en el cine); las largas se parten en comas o en ≤ 10 palabras / ≤ 48 caracteres", () => {
+  assert.deepEqual(trozosSubtitulo(""), []);
+  assert.deepEqual(trozosSubtitulo("Hola"), ["Hola"]);
+  const t = trozosSubtitulo("Este aviso lo manda ChatGPT solo, cada mes. Mira cómo se hace.");
+  assert.deepEqual(t, ["Este aviso lo manda ChatGPT solo, cada mes.", "Mira cómo se hace."]);
+  assert.deepEqual(
+    trozosSubtitulo("Le escribes esto una sola vez, y te contesta que ya quedó programado. El día uno te llega el aviso, sin abrir nada."),
+    ["Le escribes esto una sola vez,", "y te contesta que ya quedó programado.", "El día uno te llega el aviso, sin abrir nada."],
+  );
+  for (const x of t) {
+    assert.ok(x.split(" ").length <= SUBTITULO_MAX_PALABRAS, x);
+    assert.ok(x.length <= SUBTITULO_MAX_CHARS + 6, x);
+  }
+  // Una frase larga sin puntuación se parte por palabras.
+  const largo = trozosSubtitulo("uno dos tres cuatro cinco seis siete ocho nueve diez once doce");
+  assert.ok(largo.length >= 2 && largo.every((x) => x.split(" ").length <= SUBTITULO_MAX_PALABRAS));
+  assert.equal(largo.join(" "), "uno dos tres cuatro cinco seis siete ocho nueve diez once doce", "no pierde palabras");
+});
+
+check("tiemposTrozos: continuos, proporcionales al texto, desde el inicio de la voz hasta su fin + cola", () => {
+  const tt = tiemposTrozos(["Este aviso lo manda ChatGPT solo, cada mes.", "Mira cómo se hace.", "Ya."], 0.2, 4.0);
+  assert.equal(tt[0].at, 0.2);
+  assert.equal(tt[0].hasta, tt[1].at);
+  assert.equal(tt[1].hasta, tt[2].at);
+  assert.equal(tt[2].hasta, +(0.2 + 4.0 + SUBTITULO_COLA).toFixed(3));
+  assert.ok(tt[0].hasta - tt[0].at > tt[1].hasta - tt[1].at, "el trozo más largo dura más");
+  assert.deepEqual(tiemposTrozos([], 0, 1), []);
+  assert.throws(() => tiemposTrozos(["a"], -1, 1), /inválidos/);
+  assert.throws(() => tiemposTrozos(["a"], 0, 0), /inválidos/);
+});
+
+check("subtitulo: estilo cine (blanco con borde, sin caja) un trozo a la vez con tiempos; sin voz, el texto entero", () => {
   assert.equal(subtitulo(undefined), "");
   assert.equal(subtitulo("   "), "");
   assert.equal(subtitulo(42), "");
-  const html = subtitulo("Esto lo hizo  ChatGPT <solo> & \"ya\"");
-  assert.ok(html.includes("Esto lo hizo ChatGPT &lt;solo&gt; &amp; &quot;ya&quot;"), "espacios colapsados y HTML escapado");
-  assert.ok(html.includes(`bottom:${SUBTITULO_BOTTOM}px`));
-  assert.ok(html.includes('data-anim="rise"'), "entra con la escena");
-  // Ninguna comilla doble dentro de los style="…" (una fuente como "Segoe UI" cortaba el atributo y el texto salía a 16 px).
-  for (const m of html.matchAll(/style="([^"]*)"/g)) assert.ok(!/["]/.test(m[1]));
-  assert.ok(/style="[^"]*font-size:44px[^"]*color:#F4F4F6/.test(html), "el estilo del texto llega entero");
+  const sinVoz = subtitulo("Esto lo hizo  ChatGPT <solo> & \"ya\"");
+  assert.equal((sinVoz.match(/data-sub-trozo/g) ?? []).length, 1, "sin voz: un solo trozo");
+  assert.ok(sinVoz.includes("Esto lo hizo ChatGPT &lt;solo&gt; &amp; &quot;ya&quot;"), "espacios colapsados y HTML escapado");
+  assert.ok(!sinVoz.includes("data-sub-at"), "sin tiempos");
+  assert.ok(sinVoz.includes(`bottom:${SUBTITULO_BOTTOM}px`));
+  assert.ok(/text-shadow:[^"]*rgba\(0,0,0/.test(sinVoz), "borde oscuro");
+  assert.ok(!/background:|border:/.test(sinVoz), "sin caja");
+  const conVoz = subtitulo("Este aviso lo manda ChatGPT solo, cada mes. Mira cómo se hace.", undefined, { start: 0.2, segundos: 4 });
+  assert.equal((conVoz.match(/data-sub-trozo/g) ?? []).length, 2);
+  assert.ok(/data-sub-at="0.2" data-sub-hasta="[\d.]+"/.test(conVoz));
+  // Ninguna comilla doble dentro de los style="…" (una fuente como "Segoe UI" cortaba el atributo).
+  for (const m of conVoz.matchAll(/style="([^"]*)"/g)) assert.ok(!/["]/.test(m[1]));
+  assert.ok(new RegExp(`font-size:${SUBTITULO_SIZE}px`).test(conVoz));
   assert.ok(SUBTITULO_BOTTOM >= REEL_SAFE_BOTTOM + 40, "sobre la zona que tapa la interfaz de Instagram y sobre la fuente al pie");
-  // Con fuente al pie, la pastilla sube lo que ocupa la fuente; el contenido reserva el alto del subtítulo.
   const conFuente = subtitulo("Hola a todos", "Fuente: help.openai.com");
   const m = /bottom:(\d+)px/.exec(conFuente)!;
   assert.ok(Number(m[1]) > SUBTITULO_BOTTOM, "sube sobre la fuente");

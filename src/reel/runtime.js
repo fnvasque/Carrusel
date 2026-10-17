@@ -432,6 +432,18 @@ document.fonts.ready.then(function () {
       master.fromTo(lates, { autoAlpha: 0 }, { autoAlpha: 1, duration: LATE_DUR, ease: "power2.out", immediateRender: true }, at);
     }
 
+    // Subtítulos de la narración ([data-sub-trozo] con data-sub-at / data-sub-hasta,
+    // en segundos del reel): un trozo a la vez, sin transición (como en el cine).
+    // Los trozos sin tiempos (sin voz sintetizada) quedan visibles con su escena.
+    Array.from(document.querySelectorAll("[data-sub-trozo][data-sub-at]")).forEach(function (el) {
+      const at = parseFloat(el.getAttribute("data-sub-at"));
+      const hasta = parseFloat(el.getAttribute("data-sub-hasta"));
+      if (!isFinite(at) || !isFinite(hasta)) return;
+      gsap.set(el, { autoAlpha: 0 });
+      master.set(el, { autoAlpha: 1 }, +at.toFixed(4));
+      master.set(el, { autoAlpha: 0 }, +Math.max(at + 0.01, hasta).toFixed(4));
+    });
+
     // Barra de progreso de marca (solo reel): crece lineal 0→100% en todo el reel.
     const bar = document.querySelector("[data-reel-progress]");
     if (bar) master.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: T.total, ease: "none", immediateRender: true }, 0);

@@ -23,7 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * `StoryCover` no está: la usa solo el motor, nunca el agente.
  */
 export const CATALOGO = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
   Lead: { required: ["text"], optional: ["kicker", "highlight"] },
   Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
@@ -762,6 +762,26 @@ function erroresDePastilla(props, senal) {
   return errs;
 }
 
+/** Palabras máximas del `resultado` del Hook (una notificación o una respuesta corta, legible en 1 s). */
+const RESULTADO_MAX_PALABRAS = 20;
+const MODOS_RESULTADO = ["aviso", "respuesta"];
+
+/**
+ * `resultado` del Hook (el resultado en el primer cuadro): en reels, obligatorio
+ * desde DESDE_NARRACION, con `app`; ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta.
+ */
+function erroresDeResultado(props, p) {
+  const errs = [];
+  const r = props.resultado;
+  const exigido = p.formato === "reel" && typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION;
+  if (r === undefined) return exigido ? [`falta resultado: desde el ${DESDE_NARRACION} el Hook del reel muestra en el primer cuadro lo que la IA ya hizo (resultado + app)`] : [];
+  if (!esTexto(r)) errs.push("resultado debe ser un texto no vacío (lo que se ve en pantalla cuando la IA terminó)");
+  else if (palabras(r).length > RESULTADO_MAX_PALABRAS) errs.push(`resultado tiene ${palabras(r).length} palabras (máximo ${RESULTADO_MAX_PALABRAS}: se lee de un vistazo)`);
+  if (!esTexto(props.app)) errs.push("con resultado va app (la IA que lo produjo: ChatGPT, NotebookLM…)");
+  if (props.modo !== undefined && !MODOS_RESULTADO.includes(props.modo)) errs.push(`modo ${q(props.modo)} inválido (usa: ${MODOS_RESULTADO.join(", ")})`);
+  return errs;
+}
+
 /**
  * `narracion` de un slide: solo en reels; desde DESDE_NARRACION, obligatoria en
  * cada escena del reel (3–24 palabras, NFC). El carrusel no la lleva.
@@ -854,6 +874,7 @@ function erroresDeBorrador(b, p, config) {
         errs.push(`${donde} (${t}): el highlight ${q(hl)} no aparece tal cual en ${campo} (mismas tildes)`);
       }
     }
+    if (t === "Hook") errs.push(...erroresDeResultado(s.props, p).map((e) => `${donde} (Hook): ${e}`));
     if (s.background !== undefined) {
       const bg = s.background;
       if (!esObj(bg)) errs.push(`${donde} (${t}): background debe ser un objeto { ai }`);
@@ -1133,6 +1154,7 @@ function lineasSlide(template, p, prisa, formato) {
   switch (template) {
     case "Hook":
       if (!prisa) add(p.eyebrow);
+      if (txt(p.resultado)) add(`${txt(p.app) ?? "IA"} (${p.modo === "respuesta" ? "respuesta" : "aviso, ahora"}): ${txt(p.resultado)}`);
       add(conDestacado(txt(p.title), p.highlight));
       if (!prisa) {
         add(p.subtitle);

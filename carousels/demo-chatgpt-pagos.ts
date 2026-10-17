@@ -1,4 +1,4 @@
-import { Hook, Lead, Screen, Step, Cta } from "../src/templates/index.ts";
+import { Hook, Screen, Cta } from "../src/templates/index.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
@@ -17,42 +17,23 @@ const carousel: CarouselSpec = {
     {
       template: Hook,
       props: {
-        title: "ChatGPT te recuerda pagar la luz",
-        highlight: "te recuerda",
-        subtitle: "Gratis, cada mes, sin apps nuevas",
-        narracion: "ChatGPT te recuerda pagar la luz, solo, cada mes.",
-      },
-    },
-    {
-      template: Lead,
-      props: {
-        kicker: "Tareas de ChatGPT",
-        text: "Le escribes una vez y no lo vuelves a pensar.",
-        highlight: "una vez",
-        narracion: "Se llama Tareas. Le escribes una vez y listo.",
+        title: "ChatGPT te avisa solo",
+        highlight: "solo",
+        app: "ChatGPT",
+        modo: "aviso",
+        resultado: "Recordatorio: pagar la luz. Hoy, 9:00.",
+        narracion: "Este aviso lo manda ChatGPT solo, cada mes. Mira cómo se hace.",
       },
     },
     {
       template: Screen,
       props: {
-        index: 3,
-        total: 5,
+        index: 2,
+        total: 3,
         app: "ChatGPT",
         prompt: "Avísame cada 1 del mes a las 9: pagar la luz",
         respuesta: "Listo. Te recordaré pagar la luz el día 1 de cada mes a las 9:00.",
-        narracion: "Escribes esto, y ChatGPT contesta que ya quedó programado.",
-      },
-    },
-    {
-      template: Step,
-      props: {
-        index: 4,
-        total: 5,
-        step: "3",
-        heading: "Te llega el aviso solo",
-        highlight: "solo",
-        body: "Al celular o al correo, el día que dijiste.",
-        narracion: "El día uno te llega el aviso, sin abrir nada.",
+        narracion: "Le escribes esto una sola vez, y te contesta que ya quedó programado. El día uno te llega el aviso, sin abrir nada.",
       },
     },
     {

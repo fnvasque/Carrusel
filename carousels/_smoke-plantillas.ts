@@ -11,7 +11,7 @@ const carousel: CarouselSpec = {
   slides: [
     {
       template: Hook,
-      props: {
+      props: { app: "ChatGPT", modo: "aviso", resultado: "Recordatorio: pagar la luz. Hoy, 9:00.",
         pillar: "noticia",
         eyebrow: "Qué se lanzó",
         title: "OpenAI acaba de cambiar cómo trabajas",

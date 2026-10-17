@@ -104,6 +104,16 @@ curiosa de la IA, **no técnica**, en el celular y distraída. Todo el copy va e
    Lo comprueba la pregunta 7 del lector frío (solo la Slide 1). Motivo:
    seguidores avisaron el 2026-10-15 que no queda claro el propósito de los
    reels.
+   **En reels, desde 2026-10-19, el resultado se ve en el primer cuadro:** el
+   `Hook` lleva `resultado` (≤ 20 palabras, no cuenta para el tiempo de lectura: lo que aparece en pantalla cuando
+   la IA ya terminó, tal cual se lee), `app` (la IA) y `modo` (`aviso`: una
+   notificación del celular, «Recordatorio: pagar la luz · hoy 9:00»;
+   `respuesta`: la burbuja con lo que contestó la IA). La tarjeta sale arriba
+   desde el cuadro 0 y el `title` va debajo, más chico, como pie de foto
+   (≤ 6 palabras). El `subtitle` sobra: la narración lo dice. Motivo: con 3 a 5 s
+   de visionado medio, un título sobre fondo negro no retiene a nadie; una
+   pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
+   no se anuncia).
 9. **Todo reel se narra.** Desde 2026-10-19, cada slide de un reel lleva
    `narracion` (fuera de `props`, como `background`): lo que dice la voz
    mientras se ve esa escena, 3 a 24 palabras, en español neutro y hablado
@@ -573,6 +583,20 @@ Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
 
 ```json
 {
+  "template": "Hook",
+  "props": {
+    "title": "ChatGPT te avisa solo",
+    "highlight": "solo",
+    "app": "ChatGPT",
+    "modo": "aviso",
+    "resultado": "Recordatorio: pagar la luz. Hoy, 9:00."
+  },
+  "narracion": "ChatGPT te recuerda pagar la luz, solo, cada mes."
+}
+```
+
+```json
+{
   "template": "Screen",
   "props": {
     "app": "ChatGPT",
@@ -720,7 +744,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 
 | Plantilla | Obligatorias | Opcionales | Para qué |
 |---|---|---|---|
-| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `mark`, `subtitle`, `titleSize`, `swipe` | Portada: la promesa |
+| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (obligatorios en reels, regla 8) | Portada: el resultado en el primer cuadro y la promesa debajo |
 | `Lead` | `text` | `kicker`, `highlight` | Una frase grande que abre o sostiene la tensión |
 | `Step` | `heading` | `step`, `highlight`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
 | `Prompt` | `heading`, `prompt` | `note` | El prompt copiable (entregable) |

@@ -442,7 +442,7 @@ check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas c
     pace: "gancho",
     audio: "lima-01.mp3",
     slides: [
-      { template: "Hook", props: { title: "Convierte tus PDFs en un podcast", highlight: "podcast" }, narracion: "NotebookLM convierte tus PDFs en podcast." },
+      { template: "Hook", props: { title: "Convierte tus PDFs en un podcast", highlight: "podcast", app: "NotebookLM", resultado: "Podcast listo: 10 minutos." }, narracion: "NotebookLM convierte tus PDFs en podcast." },
       { template: "Lead", props: { text: "Sin leer una página.", highlight: "Sin leer" }, narracion: "Sin leer ni una página." },
       { template: "Step", props: { step: "1", heading: "Sube tus PDFs", body: "Crea un cuaderno y arrastra." }, narracion: "Creas un cuaderno y arrastras los PDFs." },
       { template: "Step", props: { step: "2", heading: "Pide el resumen en audio", body: "Elige la versión corta." }, narracion: "Pides el resumen en audio, versión corta." },
@@ -458,9 +458,10 @@ check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas c
   const ens = borrador();
   assert.ok(duracionReel(ens) > 20, `ensenar con bullets: ${duracionReel(ens)} s`);
   ens.slides.forEach((x: any) => (x.narracion = "Sube tus apuntes y pide el audio."));
+  Object.assign(ens.slides[0].props, { app: "NotebookLM", resultado: "Podcast listo." });
   assertHas(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens), /tope es 20 s/);
   // Cabe con 4 escenas de ≤ 6 palabras y sin bullets (lo que dice el manual).
-  ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast" };
+  ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast", app: "NotebookLM", resultado: "Podcast listo." };
   ens.slides[1].props = { step: "1", heading: "Sube tus PDFs", body: "Arrastra los archivos." };
   ens.slides[2].props = { step: "2", heading: "Pide el resumen en audio", body: "Versión corta." };
   ens.slides[3].props = { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "x" };
@@ -1485,6 +1486,8 @@ check("calendario/validar: narracion — obligatoria en cada escena del reel des
   assert.equal(faltan.filter((e: string) => /falta narracion/.test(e)).length, 4, "una por slide");
   const b = borrador();
   b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  assertHas(vb(p19, b), /slide 1 \(Hook\): falta resultado/);
+  Object.assign(b.slides[0].props, { app: "NotebookLM", modo: "respuesta", resultado: "Resumen en audio listo: 10 minutos." });
   assertNone(vb(p19, b));
   const corta = clone(b);
   corta.slides[1].narracion = "Sube todo";
@@ -1524,6 +1527,7 @@ check("calendario/validar: narracion alarga la escena como el motor (voz + marge
   const p = pieza({ dia: "2026-10-19", parametros: { ...clone(PARAMETROS), ritmoReel: "gancho", duracionMaxSegundos: 20 } });
   const g = borrador();
   g.pace = "gancho";
+  Object.assign(g.slides[0].props, { app: "NotebookLM", resultado: "Resumen en audio listo." });
   g.slides.forEach((s: any) => (s.narracion = Array.from({ length: 24 }, () => "palabra").join(" ")));
   assertHas(vb(p, g), /el reel dura .* y el tope es 20 s/);
 });
@@ -1537,6 +1541,7 @@ check("calendario/validar: Screen — plantilla del catálogo con app, prompt y 
     props: { app: "NotebookLM", prompt: "Resume estos 6 PDFs en un podcast corto", respuesta: "Listo: resumen en audio de 10 minutos con las ideas clave." },
   });
   b.slides.forEach((s: any) => (s.narracion = "Le escribes esto y te contesta con el audio listo."));
+  Object.assign(b.slides[0].props, { app: "NotebookLM", resultado: "Resumen en audio listo." });
   assertNone(vb(p19, b));
   const sinApp = clone(b);
   delete sinApp.slides[2].props.app;
@@ -1558,4 +1563,31 @@ check("calendario/validar: config.voz es una voz de Kokoro o false; serie de la 
   assertNone(validarPieza(pieza({ serie: "hazlo-con-ia" }), config));
   assertNone(validarPieza(pieza({ serie: null }), config));
   assertHas(validarPieza(pieza({ serie: "Hazlo con IA" }), config), /serie debe ser un slug/);
+});
+
+check("calendario/validar: Hook — resultado en el primer cuadro: obligatorio en reels desde 2026-10-19, con app, ≤ 20 palabras, modo aviso|respuesta; el lector lo ve", () => {
+  const p19 = pieza({ dia: "2026-10-19" });
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  const sinApp = clone(b);
+  sinApp.slides[0].props.resultado = "Podcast listo.";
+  assertHas(vb(p19, sinApp), /con resultado va app/);
+  const largo = clone(b);
+  Object.assign(largo.slides[0].props, { app: "NotebookLM", resultado: Array.from({ length: 21 }, () => "x").join(" ") });
+  assertHas(vb(p19, largo), /resultado tiene 21 palabras/);
+  const modo = clone(b);
+  Object.assign(modo.slides[0].props, { app: "NotebookLM", resultado: "Listo.", modo: "ventana" });
+  assertHas(vb(p19, modo), /modo "ventana" inválido/);
+  // Antes del 2026-10-19 y en carrusel no se exige, pero si viene se valida.
+  assertNone(vb());
+  const carrusel = pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-10-20", id: "mar-carrusel-x", borrador: "mar-carrusel-x.json" });
+  const bc = borrador();
+  bc.name = "mar-carrusel-x";
+  delete bc.pace;
+  delete bc.audio;
+  assert.deepEqual(vb(carrusel, bc).filter((e: string) => /resultado/.test(e)), []);
+  Object.assign(bc.slides[0].props, { app: "NotebookLM", resultado: "Podcast listo: 10 minutos.", modo: "aviso" });
+  assertNone(vb(carrusel, bc));
+  const t = textosLector(bc, "carrusel");
+  assert.ok(t.conPrisa.includes("NotebookLM (aviso, ahora): Podcast listo: 10 minutos."), "con prisa ve la tarjeta de resultado");
 });
