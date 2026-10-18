@@ -36,13 +36,8 @@ function getClient(): OpenAI {
  * en `scoreCarousel`.
  */
 const BRAND_RULES = `
-<<<<<<< HEAD
 Marca ia.es (look lima): fondo casi negro #06060A con grilla lima tenue, acento lima #C6FF3D, violeta #7C5CFF y rosa #FF3D7F. La palabra clave del titular SIEMPRE va en lima vía la prop "highlight" (1-2 palabras); en el Hook puedes marcar otra palabra con caja rosa vía "mark".
-Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad".
-=======
-Marca ia.es: fondo navy #0B1020, acento cian #22D3EE. La palabra clave del titular SIEMPRE va en cian vía la prop "highlight" (1-2 palabras).
 Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad" | "trabajo" (cómo cambia el trabajo, el liderazgo o las decisiones con IA, con un estudio o dato con fuente).
->>>>>>> claude/instagram-analysis-system-kcllf6
 Reglas de viralidad (para maximizar guardados/compartidos):
 - El Hook (primer slide) debe tener un número concreto + un enemigo/tensión (no, deja de, mentira, gratis...) + un bucle abierto (#3, por qué, lo que nadie...). Define "highlight".
 - 6 a 8 slides en total. Empieza con Hook y termina con Cta.
