@@ -23,6 +23,7 @@ export const theme = {
     accent: "#22D3EE", // Cian — palabra clave del titular SIEMPRE en cian (≤10%)
     violet: "#8B5CF6", // chip pilar Noticia
     pink: "#F471B5", // chip pilar Curiosidad
+    amber: "#FBBF24", // chip pilar Trabajo (cómo cambia el trabajo con IA)
     green: "#34D399",
     text: "#E8ECF4",
     textMuted: "#94A0B8",
@@ -50,6 +51,8 @@ export function pillarColor(pillar?: Pillar): string {
       return theme.colors.violet;
     case "curiosidad":
       return theme.colors.pink;
+    case "trabajo":
+      return theme.colors.amber;
     case "herramienta":
     case "prompt":
     default:

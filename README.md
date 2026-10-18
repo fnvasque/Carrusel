@@ -88,7 +88,7 @@ color), `index`/`total` (progreso `NN/MM`), `source` (fuente al pie), `showLogo`
 Definido en `src/theme.ts` y `.context/design-brand.md`:
 
 - **Color**: fondo navy `#0B1020`, acento cian `#22D3EE` (regla 60-30-10: la palabra
-  clave del titular siempre en cian). Chips por pilar: violeta (Noticia), rosa (Curiosidad).
+  clave del titular siempre en cian). Chips por pilar: violeta (Noticia), rosa (Curiosidad), ámbar (Trabajo: cómo cambia el trabajo con IA).
 - **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
   Archivos en `src/fonts/`; logos en `src/assets/`.
 - **Pilares** (`pillar`): `herramienta` · `noticia` · `prompt` · `curiosidad`.

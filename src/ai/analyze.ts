@@ -7,7 +7,7 @@ import type { InstagramSource, PostAnalysis, VariationDraft, SpanishVariant } fr
 import { TEMPLATE_CATALOG } from "../remix/templates-catalog.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
-const PILLARS = ["herramienta", "noticia", "prompt", "curiosidad"] as const;
+const PILLARS = ["herramienta", "noticia", "prompt", "curiosidad", "trabajo"] as const;
 
 /** Tope de imágenes que se adjuntan al modelo (control de coste/latencia). */
 const MAX_IMAGES = 8;
@@ -37,7 +37,7 @@ function getClient(): OpenAI {
  */
 const BRAND_RULES = `
 Marca ia.es: fondo navy #0B1020, acento cian #22D3EE. La palabra clave del titular SIEMPRE va en cian vía la prop "highlight" (1-2 palabras).
-Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad".
+Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad" | "trabajo" (cómo cambia el trabajo, el liderazgo o las decisiones con IA, con un estudio o dato con fuente).
 Reglas de viralidad (para maximizar guardados/compartidos):
 - El Hook (primer slide) debe tener un número concreto + un enemigo/tensión (no, deja de, mentira, gratis...) + un bucle abierto (#3, por qué, lo que nadie...). Define "highlight".
 - 6 a 8 slides en total. Empieza con Hook y termina con Cta.
@@ -116,7 +116,7 @@ export async function analyzePost(source: InstagramSource): Promise<PostAnalysis
         `Caption:\n"""${source.caption || "(sin caption)"}"""\n` +
         `Hashtags: ${source.hashtags.join(" ") || "(ninguno)"}\n\n` +
         `Devuelve SOLO un JSON con este shape exacto:\n` +
-        `{ "hook": string, "narrative": string[], "pillar": "herramienta"|"noticia"|"prompt"|"curiosidad", ` +
+        `{ "hook": string, "narrative": string[], "pillar": "herramienta"|"noticia"|"prompt"|"curiosidad"|"trabajo", ` +
         `"format": "post"|"reel", "copyPerSlide": [{"role": string, "text": string}], "visualStyle": string, ` +
         `"languageDetected": string, "tone": string, "viralityHooks": string[], "confidence": "low"|"medium"|"high" }`,
     },
@@ -226,7 +226,7 @@ export async function generateVariations(
           `Genera EXACTAMENTE ${count} variaciones DISTINTAS entre sí (distinto ángulo de hook o plantilla dominante). ` +
           `Todo el copy en ${idioma}. NUNCA dejes texto en el idioma original.\n` +
           `Devuelve SOLO un JSON: { "variations": [ { "name": string, "angle": string, ` +
-          `"pillar": "herramienta"|"noticia"|"prompt"|"curiosidad", "slides": [ { "template": <nombre>, ` +
+          `"pillar": "herramienta"|"noticia"|"prompt"|"curiosidad"|"trabajo", "slides": [ { "template": <nombre>, ` +
           `"pillar"?: <pilar>, "props": { ...props de la plantilla en español... }, ` +
           `"background"?: { "ai"?: string, "gradient"?: string, "color"?: string, "overlay"?: number } } ] } ] }`,
       },
@@ -290,7 +290,7 @@ export async function improveVariation(
           `\n\nDevuelve UNA sola variación mejorada que CONSERVE el "angle" y el espíritu, en ${idioma}, ` +
           `corrigiendo cada debilidad listada. Mismo shape JSON: ` +
           `{ "variations": [ { "name": string, "angle": string, ` +
-          `"pillar": "herramienta"|"noticia"|"prompt"|"curiosidad", "slides": [ { "template": <nombre>, ` +
+          `"pillar": "herramienta"|"noticia"|"prompt"|"curiosidad"|"trabajo", "slides": [ { "template": <nombre>, ` +
           `"pillar"?: <pilar>, "props": { ...props en español... }, ` +
           `"background"?: { "ai"?: string, "gradient"?: string, "color"?: string, "overlay"?: number } } ] } ] }`,
       },
