@@ -52,7 +52,7 @@ export function narracionError(v: unknown): string | undefined {
   return undefined;
 }
 
-const PILARES: readonly Pillar[] = ["herramienta", "noticia", "prompt", "curiosidad"];
+const PILARES: readonly Pillar[] = ["herramienta", "noticia", "prompt", "curiosidad", "trabajo"];
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
