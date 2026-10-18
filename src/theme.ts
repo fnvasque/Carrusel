@@ -25,6 +25,7 @@ export const theme = {
     onAccent: "#06060A", // texto sobre lima (pastilla, círculo del check)
     violet: "#7C5CFF", // pilar Noticia
     pink: "#FF3D7F", // pilar Curiosidad; tachado del mito
+    amber: "#FFB454", // pilar Trabajo (cómo cambia el trabajo con IA)
     text: "#F4F4F6",
     /** Texto secundario dentro de tarjetas (más claro que textMuted). */
     textSoft: "#D8D8E0",
@@ -80,6 +81,8 @@ export function pillarColor(pillar?: Pillar): string {
       return theme.colors.violet;
     case "curiosidad":
       return theme.colors.pink;
+    case "trabajo":
+      return theme.colors.amber;
     case "herramienta":
     case "prompt":
     default:

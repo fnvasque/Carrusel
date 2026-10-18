@@ -7,6 +7,7 @@ output/
 knowledge/.obsidian/
 knowledge/.trash/
 promo/*/frames/
+<<<<<<< HEAD
 # Despliegue (compose.yaml): datos del volumen y clave de deploy del servidor
 data/
 keys/
@@ -16,3 +17,9 @@ knowledge.antes-de-migrar/
 # Muestras de voz y demos de reel generadas en sesión (pesadas): se ven en la app, no se versionan
 informes/muestras-voz/
 informes/demo/
+=======
+
+# La base vive en su propio repo privado (ver deploy/README.md)
+knowledge/
+knowledge.antes-de-migrar/
+>>>>>>> claude/instagram-analysis-system-kcllf6

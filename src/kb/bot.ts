@@ -636,6 +636,20 @@ async function onEcho(ev: DmEvent): Promise<void> {
   for (const url of waiting.urls) {
     enqueue(0, { channel: "instagram", igSender: to, url, user: handle, note: waiting.note, caption: waiting.caption });
     dmLastLink.set(to, { url, user: handle, caption: waiting.caption, at: Date.now() });
+<<<<<<< HEAD
+=======
+  }
+  void work();
+}
+
+function startInstagramInbox(): void {
+  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN?.trim();
+  if (!verifyToken) return;
+  const appSecret = process.env.META_APP_SECRET?.trim();
+  if (!appSecret) throw new Error("El webhook de Instagram necesita META_APP_SECRET para validar la firma de Meta.");
+  if (!igAllowed.size) {
+    console.warn("⚠️  INBOX_ALLOWED_SENDERS está vacío: ignoraré todos los DMs y registraré el IGSID de quien escriba.");
+>>>>>>> claude/instagram-analysis-system-kcllf6
   }
   void work();
 }

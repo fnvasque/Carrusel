@@ -105,11 +105,16 @@ planificador escribe `narracion` en cada slide del reel (manual: regla 9).
 
 Definido en `src/theme.ts` y `.context/design-brand.md`:
 
+<<<<<<< HEAD
 - **Look lima**: fondo casi negro `#06060A`, acento **lima `#C6FF3D`**, violeta `#7C5CFF` y rosa
   `#FF3D7F`; texto `#F4F4F6` y apagado `#8A8A99`; tarjetas `#13131A` con línea `#23232E`.
   Encima va una **grilla lima** al 7 % (líneas de 2 px, celda de 120 px) y una viñeta radial.
   Regla 60-30-10: la palabra clave del titular siempre en lima. Chips por pilar: herramienta y
   prompt en lima, noticia en violeta, curiosidad en rosa. En el reel la grilla deriva despacio.
+=======
+- **Color**: fondo navy `#0B1020`, acento cian `#22D3EE` (regla 60-30-10: la palabra
+  clave del titular siempre en cian). Chips por pilar: violeta (Noticia), rosa (Curiosidad), ámbar (Trabajo: cómo cambia el trabajo con IA).
+>>>>>>> claude/instagram-analysis-system-kcllf6
 - **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
   Archivos en `src/fonts/`; logos en `src/assets/`.
 - **Pilares** (`pillar`; el color del chip sale del pilar): `herramienta` · `noticia` · `prompt` · `curiosidad`.

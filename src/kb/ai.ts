@@ -1,8 +1,11 @@
 import { createReadStream } from "node:fs";
 import OpenAI from "openai";
 import { OPENAI_OPTS } from "./types.ts";
+<<<<<<< HEAD
 import { recordUsage } from "./costs.ts";
 import { clientFor, extraFor, withFallback } from "./llm.ts";
+=======
+>>>>>>> claude/instagram-analysis-system-kcllf6
 import { zodResponseFormat } from "openai/helpers/zod";
 import { ExtractionSchema, TopicSynthesisSchema, type Extraction, type TopicInfo, type TopicSynthesis } from "./types.ts";
 

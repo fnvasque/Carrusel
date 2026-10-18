@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import { recordUsage, withCostScope } from "./costs.ts";
 import { clientFor, extraFor, withFallback } from "./llm.ts";
+=======
+import OpenAI from "openai";
+import { OPENAI_OPTS } from "./types.ts";
+>>>>>>> claude/instagram-analysis-system-kcllf6
 import { parseDateRange, search, type DateRange, type Hit } from "./search.ts";
 
 /**
@@ -21,6 +26,15 @@ const MAX_CONTEXT_CHARS = 10_000;
  */
 const askModel = (): string => process.env.KB_ASK_MODEL ?? "gpt-4o";
 
+<<<<<<< HEAD
+=======
+let client: OpenAI | null = null;
+function getClient(): OpenAI {
+  if (!process.env.OPENAI_API_KEY) throw new Error("Falta OPENAI_API_KEY. Agrégala a .env.");
+  client ??= new OpenAI(OPENAI_OPTS);
+  return client;
+}
+>>>>>>> claude/instagram-analysis-system-kcllf6
 
 export interface Source {
   n: number;

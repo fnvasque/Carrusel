@@ -54,10 +54,15 @@ const JudgeSchema = z.object({
 /** Pregunta a un modelo barato si el tema propuesto es uno de los candidatos. */
 async function judgeSameTopic(proposed: string, candidates: string[]): Promise<string | undefined> {
   if (!process.env.OPENAI_API_KEY) return undefined;
+<<<<<<< HEAD
   // Con tildes corruptas el nombre no calzaría con ningún candidato y se crearía un tema duplicado.
   const judgeModel = process.env.KB_JUDGE_MODEL ?? "gpt-4o-mini";
   const res = await cleanCall(() => new OpenAI(OPENAI_OPTS).beta.chat.completions.parse({
     model: judgeModel,
+=======
+  const res = await new OpenAI(OPENAI_OPTS).beta.chat.completions.parse({
+    model: process.env.KB_JUDGE_MODEL ?? "gpt-4o-mini",
+>>>>>>> claude/instagram-analysis-system-kcllf6
     temperature: 0,
     messages: [
       {

@@ -92,11 +92,15 @@ async function savePost(input: AddInput): Promise<AddResult> {
   let images: string[] = [];
   let video: Awaited<ReturnType<typeof downloadVideo>> = null;
   let directVideo = false;
+<<<<<<< HEAD
   let audioSeconds: number | undefined;
+=======
+>>>>>>> claude/instagram-analysis-system-kcllf6
   // Reel: se baja el video una vez y de ahí salen los cuadros (uno cada ~3 s, hasta
   // MAX_IMAGES) y, más abajo, el audio para transcribir.
   // El video del post; si Meta no lo entrega, el que mandó el usuario (URL o archivo local).
   const videoUrl = meta?.videoUrl ?? input.videoUrl;
+<<<<<<< HEAD
   if (yt) {
     if (yt.thumbnail) images.push(yt.thumbnail);
     if (yt.audioPath) {
@@ -104,6 +108,9 @@ async function savePost(input: AddInput): Promise<AddResult> {
       audioSeconds = yt.durationSeconds;
     }
   } else if (videoUrl || input.videoFile) {
+=======
+  if (videoUrl || input.videoFile) {
+>>>>>>> claude/instagram-analysis-system-kcllf6
     video = videoUrl ? await downloadVideo(videoUrl) : null;
     if (!video && input.videoFile) video = { path: input.videoFile, cleanup: async () => {} };
     if (video) {
@@ -123,7 +130,10 @@ async function savePost(input: AddInput): Promise<AddResult> {
         directVideo = !!video;
         if (video) {
           const duration = await probeDuration(video.path);
+<<<<<<< HEAD
           audioSeconds = duration;
+=======
+>>>>>>> claude/instagram-analysis-system-kcllf6
           images.push(...(await videoFrames(video.path, frameCount(duration, MAX_IMAGES), duration)));
         }
       }
@@ -169,10 +179,15 @@ async function savePost(input: AddInput): Promise<AddResult> {
   // 4) Extracción con el modelo (incluye asignación de tema).
   progress("analizando");
   const topics = await listTopics();
+<<<<<<< HEAD
   const kind: PostKind = yt ? "video" : url ? (meta?.kind ?? "post") : input.videoUrl || input.videoFile || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
   // Cuadros de video (y la miniatura de YouTube) en baja resolución: el audio ya va transcrito; fotos y capturas en alta (texto fino).
   const frames = (!!video || !!yt) && !input.images?.length;
   const raw = await extractFicha({ kind, caption, transcript, notes, images, topics, imageDetail: frames ? frameDetail() : "high" });
+=======
+  const kind: PostKind = url ? (meta?.kind ?? "post") : input.videoUrl || input.videoFile || directVideo ? "reel" : input.mediaUrls?.length ? "post" : "manual";
+  const raw = await extractFicha({ kind, caption, transcript, notes, images, topics });
+>>>>>>> claude/instagram-analysis-system-kcllf6
   // Nombres mal transcritos ("Cloud" → "Claude"): se corrigen en toda la ficha y la transcripción.
   const evidence = [caption, ...raw.imageTexts.map((t) => t.text)].join("\n");
   const fixed = applyNameFixes(raw, transcript, evidence);

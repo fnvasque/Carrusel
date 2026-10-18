@@ -40,7 +40,7 @@ export type Background =
  * chip que pinta `Frame`: herramienta/prompt → lima, noticia → violeta,
  * curiosidad → rosa.
  */
-export type Pillar = "herramienta" | "noticia" | "prompt" | "curiosidad";
+export type Pillar = "herramienta" | "noticia" | "prompt" | "curiosidad" | "trabajo";
 
 /**
  * Props que comparten todas las plantillas. Cada plantilla puede añadir las
