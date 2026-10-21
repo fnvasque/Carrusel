@@ -18,7 +18,7 @@ import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
-import { sceneSeconds, sceneDurations, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GANCHO, PACE_NAMES, maxSecondsError, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
+import { sceneSeconds, sceneDurations, conNarracion, CLIP_MIN_SECONDS, esEscenaClip, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GANCHO, PACE_NAMES, maxSecondsError, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 
 /**
@@ -441,6 +441,19 @@ check("sceneSeconds (gancho): base clamp(1.6 + chars/28, 2.0, 4.5), sin respiro 
   assert.equal(sceneSeconds({ title: "x".repeat(28) }, true, "gancho", true), 2.6);
   // En gancho los bullets no alargan la base (lo hace sceneDurations).
   assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "gancho"), 2);
+});
+
+check("timing: una escena Clip dura al menos 3 s en todos los ritmos y la narración la alarga igual", () => {
+  const clip = { title: "Tu idea en video", archivo: "a.mp4" };
+  assert.ok(esEscenaClip(clip) && !esEscenaClip({ title: "x" }));
+  assert.equal(CLIP_MIN_SECONDS, 3.0);
+  for (const pace of ["ensenar", "rapido", "gancho"] as const) {
+    const d = sceneDurations([clip, { heading: "x" }, clip, { title: "Guárdalo" }], pace);
+    assert.ok(d[0] >= 3.0 && d[2] >= 3.0, `${pace}: ${d}`);
+  }
+  // En gancho, sin el piso la escena 0 de 16 caracteres daría 2.17 s.
+  assert.equal(sceneDurations([clip, { heading: "x" }], "gancho")[0], 3.0);
+  assert.deepEqual(conNarracion([3.0], [4.1]), [4.85]);
 });
 
 check("sceneDurations (gancho): hook intacto, arranque × 0.85 antes del 20 %, medio × 1.2, cierre × 1.5, piso de bullets", () => {

@@ -83,6 +83,17 @@ export const GANCHO = {
 /** Tope (s) de la escena 0 en `gancho`: la promesa completa antes de los 3 s (hook-de-video.md). */
 export const HOOK_MAX_SECONDS_GANCHO = 3.0;
 
+/**
+ * Piso (s) de una escena `Clip` (video generado a pantalla completa, `props.archivo`):
+ * menos de 3 s no deja ver el clip. La narración la alarga igual que a las demás.
+ */
+export const CLIP_MIN_SECONDS = 3.0;
+
+/** ¿La escena es un `Clip`? (trae `archivo`, el nombre del clip en la caché). */
+export function esEscenaClip(props: Record<string, unknown>): boolean {
+  return typeof props.archivo === "string" && props.archivo.trim() !== "";
+}
+
 /** Valida un ritmo (del carrusel o de `--pace`); lanza un error claro en español. */
 export function parsePace(value: unknown, origin = "--pace"): Pace {
   if ((PACE_NAMES as readonly unknown[]).includes(value)) return value as Pace;
@@ -124,8 +135,15 @@ function textChars(props: Record<string, unknown>): number {
  *  - gancho: base clamp(1.6 + chars/28, 2.0, 4.5), sin respiro por `hold` (la
  *    curva GANCHO alarga el cierre); si `hook`, tope HOOK_MAX_SECONDS_GANCHO.
  *    Es la duración base: la definitiva la da `sceneDurations`.
+ *  - Escena `Clip` (`props.archivo`): nunca menos de CLIP_MIN_SECONDS (3 s).
  */
 export function sceneSeconds(props: Record<string, unknown>, hold: boolean, pace: Pace = DEFAULT_PACE, hook = false): number {
+  const s = sceneSecondsTexto(props, hold, pace, hook);
+  return esEscenaClip(props) ? Math.max(CLIP_MIN_SECONDS, s) : s;
+}
+
+/** `sceneSeconds` sin el piso de `Clip`. */
+function sceneSecondsTexto(props: Record<string, unknown>, hold: boolean, pace: Pace, hook: boolean): number {
   const chars = textChars(props);
   if (pace === "rapido") {
     const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
@@ -178,7 +196,8 @@ export function sceneDurations(propsList: Record<string, unknown>[], pace: Pace 
     else d = b * GANCHO.factorMedio;
     const n = bulletCount(propsList[i]);
     const forBullets = n > 0 ? GANCHO.bulletLead + PACES.gancho.stagger * (n - 1) + GANCHO.bulletTail : 0;
-    return +Math.max(GANCHO.minSeconds, forBullets, d).toFixed(2);
+    const piso = esEscenaClip(propsList[i]) ? CLIP_MIN_SECONDS : 0;
+    return +Math.max(GANCHO.minSeconds, forBullets, piso, d).toFixed(2);
   });
 }
 
