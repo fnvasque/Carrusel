@@ -217,12 +217,13 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   assert.ok(!scoreDraft(pieza, { format: "carrusel" }).dimensions.some((d) => d.name === "Pantalla"));
 
   // Reel de texto mudo con voz pegada: sin resultado en el cuadro 0, sin Screen, ritmo enseñar, 8 escenas.
-  const mudo = {
-    name: "mudo", angle: "x", pillar: "herramienta" as const, pace: "ensenar",
+  type ConVoz = VariationDraft & { pace?: string; slides: (VariationDraft["slides"][number] & { narracion?: string })[] };
+  const mudo: ConVoz = {
+    name: "mudo", angle: "x", pillar: "herramienta", pace: "ensenar",
     slides: [
-      { template: "Hook" as const, props: { title: "¿Por qué tu texto se olvida? El truco que nadie usa", highlight: "truco" }, narracion: "¿Por qué tu texto se olvida? El truco que nadie usa" },
+      { template: "Hook", props: { title: "¿Por qué tu texto se olvida? El truco que nadie usa", highlight: "truco" }, narracion: "¿Por qué tu texto se olvida? El truco que nadie usa" },
       ...[1, 2, 3, 4, 5, 6].map((i) => ({ template: "Step" as const, props: { step: String(i), heading: `Paso ${i}` }, narracion: `Este es el paso ${i} de la lista.` })),
-      { template: "Cta" as const, props: { title: "Sígueme para más", highlight: "Sígueme", handle: "ia.punto.es" }, narracion: "Sígueme para más." },
+      { template: "Cta", props: { title: "Sígueme para más", highlight: "Sígueme", handle: "ia.punto.es" }, narracion: "Sígueme para más." },
     ],
   };
   const m = scoreDraft(mudo);
@@ -230,7 +231,7 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   assert.ok(m.total < r.total);
   assert.ok(m.suggestions.some((x) => /resultado/.test(x)) && m.suggestions.some((x) => /Screen/.test(x)));
   // Un reel sin narración en ninguna slide sigue puntuándose como carrusel (los reels mudos de antes del pivote).
-  assert.ok(!esReelNarrado({ ...mudo, slides: mudo.slides.map(({ narracion: _n, ...s }) => s) }));
+  assert.ok(!esReelNarrado({ ...mudo, slides: mudo.slides.map((s): VariationDraft["slides"][number] => ({ template: s.template, props: s.props })) }));
   // scoreReel directo: sin Screen pero con fuente (pieza de evidencia) recibe la mitad de Pantalla.
   const evidencia = scoreReel({ pace: "gancho", slides: [{ template: "Hook", props: {} }, { template: "Lead", props: { source: "Fuente: METR 2025" } }] });
   assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
