@@ -237,6 +237,18 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
 });
 
+check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
+  const d = validateDraft({ name: "x", angle: "a", pillar: "herramienta", slides: [
+    { template: "Clip", props: { title: "Tu idea en video con 1 frase", archivo: "a.mp4" } },
+    { template: "Step", props: { heading: "Escribe la frase" } },
+    { template: "Hook", props: { title: "Un hook tardío" } },
+    { template: "Cta", props: { title: "Guárdalo" } },
+  ] });
+  assert.deepEqual(d.slides.map((s) => s.template), ["Clip", "Step", "Hook", "Cta"]);
+  assert.equal(d.slides[0].props.index, undefined);
+  assert.equal(d.slides[1].props.index, 2);
+});
+
 // --- templates: Clip (video generado a pantalla completa) ---
 check("Clip: está en el catálogo y se renderiza con título, label y marca del archivo", () => {
   assert.ok(isTemplateName("Clip"));
