@@ -17,6 +17,7 @@ export declare function validarBorrador(pieza: unknown, borrador: unknown, confi
 export declare function reglasDeTexto(borrador: unknown, config: unknown, formato?: "reel" | "carrusel"): string[];
 export declare function contarFondosIA(borradores: unknown[]): number;
 export declare function contarHookVideo(borradores: unknown[]): number;
+export declare function contarClips(borradores: unknown[]): number;
 export declare function validarCaption(caption: string, config: unknown, tema?: string): string[];
 export declare function validarSemana(
   dir: string,

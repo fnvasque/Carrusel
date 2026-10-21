@@ -776,6 +776,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 | `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10) |
 | `MythReality` | `myth`, `reality` | `mythLabel`, `realityLabel` | Mito contra realidad (opinión) |
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
+| `Clip` | `title`, `archivo` | `highlight`, `label` | Video generado con IA a pantalla completa, solo reels (ver "Reel con video generado") |
 | `Cta` | `title` | `highlight`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
 
 En el `Cta`, `cta` (el texto de la pastilla) es **obligatorio** y pide el gesto

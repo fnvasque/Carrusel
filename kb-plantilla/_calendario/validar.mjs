@@ -30,6 +30,7 @@ export const CATALOGO = {
   Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
+  Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
   Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
 };
 
@@ -46,7 +47,7 @@ const PROPS_BASE = new Set(["source", "pillar"]);
 const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 
 /** Plantilla → prop donde debe aparecer su `highlight`. */
-const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title" };
+const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title" };
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion"];
 /** Veces que un tema puede salir en la semana sin ser derivado (con 2 reels por día no alcanzan los temas elegibles). */
@@ -78,6 +79,10 @@ const VARIABLES_FIJAS = ["tema", "arquetipo", "hora", "duracion", "hook", "hookV
 const HOOK_VIDEO_PROMPT = [40, 800];
 const HOOK_VIDEO_SEGUNDOS = [3, 6];
 const HOOK_VIDEO_MAX_SEMANA = 1;
+/** Escenas `Clip` (video generado a pantalla completa, solo reels): tope por reel, piso de duración y nombre del archivo en la caché del Mac. */
+const CLIP_MAX_POR_REEL = 3;
+const CLIP_MIN_SECONDS = 3.0;
+const ARCHIVO_CLIP_RE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,120}\.mp4$/;
 
 /** El id se usa como nombre de carpeta en el servidor. */
 const ID_RE = /^[a-z0-9-]{3,80}$/;
@@ -291,7 +296,16 @@ function textChars(props) {
 }
 
 /** Segundos que el motor muestra una escena (misma fórmula que `sceneSeconds`). */
+/** ¿La escena es un `Clip`? (trae `archivo`): dura al menos CLIP_MIN_SECONDS, como en el motor (`esEscenaClip`). */
+const esEscenaClip = (props) => esObj(props) && esTexto(props.archivo);
+
 export function segundosEscena(props, hold, pace = "ensenar", hook = false) {
+  const s = segundosEscenaTexto(props, hold, pace, hook);
+  return esEscenaClip(props) ? Math.max(CLIP_MIN_SECONDS, s) : s;
+}
+
+/** `segundosEscena` sin el piso de `Clip`. */
+function segundosEscenaTexto(props, hold, pace = "ensenar", hook = false) {
   const chars = textChars(props);
   if (pace === "rapido") {
     const s = Math.min(4.8, Math.max(2.4, 1.8 + chars / 26));
@@ -354,7 +368,8 @@ function segundosEscenasTexto(slides, pace = "ensenar") {
     else d = b * GANCHO.factorMedio;
     const n = Array.isArray(props[i].bullets) ? props[i].bullets.filter((x) => typeof x === "string").length : 0;
     const forBullets = n > 0 ? GANCHO.bulletLead + PACE_GANCHO.stagger * (n - 1) + GANCHO.bulletTail : 0;
-    return +Math.max(GANCHO.minSeconds, forBullets, d).toFixed(2);
+    const piso = esEscenaClip(props[i]) ? CLIP_MIN_SECONDS : 0;
+    return +Math.max(GANCHO.minSeconds, forBullets, piso, d).toFixed(2);
   });
 }
 
@@ -557,6 +572,36 @@ export function validarCaption(caption, config, tema) {
 export function contarHookVideo(borradores) {
   if (!Array.isArray(borradores)) return 0;
   return borradores.filter((b) => esObj(b) && b.hookVideo !== undefined).length;
+}
+
+/** Borradores con al menos una slide `Clip` (cuentan para `config.clipsMaxSemana`, 0 si falta). */
+export function contarClips(borradores) {
+  if (!Array.isArray(borradores)) return 0;
+  return borradores.filter((b) => esObj(b) && Array.isArray(b.slides) && b.slides.some((s) => esObj(s) && s.template === "Clip")).length;
+}
+
+/**
+ * Reglas de las slides `Clip`: solo reels, `archivo` = nombre .mp4 sin rutas, ≤ CLIP_MAX_POR_REEL;
+ * si la portada (slide 1) es un Clip: `logoEnCuadro0: false`, ningún Hook y sin hookVideo.
+ */
+function erroresDeClips(b, p) {
+  const slides = Array.isArray(b.slides) ? b.slides : [];
+  const clips = slides.map((s, i) => ({ s, i })).filter(({ s }) => esObj(s) && s.template === "Clip");
+  if (!clips.length) return [];
+  const errs = [];
+  if (p.formato !== "reel") errs.push("Clip solo va en reels (el carrusel es estático)");
+  if (clips.length > CLIP_MAX_POR_REEL) errs.push(`${clips.length} slides Clip (máximo ${CLIP_MAX_POR_REEL} por reel)`);
+  for (const { s, i } of clips) {
+    const a = esObj(s.props) ? s.props.archivo : undefined;
+    if (!esTexto(a)) continue; // "falta archivo" lo dice el catálogo
+    if (a.includes("..") || !ARCHIVO_CLIP_RE.test(a)) errs.push(`slide ${i + 1} (Clip): archivo ${q(a)} inválido: solo un nombre .mp4 sin rutas (letras, números, _ . -)`);
+  }
+  if (clips[0].i === 0) {
+    if (b.logoEnCuadro0 !== false) errs.push("con un Clip de portada va logoEnCuadro0: false (el cuadro 0 es el video, sin marca)");
+    if (slides.some((s) => esObj(s) && s.template === "Hook")) errs.push("con un Clip de portada el reel va sin Hook (el video es la portada)");
+    if (b.hookVideo !== undefined) errs.push("hookVideo no va con un Clip de portada (el video ya es el cuadro 0)");
+  }
+  return errs;
 }
 
 /** Errores de `hookVideo` en un borrador (solo reels, forma, Hook sin fondo). */
@@ -819,6 +864,7 @@ function erroresDeBorrador(b, p, config) {
     errs.push(`audio ${q(b.audio)} inválido: solo el nombre de una pista, sin rutas`); // en carrusel se ignora, pero no con rutas
   }
   errs.push(...erroresDeHookVideo(b, p));
+  errs.push(...erroresDeClips(b, p));
   if (!Array.isArray(b.slides)) {
     errs.push("slides debe ser una lista de slides");
     return errs;
@@ -888,7 +934,7 @@ function erroresDeBorrador(b, p, config) {
     }
   });
   const plantillas = b.slides.map((s) => (esObj(s) ? s.template : undefined));
-  if (plantillas[0] !== "Hook") errs.push("la primera slide debe ser un Hook (la promesa va en la portada)");
+  if (plantillas[0] !== "Hook" && plantillas[0] !== "Clip") errs.push("la primera slide debe ser un Hook (la promesa va en la portada) o un Clip (el video es la portada)");
   if (plantillas.filter((t) => t === "Hook").length > 1) errs.push("solo puede haber un Hook");
   if (n >= 2 && plantillas[n - 1] !== "Cta") errs.push("la última slide debe ser un Cta (un solo gesto)");
   if (!hayFuente) errs.push("falta source: cita al pie la ficha o referencia de origen en alguna slide");
@@ -1187,6 +1233,11 @@ function lineasSlide(template, p, prisa, formato) {
       add(p.value, p.label);
       if (!prisa) add(p.context);
       break;
+    case "Clip":
+      add("[video]");
+      if (!prisa) add(p.label);
+      add(conDestacado(txt(p.title), p.highlight));
+      break;
     case "Cta":
       add(conDestacado(txt(p.title), p.highlight));
       if (!prisa) add(p.reason, textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.handle) ? `@${txt(p.handle)}` : undefined);
@@ -1407,6 +1458,9 @@ export function validarConfig(config) {
     if (config.hookVideoMaxSemana !== undefined && !(Number.isInteger(config.hookVideoMaxSemana) && config.hookVideoMaxSemana >= 0)) {
       errs.push("hookVideoMaxSemana debe ser un entero ≥ 0 (0 = sin clips de video)");
     }
+    if (config.clipsMaxSemana !== undefined && !(Number.isInteger(config.clipsMaxSemana) && config.clipsMaxSemana >= 0)) {
+      errs.push("clipsMaxSemana debe ser un entero ≥ 0 (reels con slides Clip por semana; 0 o ausente = ninguno)");
+    }
     // Ventana de medición y semanas de experimento (opcionales; las lee el bot para el bucle y el resumen).
     const vm = config.ventanaMedicion;
     const vmValor = esObj(vm) ? vm.valor : vm;
@@ -1516,6 +1570,9 @@ export function validarSemana(dir, config, opts = {}) {
     const clips = contarHookVideo(borradores);
     const maxClips = config.hookVideoMaxSemana ?? HOOK_VIDEO_MAX_SEMANA;
     if (clips > maxClips) out.push(`semana: ${clips} reels con hookVideo (máximo ${maxClips}, config.hookVideoMaxSemana)`);
+    const conClip = contarClips(borradores);
+    const maxConClip = Number.isInteger(config.clipsMaxSemana) ? config.clipsMaxSemana : 0;
+    if (conClip > maxConClip) out.push(`semana: ${conClip} reels con Clip (máximo ${maxConClip}, config.clipsMaxSemana)`);
     if (raiz && fechaValida(plan.semana) && plan.semana >= DESDE_REFERENCIAS) {
       const c = leerJson(join(raiz, "_calendario", "candidatos.json"));
       if ("error" in c) out.push(`semana: _calendario/candidatos.json ${c.error} (escríbelo en el Paso 8, también con 0 piezas)`);
