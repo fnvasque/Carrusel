@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover } from "../src/templates/index.ts";
+import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
 import { theme } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
-import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
+import { isTemplateName, validPropKeys, TEMPLATE_CATALOG } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts";
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
@@ -235,6 +235,17 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   // scoreReel directo: sin Screen pero con fuente (pieza de evidencia) recibe la mitad de Pantalla.
   const evidencia = scoreReel({ pace: "gancho", slides: [{ template: "Hook", props: {} }, { template: "Lead", props: { source: "Fuente: METR 2025" } }] });
   assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
+});
+
+// --- templates: Clip (video generado a pantalla completa) ---
+check("Clip: está en el catálogo y se renderiza con título, label y marca del archivo", () => {
+  assert.ok(isTemplateName("Clip"));
+  assert.deepEqual(TEMPLATE_CATALOG.Clip, { required: ["title", "archivo"], optional: ["highlight", "label"] });
+  const html = renderToStaticMarkup(createElement(Clip, { title: "Tu idea en video con 1 frase", highlight: "1 frase", label: "Seedance 2.0 · 18 créditos", archivo: "idea-1.mp4", format: "reel" }));
+  assert.ok(html.includes('data-clip="idea-1.mp4"'));
+  assert.ok(html.includes("Seedance 2.0 · 18 créditos"));
+  assert.ok(html.includes("Tu idea en video con"));
+  assert.ok(html.includes('data-anim="words"'));
 });
 
 // --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---

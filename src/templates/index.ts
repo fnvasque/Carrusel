@@ -9,6 +9,7 @@ export { Cta, type CtaProps } from "./Cta.tsx";
 export { Lead, type LeadProps } from "./Lead.tsx";
 export { MythReality, type MythRealityProps } from "./MythReality.tsx";
 export { Stat, type StatProps } from "./Stat.tsx";
+export { Clip, type ClipProps } from "./Clip.tsx";
 export { StoryCover, STORY_ROTULO, type StoryCoverProps } from "./StoryCover.tsx";
 export { Frame } from "./Frame.tsx";
 export * from "./types.ts";

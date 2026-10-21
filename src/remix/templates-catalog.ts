@@ -16,6 +16,7 @@ export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; option
   Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
   MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
+  Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
   Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
 };
 
