@@ -1,0 +1,67 @@
+{
+  "name": "jue-pm-reel-tu-producto-en-anuncio",
+  "angle": "de una foto normal del producto a un anuncio en video con una frase",
+  "pillar": "herramienta",
+  "pace": "gancho",
+  "audio": "lima-01.mp3",
+  "logoEnCuadro0": false,
+  "slides": [
+    {
+      "template": "Clip",
+      "props": {
+        "title": "Una foto, 1 anuncio con IA",
+        "highlight": "1 anuncio",
+        "label": "Kling 3.0 · 9 créditos",
+        "archivo": "anuncio-1.mp4"
+      },
+      "narracion": "Si vendes por Instagram: una foto y ya tienes anuncio."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Sube la foto del producto"
+      },
+      "narracion": "Sube una foto normal."
+    },
+    {
+      "template": "Clip",
+      "props": {
+        "title": "El producto en uso",
+        "highlight": "en uso",
+        "label": "Kling 3.0 · 9 créditos",
+        "archivo": "anuncio-2.mp4"
+      },
+      "narracion": "Y pídele que alguien lo use."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Escribe: gira el producto, luz de estudio",
+        "source": "Fuente: Higgsfield, Kling 3.0"
+      },
+      "narracion": "Copia el prompt: gira el producto, luz de estudio."
+    },
+    {
+      "template": "Stat",
+      "props": {
+        "value": "9",
+        "label": "créditos por clip de 5 s",
+        "context": "Plan Plus: 1.000 créditos al mes"
+      },
+      "narracion": "Nueve créditos y dos minutos por clip."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Guárdalo para tu próximo anuncio",
+        "highlight": "Guárdalo",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
+        "source": "Fuente: Higgsfield (higgsfield.ai)"
+      },
+      "narracion": "Guárdalo y mándaselo a quien vende."
+    }
+  ]
+}

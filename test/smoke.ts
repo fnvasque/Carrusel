@@ -260,6 +260,16 @@ check("Clip: está en el catálogo y se renderiza con título, label y marca del
   assert.ok(html.includes('data-anim="words"'));
 });
 
+check("scoreReel: un reel con Clip de portada y Clip de desarrollo pasa el umbral; sin label ni source baja", () => {
+  const pieza = JSON.parse(readFileSync(new URL("./calendario/fixtures/reel-clip.json", import.meta.url), "utf8"));
+  const r = scoreDraft(pieza, { format: "reel" });
+  assert.ok(r.total >= THRESHOLD, `${r.total}: ${r.suggestions.join(" | ")}`);
+  assert.equal(r.dimensions.find((d) => d.name === "Hook")!.score, 25);
+  assert.equal(r.dimensions.find((d) => d.name === "Pantalla")!.score, 20);
+  const pobre = { ...pieza, slides: pieza.slides.map((s: any) => ({ ...s, props: { ...s.props, label: undefined, source: undefined } })) };
+  assert.ok(scoreDraft(pobre, { format: "reel" }).total < r.total);
+});
+
 // --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---
 check("templatesImportBase calcula la ruta relativa según la profundidad del out", () => {
   assert.equal(templatesImportBase("carousels"), "../src/templates");
