@@ -20,6 +20,14 @@ export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; option
   Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
 };
 
+/** Plantillas que solo usa el calendario (necesitan un archivo en la caché del Mac): el remix no las ofrece al modelo. */
+export const SOLO_CALENDARIO: readonly TemplateName[] = ["Clip"];
+
+/** Catálogo que ve el modelo del remix: todo menos las plantillas de `SOLO_CALENDARIO`. */
+export function catalogoRemix(): Partial<Record<TemplateName, { required: string[]; optional: string[] }>> {
+  return Object.fromEntries(Object.entries(TEMPLATE_CATALOG).filter(([n]) => !(SOLO_CALENDARIO as readonly string[]).includes(n)));
+}
+
 /** Props comunes a todas las plantillas (BaseSlideProps), siempre permitidas. */
 export const BASE_PROP_KEYS = [
   "background",

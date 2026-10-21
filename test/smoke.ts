@@ -6,7 +6,7 @@ import { parseStatValue } from "../src/templates/Stat.tsx";
 import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
 import { theme } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
-import { isTemplateName, validPropKeys, TEMPLATE_CATALOG } from "../src/remix/templates-catalog.ts";
+import { isTemplateName, validPropKeys, TEMPLATE_CATALOG, catalogoRemix } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts";
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
@@ -268,6 +268,12 @@ check("scoreReel: un reel con Clip de portada y Clip de desarrollo pasa el umbra
   assert.equal(r.dimensions.find((d) => d.name === "Pantalla")!.score, 20);
   const pobre = { ...pieza, slides: pieza.slides.map((s: any) => ({ ...s, props: { ...s.props, label: undefined, source: undefined } })) };
   assert.ok(scoreDraft(pobre, { format: "reel" }).total < r.total);
+});
+
+check("catalogoRemix: el remix (LLM) no ve la plantilla Clip, que solo usa el calendario", () => {
+  const nombres = Object.keys(catalogoRemix());
+  assert.ok(!nombres.includes("Clip"));
+  assert.deepEqual(nombres, Object.keys(TEMPLATE_CATALOG).filter((n) => n !== "Clip"));
 });
 
 // --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---

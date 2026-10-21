@@ -22,7 +22,7 @@ import {
   type MediosRender, type Pieza, type RenderEntry, type SemanaLeida,
 } from "./plan.ts";
 import { qaHookVideo, qaImagen, qaReel, type Puerta } from "./qa.ts";
-import { CLIPS_DIR_DEFECTO, mezclarClips, rangosClips, rutaClip } from "./clips.ts";
+import { CLIPS_DIR_DEFECTO, clipsFaltantes, mezclarClips, rangosClips, rutaClip } from "./clips.ts";
 import { zonedToUtc } from "./time.ts";
 
 /**
@@ -520,6 +520,10 @@ export async function renderPieza(
     const audio = join(opts.audioDir, b.audio);
     if (!existsSync(audio)) throw new ErrorContenido([`No existe la pista de audio ${b.audio} en promo/audio/.`]);
     const spec = borradorASpec(b, { format: "reel" });
+    // Clips de la caché: se comprueban antes de abrir Chromium (un clip ausente no es culpa del borrador).
+    const clipsDir = opts.clipsDir ?? CLIPS_DIR_DEFECTO;
+    const faltan = clipsFaltantes(spec.slides, clipsDir, p.semana, p.pieza.id);
+    if (faltan.length) throw new ErrorClipFaltante(`Falta el clip ${faltan.join(", ")} de ${p.pieza.id}: cópialo a la caché; la pieza sigue planificada.`);
     // Tope de duración (experimento duracionMaxSegundos): se comprueba antes de abrir Chromium.
     const tope = topeDuracion(p.pieza.parametros, opts.puerta);
     const exceso = maxSecondsError(specTiming(spec, { pace: b.pace }).total, tope);
@@ -536,10 +540,7 @@ export async function renderPieza(
     // Escenas Clip: el video generado se mezcla sobre el reel antes de la portada y el QA.
     const rangos = rangosClips(spec, r.timing);
     if (rangos.length) {
-      const clipsDir = opts.clipsDir ?? CLIPS_DIR_DEFECTO;
       const clips = rangos.map((rango) => ({ ruta: rutaClip(clipsDir, p.semana, p.pieza.id, rango.archivo), rango }));
-      const faltan = clips.filter((c) => !existsSync(c.ruta)).map((c) => c.ruta);
-      if (faltan.length) throw new ErrorClipFaltante(`Falta el clip ${faltan.join(", ")} de ${p.pieza.id}: cópialo a la caché; la pieza sigue planificada.`);
       const original = join(tmp, ".reel-sin-clips.mp4");
       await rename(join(tmp, "reel.mp4"), original);
       await mezclarClips(original, clips, join(tmp, "reel.mp4"));

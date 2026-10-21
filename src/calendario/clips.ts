@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { esEscenaClip, type ReelTiming } from "../reel/timing.ts";
@@ -44,6 +45,17 @@ export function archivoClipError(v: unknown): string | undefined {
 /** Ruta del clip en la caché: <clipsDir>/<semana>/<id>/<archivo>. */
 export function rutaClip(clipsDir: string, semana: string, id: string, archivo: string): string {
   return join(clipsDir, semana, id, archivo);
+}
+
+/**
+ * Rutas de los clips que el borrador necesita y no están en la caché. Se
+ * comprueba antes de abrir Chromium: no depende de los tiempos del reel.
+ */
+export function clipsFaltantes(slides: { props: Record<string, unknown>; [k: string]: unknown }[], clipsDir: string, semana: string, id: string): string[] {
+  return slides
+    .filter((s) => esEscenaClip(s.props))
+    .map((s) => rutaClip(clipsDir, semana, id, String(s.props.archivo)))
+    .filter((ruta) => !existsSync(ruta));
 }
 
 /**

@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import OpenAI from "openai";
 import type { InstagramSource, PostAnalysis, VariationDraft, SpanishVariant } from "../remix/types.ts";
-import { TEMPLATE_CATALOG } from "../remix/templates-catalog.ts";
+import { catalogoRemix } from "../remix/templates-catalog.ts";
 
 const CACHE_DIR = join(process.cwd(), ".cache", "remix");
 const PILLARS = ["herramienta", "noticia", "prompt", "curiosidad", "trabajo"] as const;
@@ -204,8 +204,8 @@ export async function generateVariations(
       ? "español chileno (modismos naturales de Chile, sin caer en exceso)"
       : "español neutro latinoamericano";
 
-  const catalog = Object.entries(TEMPLATE_CATALOG)
-    .map(([name, spec]) => `- ${name}: required ${JSON.stringify(spec.required)}, optional ${JSON.stringify(spec.optional)}`)
+  const catalog = Object.entries(catalogoRemix())
+    .map(([name, spec]) => `- ${name}: required ${JSON.stringify(spec!.required)}, optional ${JSON.stringify(spec!.optional)}`)
     .join("\n");
 
   const res = await getClient().chat.completions.create({
@@ -265,8 +265,8 @@ export async function improveVariation(
       ? "español chileno (modismos naturales de Chile, sin caer en exceso)"
       : "español neutro latinoamericano";
 
-  const catalog = Object.entries(TEMPLATE_CATALOG)
-    .map(([name, spec]) => `- ${name}: required ${JSON.stringify(spec.required)}, optional ${JSON.stringify(spec.optional)}`)
+  const catalog = Object.entries(catalogoRemix())
+    .map(([name, spec]) => `- ${name}: required ${JSON.stringify(spec!.required)}, optional ${JSON.stringify(spec!.optional)}`)
     .join("\n");
 
   const res = await getClient().chat.completions.create({

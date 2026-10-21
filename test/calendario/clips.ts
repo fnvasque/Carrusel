@@ -3,7 +3,10 @@ import { check } from "../_check.ts";
 import { reelTiming } from "../../src/reel/timing.ts";
 import { Clip, Step, Cta } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
-import { ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, archivoClipError, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
+import { ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, archivoClipError, clipsFaltantes, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * Escenas `Clip` del calendario: en qué segundos se ve cada clip y el filtro
@@ -58,4 +61,14 @@ check("archivoClipError: solo nombres .mp4 sin rutas", () => {
   }
   assert.ok(ARCHIVO_CLIP_RE.test("Anuncio_2.mp4"));
   assert.equal(rutaClip("/c", "2026-10-19", "jue-pm-reel-x", "a.mp4"), "/c/2026-10-19/jue-pm-reel-x/a.mp4");
+});
+
+check("clipsFaltantes: antes de renderizar, las rutas de los clips que no están en la caché (sin timing)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "clips-cache-"));
+  mkdirSync(join(dir, "2026-10-19", "jue-pm-reel-x"), { recursive: true });
+  writeFileSync(join(dir, "2026-10-19", "jue-pm-reel-x", "anuncio-1.mp4"), "x");
+  const slides = [{ template: "Clip", props: { title: "a", archivo: "anuncio-1.mp4" } }, { template: "Step", props: { heading: "b" } }, { template: "Clip", props: { title: "c", archivo: "anuncio-2.mp4" } }];
+  assert.deepEqual(clipsFaltantes(slides, dir, "2026-10-19", "jue-pm-reel-x"), [join(dir, "2026-10-19", "jue-pm-reel-x", "anuncio-2.mp4")]);
+  assert.deepEqual(clipsFaltantes(slides.slice(0, 2), dir, "2026-10-19", "jue-pm-reel-x"), []);
+  assert.deepEqual(clipsFaltantes([{ template: "Step", props: { heading: "b" } }], dir, "2026-10-19", "otra"), []);
 });
