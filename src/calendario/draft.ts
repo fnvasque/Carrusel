@@ -5,6 +5,7 @@ import { StoryCover } from "../templates/StoryCover.tsx";
 import type { Background, CarouselSpec, Format, Pace, Pillar } from "../templates/types.ts";
 import type { LogicalBackground, LogicalSlide, VariationDraft } from "../remix/types.ts";
 import { hookVideoError, type HookVideo } from "./hook-video.ts";
+import { archivoClipError } from "./clips.ts";
 
 /**
  * Motor del calendario: convierte el borrador JSON que escribe el agente
@@ -109,6 +110,10 @@ export function parseBorrador(text: string): Borrador {
     if (s.narracion !== undefined) {
       const err = narracionError(s.narracion);
       if (err) throw new Error(`El ${at} (${s.template}): ${err}.`);
+    }
+    if (s.template === "Clip") {
+      const err = archivoClipError(s.props.archivo);
+      if (err) throw new Error(`El ${at} (Clip): ${err}.`);
     }
   });
   if (data.pace !== undefined) parsePace(data.pace, "el campo `pace` del borrador");

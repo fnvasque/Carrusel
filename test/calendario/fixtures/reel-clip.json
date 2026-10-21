@@ -9,7 +9,7 @@
     {
       "template": "Clip",
       "props": {
-        "title": "Una foto, 1 anuncio con IA",
+        "title": "Una foto, 1 anuncio",
         "highlight": "1 anuncio",
         "label": "Kling 3.0 · 9 créditos",
         "archivo": "anuncio-1.mp4"
@@ -47,8 +47,8 @@
       "template": "Stat",
       "props": {
         "value": "9",
-        "label": "créditos por clip de 5 s",
-        "context": "Plan Plus: 1.000 créditos al mes"
+        "label": "créditos por clip",
+        "context": "Plan Plus: 1.000 al mes"
       },
       "narracion": "Nueve créditos y dos minutos por clip."
     },
