@@ -711,9 +711,33 @@ del experimento de la semana (Paso 4).
 léxico (el repo de código no está al lado: verás un aviso, no un error). Eso
 **no** significa que la pieza pase: el score ≥ `scoreMin` (75)
 **se revalida en el Mac** antes de renderizar, y una pieza bajo 75 se marca
-fallida y queda como **hueco vacío** ese día (no se reemplaza ni se publica tarde). Escribe cada
-borrador apuntando holgado sobre 75 con estas palancas (pesos de
-`src/score/virality.ts`, sobre 100):
+fallida y queda como **hueco vacío** ese día (no se reemplaza ni se publica tarde).
+Hay **dos rúbricas** (`src/score/virality.ts`, sobre 100): la de **reel
+narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
+**carrusel**. Escribe cada borrador apuntando holgado sobre 75 con estas palancas.
+
+**Reel narrado** (`scoreReel`): mide las reglas duras 7 a 10.
+
+- **Hook (25)**: `resultado` de 2 a 20 palabras (8); `app` + `modo`
+  (`aviso` | `respuesta`) (5); `highlight` (4); titular con **pregunta,
+  número o tensión** («gratis», «sin», «no») (5); titular de 2 a 8 palabras (3).
+- **Narración (20)**: **todas** las escenas con `narracion` de 3 a 24 palabras
+  (8); la voz del Hook **no lee el titular** (4); un **destinatario antes del
+  segundo 5** en la voz del Hook o de la segunda escena («si siempre
+  olvidas…», «para tu amigo que…», regla 7) (3); la voz del Cta pide el gesto
+  (guardar, mandar, comentar) (3); 20 a 60 palabras de voz en total (2).
+- **Pantalla (20)**: una `Screen` con `app`, `prompt` (≤ 30 palabras) y
+  `respuesta` (3 a 45) (10); respuesta **concreta** (lista, dato, frase hecha;
+  no «listo») (5); la `Screen` en la **primera mitad** del reel (5). Una pieza
+  de evidencia sin `Screen` pero con `source` en alguna slide recibe 10.
+- **Estructura (15)**: 4 a 6 escenas (7; con 3 o 7, solo 3); `pace: "gancho"`
+  (4); `Cta` al cierre (4).
+- **CTA (10)**: el título del `Cta` pide guardar, compartir o comentar (6) y
+  lleva `handle` (4).
+- **Marca (10, resta 3 por cada una)**: igual que en carrusel; la narración
+  también cuenta.
+
+**Carrusel** (`scoreCarousel`):
 
 - **Hook (30)**: un **número** en el título (6); tensión o enemigo ("no",
   "deja de", "gratis", "sin", "nunca", "error") en título o subtítulo (8); un
@@ -723,8 +747,9 @@ borrador apuntando holgado sobre 75 con estas palancas (pesos de
   `MythReality` que replantee el problema (4); cierre con `Cta` (4).
 - **Accionable (20)**: una **acción** concreta en cada `Step`/`Prompt`/`Stat`
   ("prueba", "copia", "escribe", "pega", "abre", "usa", "entra a", o el prompt
-  entre comillas) (3 por slide, hasta 8); números en el texto (2 por número,
-  hasta 6); `source` con la **fuente** en alguna slide (2 por slide, hasta 6).
+  entre comillas); una `Screen` con `prompt` cuenta como acción por sí misma
+  (3 por slide, hasta 8); números en el texto (2 por número, hasta 6); `source`
+  con la **fuente** en alguna slide (2 por slide, hasta 6).
 - **Retención (15)**: pasos numerados (`step` en los `Step`, o un `Stat` con
   número) (7); el indicador de progreso lo pone el motor.
 - **CTA (10)**: el título del `Cta` pide guardar o compartir ("Guárdalo",

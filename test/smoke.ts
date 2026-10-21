@@ -8,8 +8,9 @@ import { theme } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
-import { draftToSpec, scoreDraft } from "../src/remix/registry.ts";
-import { THRESHOLD, scoreCarousel } from "../src/score/virality.ts";
+import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts";
+import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
+import { readFileSync } from "node:fs";
 import { pillContent } from "../src/templates/Cta.tsx";
 import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
@@ -200,6 +201,39 @@ check("scoreDraft: weak < strong y strong supera el umbral", () => {
   const ss = scoreDraft(strong).total;
   assert.ok(ws < ss, `weak(${ws}) debe ser < strong(${ss})`);
   assert.ok(ss >= THRESHOLD, `strong(${ss}) debe alcanzar el umbral ${THRESHOLD}`);
+});
+
+// --- registry: scoreDraft elige la rúbrica de reel narrado (pivote 2026-10-17) ---
+check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el umbral y uno mudo de texto no", () => {
+  // Pieza real de la semana 2026-10-19 que el scorer de carrusel marcó fallida (57 < 75).
+  const pieza = JSON.parse(readFileSync(new URL("./calendario/fixtures/reel-narrado-pivote.json", import.meta.url), "utf8")) as VariationDraft & { pace?: string };
+  assert.ok(esReelNarrado(pieza), "una slide con narracion lo marca como reel narrado");
+  const r = scoreDraft(pieza);
+  assert.equal(r.dimensions.map((d) => d.name).join(","), "Hook,Narración,Pantalla,Estructura,CTA,Marca");
+  assert.ok(r.total >= THRESHOLD, `reel del manual (${r.total}) debe alcanzar el umbral ${THRESHOLD}`);
+  // Con el formato explícito da lo mismo que detectado.
+  assert.equal(scoreDraft(pieza, { format: "reel" }).total, r.total);
+  // Forzado a carrusel usa la rúbrica vieja (sin dimensión Pantalla).
+  assert.ok(!scoreDraft(pieza, { format: "carrusel" }).dimensions.some((d) => d.name === "Pantalla"));
+
+  // Reel de texto mudo con voz pegada: sin resultado en el cuadro 0, sin Screen, ritmo enseñar, 8 escenas.
+  const mudo = {
+    name: "mudo", angle: "x", pillar: "herramienta" as const, pace: "ensenar",
+    slides: [
+      { template: "Hook" as const, props: { title: "¿Por qué tu texto se olvida? El truco que nadie usa", highlight: "truco" }, narracion: "¿Por qué tu texto se olvida? El truco que nadie usa" },
+      ...[1, 2, 3, 4, 5, 6].map((i) => ({ template: "Step" as const, props: { step: String(i), heading: `Paso ${i}` }, narracion: `Este es el paso ${i} de la lista.` })),
+      { template: "Cta" as const, props: { title: "Sígueme para más", highlight: "Sígueme", handle: "ia.punto.es" }, narracion: "Sígueme para más." },
+    ],
+  };
+  const m = scoreDraft(mudo);
+  assert.ok(m.total < THRESHOLD, `reel mudo (${m.total}) debe quedar bajo el umbral`);
+  assert.ok(m.total < r.total);
+  assert.ok(m.suggestions.some((x) => /resultado/.test(x)) && m.suggestions.some((x) => /Screen/.test(x)));
+  // Un reel sin narración en ninguna slide sigue puntuándose como carrusel (los reels mudos de antes del pivote).
+  assert.ok(!esReelNarrado({ ...mudo, slides: mudo.slides.map(({ narracion: _n, ...s }) => s) }));
+  // scoreReel directo: sin Screen pero con fuente (pieza de evidencia) recibe la mitad de Pantalla.
+  const evidencia = scoreReel({ pace: "gancho", slides: [{ template: "Hook", props: {} }, { template: "Lead", props: { source: "Fuente: METR 2025" } }] });
+  assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
 });
 
 // --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---
