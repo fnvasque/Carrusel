@@ -164,7 +164,9 @@ Con el calendario automático no hace falta `record`: el bot escribe cada instan
 una pieza del motor en `_metricas/calibracion/<nombre>.json` de la base, y `calendario:render`
 (en el Mac) las copia a `metrics/` y recalcula `calibration.json` en cada corrida.
 
-Notas: el score está calibrado para carruseles tipo "how-to/herramienta"; los de
+Notas: los reels narrados (toda slide con `narracion`, pivote 2026-10-17) usan otra rúbrica
+(`scoreReel`: resultado en el cuadro 0, voz, `Screen`, ritmo gancho); `scoreDraft` la elige sola
+o con `{ format: "reel" }`. El score de carrusel está calibrado para carruseles tipo "how-to/herramienta"; los de
 mito/curiosidad puntúan más bajo en *Accionable* por naturaleza (igual pasan el umbral).
 Las penalizaciones de marca son **banderas para revisar**, no veredictos (pueden dar
 falsos positivos, ej. una frase de miedo usada para *desmentirla*).

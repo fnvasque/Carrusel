@@ -566,7 +566,7 @@ async function datosDelBorrador(deps: SchedulerDeps, semana: string, p: Pieza): 
   try {
     // Import diferido: el registro de plantillas arrastra React.
     const { scoreDraft } = await import("../remix/registry.ts");
-    const total = scoreDraft(d as Parameters<typeof scoreDraft>[0]).total;
+    const total = scoreDraft(d as Parameters<typeof scoreDraft>[0], { format: p.formato === "reel" ? "reel" : "carrusel" }).total;
     if (Number.isFinite(total)) out.predictedScore = total;
   } catch {
     // borrador ilegible para el score: se omite.

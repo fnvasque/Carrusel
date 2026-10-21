@@ -1,0 +1,56 @@
+{
+  "name": "lun-reel-dicta-tus-pendientes",
+  "angle": "de los pendientes sueltos dichos en voz alta a una lista ordenada",
+  "pillar": "herramienta",
+  "pace": "gancho",
+  "audio": "digital-clouds.mp3",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "¿Dictas y ChatGPT ordena tus pendientes?",
+        "highlight": "ordena tus pendientes",
+        "app": "ChatGPT",
+        "modo": "respuesta",
+        "resultado": "Tus pendientes: 1. Llamar al dentista. 2. Pagar la luz. 3. Comprar el regalo de Ana."
+      },
+      "narracion": "¿Anotas todo en el celular? Díctalo y ChatGPT lo ordena."
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "Sam Altman, de OpenAI, dicta así",
+        "highlight": "Sam Altman"
+      },
+      "narracion": "Él dicta y ChatGPT lo limpia."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "Toca el micrófono y habla"
+      },
+      "narracion": "Hablas como te salga, y envías."
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "ChatGPT",
+        "prompt": "dentista, eh, luz, regalo… ordénalo",
+        "respuesta": "1. Dentista 2. Luz 3. Regalo"
+      },
+      "narracion": "Tu voz queda escrita, y la ordena."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Guárdalo para tu próxima lista",
+        "highlight": "Guárdalo",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
+        "source": "Fuente: help.openai.com (dictado por voz); Sam Altman en How I Write, de David Perell"
+      },
+      "narracion": "Guárdalo para tu lista."
+    }
+  ]
+}

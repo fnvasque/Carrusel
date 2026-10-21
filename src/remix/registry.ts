@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 import { Hook, Lead, Step, Prompt, Screen, MythReality, Stat, Cta } from "../templates/index.ts";
-import { scoreCarousel, type ViralityResult } from "../score/virality.ts";
+import { scoreCarousel, scoreReel, type ReelDraftLike, type ViralityResult } from "../score/virality.ts";
 import { validateDraft } from "./emit.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 import type { TemplateName, VariationDraft } from "./types.ts";
@@ -37,10 +37,28 @@ export function draftToSpec(draft: VariationDraft): CarouselSpec {
   };
 }
 
+/** Formato de la pieza para elegir la rúbrica del score. */
+export type ScoreFormat = "reel" | "carrusel";
+
 /**
- * Puntúa un draft con el MISMO `scoreCarousel` que usa `generate`, tras validarlo
- * (para que el score coincida con el .ts que se emitiría).
+ * ¿El borrador es un reel narrado? Lo es si alguna slide trae `narracion`
+ * (obligatoria en reels desde 2026-10-19). Los reels mudos anteriores se
+ * puntúan como carrusel, igual que antes del pivote.
  */
-export function scoreDraft(draft: VariationDraft): ViralityResult {
-  return scoreCarousel(draftToSpec(validateDraft(draft)));
+export function esReelNarrado(draft: VariationDraft): boolean {
+  return (draft.slides as { narracion?: unknown }[]).some((s) => typeof s.narracion === "string" && s.narracion.trim() !== "");
+}
+
+/**
+ * Puntúa un draft tras validarlo (para que el score coincida con el .ts que se
+ * emitiría). Carrusel: el MISMO `scoreCarousel` que usa `generate`. Reel narrado
+ * (`format: "reel"`, o detectado por `narracion`): `scoreReel`, la rúbrica del
+ * pivote 2026-10-17. `validateDraft` conserva `narracion` y el borrador
+ * conserva `pace`, que la rúbrica de reel necesita.
+ */
+export function scoreDraft(draft: VariationDraft, opts: { format?: ScoreFormat } = {}): ViralityResult {
+  const validated = validateDraft(draft);
+  const reel = opts.format === "reel" || (opts.format === undefined && esReelNarrado(draft));
+  if (reel) return scoreReel({ pace: (draft as { pace?: string }).pace, slides: validated.slides as ReelDraftLike["slides"] });
+  return scoreCarousel(draftToSpec(validated));
 }

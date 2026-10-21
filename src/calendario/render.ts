@@ -477,7 +477,7 @@ export async function renderPieza(
     if (opts.avisar) await opts.avisar(texto).catch(() => {});
     else console.warn(`⚠️  ${texto}`);
   }
-  const score = scoreDraft(b);
+  const score = scoreDraft(b, { format: p.pieza.formato === "reel" ? "reel" : "carrusel" });
   if (score.total < THRESHOLD) throw new ErrorContenido([`Score ${score.total} < ${THRESHOLD}.`, ...score.suggestions]);
 
   // Los motores escriben en <cwd>/<outDir>/<name>/: se les da una ruta relativa dentro de tmp.
