@@ -643,6 +643,11 @@ para que quepa un reel de **20 s** (el tope de la puerta desde el 2026-10-14):
 - Hook con video IA: `"hookVideo": { "prompt": "…", "segundos": 5 }` en el
   borrador, solo en reels, **máximo `hookVideoMaxSemana` (1) en toda la
   semana**, y el `Hook` de ese reel sin `background`. Ver "Hook con video IA".
+- Reel con video generado: slides `Clip` (`title`, `archivo`, `highlight`,
+  `label`), solo en reels, **máximo 3 por reel** y **máximo
+  `clipsMaxSemana` reels por semana** (si la clave no está en config, ninguno).
+  Si la slide 1 es un `Clip`, el reel va **sin `Hook`**, con
+  `"logoEnCuadro0": false` y sin `hookVideo`. Ver "Reel con video generado".
 - Reel: `"pace"` igual a `parametros.ritmoReel` de la pieza (`ensenar` salvo
   experimento) y `"audio"` con el nombre exacto de una pista de
   `config.audios` (sin rutas; si la lista está vacía, no hay reels: ver Paso 4).
@@ -702,6 +707,51 @@ del experimento de la semana (Paso 4).
 "hookVideo": {
   "prompt": "Cinematic slow dolly-in on a meeting room in an office in Santiago, Chile, at dusk. A team of Chilean coworkers of mixed ages sit in silence, eyes down at their laptops. Close to camera, a woman in her thirties starts to raise her hand to speak, hesitates and lowers it.",
   "segundos": 5
+}
+```
+
+### Reel con video generado (slide `Clip`)
+
+Cuando el contenido **es** un video hecho con IA (serie `lo-probe-por-ti`:
+"una foto de tu producto convertida en anuncio", "el mismo prompt en Kling y
+en Seedance", "tu idea en 10 segundos"), el reel no lo cuenta: lo muestra. La
+slide `Clip` reserva una escena entera para un clip a pantalla completa; el
+motor pinta solo el texto (titular arriba, `label` con el modelo y el costo,
+subtítulo de la narración abajo) y el Mac mezcla el video después del render.
+
+**Props.** `title` (≤ 7 palabras, con número o tensión; es lo único que se lee
+en el cuadro 0), `highlight`, `label` (≤ 4 palabras: «Kling 3.0 · 9 créditos»)
+y `archivo`: el nombre de un `.mp4` **sin rutas** (`anuncio-1.mp4`). El clip
+no se genera desde el borrador: el usuario lo produce en Higgsfield, lo elige
+y lo deja en la caché del Mac (`~/.cache/carrusel/clips/<semana>/<id>/<archivo>`).
+Si al renderizar falta el archivo, la pieza **no** falla: sigue planificada y
+el Mac la reintenta a la hora siguiente, con aviso.
+
+**Reglas duras.** Solo reels; máximo 3 `Clip` por reel; `clipsMaxSemana` en
+`config.json` limita cuántos reels de la semana llevan `Clip` (sin la clave,
+ninguno). Si la slide 1 es un `Clip`, es la portada: el reel va sin `Hook`
+(no hace falta `resultado`: el video es el resultado), con
+`"logoEnCuadro0": false` (el cuadro 0 es el video, sin marca) y sin
+`hookVideo`. Una escena `Clip` dura al menos 3 s; la narración la alarga igual
+que a las demás.
+
+**Estructura que pasa el score** (6 slides, ≤ 19 s con la voz real):
+`Clip` (portada) → `Step` (qué se le dio) → `Clip` (segundo resultado o
+variante) → `Step` (el prompt exacto, entre comillas: el entregable) →
+`Stat` (modelo, créditos, minutos) → `Cta` (guardar, con `handle` y `source`).
+La voz de la portada no lee el titular y nombra a quién le sirve («si vendes
+por Instagram…»); algún `Clip` lleva `label` y alguna slide, `source`.
+
+```json
+{
+  "template": "Clip",
+  "props": {
+    "title": "Una foto, 1 anuncio",
+    "highlight": "1 anuncio",
+    "label": "Kling 3.0 · 9 créditos",
+    "archivo": "anuncio-1.mp4"
+  },
+  "narracion": "Si vendes por Instagram: una foto y ya tienes anuncio."
 }
 ```
 
