@@ -43,7 +43,7 @@ check("filtroClips: una entrada por rango (el mismo archivo en dos escenas se ab
   assert.ok(f.includes("scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30"));
   assert.ok(f.includes(`colorchannelmixer=rr=${CLIP_BRILLO}:gg=${CLIP_BRILLO}:bb=${CLIP_BRILLO}`));
   assert.ok(f.includes("tpad=stop_mode=clone:stop_duration=2.7"), "el clip corto congela su último cuadro");
-  assert.ok(f.includes("tpad=start_duration=5.5:start_mode=add:color=black"), "el segundo clip arranca a los 5.5 s");
+  assert.ok(f.includes("tpad=start_duration=5.2:start_mode=add:color=black"), "el segundo clip arranca a los 5.2 s");
   const [c1, c2] = f.split(";").filter((p) => p.startsWith("[1:v]") || p.startsWith("[2:v]"));
   assert.ok(!c1.includes("fade=t=in"), "en t = 0 el clip se ve desde el cuadro 0");
   assert.ok(c2.includes(`fade=t=in:st=0:d=${CLIP_FADE}`));
