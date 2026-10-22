@@ -18,6 +18,14 @@ import type { CarouselSpec } from "../templates/types.ts";
 
 /** Cuánto se oscurece el clip (1 = tal cual). Más alto que en `hookVideo` (0.45): aquí el video es el contenido. */
 export const CLIP_BRILLO = 0.7;
+/**
+ * Sombra degradada en la parte alta del clip, donde va el titular: en la fila 0 el
+ * clip se multiplica por CLIP_SOMBRA_MIN y sube linealmente hasta 1 a la altura
+ * CLIP_SOMBRA_ALTO (fracción del cuadro). Es lo único que puede oscurecer el video
+ * bajo el texto: el blend lighten ignora todo lo que el motor dibuje más oscuro.
+ */
+export const CLIP_SOMBRA_ALTO = 0.45;
+export const CLIP_SOMBRA_MIN = 0.3;
 /** Fundido (s) al entrar y salir de cada clip; no se aplica al entrar en t = 0. */
 export const CLIP_FADE = 0.25;
 /** Carpeta de la caché de clips si no viene `CLIPS_DIR`. */
@@ -87,9 +95,11 @@ const num = (n: number): string => String(+n.toFixed(3));
  */
 export function filtroClips(rangos: RangoClip[], dim: { width: number; height: number; fps: number }): string {
   const partes: string[] = ["[0:v]format=gbrp[v0]"];
+  const alto = Math.round(dim.height * CLIP_SOMBRA_ALTO);
   rangos.forEach((r, k) => {
     const dur = +(r.fin - r.inicio).toFixed(3);
-    const cadena = [
+    const n = k + 1;
+    const base = [
       `scale=${dim.width}:${dim.height}:force_original_aspect_ratio=increase`,
       `crop=${dim.width}:${dim.height}`,
       `fps=${dim.fps}`,
@@ -98,13 +108,20 @@ export function filtroClips(rangos: RangoClip[], dim: { width: number; height: n
       `tpad=stop_mode=clone:stop_duration=${num(dur)}`,
       `trim=duration=${num(dur)}`,
       `colorchannelmixer=rr=${CLIP_BRILLO}:gg=${CLIP_BRILLO}:bb=${CLIP_BRILLO}`,
+      "format=gbrp",
+    ];
+    // Máscara gris (CLIP_SOMBRA_MIN arriba → 1 a la altura `alto`) y multiply sobre el clip.
+    const mascara = `geq=lum='if(lt(Y,${alto}),255*(${CLIP_SOMBRA_MIN}+${1 - CLIP_SOMBRA_MIN}*Y/${alto}),255)':cb=128:cr=128,format=gray,format=gbrp`;
+    const resto = [
       ...(r.inicio > 0 ? [`fade=t=in:st=0:d=${CLIP_FADE}`] : []),
       `fade=t=out:st=${(dur - CLIP_FADE).toFixed(3)}:d=${CLIP_FADE}`,
       ...(r.inicio > 0 ? [`tpad=start_duration=${num(r.inicio)}:start_mode=add:color=black`] : []),
       "tpad=stop_mode=add:stop_duration=36000:color=black",
       "format=gbrp",
     ];
-    partes.push(`[${k + 1}:v]${cadena.join(",")}[c${k + 1}]`);
+    partes.push(`[${n}:v]${base.join(",")},split[a${n}][b${n}]`);
+    partes.push(`[b${n}]${mascara}[m${n}]`);
+    partes.push(`[a${n}][m${n}]blend=all_mode=multiply,${resto.join(",")}[c${n}]`);
   });
   rangos.forEach((_, k) => {
     const ultimo = k === rangos.length - 1;
