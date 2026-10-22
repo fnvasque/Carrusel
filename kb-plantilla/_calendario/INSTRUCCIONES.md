@@ -235,6 +235,10 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   (visitas al perfil y seguidores ganados desde el post, y su conversión:
   sana ≥ 0,02; bajo 0,01 el problema es la bio o el posicionamiento, no el
   contenido; Meta las da solo en carruseles y posts de feed, no en reels),
+  `abandono` (solo reels con `avgWatchMs`: la escena en la que cae el visionado
+  medio, con `escena`, `de`, `plantilla`, `titulo`, `inicio`, `fin` y `segundo`;
+  los tiempos son los del motor escalados a la duración real del mp4, así que
+  la escena es aproximada en ± medio segundo),
   `seguidoresDiaSiguiente` y `comentariosTexto` (los 10
   comentarios más recientes del post, texto; el bot los guarda completos en
   `_metricas/comentarios/<semana>/<id>.json`). Es la tabla del Paso 2: no
@@ -333,6 +337,14 @@ de medición (`bucle.json → ventanaMedicion`):
   `hookTexto`, `retencion`, `followsPorVisita`, `seguidoresDiaSiguiente` y el
   alcance para entender *por qué*). Con alcance < `umbralAlcanceTasas` se comparan
   conteos absolutos; desde ese umbral, tasas por alcance.
+- **Dónde se va el espectador** (reels, `bucle.json → piezas[].abandono`): si
+  en varios reels el abandono cae en la escena 1 (`Hook`), el problema es el
+  primer cuadro; si cae siempre en la misma plantilla o posición (p. ej. el
+  `Lead` de la escena 2), esa escena sobra o tarda en pagar lo que promete el
+  Hook. Escríbelo en `aprendizajes.md` con el dato («abandono en la escena 2
+  (Lead) en 4 de 6 reels, visionado medio 4,8 s»). No compares una pieza
+  fallida contra una ganadora escena por escena: con 2 o 3 ganadoras sale
+  anecdótico.
 - **Cerrar experimentos** que cumplen `semanasExperimento` semanas
   (`bucle.json → experimentos[].evaluable`): completa su entrada en
   `experimentos.md` con el resultado y el dato (`experimento` contra `control`,

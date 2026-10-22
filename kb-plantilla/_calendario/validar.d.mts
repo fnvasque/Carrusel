@@ -41,6 +41,7 @@ export declare function motivoReferenciaNoLista(text: string, tema: string, sema
 export declare function leerAlcance(raiz: string): { dentro: Set<string>; despues: Set<string>; fuera: Set<string> } | undefined;
 export declare function erroresDeReferencias(pieza: unknown, raiz: string, semana: string, alcance?: ReturnType<typeof leerAlcance>): string[];
 export declare function validarCandidatos(data: unknown, semana: string, alcance?: ReturnType<typeof leerAlcance>): string[];
+export declare function segundosNarracion(texto: unknown): number | undefined;
 export interface FilaPrueba { semana: string; id: string; publicada: boolean; ganadora: boolean; errores: string[] }
 export interface ResultadoPrueba {
   semanas: string[];

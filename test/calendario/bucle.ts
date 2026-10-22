@@ -511,6 +511,29 @@ check("construirBucle: experimento declarado con variable válida (R15) y su eva
   assert.deepEqual(b.experimentos[1]!.confusores, ["hora"]);
 });
 
+check("construirBucle: un reel medido trae `abandono` (escena del visionado medio) con la duración real del render; un carrusel no", () => {
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: null,
+    piezas: [{ id: "pz-1", formato: "reel" }, { id: "pz-2", formato: "carrusel" }] as unknown as Plan["piezas"],
+  };
+  const borrador = { pace: "gancho", slides: [{ template: "Hook", props: { title: "Ordena tus pendientes" } }, { template: "Step", props: { heading: "Pega tu lista" } }, { template: "Cta", props: { title: "Guárdalo" } }] };
+  const render = { "pz-1": { estado: "renderizado", medios: { archivos: ["a.mp4"], duracionMs: 9000 }, en: "2026-10-11T00:00:00Z" } } as SemanaLeida["render"];
+  const semanas: SemanaLeida[] = [{ semana: "2026-10-12", plan, render, estado: {} }];
+  const reg = [regl("1", { piezaId: "pz-1" }), regl("2", { piezaId: "pz-2", formato: "carrusel" })];
+  const ii = [inst("1", { avg_watch_ms: 1000 }), inst("2", { avg_watch_ms: 1000 })];
+  const borradores = { "2026-10-12/pz-1": borrador, "2026-10-12/pz-2": borrador };
+  const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {}, borradores });
+  const r = b.piezas.find((p) => p.piezaId === "pz-1")!;
+  assert.equal(r.abandono!.escena, 1);
+  assert.equal(r.abandono!.plantilla, "Hook");
+  assert.equal(r.abandono!.de, 3);
+  assert.equal(r.abandono!.fin <= 9, true);
+  assert.equal(b.piezas.find((p) => p.piezaId === "pz-2")!.abandono, undefined);
+  // Sin borradores (o sin avgWatchMs) no hay abandono, y nada se rompe.
+  assert.equal(construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} }).piezas[0]!.abandono, undefined);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});
+
 check("construirBucle: `lectorFrio` agrupa los fallos del lector por causa, con las caídas del plan", () => {
   const plan: Plan = {
     semana: "2026-10-12", zona: "America/Santiago", experimento: null,
