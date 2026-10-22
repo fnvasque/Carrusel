@@ -47,7 +47,8 @@ check("filtroClips: una entrada por rango (el mismo archivo en dos escenas se ab
   assert.ok(f.includes(`colorchannelmixer=rr=${CLIP_BRILLO}:gg=${CLIP_BRILLO}:bb=${CLIP_BRILLO}`));
   assert.ok(f.includes("tpad=stop_mode=clone:stop_duration=2.7"), "el clip corto congela su último cuadro");
   assert.ok(f.includes("tpad=start_duration=5.2:start_mode=add:color=black"), "el segundo clip arranca a los 5.2 s");
-  const [c1, c2] = f.split(";").filter((p) => p.startsWith("[1:v]") || p.startsWith("[2:v]"));
+  // La cadena de cada clip termina en la parte "[aN][mN]blend=…": ahí van los fundidos y el desplazamiento.
+  const [c1, c2] = f.split(";").filter((p) => p.startsWith("[a1][m1]") || p.startsWith("[a2][m2]"));
   assert.ok(!c1.includes("fade=t=in"), "en t = 0 el clip se ve desde el cuadro 0");
   assert.ok(c2.includes(`fade=t=in:st=0:d=${CLIP_FADE}`));
   assert.ok(c1.includes(`fade=t=out:st=${(2.7 - CLIP_FADE).toFixed(3)}:d=${CLIP_FADE}`));
