@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover } from "../src/templates/index.ts";
+import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
 import { theme } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
-import { isTemplateName, validPropKeys } from "../src/remix/templates-catalog.ts";
+import { isTemplateName, validPropKeys, TEMPLATE_CATALOG, catalogoRemix } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts";
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
@@ -18,7 +18,7 @@ import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
 import { appSecretProof, maxUsagePercent, translateGraphError } from "../src/meta/client.ts";
 import { daysLeft } from "../src/meta/check.ts";
-import { sceneSeconds, sceneDurations, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GANCHO, PACE_NAMES, maxSecondsError, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
+import { sceneSeconds, sceneDurations, conNarracion, CLIP_MIN_SECONDS, esEscenaClip, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GANCHO, PACE_NAMES, maxSecondsError, specDurations, entranceBudget, entranceScale, reelTiming, specTiming, parsePace, PACES, DEFAULT_PACE, FPS, DEFAULT_TRANSITION } from "../src/reel/timing.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 
 /**
@@ -237,6 +237,45 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
 });
 
+check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
+  const d = validateDraft({ name: "x", angle: "a", pillar: "herramienta", slides: [
+    { template: "Clip", props: { title: "Tu idea en video con 1 frase", archivo: "a.mp4" } },
+    { template: "Step", props: { heading: "Escribe la frase" } },
+    { template: "Hook", props: { title: "Un hook tardío" } },
+    { template: "Cta", props: { title: "Guárdalo" } },
+  ] });
+  assert.deepEqual(d.slides.map((s) => s.template), ["Clip", "Step", "Hook", "Cta"]);
+  assert.equal(d.slides[0].props.index, undefined);
+  assert.equal(d.slides[1].props.index, 2);
+});
+
+// --- templates: Clip (video generado a pantalla completa) ---
+check("Clip: está en el catálogo y se renderiza con título, label y marca del archivo", () => {
+  assert.ok(isTemplateName("Clip"));
+  assert.deepEqual(TEMPLATE_CATALOG.Clip, { required: ["title", "archivo"], optional: ["highlight", "label"] });
+  const html = renderToStaticMarkup(createElement(Clip, { title: "Tu idea en video con 1 frase", highlight: "1 frase", label: "Seedance 2.0 · 18 créditos", archivo: "idea-1.mp4", format: "reel" }));
+  assert.ok(html.includes('data-clip="idea-1.mp4"'));
+  assert.ok(html.includes("Seedance 2.0 · 18 créditos"));
+  assert.ok(html.includes("Tu idea en video con"));
+  assert.ok(html.includes('data-anim="words"'));
+});
+
+check("scoreReel: un reel con Clip de portada y Clip de desarrollo pasa el umbral; sin label ni source baja", () => {
+  const pieza = JSON.parse(readFileSync(new URL("./calendario/fixtures/reel-clip.json", import.meta.url), "utf8"));
+  const r = scoreDraft(pieza, { format: "reel" });
+  assert.ok(r.total >= THRESHOLD, `${r.total}: ${r.suggestions.join(" | ")}`);
+  assert.equal(r.dimensions.find((d) => d.name === "Hook")!.score, 25);
+  assert.equal(r.dimensions.find((d) => d.name === "Pantalla")!.score, 20);
+  const pobre = { ...pieza, slides: pieza.slides.map((s: any) => ({ ...s, props: { ...s.props, label: undefined, source: undefined } })) };
+  assert.ok(scoreDraft(pobre, { format: "reel" }).total < r.total);
+});
+
+check("catalogoRemix: el remix (LLM) no ve la plantilla Clip, que solo usa el calendario", () => {
+  const nombres = Object.keys(catalogoRemix());
+  assert.ok(!nombres.includes("Clip"));
+  assert.deepEqual(nombres, Object.keys(TEMPLATE_CATALOG).filter((n) => n !== "Clip"));
+});
+
 // --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---
 check("templatesImportBase calcula la ruta relativa según la profundidad del out", () => {
   assert.equal(templatesImportBase("carousels"), "../src/templates");
@@ -430,6 +469,19 @@ check("sceneSeconds (gancho): base clamp(1.6 + chars/28, 2.0, 4.5), sin respiro 
   assert.equal(sceneSeconds({ title: "x".repeat(28) }, true, "gancho", true), 2.6);
   // En gancho los bullets no alargan la base (lo hace sceneDurations).
   assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d", "e"] }, false, "gancho"), 2);
+});
+
+check("timing: una escena Clip dura al menos 3 s en todos los ritmos y la narración la alarga igual", () => {
+  const clip = { title: "Tu idea en video", archivo: "a.mp4" };
+  assert.ok(esEscenaClip(clip) && !esEscenaClip({ title: "x" }));
+  assert.equal(CLIP_MIN_SECONDS, 3.0);
+  for (const pace of ["ensenar", "rapido", "gancho"] as const) {
+    const d = sceneDurations([clip, { heading: "x" }, clip, { title: "Guárdalo" }], pace);
+    assert.ok(d[0] >= 3.0 && d[2] >= 3.0, `${pace}: ${d}`);
+  }
+  // En gancho, sin el piso la escena 0 de 16 caracteres daría 2.17 s.
+  assert.equal(sceneDurations([clip, { heading: "x" }], "gancho")[0], 3.0);
+  assert.deepEqual(conNarracion([3.0], [4.1]), [4.85]);
 });
 
 check("sceneDurations (gancho): hook intacto, arranque × 0.85 antes del 20 %, medio × 1.2, cierre × 1.5, piso de bullets", () => {

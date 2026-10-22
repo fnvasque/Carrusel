@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorContenido, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
+  ErrorClipFaltante, ErrorContenido, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
   sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
@@ -201,6 +201,22 @@ await checkAsync("procesar (R31): error del entorno (Chromium, ffmpeg, disco) �
     const r2 = await procesar([pend("lun-chromium")], out, ENV, segunda.deps);
     assert.deepEqual(r2, { ok: 1, fallidas: 0, pendientes: 0 });
     assert.deepEqual(segunda.reg.render, ["lun-chromium"], "la próxima corrida la renderiza");
+  }),
+);
+
+await checkAsync("procesar: clip faltante es error de entorno (sigue planificada, avisa con la ruta)", () =>
+  conOut(async (out) => {
+    const { deps, reg } = falsos({
+      render: async () => {
+        throw new ErrorClipFaltante("Falta el clip /x/2026-10-12/lun-clip/a.mp4 de lun-clip: cópialo a la caché; la pieza sigue planificada.");
+      },
+    });
+    const r = await procesar([pend("lun-clip")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 1 });
+    assert.deepEqual(reg.escritos, [], "no se marca fallido");
+    assert.equal(reg.avisos.length, 1);
+    assert.match(reg.avisos[0], /Falta el clip \/x\/2026-10-12\/lun-clip\/a\.mp4/);
+    assert.ok(!(new ErrorClipFaltante("x") instanceof ErrorContenido));
   }),
 );
 

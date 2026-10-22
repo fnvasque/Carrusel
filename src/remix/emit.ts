@@ -34,8 +34,12 @@ export function validateDraft(draft: VariationDraft): VariationDraft {
     return { ...s, props };
   });
 
+  // Un `Clip` en la escena 0 es la portada del reel (video generado): no se
+  // inserta ni se mueve ningún Hook y la portada no lleva index.
+  const portadaClip = slides[0]?.template === "Clip";
+
   // Garantizar Hook inicial.
-  if (!slides.length || slides[0].template !== "Hook") {
+  if (!portadaClip && (!slides.length || slides[0].template !== "Hook")) {
     const firstHook = slides.findIndex((s) => s.template === "Hook");
     if (firstHook > 0) {
       const [hook] = slides.splice(firstHook, 1);
@@ -71,7 +75,7 @@ export function validateDraft(draft: VariationDraft): VariationDraft {
   // Recalcular index/total en slides de desarrollo (entre Hook y Cta).
   const total = slides.length;
   slides = slides.map((s, i) => {
-    if (s.template === "Hook" || s.template === "Cta") return s;
+    if (s.template === "Hook" || s.template === "Cta" || (portadaClip && i === 0)) return s;
     return { ...s, props: { ...s.props, index: i + 1, total } };
   });
 

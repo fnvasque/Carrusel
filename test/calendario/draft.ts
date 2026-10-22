@@ -208,3 +208,11 @@ check("borrador: narracion por slide pasa a props solo en el reel; forma validad
   const ok = parseBorrador(JSON.stringify(b));
   assert.equal(borradorASpec(ok, { format: "reel" }).slides[1].props.narracion, "Sube tus PDFs y listo.");
 });
+
+check("parseBorrador: un Clip con archivo con ruta se rechaza; con nombre .mp4 pasa", () => {
+  const con = (archivo: unknown) => JSON.stringify({ ...base(), slides: [{ template: "Clip", props: { title: "Una foto, 1 anuncio", archivo } }, ...base().slides] });
+  assert.throws(() => parseBorrador(con("../a.mp4")), /archivo/);
+  assert.throws(() => parseBorrador(con("a.mov")), /archivo/);
+  assert.throws(() => parseBorrador(con(undefined)), /archivo/);
+  assert.equal(parseBorrador(con("idea-1.mp4")).slides[0].props.archivo, "idea-1.mp4");
+});

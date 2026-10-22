@@ -110,7 +110,7 @@ const vb = (p = pieza(), b = borrador(), c = config) => validarBorrador(p, b, c)
 // --- catálogo y config ---
 
 check("calendario/validar: PLANTILLAS es el catálogo del remix, sin StoryCover", () => {
-  assert.deepEqual([...PLANTILLAS].sort(), ["Cta", "Hook", "Lead", "MythReality", "Prompt", "Screen", "Stat", "Step"]);
+  assert.deepEqual([...PLANTILLAS].sort(), ["Clip", "Cta", "Hook", "Lead", "MythReality", "Prompt", "Screen", "Stat", "Step"]);
   assert.deepEqual(CATALOGO, TEMPLATE_CATALOG);
 });
 
@@ -1434,6 +1434,54 @@ check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo 
 });
 
 // --- Hook con video IA (hookVideo) ---
+
+// --- Clip: video generado como contenido (solo reels) ---
+
+const CLIP_FIXTURE = JSON.parse(readFileSync(new URL("./fixtures/reel-clip.json", import.meta.url), "utf8"));
+/** Pieza de la semana 2026-10-19 (narración obligatoria) en ritmo gancho, como las 3 piezas extra. */
+const piezaClip = (over: Record<string, unknown> = {}) =>
+  pieza({ id: CLIP_FIXTURE.name, borrador: `${CLIP_FIXTURE.name}.json`, dia: "2026-10-22", hora: "19:00", arquetipo: "demo", parametros: { ...PARAMETROS, ritmoReel: "gancho" }, ...over });
+const borradorClip = (): any => clone(CLIP_FIXTURE);
+const configClip = { ...config, clipsMaxSemana: 3 };
+
+check("calendario/validar: Clip — la fixture es válida; en carrusel, archivo con ruta, 4 Clips, logo en cuadro 0, Hook extra o hookVideo → error", () => {
+  assertNone(validarBorrador(piezaClip(), borradorClip(), configClip));
+  assertHas(validarBorrador(piezaClip({ formato: "carrusel", id: "jue-carrusel-x", borrador: "jue-carrusel-x.json" }), { ...borradorClip(), name: "jue-carrusel-x" }, configClip), /Clip solo va en reels/);
+  const ruta = borradorClip();
+  ruta.slides[0].props.archivo = "../a.mp4";
+  assertHas(validarBorrador(piezaClip(), ruta, configClip), /archivo/);
+  const cuatro = borradorClip();
+  cuatro.slides.splice(1, 0, clone(cuatro.slides[0]), clone(cuatro.slides[0]));
+  assertHas(validarBorrador(piezaClip(), cuatro, configClip), /máximo 3/);
+  assertHas(validarBorrador(piezaClip(), { ...borradorClip(), logoEnCuadro0: true }, configClip), /logoEnCuadro0/);
+  const conHook = borradorClip();
+  conHook.slides.splice(2, 0, { template: "Hook", props: { title: "Un hook tardío con 1 dato", highlight: "dato", resultado: "listo", app: "Kling" }, narracion: "Esto es un hook tardío." });
+  assertHas(validarBorrador(piezaClip(), conHook, configClip), /sin Hook/);
+  assertHas(validarBorrador(piezaClip(), { ...borradorClip(), hookVideo: { prompt: "Cinematic slow dolly-in on a Chilean street market in Santiago at golden hour.", segundos: 5 } }, configClip), /hookVideo/);
+});
+
+check("calendario/validar: Clip — segundosEscenas coincide con el motor y la portada dura ≥ 3 s; el lector ve [video] y el label solo en el texto completo", () => {
+  const slides = borradorClip().slides;
+  const motor = sceneDurations(slides.map((x: any) => x.props), "gancho");
+  assert.deepEqual(segundosEscenas(slides.map((x: any) => ({ template: x.template, props: x.props })), "gancho"), motor);
+  assert.ok(motor[0] >= 3.0 && segundosEscenas(slides, "gancho")[0] >= 3.0);
+  const { completo, conPrisa } = textosLector(borradorClip(), "reel");
+  assert.ok(completo.includes("[video]") && conPrisa.includes("[video]"));
+  assert.ok(completo.includes("Kling 3.0 · 9 créditos") && !conPrisa.includes("Kling 3.0 · 9 créditos"));
+});
+
+check("calendario/validar: validarSemana — 1 reel con Clip sin config.clipsMaxSemana → error; con 3 pasa; clipsMaxSemana inválido → error", () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    const x = p.piezas.find((x: any) => x.formato === "reel");
+    writeFileSync(join(dir, x.borrador), JSON.stringify({ ...borradorClip(), name: x.id, pace: "ensenar" }));
+    assertHas(validarSemana(dir, config, { score: () => 90 }), /1 reels con Clip \(máximo 0, config.clipsMaxSemana\)/);
+    assertNone(validarSemana(dir, configClip, { score: () => 90 }).filter((e) => /Clip/.test(e)));
+    assertHas(validarConfig({ ...config, clipsMaxSemana: -1 }), /clipsMaxSemana/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 const HOOK_VIDEO = { prompt: "Cinematic slow dolly-in on a team of Chilean coworkers in silence at a meeting in Santiago.", segundos: 5 };
 

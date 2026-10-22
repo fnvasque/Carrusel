@@ -21,7 +21,8 @@ import {
   calendarioDir, estadoEfectivo, leerSemana, ocultarToken, semanaDir, urlPublica,
   type MediosRender, type Pieza, type RenderEntry, type SemanaLeida,
 } from "./plan.ts";
-import { qaImagen, qaReel, type Puerta } from "./qa.ts";
+import { qaHookVideo, qaImagen, qaReel, type Puerta } from "./qa.ts";
+import { CLIPS_DIR_DEFECTO, clipsFaltantes, mezclarClips, rangosClips, rutaClip } from "./clips.ts";
 import { zonedToUtc } from "./time.ts";
 
 /**
@@ -74,6 +75,18 @@ export function pendientes(semanas: SemanaLeida[], ahora: Date): PiezaPendiente[
  * falta ffmpeg, disco lleno, red) es del ENTORNO: la pieza sigue planificada y se
  * reintenta en la próxima corrida (R31).
  */
+/**
+ * Falta un clip en la caché del Mac para una escena `Clip`: no es culpa del
+ * borrador (error de entorno): la pieza sigue planificada y la próxima corrida
+ * reintenta cuando el archivo esté.
+ */
+export class ErrorClipFaltante extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ErrorClipFaltante";
+  }
+}
+
 export class ErrorContenido extends Error {
   constructor(public motivos: string[]) {
     super(motivos.join(" "));
@@ -453,14 +466,15 @@ export async function fondosIaQuitados(semana: string): Promise<Map<string, { sl
 
 /**
  * Render real de una pieza en `tmp`: borrador (solo de la carpeta de su semana) →
- * score ≥ 75 → tope de fondos ai → carrusel (JPEG 1080×1350) o reel (MP4 con audio +
- * cover del cuadro 0) → story 1080×1920 → QA. Todo problema editorial lanza
- * `ErrorContenido`; los del entorno (Chromium, ffmpeg, disco) lanzan Error normal.
+ * score ≥ 75 → tope de fondos ai → carrusel (JPEG 1080×1350) o reel (MP4 con audio,
+ * clips de la caché mezclados en sus escenas `Clip`, cover del cuadro 0 ya mezclado) →
+ * story 1080×1920 → QA. Todo problema editorial lanza `ErrorContenido`; los del
+ * entorno (Chromium, ffmpeg, disco, clip ausente: `ErrorClipFaltante`) lanzan Error normal.
  */
 export async function renderPieza(
   p: PiezaPendiente,
   tmp: string,
-  opts: { audioDir: string; puerta: Puerta; voz?: Voz | false; avisar?: (texto: string) => Promise<void> },
+  opts: { audioDir: string; puerta: Puerta; voz?: Voz | false; avisar?: (texto: string) => Promise<void>; clipsDir?: string },
 ): Promise<{ archivos: string[]; duracionMs?: number }> {
   const texto = await leerBorradorSeguro(p.semana, p.pieza.borrador);
   let b: Borrador;
@@ -506,6 +520,10 @@ export async function renderPieza(
     const audio = join(opts.audioDir, b.audio);
     if (!existsSync(audio)) throw new ErrorContenido([`No existe la pista de audio ${b.audio} en promo/audio/.`]);
     const spec = borradorASpec(b, { format: "reel" });
+    // Clips de la caché: se comprueban antes de abrir Chromium (un clip ausente no es culpa del borrador).
+    const clipsDir = opts.clipsDir ?? CLIPS_DIR_DEFECTO;
+    const faltan = clipsFaltantes(spec.slides, clipsDir, p.semana, p.pieza.id);
+    if (faltan.length) throw new ErrorClipFaltante(`Falta el clip ${faltan.join(", ")} de ${p.pieza.id}: cópialo a la caché; la pieza sigue planificada.`);
     // Tope de duración (experimento duracionMaxSegundos): se comprueba antes de abrir Chromium.
     const tope = topeDuracion(p.pieza.parametros, opts.puerta);
     const exceso = maxSecondsError(specTiming(spec, { pace: b.pace }).total, tope);
@@ -519,6 +537,17 @@ export async function renderPieza(
       throw e;
     }
     await rename(r.path, join(tmp, "reel.mp4"));
+    // Escenas Clip: el video generado se mezcla sobre el reel antes de la portada y el QA.
+    const rangos = rangosClips(spec, r.timing);
+    if (rangos.length) {
+      const clips = rangos.map((rango) => ({ ruta: rutaClip(clipsDir, p.semana, p.pieza.id, rango.archivo), rango }));
+      const original = join(tmp, ".reel-sin-clips.mp4");
+      await rename(join(tmp, "reel.mp4"), original);
+      await mezclarClips(original, clips, join(tmp, "reel.mp4"));
+      const qc = await qaHookVideo(join(tmp, "reel.mp4"), original);
+      if (!qc.ok) throw new ErrorContenido(qc.motivos.map((m) => `Clips: ${m}`));
+      await rm(original, { force: true });
+    }
     ffmpeg(["-ss", "0", "-i", join(tmp, "reel.mp4"), "-frames:v", "1", "-q:v", "2", join(tmp, "cover.jpg")]);
     archivos.push("reel.mp4", "cover.jpg");
     duracionMs = r.durationMs;

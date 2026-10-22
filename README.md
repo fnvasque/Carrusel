@@ -76,6 +76,7 @@ Plantillas de marca (sistema visual **ia.es**, ver más abajo), una por rol de s
 - **Screen** — la IA en pantalla (ventana de chat): `app`, `prompt` (se teclea en el reel), `respuesta`, `heading`, `nota`
 - **MythReality** — mito vs realidad: `myth`, `reality`, `mythLabel`, `realityLabel`
 - **Stat** — dato grande con contexto: `value`, `label`, `context` (el número cuenta desde 0 en el reel)
+- **Clip** — video generado con IA a pantalla completa (solo reel): `title`, `highlight`, `label`, `archivo` (el .mp4 en la caché del Mac; el calendario lo mezcla tras el render, ver "Reel con video generado")
 - **Cta** — funnel al newsletter: `title`, `highlight`, `reason`, `handle`, `cta`
 
 `highlight` resalta esa palabra del titular en lima (la "palabra clave" de la marca).
@@ -681,6 +682,22 @@ suscripción y necesita una sesión de Claude: lee `pendientes`, genera cada cli
 `.hook-video.json` al terminar y no toca un reel a menos de 45 min de su hora. Si algo falla,
 avisa por Telegram y el reel sale sin clip. La duración no cambia, así que `render.json`
 sigue valiendo.
+
+### Reel con video generado (slide `Clip`)
+
+Un reel del calendario puede mostrar un video generado con IA **como contenido**, a pantalla
+completa, en una o más escenas (`template: "Clip"`, props `title`, `highlight`, `label`,
+`archivo`). El motor renderiza solo el texto; `src/calendario/clips.ts` calcula en qué segundos
+se ve cada escena (`rangosClips`) y mezcla el archivo con ffmpeg en blend `lighten` (brillo 0,7,
+último cuadro congelado si el clip es más corto, fundidos de 0,25 s salvo en t = 0). La portada
+(`cover.jpg`) y el QA salen del reel ya mezclado. Los clips viven fuera de git, en la caché del
+Mac (`CLIPS_DIR`, por defecto `~/.cache/carrusel/clips/<semana>/<id>/<archivo>`); si falta uno,
+la pieza sigue planificada y la corrida siguiente reintenta (aviso por Telegram), nunca se marca
+fallida por eso. Reglas del borrador (validador de la base): solo reels, ≤ 3 `Clip` por reel,
+`config.clipsMaxSemana` reels por semana; con `Clip` de portada el reel va sin `Hook`, con
+`logoEnCuadro0: false` y sin `hookVideo`. La rúbrica de reel (`scoreReel`) puntúa el `Clip` de
+portada como Hook y cualquier `Clip` con `label` como Pantalla. Pruebas:
+`test/calendario/clips.ts` (puro), `clips-media.ts` y `render-media.ts` (ffmpeg y Chromium reales).
 
 **A mano** (otra pieza, o para probar): generar el clip en Higgsfield con la acción en la
 mitad de abajo del cuadro y, si hay personas, **chilenas o latinoamericanas**; correr el

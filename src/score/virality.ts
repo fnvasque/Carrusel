@@ -208,7 +208,8 @@ function solape(a: string, b: string): number {
  * Score léxico de un REEL narrado: mide si tiene las palancas del pivote del
  * 2026-10-17 (manual, reglas duras 7 a 10): el resultado de la IA visible en el
  * primer cuadro, voz en cada escena que explica en vez de leer, la IA en
- * pantalla (`Screen`; o la fuente, si es una pieza de evidencia), ritmo gancho
+ * pantalla (`Screen`, o un `Clip` con el modelo en `label`; o la fuente, si es
+ * una pieza de evidencia), ritmo gancho
  * corto y un Cta que pide el gesto (guardar, mandar, comentar). No mide
  * lo que el validador ya rechaza (duración exacta, props del catálogo).
  */
@@ -223,7 +224,21 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
   const hookNotes: string[] = [];
   let hook = 0;
   const hs = slides.find((s) => /hook/i.test(s.template));
-  if (!hs) {
+  const esClip = (s: { template: string }) => /^clip$/i.test(s.template);
+  // Portada: el Hook o, si no hay, un Clip en la escena 0 (video generado como contenido).
+  const portadaClip = !hs && slides[0] && esClip(slides[0]) ? slides[0] : undefined;
+  const portada = hs ?? portadaClip;
+  if (portadaClip) {
+    const p = portadaClip.props;
+    const title = txt(p.title);
+    if (txt(p.archivo).trim()) hook += 8; else { hookNotes.push("Clip sin archivo"); suggestions.push("El Clip de portada lleva `archivo` (el clip en la caché del Mac)."); }
+    if (txt(p.label).trim()) hook += 5; else { hookNotes.push("Clip sin label"); suggestions.push("Pon en `label` el modelo y el costo («Kling 3.0 · 9 créditos»): es la tarjeta de la portada."); }
+    if (txt(p.highlight).trim()) hook += 4; else { hookNotes.push("sin palabra clave en lima"); suggestions.push("Define `highlight` para resaltar 1-2 palabras del titular."); }
+    const nTit = palabras(title);
+    const gancho = /[¿?]/.test(title) || /\d/.test(title) || has(title, ENEMY);
+    if (gancho) hook += 5; else { hookNotes.push("titular sin pregunta, número ni tensión"); suggestions.push("Haz del titular una pregunta corta, o mete un número o una tensión (gratis, sin, no)."); }
+    if (nTit >= 2 && nTit <= 8) hook += 3; else { hookNotes.push(`titular de ${nTit} palabras (2 a 8)`); suggestions.push("El titular sobre el video: 2 a 8 palabras."); }
+  } else if (!hs) {
     hookNotes.push("sin slide Hook");
     suggestions.push("Falta la portada (Hook): sin ella no hay primer cuadro.");
   } else {
@@ -249,11 +264,11 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
   const conVoz = slides.filter((s) => { const n = palabras(s.narracion); return n >= 3 && n <= 24; }).length;
   if (slides.length && conVoz === slides.length) nar += 8;
   else { nar += Math.min(4, conVoz); narNotes.push(`${conVoz}/${slides.length} escenas con narración de 3 a 24 palabras`); suggestions.push("Cada escena lleva `narracion` (3 a 24 palabras): lo que dice la voz."); }
-  if (hs) {
-    const hookNar = txt(hs.narracion);
-    const lee = solape(hookNar, txt(hs.props.title)) >= 0.8 && palabras(hookNar) <= palabras(hs.props.title) + 1;
+  if (portada) {
+    const hookNar = txt(portada.narracion);
+    const lee = solape(hookNar, txt(portada.props.title)) >= 0.8 && palabras(hookNar) <= palabras(portada.props.title) + 1;
     if (hookNar && !lee) nar += 4; else { narNotes.push("la voz del Hook repite el titular"); suggestions.push("La narración del Hook dice el resultado con otras palabras; no lee el titular."); }
-    const dest = has(`${hookNar} ${txt(hs.props.subtitle)} ${narraciones[1] ?? ""}`, DESTINATARIO);
+    const dest = has(`${hookNar} ${txt(portada.props.subtitle)} ${narraciones[1] ?? ""}`, DESTINATARIO);
     if (dest) nar += 3; else { narNotes.push("sin destinatario antes del segundo 5"); suggestions.push("Nombra a quién le sirve en la voz del Hook o de la segunda escena («si siempre olvidas…», «para tu amigo que…»)."); }
   }
   const cta = slides.find((s) => /cta/i.test(s.template));
@@ -265,7 +280,14 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
   const scrNotes: string[] = [];
   let scr = 0;
   const screens = slides.filter((s) => /screen/i.test(s.template));
-  if (!screens.length) {
+  const clips = slides.filter(esClip);
+  if (!screens.length && clips.length) {
+    // El video generado es la IA haciéndolo: vale como pantalla si dice con qué modelo se hizo.
+    if (clips.some((s) => txt(s.props.label).trim())) scr += 10; else { scr += 4; scrNotes.push("Clip sin label"); suggestions.push("Algún Clip lleva `label` con el modelo («Seedance 2.0 · 18 créditos»)."); }
+    if (slides.some((s) => txt(s.props.source).trim())) scr += 5; else { scrNotes.push("sin fuente"); suggestions.push("Cita en `source` la herramienta con que se generó el clip."); }
+    const idx = slides.findIndex(esClip);
+    if (idx <= Math.ceil(slides.length / 2)) scr += 5; else { scrNotes.push("el Clip llega tarde"); suggestions.push("Muestra el video en la primera mitad del reel."); }
+  } else if (!screens.length) {
     // Una pieza de evidencia (estudio, dato) puede no mostrar la IA; entonces la fuente hace de prueba.
     const conFuente = slides.filter((s) => txt(s.props.source).trim()).length;
     if (conFuente) { scr += 10; scrNotes.push("sin Screen: pieza de evidencia con fuente"); }

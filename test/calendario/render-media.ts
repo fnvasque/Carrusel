@@ -8,6 +8,7 @@ import { checkAsync, done } from "../_check.ts";
 import { startHttp } from "../../src/kb/inbox.ts";
 import { manejarMedio } from "../../src/calendario/media-server.ts";
 import { leerSemana, urlPublica } from "../../src/calendario/plan.ts";
+import { grisDeImagen, luminanciaMedia } from "../../src/calendario/qa.ts";
 import { addDays, localParts, weekMonday } from "../../src/calendario/time.ts";
 import {
   crearEscritorRender, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, verificarReal,
@@ -79,9 +80,15 @@ writeFileSync(join(sd, "plan.json"), JSON.stringify({
     pieza("prueba-reel", dia, "reel"),
     pieza("prueba-carrusel", otroDia, "carrusel"),
     pieza("prueba-fuera", otroDia, "reel", "../fuera.json"),
+    { ...pieza("prueba-clip", otroDia, "reel"), hora: "18:00" },
   ].map((p, i) => (i === 2 ? { ...p, hora: "16:00" } : p)),
 }));
-writeFileSync(join(sd, "prueba-reel.json"), JSON.stringify(borrador("reel")));
+// Reel narrado del pivote (la rúbrica de reel exige resultado, voz y Screen; el borrador mudo de arriba sirve para el carrusel y la ruta inválida).
+const reelDraft = { ...JSON.parse(readFileSync(new URL("./fixtures/reel-narrado-pivote.json", import.meta.url), "utf8")), name: "prueba-reel", audio: "tono.m4a" };
+writeFileSync(join(sd, "prueba-reel.json"), JSON.stringify(reelDraft));
+// Reel con video generado: la fixture del scorer, con la pista de audio de esta prueba.
+const clipDraft = { ...JSON.parse(readFileSync(new URL("./fixtures/reel-clip.json", import.meta.url), "utf8")), name: "prueba-clip", audio: "tono.m4a" };
+writeFileSync(join(sd, "prueba-clip.json"), JSON.stringify(clipDraft));
 writeFileSync(join(sd, "prueba-carrusel.json"), JSON.stringify(borrador("carrusel")));
 git(kb, "add", ".");
 git(kb, "commit", "-m", "plan de prueba");
@@ -90,6 +97,11 @@ git(kb, "push", "-u", "origin", "main");
 const audioDir = join(raiz, "audio");
 mkdirSync(audioDir);
 ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:duration=60", join(audioDir, "tono.m4a")]);
+
+// Caché de clips: solo el primero existe al arrancar (rojo, 1 s); el segundo se copia después.
+const clipsDir = join(raiz, "clips");
+mkdirSync(join(clipsDir, semana, "prueba-clip"), { recursive: true });
+ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=1080x1920:r=30:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", join(clipsDir, semana, "prueba-clip", "anuncio-1.mp4")]);
 
 const medios = join(raiz, "servidor-media");
 mkdirSync(medios);
@@ -108,19 +120,22 @@ try {
     const s = await leerSemana(semana);
     assert.ok(s);
     const pend = pendientes([s], new Date());
-    assert.deepEqual(pend.map((p) => p.pieza.id), ["prueba-reel", "prueba-carrusel", "prueba-fuera"]);
+    assert.deepEqual(pend.map((p) => p.pieza.id), ["prueba-reel", "prueba-carrusel", "prueba-fuera", "prueba-clip"]);
     const puerta = await leerPuerta();
     const escritor = crearEscritorRender({ avisar: async (t) => void avisos.push(t) });
     const r = await procesar(pend, outRoot, { base, token: TOKEN, host: "", dir: medios }, {
-      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta }),
+      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, clipsDir }),
       rsync: rsyncReal,
       verificar: verificarReal,
       escribirRender: escritor.escribirRender,
       confirmar: escritor.confirmar,
       avisar: async (t) => void avisos.push(t),
     });
-    assert.deepEqual(r, { ok: 2, fallidas: 1, pendientes: 0 }, avisos.join(" | "));
-    assert.deepEqual(avisos, []);
+    // prueba-clip: falta anuncio-2.mp4 en la caché → sigue planificada, con aviso (no fallida).
+    assert.deepEqual(r, { ok: 2, fallidas: 1, pendientes: 1 }, avisos.join(" | "));
+    assert.equal(avisos.length, 1);
+    assert.match(avisos[0], /Falta el clip .*anuncio-2\.mp4/);
+    avisos.length = 0;
 
     // Archivos subidos (sin el manifiesto) con las medidas de la spec.
     const reel = join(medios, semana, "prueba-reel");
@@ -152,9 +167,24 @@ try {
     assert.equal(git(clon, "log", "-1", "--format=%s").trim(), `calendario: render ${semana} (3 piezas)`);
     assert.ok(existsSync(join(clon, "_calendario", semana, "plan.json")));
 
-    // Segunda corrida: nada pendiente.
+    // Segunda corrida: solo el reel con clips; con el segundo clip en la caché se renderiza,
+    // la portada se saca del reel ya mezclado (no es negra) y el cuadro 0 muestra el video.
     const s2 = await leerSemana(semana);
-    assert.deepEqual(pendientes([s2!], new Date()), []);
+    assert.deepEqual(pendientes([s2!], new Date()).map((p) => p.pieza.id), ["prueba-clip"]);
+    ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=1080x1920:r=30:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", join(clipsDir, semana, "prueba-clip", "anuncio-2.mp4")]);
+    const r2 = await procesar(pendientes([s2!], new Date()), outRoot, { base, token: TOKEN, host: "", dir: medios }, {
+      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, clipsDir }),
+      rsync: rsyncReal, verificar: verificarReal, escribirRender: escritor.escribirRender, confirmar: escritor.confirmar,
+      avisar: async (t) => void avisos.push(t),
+    });
+    assert.deepEqual(r2, { ok: 1, fallidas: 0, pendientes: 0 }, avisos.join(" | "));
+    const clipOut = join(medios, semana, "prueba-clip");
+    assert.deepEqual(readdirSync(clipOut).sort(), ["cover.jpg", "reel.mp4", "story.jpg"]);
+    const luz = async (f: string) => luminanciaMedia(await grisDeImagen(f, 1080, 1920));
+    assert.ok((await luz(join(clipOut, "cover.jpg"))) > 0.1, "la portada debe mostrar el clip, no negro");
+    assert.ok((await luz(join(clipOut, "reel.mp4"))) > 0.1, "el cuadro 0 del reel debe mostrar el clip");
+    const s3 = await leerSemana(semana);
+    assert.deepEqual(pendientes([s3!], new Date()), []);
   });
 } finally {
   server.close();

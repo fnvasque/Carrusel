@@ -58,6 +58,7 @@ process.env.KB_GIT_PUSH ??= "1";
 
 const outRoot = join(process.cwd(), "output", "calendario");
 const audioDir = process.env.CALENDARIO_AUDIO_DIR?.trim() || join(process.cwd(), "promo", "audio");
+const clipsDir = process.env.CLIPS_DIR?.trim() || undefined;
 
 /** Aviso en la terminal y por Telegram, siempre con el token de medios oculto. */
 async function avisar(texto: string): Promise<void> {
@@ -156,7 +157,7 @@ try {
     const voz = await leerVoz(avisar);
     const escritor = crearEscritorRender({ avisar });
     const r = await procesar(pend, outRoot, env, {
-      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, avisar }),
+      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, avisar, clipsDir }),
       rsync: rsyncReal,
       verificar: verificarReal,
       escribirRender: escritor.escribirRender,
