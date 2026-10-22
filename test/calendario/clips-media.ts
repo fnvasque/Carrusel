@@ -48,6 +48,13 @@ await checkAsync("mezclarClips: el clip corto se congela hasta el fin de su esce
   assert.ok(en0 > 0.1, `cuadro 0 negro (${en0})`);
   assert.ok(en15 > 0.1, `a 1,5 s el clip ya no se ve (${en15}): debía congelar su último cuadro`);
   assert.ok(en3 < 0.03, `a 3 s debía ser negro (${en3})`);
+  // Sombra superior: las filas de arriba del clip son más oscuras que las de abajo.
+  const jpg = join(dir, "cuadro-0.5.png");
+  ffmpeg(["-ss", "0.5", "-i", salida, "-frames:v", "1", jpg]);
+  const g = await grisDeImagen(jpg, W, H);
+  const media = (desde: number, hasta: number) => { let s = 0; for (let y = desde; y < hasta; y++) for (let x = 0; x < W; x++) s += g[y * W + x]; return s / ((hasta - desde) * W); };
+  const arriba = media(0, Math.round(H * 0.05)), abajo = media(Math.round(H * 0.8), H);
+  assert.ok(arriba < abajo * 0.6, `arriba ${arriba.toFixed(1)} debía ser bastante más oscuro que abajo ${abajo.toFixed(1)}`);
 });
 
 await done();

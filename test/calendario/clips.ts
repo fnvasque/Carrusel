@@ -3,7 +3,7 @@ import { check } from "../_check.ts";
 import { reelTiming } from "../../src/reel/timing.ts";
 import { Clip, Step, Cta } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
-import { ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, archivoClipError, clipsFaltantes, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
+import { ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, CLIP_SOMBRA_ALTO, CLIP_SOMBRA_MIN, archivoClipError, clipsFaltantes, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -71,4 +71,16 @@ check("clipsFaltantes: antes de renderizar, las rutas de los clips que no están
   assert.deepEqual(clipsFaltantes(slides, dir, "2026-10-19", "jue-pm-reel-x"), [join(dir, "2026-10-19", "jue-pm-reel-x", "anuncio-2.mp4")]);
   assert.deepEqual(clipsFaltantes(slides.slice(0, 2), dir, "2026-10-19", "jue-pm-reel-x"), []);
   assert.deepEqual(clipsFaltantes([{ template: "Step", props: { heading: "b" } }], dir, "2026-10-19", "otra"), []);
+});
+
+check("filtroClips: cada clip lleva una sombra degradada en el tercio superior (multiply con una máscara geq) antes de los fundidos", () => {
+  const f = filtroClips([{ escena: 0, archivo: "a.mp4", inicio: 0, fin: 2 }, { escena: 2, archivo: "b.mp4", inicio: 4, fin: 6 }], DIM);
+  assert.equal((f.match(/blend=all_mode=multiply/g) ?? []).length, 2);
+  assert.equal((f.match(/geq=lum=/g) ?? []).length, 2);
+  assert.ok(f.includes(`${Math.round(1920 * CLIP_SOMBRA_ALTO)}`), "la máscara usa la altura de la sombra en píxeles");
+  assert.ok(f.includes(String(CLIP_SOMBRA_MIN)));
+  // El multiply va antes del fade de salida y del desplazamiento en el tiempo.
+  const i1 = f.indexOf("blend=all_mode=multiply"), i2 = f.indexOf("fade=t=out"), i3 = f.indexOf("tpad=start_duration");
+  assert.ok(i1 < i2 && i2 < i3);
+  assert.equal((f.match(/blend=all_mode=lighten/g) ?? []).length, 2);
 });
