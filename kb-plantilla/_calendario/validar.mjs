@@ -1315,6 +1315,17 @@ export function validarPlan(plan, config) {
     if (!semanaOk) errs.push(`plan: semana ${q(semana)} debe ser el lunes de la semana (AAAA-MM-DD)`);
     if (esObj(config) && plan.zona !== config.zona) errs.push(`plan: zona ${q(plan.zona)} debe ser "${config.zona}"`);
     if (plan.motivo !== undefined && typeof plan.motivo !== "string") errs.push("plan: motivo debe ser texto");
+    if (plan.caidas !== undefined) {
+      // Piezas que no pasaron el lector frío y se quitaron: el bucle agrupa sus fallos por causa.
+      if (!Array.isArray(plan.caidas)) errs.push("plan: caidas debe ser una lista de { id, intentos, notas }");
+      else {
+        plan.caidas.forEach((c, i) => {
+          if (!esObj(c) || !esTexto(c.id)) errs.push(`plan: caidas[${i}] necesita id (texto)`);
+          else if (c.notas !== undefined && typeof c.notas !== "string") errs.push(`plan: caidas[${i}].notas debe ser texto`);
+          else if (c.intentos !== undefined && (!Number.isInteger(c.intentos) || c.intentos < 1)) errs.push(`plan: caidas[${i}].intentos debe ser un entero ≥ 1`);
+        });
+      }
+    }
     if (!Array.isArray(plan.piezas)) return [...errs, "plan: piezas debe ser una lista"];
     if (plan.piezas.length === 0 && !esTexto(plan.motivo)) errs.push("plan: sin piezas hay que explicar el motivo (campo motivo)");
     const exp = plan.experimento;

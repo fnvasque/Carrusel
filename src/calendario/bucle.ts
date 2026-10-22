@@ -5,6 +5,7 @@ import type { Instantanea } from "../insights/snapshots.ts";
 import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
 import { kbDir } from "../kb/store.ts";
+import { resumirLectorFrio, type ResumenLector } from "./lector-causas.ts";
 import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLeida, type Senal } from "./plan.ts";
 import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
@@ -13,7 +14,7 @@ import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWER
  * ventanaMedicion`, por defecto 7 d) ya tomadas calcula pesos por
  * tema/arquetipo/hook (con encogimiento), ganadores, derivados pendientes, horas
  * desde `online_followers`, seguidores por pieza, comparaciones de parámetros de
- * la puerta, experimentos y el diagnóstico mensual. Todo es puro salvo
+ * la puerta, experimentos, el diagnóstico mensual y los fallos del lector frío por causa. Todo es puro salvo
  * `escribirBucle`, que lee la base y escribe `_metricas/bucle.json`; el agente
  * planificador lo lee el domingo en vez de recalcular estadística en la nube.
  *
@@ -631,6 +632,8 @@ export interface BucleJson {
   diagnostico: string[];
   parametros: Record<string, { valor: string; n: number; media: number }[]>;
   experimentos: Experimento[];
+  /** Fallos y dudas del lector frío de las últimas 4 semanas, agrupados por causa (`lector-causas.ts`). */
+  lectorFrio: ResumenLector;
   avisos: string[];
 }
 
@@ -856,6 +859,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     diagnostico: diagnostico(m, cuentaDiag),
     parametros,
     experimentos,
+    lectorFrio: resumirLectorFrio(semanas.map((s) => s.plan)),
     avisos,
   };
 }

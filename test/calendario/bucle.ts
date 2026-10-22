@@ -511,6 +511,23 @@ check("construirBucle: experimento declarado con variable válida (R15) y su eva
   assert.deepEqual(b.experimentos[1]!.confusores, ["hora"]);
 });
 
+check("construirBucle: `lectorFrio` agrupa los fallos del lector por causa, con las caídas del plan", () => {
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: null,
+    piezas: [{ id: "lun-reel-a", lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el completo no entendió «Kokoro»; se explicó." } } as unknown as Plan["piezas"][number]],
+    caidas: [{ id: "sab-reel-b", intentos: 3, notas: "v1: «3 tareas» no se cumplía, solo había uno" }],
+  };
+  const b = construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [{ semana: plan.semana, plan, render: {}, estado: {} }], cuenta: {}, config: {} });
+  assert.deepEqual(b.lectorFrio.semanas, ["2026-10-12"]);
+  assert.equal(b.lectorFrio.piezas, 2);
+  assert.equal(b.lectorFrio.caidas, 1);
+  assert.deepEqual(b.lectorFrio.causas.map((c) => [c.causa, c.fallos, c.piezas[0]!.desenlace]), [
+    ["promesa-incumplida", 1, "cayó"], ["termino-sin-explicar", 1, "pasó tras reescribir"],
+  ]);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b.lectorFrio)));
+  assert.deepEqual(construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: {}, config: {} }).lectorFrio.causas, []);
+});
+
 check("construirBucle: `piezas` trae la fila completa de 7 d de cada pieza medida, con hook y seguidores del día siguiente", () => {
   const plan: Plan = {
     semana: "2026-10-12", zona: "America/Santiago", experimento: null,

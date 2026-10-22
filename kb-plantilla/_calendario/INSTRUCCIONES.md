@@ -274,6 +274,20 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   se borraron de Instagram: si **todas** sus piezas están ahí, ciérralo ya en
   `experimentos.md` con `Resultado: sin datos suficientes (pieza borrada)`,
   sin esperar las semanas del experimento, y la variable queda libre para uno nuevo.
+- `lectorFrio`: los fallos y dudas del lector frío de las últimas 4 semanas
+  (`semanas`), agrupados por causa. Sale de `lectorFrio.notas` de cada pieza y
+  de `plan.json → caidas` (Paso 6), sin LLM: cada causa tiene la pregunta del
+  cuestionario a la que pertenece y palabras clave. Totales: `piezas`,
+  `aLaPrimera`, `reescritas`, `caidas` y `caidasSinNotas` (caídas que solo
+  nombra `motivo`: se sabe que cayeron, no por qué). En `causas`, de la más
+  frecuente a la menos: `causa` (p. ej. `termino-sin-explicar`,
+  `promesa-incumplida`, `dato-sin-contexto`, `portada-sin-resultado`,
+  `sin-accion`), `pregunta`, `descripcion`, `fallos` (intentos que obligaron a
+  reescribir), `dudas` (NB que no bloquearon), `piezas` (`"<semana>/<id>"` y
+  `desenlace`: `cayó`, `pasó tras reescribir` o `pasó con duda`) y un
+  `ejemplo` textual. `otro` es un fallo sin causa reconocida: lee su ejemplo.
+  Es el dato más abundante que tienes (unas 20 respuestas por semana contra un
+  puñado de piezas medidas); úsalo en el Paso 2.
 - `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
   arregles tú: son zona del bot o del usuario.
 
@@ -312,6 +326,27 @@ de medición (`bucle.json → ventanaMedicion`):
 - **Diagnóstico mensual** de `bucle.json`: si dice "cambiar la categoría de
   hook" de un arquetipo, hazlo esta semana; si dice "falta entregable o
   destinatario", revisa la recompensa de cada pieza antes de escribir.
+- **Fallos del lector frío por causa** (`bucle.json → lectorFrio.causas`):
+  mira las 3 primeras. Una causa con `fallos ≥ 3` en ≥ 3 piezas distintas de
+  al menos 2 semanas es un patrón: tu escritura la repite y el lector la caza
+  después, a costa de vueltas. Para ella:
+  1. Esta semana, revísala en cada pieza **antes** del Paso 6 (p. ej.
+     `promesa-incumplida`: cuenta que el número del título coincida con lo que
+     aparece; `termino-sin-explicar`: cada marca o herramienta nueva se
+     explica en la slide donde aparece; `dato-sin-contexto`: toda cifra dice
+     quién la midió y contra qué).
+  2. Si el validador podría detectarla (un número del título contra los
+     pasos, una marca sin explicar), escribe en `aprendizajes.md` una
+     `Propuesta:` de regla con el dato: causa, `fallos`, `dudas`, cuántas
+     piezas y semanas, y el `ejemplo`. Ejemplo: `Propuesta: el validador
+     compara el número del título con los pasos numerados. Dato:
+     promesa-incumplida, 9 fallos y 9 dudas en 12 piezas de 3 semanas («vieron
+     6 preguntas prometidas y solo 3 pasos numerados»)`.
+  3. Si una causa tiene muchas `dudas` y casi ningún `fallo` (p. ej.
+     `sin-accion` en reels con video que el lector de texto no ve), dilo en
+     `aprendizajes.md`: el cuestionario quizá no mide bien esas piezas. No lo
+     cambies tú: `lector-frio.md` es del usuario.
+  Con `caidasSinNotas` no hay causa que contar: no inventes una.
 
 ## Paso 3 — Elegir temas
 
@@ -1231,6 +1266,24 @@ ninguna regla la cubre, la duda bloquea.
 Si una condición que cuenta falla, reescribe y vuelve a lanzar ambos (con
 subagentes nuevos y una nueva salida de `--lector`). Registra el resultado en
 `plan.json → lectorFrio` (`intentos`, `resultado: "ok"`, `notas`).
+
+En `notas`, cada intento fallido va como `vN: <qué falló>; <qué cambiaste>`
+(el fallo primero, la corrección después de `; se …`): el bot cuenta las
+causas desde ahí (`bucle.json → lectorFrio`) y el último intento (el que pasó)
+no cuenta como fallo.
+
+Si una pieza **no pasa** en `puerta.reescriturasMax` vueltas y la quitas del
+plan, no la borres sin rastro: agrégala a `plan.json → caidas` (lista, al
+nivel de `piezas`) con su `id`, `intentos` y las `notas` de cada intento con
+el mismo formato:
+
+```json
+"caidas": [
+  {"id": "sab-reel-dots-de-openai", "intentos": 3, "notas": "v1: el completo no entendió «Dots»; se explicó en el paso 1.\nv2: «3 puntos» no se cumplía, solo había uno; se quitó el número.\nv3: el con prisa respondió «no sé» a la 7."}
+]
+```
+
+Así una pieza caída también cuenta en los fallos por causa.
 
 ## Paso 7 — Validar
 
