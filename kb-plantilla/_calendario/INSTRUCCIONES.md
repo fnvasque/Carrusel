@@ -264,11 +264,14 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
 - `experimentos`: cada experimento declarado en las últimas semanas, con
   `evaluarDesde` (lunes + `semanasExperimento` semanas), `evaluable` y la media
   relativa de las piezas del experimento (`experimento`) contra el control
-  (`control`): el resto de su semana y, si la variable es un parámetro de la
-  puerta, también las piezas de semanas anteriores producidas con otro valor
-  (`control.historico` dice cuántas). Así un experimento que abarca todos los
-  reels de la semana se compara contra las semanas previas, no contra los
-  carruseles. `variableValida: false` significa que la variable no es una de
+  (`control`): el resto de su semana **del mismo formato** (un experimento de
+  reels nunca se compara con los carruseles; es el mismo control con que
+  `validar.mjs` revisa los confusores) y, si la variable es un parámetro de la
+  puerta, también las piezas de semanas anteriores del mismo formato
+  producidas con otro valor (`control.historico` dice cuántas). Si el
+  experimento abarca todos los reels de la semana y no hay histórico,
+  `control.n` es 0: no hay contra qué compararlo; ciérralo como `sin datos
+  suficientes` o espera otra semana. `variableValida: false` significa que la variable no es una de
   las permitidas (Paso 4). `confusores`: lo que cambió junto con la variable
   (de `plan.json`); con confusores, el resultado se escribe como efecto del
   paquete, no de la variable sola. `borradas` lista las piezas del experimento que

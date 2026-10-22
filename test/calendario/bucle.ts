@@ -732,6 +732,25 @@ check("compararParametro: el mínimo de semanas sigue a semanasExperimento", () 
   assert.deepEqual(r.map((x) => [x.valor, x.n]), [["true", 6], ["false", 6]]);
 });
 
+check("construirBucle: el control de la semana usa solo piezas del mismo formato que el experimento (como validar.mjs)", () => {
+  const pz = (id: string, formato: string): Plan["piezas"][number] => ({ id, formato } as unknown as Plan["piezas"][number]);
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: { variable: "hook", hipotesis: "h", piezas: ["pz-1"] },
+    piezas: [pz("pz-1", "reel"), pz("pz-2", "reel"), pz("pz-3", "carrusel")],
+  };
+  const reg = [regl("1", { piezaId: "pz-1" }), regl("2", { piezaId: "pz-2" }), regl("3", { piezaId: "pz-3", formato: "carrusel" })];
+  const ii = [inst("1", { saved: 2 }), inst("2", { saved: 4 }), inst("3", { saved: 30 })];
+  const semanas: SemanaLeida[] = [{ semana: plan.semana, plan, render: {}, estado: {} }];
+  const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} });
+  const e = b.experimentos[0]!;
+  assert.equal(e.control.n, 1, "solo pz-2: el carrusel pz-3 queda fuera");
+  assert.ok(e.experimento.media! < e.control.media!, "el reel del experimento se compara con el otro reel, no con el carrusel viral");
+  // Sin formato en el plan no se puede filtrar: entra el resto de la semana.
+  const sinFormato: Plan = { ...plan, piezas: plan.piezas.map((p) => ({ ...p, formato: undefined }) as unknown as Plan["piezas"][number]) };
+  const b2 = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [{ semana: plan.semana, plan: sinFormato, render: {}, estado: {} }], cuenta: {}, config: {} });
+  assert.equal(b2.experimentos[0]!.control.n, 2);
+});
+
 check("construirBucle: con una variable de la puerta el control suma las piezas de semanas anteriores con otro valor (control.historico)", () => {
   const pieza = (id: string, ritmo: string): Plan["piezas"][number] => ({ id, formato: "reel", parametros: { ritmoReel: ritmo } } as unknown as Plan["piezas"][number]);
   const planA: Plan = { semana: "2026-10-05", zona: "America/Santiago", experimento: null, piezas: [pieza("pz-1", "ensenar"), pieza("pz-2", "ensenar")] };
@@ -753,12 +772,13 @@ check("construirBucle: con una variable de la puerta el control suma las piezas 
   const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config });
   const e = b.experimentos[0]!;
   assert.equal(e.experimento.n, 2);
-  // Control: pz-5 (misma semana, otra señal: cuenta en su propio índice) + pz-1 y pz-2 (semana anterior, ensenar). El carrusel pz-5 no entra en el histórico, pero sí como resto de su semana.
+  // Control: pz-1 y pz-2 (semana anterior, ensenar). El carrusel pz-5 no entra: ni en el histórico ni como resto de su semana (mismo formato, como validar.mjs).
   assert.equal(e.control.historico, 2);
-  assert.equal(e.control.n, 3);
+  assert.equal(e.control.n, 2);
   assert.ok(e.experimento.media! > e.control.media!, "gancho retiene más que enseñar");
-  // Sin variable de la puerta no hay histórico.
+  // Sin variable de la puerta no hay histórico, y el carrusel tampoco sirve de control: queda vacío.
   const sinPuerta = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} });
   assert.equal(sinPuerta.experimentos[0]!.control.historico, undefined);
+  assert.deepEqual(sinPuerta.experimentos[0]!.control, { n: 0 });
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
 });

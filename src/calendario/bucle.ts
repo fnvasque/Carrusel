@@ -553,10 +553,12 @@ export interface Experimento {
   evaluable: boolean;
   experimento: { n: number; media?: number };
   /**
-   * Control: las piezas de la misma semana fuera del experimento y, si la variable es un
+   * Control: las piezas de la misma semana fuera del experimento **y del mismo formato**
+   * (igual que `confusoresDelExperimento` de validar.mjs) y, si la variable es un
    * parámetro de la puerta, también las piezas de semanas anteriores producidas con otro
-   * valor (`historico` = cuántas de esas). Así un experimento que abarca todos los reels
-   * de la semana se compara contra las semanas previas, no contra los carruseles.
+   * valor y el mismo formato (`historico` = cuántas de esas). Así un experimento de reels
+   * nunca se compara contra los carruseles; si abarca todos los reels de la semana, su
+   * control son las semanas previas (o queda en `n: 0`).
    */
   control: { n: number; media?: number; historico?: number };
   /** Piezas del experimento que el bot dio por borradas de Instagram: no tendrán métricas. */
@@ -806,15 +808,18 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     if (!esObj(x) || typeof x.variable !== "string") continue;
     const piezas = Array.isArray(x.piezas) ? x.piezas.filter((p): p is string => typeof p === "string") : [];
     const planPiezas = s.plan.piezas ?? [];
-    const deLaSemana = planPiezas.map((p) => p.id);
     const evaluarDesde = addDays(s.semana, 7 * semanasExp);
-    const control: Experimento["control"] = resumen(s.semana, deLaSemana.filter((id) => !piezas.includes(id)));
+    // Mismo formato que las piezas del experimento (como `confusoresDelExperimento` de validar.mjs):
+    // un experimento de reels no se compara contra los carruseles de su semana.
+    const formatos = new Set(planPiezas.filter((p) => piezas.includes(p.id)).map((p) => texto(p.formato)).filter(Boolean));
+    const mismoFormato = (f: unknown): boolean => !formatos.size || formatos.has(texto(f));
+    const restoSemana = planPiezas.filter((p) => !piezas.includes(p.id) && mismoFormato(p.formato)).map((p) => p.id);
+    const control: Experimento["control"] = resumen(s.semana, restoSemana);
     // Control histórico: con una variable de la puerta, las piezas medidas de semanas
     // anteriores producidas con otro valor del mismo parámetro (y el mismo formato).
     if (puertaKeys.includes(x.variable)) {
       const primera = planPiezas.find((p) => piezas.includes(p.id) && esObj(p.parametros) && p.parametros[x.variable] !== undefined);
       const valorExp = primera ? valorTexto(primera.parametros![x.variable]) : undefined;
-      const formatos = new Set(planPiezas.filter((p) => piezas.includes(p.id)).map((p) => texto(p.formato)).filter(Boolean));
       if (valorExp !== undefined) {
         const historicos = idx.filter(
           ({ m: y }) =>
@@ -822,7 +827,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
             (!formatos.size || !y.formato || formatos.has(y.formato)),
         );
         if (historicos.length) {
-          const rels = [...deLaSemana.filter((id) => !piezas.includes(id)).map((id) => relPorClave.get(clavePieza(s.semana, id))).filter(esNum), ...historicos.map((h) => h.rel)];
+          const rels = [...restoSemana.map((id) => relPorClave.get(clavePieza(s.semana, id))).filter(esNum), ...historicos.map((h) => h.rel)];
           control.n = rels.length;
           control.media = r4(media(rels));
           control.historico = historicos.length;
