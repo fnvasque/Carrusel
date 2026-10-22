@@ -1,0 +1,47 @@
+{
+  "nota": "Registro de reglas aplicadas (del usuario: lo actualiza la PR que aplica la regla; el planificador solo lo lee). desde = primer día en que se publican piezas con la regla. formato: reel, carrusel o null (ambos). El bot compara antes y después en bucle.json → reglas.",
+  "reglas": [
+    {
+      "id": "ritmo-gancho-20s",
+      "desde": "2026-10-15",
+      "formato": "reel",
+      "descripcion": "Ritmo gancho, hook de pregunta de ≤ 7 palabras y tope de 20 s (puerta.ritmoReel y puerta.duracionMaxSegundos)",
+      "fuente": "config.json de la base 2026-10-13 21:22 (c8ffc1b); reels reescritos el 2026-10-14; primer reel gancho publicado el 2026-10-15 (jue-reel-mostrar-no-decir)"
+    },
+    {
+      "id": "regla-6-ia-se-ve",
+      "desde": "2026-10-16",
+      "formato": null,
+      "descripcion": "Regla dura 6: cada pieza es de IA y la IA aparece en el Hook",
+      "fuente": "INSTRUCCIONES.md de la base 2026-10-15 22:13 UTC (b868852); primeras piezas con la regla publicadas el 2026-10-16 (reemplazo de vie a dom)"
+    },
+    {
+      "id": "regla-7-gesto-antes-5s",
+      "desde": "2026-10-16",
+      "formato": "reel",
+      "descripcion": "Regla dura 7: en reels, el gesto y el destinatario se piden antes del segundo 5",
+      "fuente": "INSTRUCCIONES.md de la base 2026-10-15 22:13 UTC (b868852); primeras piezas publicadas el 2026-10-16"
+    },
+    {
+      "id": "regla-8-hook-resultado",
+      "desde": "2026-10-16",
+      "formato": null,
+      "descripcion": "Regla dura 8: el Hook dice el resultado y con qué IA (lector frío P7)",
+      "fuente": "INSTRUCCIONES.md de la base 2026-10-15 23:47 UTC (283b3e7); primeras piezas publicadas el 2026-10-16"
+    },
+    {
+      "id": "regla-9-narracion",
+      "desde": "2026-10-19",
+      "formato": "reel",
+      "descripcion": "Regla dura 9: todo reel se narra (voz Kokoro y subtítulos)",
+      "fuente": "plantilla instalada el 2026-10-17 (bd78b5e, base 0319776); rige desde la semana 2026-10-19"
+    },
+    {
+      "id": "regla-10-screen",
+      "desde": "2026-10-19",
+      "formato": null,
+      "descripcion": "Regla dura 10: la IA se ve en pantalla (slide Screen) en las piezas de herramienta",
+      "fuente": "plantilla instalada el 2026-10-17 (bd78b5e, base 0319776); rige desde la semana 2026-10-19"
+    }
+  ]
+}

@@ -511,6 +511,19 @@ check("construirBucle: experimento declarado con variable válida (R15) y su eva
   assert.deepEqual(b.experimentos[1]!.confusores, ["hora"]);
 });
 
+check("construirBucle: `reglas` trae el antes/después de reglas.json y avisa de entradas raras", () => {
+  const plan: Plan = { semana: "2026-10-12", zona: "America/Santiago", experimento: null, piezas: [{ id: "pz-1", formato: "reel" }] as unknown as Plan["piezas"] };
+  const semanas: SemanaLeida[] = [{ semana: "2026-10-12", plan, render: {}, estado: {} }];
+  const reglas = { reglas: [{ id: "r", desde: "2026-10-13", formato: "reel", descripcion: "d" }, { id: "mala" }] };
+  const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: [inst("1")], registro: [regl("1", { piezaId: "pz-1" })], semanas, cuenta: {}, config: {}, reglas });
+  assert.equal(b.reglas.length, 1);
+  assert.equal(b.reglas[0]!.antes.n, 1, "publicada el 2026-10-12, antes de la regla");
+  assert.equal(b.reglas[0]!.veredicto, "n insuficiente");
+  assert.ok(b.avisos.some((a) => /reglas.json/.test(a)));
+  assert.deepEqual(construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: {}, config: {} }).reglas, []);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b.reglas)));
+});
+
 check("construirBucle: un reel medido trae `abandono` (escena del visionado medio) con la duración real del render; un carrusel no", () => {
   const plan: Plan = {
     semana: "2026-10-12", zona: "America/Santiago", experimento: null,

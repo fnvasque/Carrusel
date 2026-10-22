@@ -25,4 +25,4 @@ Vault de Obsidian versionado en git. Lo escriben dos sistemas y el usuario.
 - El bot solo escribe en `fuentes/`, `_adjuntos/` y la zona `kb:auto`; el agente de investigación sigue `_investigacion/INSTRUCCIONES.md`.
 - El planificador sigue `_calendario/INSTRUCCIONES.md`: solo escribe `_calendario/<semana>/plan.json`, sus borradores, `experimentos.md`, `aprendizajes.md` y `candidatos.json`.
 - `_investigacion/alcance.json` y `pedidos.md` son del usuario: los agentes los leen, nunca los escriben.
-- `_calendario/config.json`, `lector-frio.md`, `validar.mjs` e `INSTRUCCIONES.md` son del usuario (`scripts/kb-calendario-install.sh`); el agente propone cambios en `aprendizajes.md`, no los aplica.
+- `_calendario/config.json`, `lector-frio.md`, `validar.mjs`, `reglas.json` e `INSTRUCCIONES.md` son del usuario (`scripts/kb-calendario-install.sh`); el agente propone cambios en `aprendizajes.md`, no los aplica.
