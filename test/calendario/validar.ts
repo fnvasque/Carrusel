@@ -44,7 +44,16 @@ import { pillContent } from "../../src/templates/Cta.tsx";
  */
 
 const DIR = "kb-plantilla/_calendario";
-const CONFIG_BASE = JSON.parse(readFileSync(join(DIR, "config.json"), "utf8"));
+const CONFIG_PLANTILLA = JSON.parse(readFileSync(join(DIR, "config.json"), "utf8"));
+/**
+ * La plantilla trae las palancas de retención vigentes (gancho, 20 s); los casos
+ * parten de borradores en ritmo enseñar de 4 escenas, así que la fixture fija
+ * ensenar y 60 s. Los casos de gancho y de tope las cambian explícitamente.
+ */
+const CONFIG_BASE = {
+  ...CONFIG_PLANTILLA,
+  puerta: { ...CONFIG_PLANTILLA.puerta, ritmoReel: { valor: "ensenar", respaldo: "base" }, duracionMaxSegundos: { valor: 60, respaldo: "supuesto" } },
+};
 /** Config con una pista registrada (la instalada trae `audios: []`). */
 const config = { ...CONFIG_BASE, audios: ["lima-01.mp3"] };
 /** Mix del sprint de 2 reels al día (2026-10-15 → 2026-10-18): varias entradas por día, con hora. Prueba el emparejamiento por entrada. */
@@ -358,9 +367,12 @@ check("calendario/validar: pace inválido → error", () => {
 
 // --- palancas de retención (ritmoReel y duracionMaxSegundos; en la puerta desde el 2026-10-14) ---
 
-check("calendario/validar: config.json trae ritmoReel (ensenar, base) y duracionMaxSegundos (60) con respaldo", () => {
-  assert.deepEqual(CONFIG_BASE.puerta.ritmoReel, { valor: "ensenar", respaldo: "base" });
-  assert.deepEqual(CONFIG_BASE.puerta.duracionMaxSegundos, { valor: 60, respaldo: "supuesto" });
+check("calendario/validar: config.json trae ritmoReel (gancho, base) y duracionMaxSegundos (20) con respaldo", () => {
+  assertNone(validarConfig(CONFIG_PLANTILLA));
+  assert.equal(CONFIG_PLANTILLA.puerta.ritmoReel.valor, "gancho");
+  assert.equal(CONFIG_PLANTILLA.puerta.ritmoReel.respaldo, "base");
+  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 20);
+  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.respaldo, "base");
   assert.equal(DESDE_PALANCAS_RETENCION, "2026-10-19");
   // Un ritmo desconocido en la puerta es error de config; un tope no numérico también.
   assertHas(validarConfig({ ...CONFIG_BASE, puerta: { ...CONFIG_BASE.puerta, ritmoReel: { valor: "turbo", respaldo: "base" } } }), /puerta\.ritmoReel/);
@@ -1564,9 +1576,10 @@ check("calendario/validar: validarSemana — 2 reels con hookVideo → error (m�
 });
 
 check("calendario/validar: ventanaMedicion y semanasExperimento son opcionales y se validan si vienen", () => {
-  assert.deepEqual(CONFIG_BASE.ventanaMedicion.valor, "7d");
-  assert.equal(CONFIG_BASE.semanasExperimento.valor, 4);
-  assertNone(validarConfig({ ...CONFIG_BASE, ventanaMedicion: "72h", semanasExperimento: 2 }));
+  // La plantilla trae la fase de alcance bajo (72 h, 2 semanas); 7d y 4 también valen.
+  assert.deepEqual(CONFIG_BASE.ventanaMedicion.valor, "72h");
+  assert.equal(CONFIG_BASE.semanasExperimento.valor, 2);
+  assertNone(validarConfig({ ...CONFIG_BASE, ventanaMedicion: "7d", semanasExperimento: 4 }));
   assertNone(validarConfig({ ...CONFIG_BASE, ventanaMedicion: { valor: "72h", respaldo: "base" }, semanasExperimento: { valor: 2, respaldo: "supuesto" } }));
   assertHas(validarConfig({ ...CONFIG_BASE, ventanaMedicion: "3d" }), /ventanaMedicion/);
   assertHas(validarConfig({ ...CONFIG_BASE, semanasExperimento: 0 }), /semanasExperimento/);
