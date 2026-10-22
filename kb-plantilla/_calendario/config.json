@@ -61,7 +61,8 @@
     "herramienta",
     "noticia",
     "prompt",
-    "curiosidad"
+    "curiosidad",
+    "trabajo"
   ],
   "hashtagsBase": [
     "#ia",
@@ -71,14 +72,14 @@
   "fondosIAMaxSemana": 3,
   "hookVideoMaxSemana": 1,
   "ventanaMedicion": {
-    "valor": "7d",
-    "respaldo": "skill",
-    "nota": "instantánea con que el bucle y el resumen comparan piezas; con alcance bajo, 72h adelanta el aprendizaje 4 días"
+    "valor": "72h",
+    "respaldo": "base",
+    "nota": "2026-10-14: las instantáneas de 24 h y 72 h son casi iguales con alcance < 50 (44 → 44, 7 → 7); esperar a 7 d no agrega información. Volver a 7d al cruzar umbralAlcanceTasas."
   },
   "semanasExperimento": {
-    "valor": 4,
-    "respaldo": "skill",
-    "nota": "semanas hasta evaluar un experimento y mínimo para comparar un parámetro de la puerta; con conteos de un dígito, 2"
+    "valor": 2,
+    "respaldo": "supuesto",
+    "nota": "2026-10-14: con conteos de un dígito 4 semanas no dan más certeza; 2 semanas con la ventana de 72 h. Volver a 4 al cruzar umbralAlcanceTasas."
   },
   "scoreMin": 75,
   "umbralAlcanceTasas": 50,
@@ -140,12 +141,14 @@
       "respaldo": "base"
     },
     "ritmoReel": {
-      "valor": "ensenar",
-      "respaldo": "base"
+      "valor": "gancho",
+      "respaldo": "base",
+      "nota": "2026-10-14: los 7 reels medidos se abandonan antes del segundo 3 en ritmo enseñar (retención 4 a 24 %)."
     },
     "duracionMaxSegundos": {
-      "valor": 60,
-      "respaldo": "supuesto"
+      "valor": 20,
+      "respaldo": "base",
+      "nota": "2026-10-14: a los 20 s no queda audiencia en reels de 36 a 49 s (curva de retención de mie-reel-habitos-no-son-21-dias)."
     }
   },
   "terminosTecnicos": [
@@ -164,5 +167,7 @@
   "audios": [],
   "voz": "em_alex",
   "vozNota": "Voz de la narración de los reels (Kokoro, local): em_alex, em_santa o ef_dora; false = reels sin voz. La eligió el usuario el 2026-10-17.",
-  "mixNota": "2026-10-17 (pivote): 4 reels narrados + 2 carruseles por semana, una pieza por día y domingo libre; el tiempo que sobra va a interacción real. Para el sprint de 2 reels al día, ver el git log de este archivo."
+  "mixNota": "2026-10-17 (pivote): 4 reels narrados + 2 carruseles por semana, una pieza por día y domingo libre; el tiempo que sobra va a interacción real. Para el sprint de 2 reels al día, ver el git log de este archivo.",
+  "pilaresNota": "2026-10-18: se agrega el pilar \"trabajo\" (cómo cambia el trabajo, el liderazgo y las decisiones cuando hay IA de por medio, siempre con un estudio o dato con fuente). Decisión del usuario: desde la semana 2026-10-19 lo llevan las 6 piezas, reels incluidos; el carrusel de opinión del viernes es la serie lo-que-dice-la-evidencia. Se evalúa el 2026-11-02. Detalle en INSTRUCCIONES.md, Paso 3.",
+  "clipsMaxSemana": 0
 }
