@@ -26,6 +26,9 @@ import {
   validarPieza,
   validarPlan,
   validarSemana,
+  probarRegla,
+  ganadorasDeBucle,
+  informePrueba,
   confusoresDelExperimento,
   DESDE_CONFUSORES,
   validarCandidatos,
@@ -782,6 +785,89 @@ check("calendario/validar: validarSemana — válida; score 70 → error \"score
   try {
     assertNone(validarSemana(dir, config, { score: () => 80 }));
     assertHas(validarSemana(dir, config, { score: () => 70 }), /score 70 < 75/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: probarRegla — solo cuentan los errores nuevos, con publicadas y ganadoras marcadas", () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    const [a, b] = p.piezas.map((x: any) => x.id);
+    writeFileSync(join(dir, "estado.json"), JSON.stringify({ [a]: { estado: "publicado" }, [b]: { estado: "programado" } }));
+    const cal = join(root, "_calendario");
+    const igual = probarRegla(cal, config, config);
+    assert.deepEqual(igual.semanas, ["2026-10-12"]);
+    assert.equal(igual.publicadas, 1);
+    assert.deepEqual(igual.rechazadas, []);
+    assert.deepEqual(igual.liberadas, []);
+    const estricta = { ...config, puerta: { ...config.puerta, tituloMaxPalabras: { valor: 1, respaldo: "supuesto" } } };
+    const r = probarRegla(cal, config, estricta, { ganadoras: [`2026-10-12/${a}`] });
+    assert.equal(r.ganadoras, 1);
+    const fa = r.rechazadas.find((x) => x.id === a)!;
+    assert.ok(fa.publicada && fa.ganadora, JSON.stringify(fa));
+    assert.ok(fa.errores.every((e) => /tituloMaxPalabras/.test(e)), JSON.stringify(fa.errores));
+    assert.match(informePrueba(r), /GANADORA/);
+    assert.match(informePrueba(r).split("\n").at(-1)!, /^Para la Propuesta: probada sobre 1 semanas .*rechazaría 1 de 1 publicadas y 1 de 1 ganadoras/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: probarRegla — un validar.mjs candidato (regla de código) y lo que dejaría pasar", () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    const cal = join(root, "_calendario");
+    const id = p.piezas[0].id;
+    const regla = (d: string, c: unknown, o?: object) => [...validarSemana(d, c, o as any), `${id}: regla nueva`];
+    const r = probarRegla(cal, config, config, { validarCandidato: regla });
+    assert.deepEqual(r.rechazadas.map((x) => [x.id, x.errores]), [[id, [`${id}: regla nueva`]]]);
+    // Hoy falla (borrador roto); la candidata que no mira nada lo dejaría pasar.
+    writeFileSync(join(dir, `${id}.json`), "{");
+    const libre = probarRegla(cal, config, config, { validarCandidato: () => [] });
+    assert.ok(libre.liberadas.some((x) => x.id === id), JSON.stringify(libre.liberadas));
+    assert.match(informePrueba(libre), /Dejaría pasar/);
+    const lanza = probarRegla(cal, config, config, { validarCandidato: () => { throw new Error("boom"); } });
+    assert.ok(lanza.rechazadas.some((x) => x.errores.some((e) => /boom/.test(e))));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: probarRegla — config candidata inválida, carpeta inexistente y score solo si cambia scoreMin", () => {
+  assert.match(probarRegla("/no/existe", config, { zona: 3 }).errores[0]!, /config candidata/);
+  assert.match(probarRegla("/no/existe", config, config).errores[0]!, /no se pudo leer/);
+  const { root, p } = semanaTemporal();
+  try {
+    let llamadas = 0;
+    const score = () => (llamadas++, 80);
+    probarRegla(join(root, "_calendario"), config, config, { score });
+    assert.equal(llamadas, 0, "sin cambio de scoreMin no se calcula");
+    const r = probarRegla(join(root, "_calendario"), config, { ...config, scoreMin: 85 }, { score });
+    assert.equal(llamadas, p.piezas.length, "una vez por borrador, no una por lado");
+    assert.ok(r.rechazadas.some((x) => x.errores.some((e) => /score 80 < 85/.test(e))));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar: ganadorasDeBucle — ganadores y ganadoresVistos, sin basura", () => {
+  assert.deepEqual(ganadorasDeBucle({ ganadores: [{ semana: "2026-10-05", piezaId: "a" }, { x: 1 }], ganadoresVistos: { "2026-10-12/b": "2026-10-19" } }), ["2026-10-05/a", "2026-10-12/b"]);
+  assert.deepEqual(ganadorasDeBucle(null), []);
+});
+
+check("calendario/validar: CLI --probar imprime el informe y sale 0 aunque rechace", () => {
+  const { root } = semanaTemporal();
+  try {
+    const cal = join(root, "_calendario");
+    copyFileSync(join(import.meta.dirname, "../../kb-plantilla/_calendario/validar.mjs"), join(cal, "validar.mjs"));
+    writeFileSync(join(cal, "config.json"), JSON.stringify(config));
+    const cand = join(root, "cand.json");
+    writeFileSync(cand, JSON.stringify({ ...config, puerta: { ...config.puerta, tituloMaxPalabras: { valor: 1, respaldo: "supuesto" } } }));
+    const out = execFileSync("node", [join(cal, "validar.mjs"), "--probar", cand], { encoding: "utf8", env: { ...process.env, CARRUSEL_DIR: "/no/existe" } });
+    assert.match(out, /Para la Propuesta: probada sobre 1 semanas/);
+    assert.match(out, /tituloMaxPalabras/);
+    assert.throws(() => execFileSync("node", [join(cal, "validar.mjs"), "--probar"], { encoding: "utf8", stdio: "pipe" }), /uso/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

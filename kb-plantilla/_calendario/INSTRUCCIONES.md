@@ -27,8 +27,9 @@ curiosa de la IA, **no técnica**, en el celular y distraída. Todo el copy va e
    usuario). Tampoco el resto de la base (`temas/`, `referencias/`, `fuentes/`,
    `_investigacion/`…).
 2. **El evaluador está fuera de tu alcance.** Si crees que un parámetro de
-   `config.json` debería cambiar, lo **propones** en `aprendizajes.md`; el
-   cambio lo aplica el usuario.
+   `config.json` debería cambiar, lo **propones** en `aprendizajes.md`, con
+   la prueba de `validar.mjs --probar` sobre las semanas pasadas; el cambio
+   lo aplica el usuario.
 3. **Validar antes de subir.** `node _calendario/validar.mjs <semana>` debe
    terminar con ✓. Nunca subas una semana que no pase.
 4. **Fechas absolutas** (AAAA-MM-DD) y horas de Chile (`America/Santiago`).
@@ -295,6 +296,30 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
 diagnóstico sugieren mover un parámetro, lo **propones** en `aprendizajes.md`
 (`Propuesta:` con el dato); el cambio lo aplica el usuario.
 
+### Probar una regla antes de proponerla
+
+Toda `Propuesta:` que cambie la puerta (`config.json → puerta`, `scoreMin`,
+topes) o una regla del validador se prueba antes sobre **todas las semanas
+pasadas**. Copia `config.json` a un temporal (fuera de la base, p. ej.
+`/tmp/config-candidata.json`), cambia solo lo que propones y corre:
+
+```bash
+node _calendario/validar.mjs --probar /tmp/config-candidata.json
+```
+
+Si la regla es de código (algo que `validar.mjs` no revisa hoy), escribe el
+validador candidato en un temporal y pásalo también:
+`node _calendario/validar.mjs --probar /tmp/config-candidata.json /tmp/validar-candidato.mjs`
+(o solo el `.mjs`, con la config vigente). Nunca edites el `validar.mjs` de la base.
+
+El informe compara la candidata con lo vigente y lista solo lo que **cambia**:
+las piezas que la candidata rechazaría y hoy pasan (`•` publicada, `★`
+**ganadora** de `bucle.json`) y las que dejaría pasar. Su última línea
+(`Para la Propuesta: probada sobre N semanas …: rechazaría X de Y publicadas y
+Z de W ganadoras`) va **copiada** en la `Propuesta:`. Si rechaza una ganadora,
+dilo en la propuesta y explica por qué igual conviene, o no la propongas: una
+regla que habría frenado lo que mejor funcionó va contra la evidencia.
+
 ## Paso 2 — Evaluar la semana pasada
 
 Con `bucle.json` (si no hay datos, salta este paso). Todo se mide en la ventana
@@ -322,7 +347,10 @@ de medición (`bucle.json → ventanaMedicion`):
   cada una con el dato que la respalda (`- 2026-10-11 · <frase>. Dato: <número
   y ventana>`). Si un parámetro de la puerta merece cambiar (≥ `semanasExperimento`
   semanas y ≥ 6 piezas por valor en `bucle.json → parametros`), escríbelo como
-  `Propuesta:` con el dato; no lo apliques.
+  `Propuesta:` con el dato; no lo apliques. Toda `Propuesta:` que cambie la
+  puerta o una regla del validador cita además la última línea de
+  `validar.mjs --probar` («Probar una regla antes de proponerla», Paso 1):
+  sin esa prueba la propuesta está incompleta.
 - **Diagnóstico mensual** de `bucle.json`: si dice "cambiar la categoría de
   hook" de un arquetipo, hazlo esta semana; si dice "falta entregable o
   destinatario", revisa la recompensa de cada pieza antes de escribir.
