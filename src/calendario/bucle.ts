@@ -560,6 +560,8 @@ export interface Experimento {
   control: { n: number; media?: number; historico?: number };
   /** Piezas del experimento que el bot dio por borradas de Instagram: no tendrán métricas. */
   borradas: string[];
+  /** Lo que cambió junto con la variable (`plan.json → experimento.confusores`, lo exige validar.mjs): el resultado no se atribuye solo a la variable. */
+  confusores: string[];
 }
 
 /** Fila de `bucle.json → piezas`: todo lo medido en la ventana de medición de una pieza, en un solo lugar. */
@@ -829,6 +831,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
       evaluarDesde, evaluable: semana >= evaluarDesde,
       experimento: resumen(s.semana, piezas), control,
       borradas: piezas.filter((id) => borradasIds.has(clavePieza(s.semana, id))),
+      confusores: Array.isArray(x.confusores) ? x.confusores.filter((c): c is string => typeof c === "string") : [],
     });
   }
 

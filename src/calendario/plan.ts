@@ -40,7 +40,7 @@ export interface Pieza {
 export interface Plan {
   semana: string;
   zona: string;
-  experimento: { variable: string; hipotesis: string; piezas: string[] } | null;
+  experimento: { variable: string; hipotesis: string; piezas: string[]; confusores?: string[] } | null;
   piezas: Pieza[];
   motivo?: string;
 }
@@ -124,7 +124,7 @@ export const PlanSchema: z.ZodType<Plan, z.ZodTypeDef, unknown> = z
     semana: dia,
     zona: z.string(),
     // El latido (`piezas: []`) puede omitir el experimento (validar.mjs solo lo exige con piezas).
-    experimento: z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()) }).nullable().default(null),
+    experimento: z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()), confusores: z.array(z.string()).optional() }).nullable().default(null),
     piezas: z.array(PiezaSchema),
     motivo: z.string().optional(),
   })

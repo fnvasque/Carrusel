@@ -268,7 +268,9 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   (`control.historico` dice cuántas). Así un experimento que abarca todos los
   reels de la semana se compara contra las semanas previas, no contra los
   carruseles. `variableValida: false` significa que la variable no es una de
-  las permitidas (Paso 4). `borradas` lista las piezas del experimento que
+  las permitidas (Paso 4). `confusores`: lo que cambió junto con la variable
+  (de `plan.json`); con confusores, el resultado se escribe como efecto del
+  paquete, no de la variable sola. `borradas` lista las piezas del experimento que
   se borraron de Instagram: si **todas** sus piezas están ahí, ciérralo ya en
   `experimentos.md` con `Resultado: sin datos suficientes (pieza borrada)`,
   sin esperar las semanas del experimento, y la variable queda libre para uno nuevo.
@@ -418,6 +420,15 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   variable es `arquetipo`, las piezas del experimento pueden salirse del
   arquetipo del mix. Para probar `logoEnCuadro0`, pon `"logoEnCuadro0": false`
   en los borradores de esas piezas.
+- **Solo cambia la variable.** El validador compara las piezas del experimento
+  con el resto de la semana del mismo formato (hora, formato, cada clave de
+  `parametros` salvo `tituloPalabras`, `hookVideo` y slides `Clip`) y nombra
+  todo lo que cambia además de la variable. Desde la semana 2026-10-26 cada
+  diferencia es error: iguálala, o si no se puede (una serie aparte, otra
+  hora por el mix), agrégala a `plan.json → experimento.confusores`
+  (p. ej. `["hora", "clip"]`) y anótala en `experimentos.md` como `Confusores:`.
+  Al evaluar, un experimento con confusores no atribuye el resultado solo a la
+  variable (`bucle.json → experimentos[].confusores`).
 - **Palancas de retención de los reels** (diagnóstico del 2026-10-13/14: el
   alcance es casi todo de no seguidores, pero los reels se abandonan antes del
   segundo 3 y a los 20 s no queda nadie en reels de 36–49 s). Desde el

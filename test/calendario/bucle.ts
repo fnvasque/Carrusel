@@ -497,7 +497,7 @@ check("construirBucle: experimento declarado con variable válida (R15) y su eva
     semana: "2026-09-21", zona: "America/Santiago", experimento: { variable: "logoEnCuadro0", hipotesis: "h", piezas: ["pz-1"] },
     piezas: [],
   };
-  const raro: Plan = { ...plan, semana: "2026-10-12", experimento: { variable: "colorFondo", hipotesis: "h", piezas: [] } };
+  const raro: Plan = { ...plan, semana: "2026-10-12", experimento: { variable: "colorFondo", hipotesis: "h", piezas: [], confusores: ["hora"] } };
   const semanas: SemanaLeida[] = [{ semana: plan.semana, plan, render: {}, estado: {} }, { semana: raro.semana, plan: raro, render: {}, estado: {} }];
   const config = { puerta: { logoEnCuadro0: { valor: true, respaldo: "base" } } };
   const b = construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas, cuenta: {}, config });
@@ -507,6 +507,8 @@ check("construirBucle: experimento declarado con variable válida (R15) y su eva
   assert.equal(b.experimentos[0]!.evaluable, true);
   assert.equal(b.experimentos[1]!.variableValida, false);
   assert.equal(b.experimentos[1]!.evaluable, false);
+  assert.deepEqual(b.experimentos[0]!.confusores, []);
+  assert.deepEqual(b.experimentos[1]!.confusores, ["hora"]);
 });
 
 check("construirBucle: `piezas` trae la fila completa de 7 d de cada pieza medida, con hook y seguidores del día siguiente", () => {

@@ -26,6 +26,8 @@ import {
   validarPieza,
   validarPlan,
   validarSemana,
+  confusoresDelExperimento,
+  DESDE_CONFUSORES,
   validarCandidatos,
   motivoReferenciaNoLista,
 } from "../../kb-plantilla/_calendario/validar.mjs";
@@ -786,6 +788,53 @@ check("calendario/validar: validarSemana — 4 fondos ai en la semana → error 
     b.slides[3].background = { ai: "w" };
     writeFileSync(join(dir, p.piezas[1].borrador), JSON.stringify(b));
     assertHas(validarSemana(dir, config, { score: () => 90 }), /fondos ai/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// --- confusores del experimento ---
+
+check("calendario/validar: confusores — solo la variable cambia → ninguno; otra palanca, hora o Clip → confusor", () => {
+  const p = plan();
+  assert.deepEqual(confusoresDelExperimento(p), { confusores: [], sinControl: false, sinContraste: false });
+  // tituloPalabras describe la pieza: no es confusor.
+  p.piezas[2].parametros = { ...p.piezas[2].parametros, tituloPalabras: 5, logoEnCuadro0: false };
+  const r = confusoresDelExperimento(p);
+  assert.deepEqual(r.confusores.map((c) => c.clave), ["logoEnCuadro0"]);
+  assert.deepEqual(r.confusores[0], { clave: "logoEnCuadro0", experimento: ["false"], control: ["true"] });
+  // El carrusel no es control de un reel; con borradores, un Clip solo en el experimento es confusor.
+  const conClip = borrador();
+  conClip.slides = [...conClip.slides, { template: "Clip", props: { archivo: "x.mp4" } }];
+  const b = new Map<string, unknown>([["lun-reel-a", borrador()], ["mar-carrusel-b", conClip], ["mie-reel-c", conClip]]);
+  assert.deepEqual(confusoresDelExperimento(plan(), b).confusores.map((c) => c.clave), ["clip"]);
+});
+
+check("calendario/validar: confusores — sin control del mismo formato o variable sin contraste se informan", () => {
+  const todos = plan({ experimento: { variable: "hook", hipotesis: "h", piezas: ["lun-reel-a", "mie-reel-c"] } });
+  assert.equal(confusoresDelExperimento(todos).sinControl, true);
+  const igual = plan();
+  igual.piezas[2].hora = "14:00";
+  assert.equal(confusoresDelExperimento(igual).sinContraste, true);
+  for (const raro of [undefined, "x", plan({ experimento: null }), plan({ experimento: { variable: "hora", piezas: "x" } })]) {
+    assert.deepEqual(confusoresDelExperimento(raro).confusores, []);
+  }
+  assertHas(validarPlan(plan({ experimento: { variable: "hora", hipotesis: "h", piezas: ["mie-reel-c"], confusores: "hora" } }), config), /confusores/);
+});
+
+check(`calendario/validar: validarSemana — confusor no declarado: aviso antes de ${DESDE_CONFUSORES}, error desde ahí salvo en experimento.confusores`, () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    p.piezas[2].parametros = { ...p.piezas[2].parametros, logoEnCuadro0: false };
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(p));
+    const avisos: string[] = [];
+    assert.deepEqual(validarSemana(dir, config, { avisos, score: () => 90 }).filter((e) => /mezcla/.test(e)), []);
+    assert.ok(avisos.some((a) => /experimento "hora" mezcla logoEnCuadro0 \(experimento false; control true\)/.test(a)), JSON.stringify(avisos));
+    // Desde DESDE_CONFUSORES (solo se mira la semana declarada; el resto de errores de fechas no importa aquí).
+    writeFileSync(join(dir, "plan.json"), JSON.stringify({ ...p, semana: DESDE_CONFUSORES }));
+    assertHas(validarSemana(dir, config, { avisos: [], score: () => 90 }), /mezcla logoEnCuadro0/);
+    writeFileSync(join(dir, "plan.json"), JSON.stringify({ ...p, semana: DESDE_CONFUSORES, experimento: { ...p.experimento, confusores: ["logoEnCuadro0"] } }));
+    assert.deepEqual(validarSemana(dir, config, { avisos: [], score: () => 90 }).filter((e) => /mezcla|confusores/.test(e)), []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

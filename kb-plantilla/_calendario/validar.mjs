@@ -1400,9 +1400,65 @@ export function validarPlan(plan, config) {
       if (!esTexto(exp.hipotesis)) errs.push("plan: falta experimento.hipotesis");
       if (!Array.isArray(exp.piezas)) errs.push("plan: experimento.piezas debe ser una lista de ids");
       else for (const x of exp.piezas) if (!vistos.has(x)) errs.push(`plan: experimento.piezas: ${q(x)} no es una pieza del plan`);
+      if (exp.confusores !== undefined && !(Array.isArray(exp.confusores) && exp.confusores.every(esTexto))) {
+        errs.push("plan: experimento.confusores debe ser una lista de nombres (hora, formato, clip, hookVideo o una clave de parametros)");
+      }
     }
     return errs;
   });
+}
+
+/**
+ * Desde esta semana un confusor que el validador detecta y que no está en
+ * `experimento.confusores` es error; antes, solo aviso.
+ */
+export const DESDE_CONFUSORES = "2026-10-26";
+/** Claves de `parametros` que describen la pieza y varían solas (no son palancas). */
+const NO_CONFUSORES = new Set(["tituloPalabras"]);
+
+/**
+ * Lo que cambia entre las piezas del experimento y su control además de la
+ * variable declarada. Control: las piezas de la misma semana fuera del
+ * experimento y del mismo formato. Se miran
+ * `formato`, `hora`, cada clave de `parametros` y, con `borradores` (id →
+ * borrador), si llevan `hookVideo` o slides `Clip`. Un confusor es una clave
+ * cuyos valores no son los mismos en los dos lados. `sinControl` indica que no
+ * hubo control en la semana (se compara contra semanas anteriores y no se revisa);
+ * `sinContraste`, que la variable declarada vale lo mismo en los dos lados.
+ */
+export function confusoresDelExperimento(plan, borradores = new Map()) {
+  const vacio = { confusores: [], sinControl: false, sinContraste: false };
+  if (!esObj(plan) || !Array.isArray(plan.piezas) || !esObj(plan.experimento)) return vacio;
+  const exp = plan.experimento;
+  if (typeof exp.variable !== "string" || !Array.isArray(exp.piezas)) return vacio;
+  const piezas = plan.piezas.filter((p) => esObj(p) && typeof p.id === "string");
+  const dentro = piezas.filter((p) => exp.piezas.includes(p.id));
+  if (!dentro.length) return vacio;
+  const formatos = new Set(dentro.map((p) => p.formato));
+  const control = piezas.filter((p) => !exp.piezas.includes(p.id) && formatos.has(p.formato));
+  if (!control.length) return { ...vacio, sinControl: true };
+  const b = (p) => (borradores instanceof Map && esObj(borradores.get(p.id)) ? borradores.get(p.id) : undefined);
+  // hookVideo y Clip solo se comparan si se leyeron todos los borradores (uno ilegible no es "sin clip").
+  const conBorradores = [...dentro, ...control].every((p) => b(p));
+  const rasgos = (p) => {
+    const r = { formato: p.formato, hora: p.hora };
+    if (esObj(p.parametros)) for (const [k, v] of Object.entries(p.parametros)) if (!NO_CONFUSORES.has(k)) r[k] = v;
+    const borr = b(p);
+    if (conBorradores) {
+      r.hookVideo = borr.hookVideo !== undefined;
+      r.clip = contarClips([borr]) > 0;
+    }
+    return r;
+  };
+  const rd = dentro.map(rasgos);
+  const rc = control.map(rasgos);
+  const claves = [...new Set([...rd, ...rc].flatMap((r) => Object.keys(r)))];
+  const valores = (rs, k) => [...new Set(rs.map((r) => (r[k] === undefined ? "—" : typeof r[k] === "string" ? r[k] : q(r[k]))))].sort();
+  const distintos = (k) => valores(rd, k).join("|") !== valores(rc, k).join("|");
+  const confusores = claves
+    .filter((k) => k !== exp.variable && distintos(k))
+    .map((k) => ({ clave: k, experimento: valores(rd, k), control: valores(rc, k) }));
+  return { confusores, sinControl: false, sinContraste: claves.includes(exp.variable) && !distintos(exp.variable) };
 }
 
 /** Minutos UTC de una hora local; si la zona no es válida, usa America/Santiago. */
@@ -1529,6 +1585,7 @@ export function validarSemana(dir, config, opts = {}) {
       out.push(`plan: la carpeta "${basename(dir)}" no coincide con semana "${plan.semana}"`);
     }
     const borradores = [];
+    const porId = new Map();
     // Raíz de la base: <base>/_calendario/<semana>. `opts.raiz` la fija; null no revisa origen.
     const raiz = opts?.raiz === null ? undefined : typeof opts?.raiz === "string" ? opts.raiz : join(dir, "..", "..");
     const score = typeof opts?.score === "function" ? opts.score : undefined;
@@ -1548,6 +1605,7 @@ export function validarSemana(dir, config, opts = {}) {
         continue;
       }
       borradores.push(b.data);
+      porId.set(p.id, b.data);
       out.push(...validarBorrador(p, b.data, config).map((e) => `${id}: ${e}`));
       if (raiz) {
         out.push(...erroresDeOrigen(p, raiz).map((e) => `${id}: ${e}`));
@@ -1577,6 +1635,19 @@ export function validarSemana(dir, config, opts = {}) {
       const c = leerJson(join(raiz, "_calendario", "candidatos.json"));
       if ("error" in c) out.push(`semana: _calendario/candidatos.json ${c.error} (escríbelo en el Paso 8, también con 0 piezas)`);
       else out.push(...validarCandidatos(c.data, plan.semana, alcance).map((e) => `semana: ${e}`));
+    }
+    const exp = plan.experimento;
+    if (esObj(exp) && typeof exp.variable === "string") {
+      const { confusores, sinControl, sinContraste } = confusoresDelExperimento(plan, porId);
+      const declarados = Array.isArray(exp.confusores) ? exp.confusores : [];
+      const exige = fechaValida(plan.semana) && plan.semana >= DESDE_CONFUSORES;
+      for (const c of confusores) {
+        if (declarados.includes(c.clave)) continue;
+        const msg = `experimento ${q(exp.variable)} mezcla ${c.clave} (experimento ${c.experimento.join(", ")}; control ${c.control.join(", ")}): iguálalo o agrégalo a experimento.confusores`;
+        (exige ? out : avisos).push(`plan: ${msg}`);
+      }
+      if (sinControl) avisos.push(`plan: experimento ${q(exp.variable)} sin control del mismo formato en la semana: se compara con semanas anteriores y no se revisan confusores`);
+      if (sinContraste) avisos.push(`plan: experimento ${q(exp.variable)}: la variable vale lo mismo en el experimento y en el control`);
     }
     if (sinScore) avisos.push(`score léxico no evaluado en ${sinScore} pieza(s): falta el repo de código al lado; lo revisa el Mac antes de renderizar`);
     return out;
