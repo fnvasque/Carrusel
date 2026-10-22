@@ -274,6 +274,18 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   se borraron de Instagram: si **todas** sus piezas están ahí, ciérralo ya en
   `experimentos.md` con `Resultado: sin datos suficientes (pieza borrada)`,
   sin esperar las semanas del experimento, y la variable queda libre para uno nuevo.
+- `reglas`: el antes/después de cada regla ya aplicada, según
+  `_calendario/reglas.json` (registro del usuario: lo actualiza la PR que
+  aplica la regla; tú **no** lo editas). Una fila por regla y formato: `id`,
+  `descripcion`, `desde` (primer día en que se publicaron piezas con la
+  regla), `formato`, `metrica` (`visionadoMedioSegundos` en reels, que no
+  depende de la duración; `indiceRelativo` en carruseles), `antes` y
+  `despues` (piezas medidas publicadas en los 28 días antes de `desde` y
+  desde `desde`: `n`, `media`, `retencion` en reels como dato secundario y
+  `piezas`), `cambio` (relativo), `veredicto` (`mejoró`, `empeoró`, `sin
+  cambio claro` o `n insuficiente`: hacen falta 6 piezas por lado) y
+  `simultaneas` (otras reglas que entraron en la misma ventana: el efecto es
+  del paquete).
 - `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
   arregles tú: son zona del bot o del usuario.
 
@@ -309,6 +321,17 @@ de medición (`bucle.json → ventanaMedicion`):
   y ventana>`). Si un parámetro de la puerta merece cambiar (≥ `semanasExperimento`
   semanas y ≥ 6 piezas por valor en `bucle.json → parametros`), escríbelo como
   `Propuesta:` con el dato; no lo apliques.
+- **Reglas aplicadas** (`bucle.json → reglas`): una regla con `veredicto:
+  "empeoró"` (n suficiente en ambos lados) se reporta en `aprendizajes.md` como
+  `Propuesta: revertir <id> (<descripcion>). Dato: <metrica> <antes.media> →
+  <despues.media> (<cambio en %>), <antes.n> vs. <despues.n> piezas de
+  <formato>, ventana <ventanaMedicion>`. Si tiene `simultaneas`, dilo: «junto
+  con <ids>, el efecto es del paquete», y propone revertir solo la que el
+  dato o el lector frío señalen, o pide al usuario que elija. Con `n
+  insuficiente` no concluyas nada ni propongas revertir; si la regla lleva más
+  de 4 semanas sin n suficiente, anótalo una vez en `aprendizajes.md`. Una
+  regla que `mejoró` puede respaldar una frase de aprendizaje, con el dato.
+  Nunca la reviertas tú: la revierte el usuario.
 - **Diagnóstico mensual** de `bucle.json`: si dice "cambiar la categoría de
   hook" de un arquetipo, hazlo esta semana; si dice "falta entregable o
   destinatario", revisa la recompensa de cada pieza antes de escribir.

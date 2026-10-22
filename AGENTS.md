@@ -33,6 +33,9 @@ está en `README.md`; léela solo si la tarea la necesita.
 - Antes de implementar, define "terminado" como un comando verificable (normalmente
   `npm run typecheck && npm test`, más un test nuevo que cubra el cambio).
 - Cambios grandes: plan en `docs/superpowers/plans/`, spec en `docs/superpowers/specs/`.
+- Una PR que aplica una regla del planificador o cambia la puerta agrega su entrada en
+  `kb-plantilla/_calendario/reglas.json` (`id`, `desde` = primer día en que se publica con ella,
+  `formato`, `descripcion`, `fuente`): el bucle mide el antes/después con eso.
 - Cambios de riesgo (publicación, borrado de medios, dinero en APIs): pide una revisión
   independiente (`/codex:adversarial-review` en Claude Code) antes del merge.
 - Los hooks de `.claude/settings.json` corren typecheck al editar, bloquean comandos peligrosos y

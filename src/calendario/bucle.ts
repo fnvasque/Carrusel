@@ -5,6 +5,7 @@ import type { Instantanea } from "../insights/snapshots.ts";
 import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
 import { kbDir } from "../kb/store.ts";
+import { antesDespues, leerReglas, type ComparacionRegla } from "./reglas.ts";
 import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLeida, type Senal } from "./plan.ts";
 import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
@@ -524,6 +525,8 @@ export interface EntradasBucle {
   anterior?: unknown;
   /** Comentarios guardados por pieza (`_metricas/comentarios/<semana>/<id>.json`), por clave `"<semana>/<id>"`. */
   comentarios?: Record<string, { texto?: unknown; fecha?: unknown }[]>;
+  /** `_calendario/reglas.json` tal cual (registro de reglas aplicadas, del usuario); ausente → sin comparación. */
+  reglas?: unknown;
 }
 
 const MAX_COMENTARIOS_PIEZA = 10;
@@ -631,6 +634,8 @@ export interface BucleJson {
   diagnostico: string[];
   parametros: Record<string, { valor: string; n: number; media: number }[]>;
   experimentos: Experimento[];
+  /** Antes/después de cada regla ya aplicada (`reglas.json`), por formato (`reglas.ts`). */
+  reglas: ComparacionRegla[];
   avisos: string[];
 }
 
@@ -702,6 +707,8 @@ export function construirBucle(e: EntradasBucle): BucleJson {
   const m = medicionesDe(e.instantaneas, e.registro, semanas, umbral, ventanaMed);
   const semana = semanaAPlanificar(e.ahora);
   const avisos = [...(e.avisos ?? [])];
+  const reglasLeidas = leerReglas(e.reglas);
+  avisos.push(...reglasLeidas.avisos);
 
   const idx = indices(m);
   const ganadas = medicionesGanadoras(m);
@@ -856,6 +863,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     diagnostico: diagnostico(m, cuentaDiag),
     parametros,
     experimentos,
+    reglas: antesDespues(reglasLeidas.reglas, idx),
     avisos,
   };
 }
@@ -907,13 +915,20 @@ async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahor
       avisos.push(`plan.json de ${s} ilegible, se ignora: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+  let reglas: unknown;
+  try {
+    reglas = JSON.parse(readFileSync(join(calendarioDir(), "reglas.json"), "utf8"));
+  } catch (err) {
+    // Sin registro no hay comparación; uno roto sí se avisa.
+    if (!(err instanceof Error && "code" in err && err.code === "ENOENT")) avisos.push(`reglas.json ilegible, se ignora: ${err instanceof Error ? err.message : String(err)}`);
+  }
   let anterior: unknown;
   try {
     anterior = JSON.parse(readFileSync(rutaAnterior, "utf8"));
   } catch (err) {
     console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios() };
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios(), reglas };
 }
 
 /** `_metricas/comentarios/<semana>/<id>.json` → `{ "<semana>/<id>": comentarios }`. Archivos ilegibles se ignoran. */
