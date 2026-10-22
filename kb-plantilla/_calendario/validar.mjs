@@ -5,6 +5,9 @@
 //   node _calendario/validar.mjs --self-test  valida config.json y el ejemplo embebido (lo usa el instalador)
 //   node _calendario/validar.mjs --lector <semana> <id>
 //                                             imprime el texto exacto y el mensaje para cada lector frío
+//   node _calendario/validar.mjs --probar <config-candidata.json> [<validar-candidato.mjs>]
+//                                             corre la regla candidata sobre todas las semanas pasadas y
+//                                             dice qué piezas publicadas (y ganadoras) habría rechazado
 //
 // Sale con código 0 y ✓ si todo cumple; si no, con código 1 y una línea `<id>: <motivo>`
 // por problema. Ante entradas raras (JSON roto, tipos equivocados, rutas hostiles)
@@ -13,7 +16,7 @@
 // Lo escribe el usuario (scripts/kb-calendario-install.sh); el agente planificador
 // lo corre pero nunca lo modifica.
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -1776,6 +1779,158 @@ function scoreConRepo(repo, borrador) {
   return m ? Number(m[1]) : undefined;
 }
 
+// --- probar una regla -------------------------------------------------------
+
+/** Pieza de un error de `validarSemana` (`"<id>: …"`); los de plan, semana o config son de la semana entera. */
+const piezaDeError = (e) => {
+  const m = /^([a-z0-9-]{3,80}): /.exec(e);
+  return m && !["plan", "semana"].includes(m[1]) ? m[1] : "(semana)";
+};
+
+/**
+ * Prueba una regla antes de aplicarla: valida cada semana pasada de `dir`
+ * (`_calendario/`) con la config y el validador vigentes y con los candidatos, y
+ * devuelve lo que cambia. Como las reglas de hoy ya rechazan cosas de semanas viejas,
+ * solo cuentan los errores **nuevos** (los que la candidata agrega) y los que
+ * **desaparecen** (los que dejaría pasar). No revisa `origen` ni referencias (dependen
+ * de la fecha, no de la regla). `opts.validarCandidato` es el `validarSemana` de otro
+ * `validar.mjs` (por defecto, este); `opts.score` se usa solo si cambia `scoreMin`.
+ * `opts.ganadoras`: claves `"<semana>/<id>"` (de `bucle.json`). Nunca lanza.
+ */
+export function probarRegla(dir, configActual, configCandidata, opts = {}) {
+  const validarCandidato = typeof opts.validarCandidato === "function" ? opts.validarCandidato : validarSemana;
+  const ganadoras = new Set(Array.isArray(opts.ganadoras) ? opts.ganadoras : []);
+  const out = { semanas: [], piezas: 0, publicadas: 0, ganadoras: 0, rechazadas: [], liberadas: [], errores: [] };
+  const ec = validarConfig(configCandidata);
+  if (ec.length) {
+    out.errores = ec.map((e) => `config candidata: ${e}`);
+    return out;
+  }
+  // El score léxico es caro (un proceso por pieza): solo si la candidata mueve scoreMin, y una vez por borrador.
+  const cambiaScore = esObj(configActual) && configActual.scoreMin !== configCandidata.scoreMin;
+  const cache = new Map();
+  const score = cambiaScore && typeof opts.score === "function"
+    ? (b) => {
+        const k = JSON.stringify(b);
+        if (!cache.has(k)) cache.set(k, opts.score(b));
+        return cache.get(k);
+      }
+    : undefined;
+  let semanas = [];
+  try {
+    semanas = readdirSync(dir).filter((x) => fechaValida(x) && existsSync(join(dir, x, "plan.json"))).sort();
+  } catch (e) {
+    out.errores.push(`no se pudo leer ${dir}: ${e instanceof Error ? e.message : e}`);
+    return out;
+  }
+  for (const semana of semanas) {
+    const sd = join(dir, semana);
+    const plan = leerJson(join(sd, "plan.json"));
+    if ("error" in plan || !esObj(plan.data) || !Array.isArray(plan.data.piezas)) continue;
+    out.semanas.push(semana);
+    const estado = leerJson(join(sd, "estado.json"));
+    const publicada = (id) => !("error" in estado) && esObj(estado.data) && esObj(estado.data[id]) && estado.data[id].estado === "publicado";
+    for (const p of plan.data.piezas) {
+      if (!esObj(p)) continue;
+      out.piezas++;
+      if (publicada(p.id)) out.publicadas++;
+      if (ganadoras.has(`${semana}/${p.id}`)) out.ganadoras++;
+    }
+    const correr = (fn, config) => {
+      try {
+        return fn(sd, config, { raiz: null, avisos: [], ...(score ? { score } : {}) });
+      } catch (e) {
+        return [`(semana): el validador lanzó: ${e instanceof Error ? e.message : e}`];
+      }
+    };
+    // Sin score, validarSemana no lo evalúa: los dos lados quedan parejos.
+    const antes = new Set(correr(validarSemana, configActual));
+    const despues = new Set(correr(validarCandidato, configCandidata));
+    const agrupar = (errs, lista) => {
+      const porPieza = new Map();
+      for (const e of errs) porPieza.set(piezaDeError(e), [...(porPieza.get(piezaDeError(e)) ?? []), e]);
+      for (const [id, es] of porPieza) {
+        lista.push({ semana, id, publicada: id !== "(semana)" && publicada(id), ganadora: ganadoras.has(`${semana}/${id}`), errores: es });
+      }
+    };
+    agrupar([...despues].filter((e) => !antes.has(e)), out.rechazadas);
+    agrupar([...antes].filter((e) => !despues.has(e)), out.liberadas);
+  }
+  return out;
+}
+
+/** Ganadoras de `bucle.json` (`ganadores` y `ganadoresVistos`) como `"<semana>/<id>"`. */
+export function ganadorasDeBucle(bucle) {
+  const out = new Set();
+  if (!esObj(bucle)) return [];
+  for (const g of Array.isArray(bucle.ganadores) ? bucle.ganadores : []) {
+    if (esObj(g) && typeof g.semana === "string" && typeof g.piezaId === "string") out.add(`${g.semana}/${g.piezaId}`);
+  }
+  if (esObj(bucle.ganadoresVistos)) for (const k of Object.keys(bucle.ganadoresVistos)) out.add(k);
+  return [...out].sort();
+}
+
+/** Informe de `probarRegla` para la consola; la última línea es la que cita la `Propuesta:`. */
+export function informePrueba(r) {
+  if (r.errores.length) return r.errores.map((e) => `✗ ${e}`).join("\n");
+  const pub = r.rechazadas.filter((x) => x.publicada);
+  const gan = r.rechazadas.filter((x) => x.ganadora);
+  const lineas = [`Prueba sobre ${r.semanas.length} semana(s) (${r.semanas[0] ?? "—"} … ${r.semanas.at(-1) ?? "—"}): ${r.piezas} piezas, ${r.publicadas} publicadas, ${r.ganadoras} ganadora(s).`];
+  const fila = (x) => `  ${x.ganadora ? "★" : x.publicada ? "•" : " "} ${x.semana}/${x.id}${x.ganadora ? " (GANADORA)" : x.publicada ? " (publicada)" : ""}\n${x.errores.map((e) => `      ${e}`).join("\n")}`;
+  if (r.rechazadas.length) lineas.push(`✗ La candidata agrega errores en ${r.rechazadas.length} pieza(s) o semana(s):`, ...r.rechazadas.map(fila));
+  else lineas.push("✓ La candidata no rechaza nada que hoy pase.");
+  if (r.liberadas.length) lineas.push(`↺ Dejaría pasar errores de hoy en ${r.liberadas.length} pieza(s) o semana(s):`, ...r.liberadas.map(fila));
+  const piezasPub = new Set(pub.map((x) => `${x.semana}/${x.id}`)).size;
+  const piezasGan = new Set(gan.map((x) => `${x.semana}/${x.id}`)).size;
+  lineas.push(
+    `Para la Propuesta: probada sobre ${r.semanas.length} semanas (${r.semanas[0] ?? "—"} a ${r.semanas.at(-1) ?? "—"}): rechazaría ${piezasPub} de ${r.publicadas} publicadas y ${piezasGan} de ${r.ganadoras} ganadoras` +
+      (r.liberadas.length ? `; liberaría ${r.liberadas.length}` : "") + ".",
+  );
+  return lineas.join("\n");
+}
+
+/** `--probar <config.json> [<validar.mjs>]`: imprime `informePrueba`. Sale 0 aunque rechace (es un informe). */
+async function imprimirPrueba(here, configActual, args, fallar) {
+  const uso = "uso: node _calendario/validar.mjs --probar <config-candidata.json> [<validar-candidato.mjs>]";
+  const json = args.find((a) => a.endsWith(".json"));
+  const mjs = args.find((a) => a.endsWith(".mjs"));
+  if (!json && !mjs) fallar([uso]);
+  let configCandidata = configActual;
+  if (json) {
+    // La candidata la escribe el agente donde quiera (p. ej. un temporal): se lee tal cual, sin la restricción de carpeta.
+    let texto;
+    try {
+      texto = readFileSync(json, "utf8");
+    } catch {
+      fallar([`${uso} (no se pudo leer ${json})`]);
+    }
+    try {
+      configCandidata = JSON.parse(texto);
+    } catch (e) {
+      fallar([`${json} no es JSON válido: ${e instanceof Error ? e.message : e}`]);
+    }
+  }
+  let validarCandidato;
+  if (mjs) {
+    try {
+      const mod = await import(pathToFileURL(isAbsolute(mjs) ? mjs : join(process.cwd(), mjs)).href);
+      validarCandidato = mod.validarSemana;
+    } catch (e) {
+      fallar([`no se pudo cargar ${mjs}: ${e instanceof Error ? e.message : e}`]);
+    }
+    if (typeof validarCandidato !== "function") fallar([`${mjs} no exporta validarSemana`]);
+  }
+  const bucle = leerJson(join(here, "..", "_metricas", "bucle.json"));
+  const repo = repoDeCodigo(join(here, ".."));
+  const r = probarRegla(here, configActual, configCandidata, {
+    validarCandidato,
+    ganadoras: "error" in bucle ? [] : ganadorasDeBucle(bucle.data),
+    score: repo ? (b) => { try { return scoreConRepo(repo, b); } catch { return undefined; } } : undefined,
+  });
+  if (r.errores.length) fallar(r.errores);
+  console.log(informePrueba(r));
+}
+
 /** `--lector <semana> <id>`: los dos textos y el mensaje exacto para cada subagente. */
 function imprimirLector(here, semana, id, fallar) {
   const uso = "uso: node _calendario/validar.mjs --lector <semana AAAA-MM-DD> <id>";
@@ -1836,8 +1991,9 @@ function main(args) {
     imprimirLector(here, args[1], args[2], fallar);
     return;
   }
+  if (args[0] === "--probar") return imprimirPrueba(here, config, args.slice(1), fallar);
   const semana = args[0];
-  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test | --lector <semana> <id> (recibí ${q(semana)})`]);
+  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test | --lector <semana> <id> | --probar <config.json> [<validar.mjs>] (recibí ${q(semana)})`]);
   const repo = repoDeCodigo(join(here, ".."));
   const score = repo
     ? (b) => {
@@ -1863,10 +2019,13 @@ const real = (p) => {
   }
 };
 if (process.argv[1] && real(process.argv[1]) === real(self)) {
-  try {
-    main(process.argv.slice(2));
-  } catch (e) {
+  const interno = (e) => {
     console.error(`✗ error interno del validador: ${e instanceof Error ? e.message : e}`);
     process.exit(1);
+  };
+  try {
+    Promise.resolve(main(process.argv.slice(2))).catch(interno);
+  } catch (e) {
+    interno(e);
   }
 }
