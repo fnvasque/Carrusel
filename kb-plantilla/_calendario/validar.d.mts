@@ -19,6 +19,11 @@ export declare function contarFondosIA(borradores: unknown[]): number;
 export declare function contarHookVideo(borradores: unknown[]): number;
 export declare function contarClips(borradores: unknown[]): number;
 export declare function validarCaption(caption: string, config: unknown, tema?: string): string[];
+export declare const DESDE_CONFUSORES: string;
+export declare function confusoresDelExperimento(
+  plan: unknown,
+  borradores?: Map<string, unknown>,
+): { confusores: { clave: string; experimento: string[]; control: string[] }[]; sinControl: boolean; sinContraste: boolean };
 export declare function validarSemana(
   dir: string,
   config: unknown,
