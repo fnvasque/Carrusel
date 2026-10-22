@@ -524,6 +524,46 @@ check("construirBucle: `reglas` trae el antes/después de reglas.json y avisa de
   sinNumerosRaros(JSON.parse(JSON.stringify(b.reglas)));
 });
 
+check("construirBucle: un reel medido trae `abandono` (escena del visionado medio) con la duración real del render; un carrusel no", () => {
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: null,
+    piezas: [{ id: "pz-1", formato: "reel" }, { id: "pz-2", formato: "carrusel" }] as unknown as Plan["piezas"],
+  };
+  const borrador = { pace: "gancho", slides: [{ template: "Hook", props: { title: "Ordena tus pendientes" } }, { template: "Step", props: { heading: "Pega tu lista" } }, { template: "Cta", props: { title: "Guárdalo" } }] };
+  const render = { "pz-1": { estado: "renderizado", medios: { archivos: ["a.mp4"], duracionMs: 9000 }, en: "2026-10-11T00:00:00Z" } } as SemanaLeida["render"];
+  const semanas: SemanaLeida[] = [{ semana: "2026-10-12", plan, render, estado: {} }];
+  const reg = [regl("1", { piezaId: "pz-1" }), regl("2", { piezaId: "pz-2", formato: "carrusel" })];
+  const ii = [inst("1", { avg_watch_ms: 1000 }), inst("2", { avg_watch_ms: 1000 })];
+  const borradores = { "2026-10-12/pz-1": borrador, "2026-10-12/pz-2": borrador };
+  const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {}, borradores });
+  const r = b.piezas.find((p) => p.piezaId === "pz-1")!;
+  assert.equal(r.abandono!.escena, 1);
+  assert.equal(r.abandono!.plantilla, "Hook");
+  assert.equal(r.abandono!.de, 3);
+  assert.equal(r.abandono!.fin <= 9, true);
+  assert.equal(b.piezas.find((p) => p.piezaId === "pz-2")!.abandono, undefined);
+  // Sin borradores (o sin avgWatchMs) no hay abandono, y nada se rompe.
+  assert.equal(construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} }).piezas[0]!.abandono, undefined);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b)));
+});
+
+check("construirBucle: `lectorFrio` agrupa los fallos del lector por causa, con las caídas del plan", () => {
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: null,
+    piezas: [{ id: "lun-reel-a", lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el completo no entendió «Kokoro»; se explicó." } } as unknown as Plan["piezas"][number]],
+    caidas: [{ id: "sab-reel-b", intentos: 3, notas: "v1: «3 tareas» no se cumplía, solo había uno" }],
+  };
+  const b = construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [{ semana: plan.semana, plan, render: {}, estado: {} }], cuenta: {}, config: {} });
+  assert.deepEqual(b.lectorFrio.semanas, ["2026-10-12"]);
+  assert.equal(b.lectorFrio.piezas, 2);
+  assert.equal(b.lectorFrio.caidas, 1);
+  assert.deepEqual(b.lectorFrio.causas.map((c) => [c.causa, c.fallos, c.piezas[0]!.desenlace]), [
+    ["promesa-incumplida", 1, "cayó"], ["termino-sin-explicar", 1, "pasó tras reescribir"],
+  ]);
+  sinNumerosRaros(JSON.parse(JSON.stringify(b.lectorFrio)));
+  assert.deepEqual(construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: {}, config: {} }).lectorFrio.causas, []);
+});
+
 check("construirBucle: `piezas` trae la fila completa de 7 d de cada pieza medida, con hook y seguidores del día siguiente", () => {
   const plan: Plan = {
     semana: "2026-10-12", zona: "America/Santiago", experimento: null,
@@ -728,6 +768,25 @@ check("compararParametro: el mínimo de semanas sigue a semanasExperimento", () 
   assert.deepEqual(r.map((x) => [x.valor, x.n]), [["true", 6], ["false", 6]]);
 });
 
+check("construirBucle: el control de la semana usa solo piezas del mismo formato que el experimento (como validar.mjs)", () => {
+  const pz = (id: string, formato: string): Plan["piezas"][number] => ({ id, formato } as unknown as Plan["piezas"][number]);
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: { variable: "hook", hipotesis: "h", piezas: ["pz-1"] },
+    piezas: [pz("pz-1", "reel"), pz("pz-2", "reel"), pz("pz-3", "carrusel")],
+  };
+  const reg = [regl("1", { piezaId: "pz-1" }), regl("2", { piezaId: "pz-2" }), regl("3", { piezaId: "pz-3", formato: "carrusel" })];
+  const ii = [inst("1", { saved: 2 }), inst("2", { saved: 4 }), inst("3", { saved: 30 })];
+  const semanas: SemanaLeida[] = [{ semana: plan.semana, plan, render: {}, estado: {} }];
+  const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} });
+  const e = b.experimentos[0]!;
+  assert.equal(e.control.n, 1, "solo pz-2: el carrusel pz-3 queda fuera");
+  assert.ok(e.experimento.media! < e.control.media!, "el reel del experimento se compara con el otro reel, no con el carrusel viral");
+  // Sin formato en el plan no se puede filtrar: entra el resto de la semana.
+  const sinFormato: Plan = { ...plan, piezas: plan.piezas.map((p) => ({ ...p, formato: undefined }) as unknown as Plan["piezas"][number]) };
+  const b2 = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas: [{ semana: plan.semana, plan: sinFormato, render: {}, estado: {} }], cuenta: {}, config: {} });
+  assert.equal(b2.experimentos[0]!.control.n, 2);
+});
+
 check("construirBucle: con una variable de la puerta el control suma las piezas de semanas anteriores con otro valor (control.historico)", () => {
   const pieza = (id: string, ritmo: string): Plan["piezas"][number] => ({ id, formato: "reel", parametros: { ritmoReel: ritmo } } as unknown as Plan["piezas"][number]);
   const planA: Plan = { semana: "2026-10-05", zona: "America/Santiago", experimento: null, piezas: [pieza("pz-1", "ensenar"), pieza("pz-2", "ensenar")] };
@@ -749,12 +808,13 @@ check("construirBucle: con una variable de la puerta el control suma las piezas 
   const b = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config });
   const e = b.experimentos[0]!;
   assert.equal(e.experimento.n, 2);
-  // Control: pz-5 (misma semana, otra señal: cuenta en su propio índice) + pz-1 y pz-2 (semana anterior, ensenar). El carrusel pz-5 no entra en el histórico, pero sí como resto de su semana.
+  // Control: pz-1 y pz-2 (semana anterior, ensenar). El carrusel pz-5 no entra: ni en el histórico ni como resto de su semana (mismo formato, como validar.mjs).
   assert.equal(e.control.historico, 2);
-  assert.equal(e.control.n, 3);
+  assert.equal(e.control.n, 2);
   assert.ok(e.experimento.media! > e.control.media!, "gancho retiene más que enseñar");
-  // Sin variable de la puerta no hay histórico.
+  // Sin variable de la puerta no hay histórico, y el carrusel tampoco sirve de control: queda vacío.
   const sinPuerta = construirBucle({ ahora: new Date("2026-10-25T09:00:00.000Z"), instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} });
   assert.equal(sinPuerta.experimentos[0]!.control.historico, undefined);
+  assert.deepEqual(sinPuerta.experimentos[0]!.control, { n: 0 });
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
 });

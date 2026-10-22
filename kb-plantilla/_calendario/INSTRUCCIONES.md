@@ -27,8 +27,9 @@ curiosa de la IA, **no técnica**, en el celular y distraída. Todo el copy va e
    usuario). Tampoco el resto de la base (`temas/`, `referencias/`, `fuentes/`,
    `_investigacion/`…).
 2. **El evaluador está fuera de tu alcance.** Si crees que un parámetro de
-   `config.json` debería cambiar, lo **propones** en `aprendizajes.md`; el
-   cambio lo aplica el usuario.
+   `config.json` debería cambiar, lo **propones** en `aprendizajes.md`, con
+   la prueba de `validar.mjs --probar` sobre las semanas pasadas; el cambio
+   lo aplica el usuario.
 3. **Validar antes de subir.** `node _calendario/validar.mjs <semana>` debe
    terminar con ✓. Nunca subas una semana que no pase.
 4. **Fechas absolutas** (AAAA-MM-DD) y horas de Chile (`America/Santiago`).
@@ -234,6 +235,10 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   (visitas al perfil y seguidores ganados desde el post, y su conversión:
   sana ≥ 0,02; bajo 0,01 el problema es la bio o el posicionamiento, no el
   contenido; Meta las da solo en carruseles y posts de feed, no en reels),
+  `abandono` (solo reels con `avgWatchMs`: la escena en la que cae el visionado
+  medio, con `escena`, `de`, `plantilla`, `titulo`, `inicio`, `fin` y `segundo`;
+  los tiempos son los del motor escalados a la duración real del mp4, así que
+  la escena es aproximada en ± medio segundo),
   `seguidoresDiaSiguiente` y `comentariosTexto` (los 10
   comentarios más recientes del post, texto; el bot los guarda completos en
   `_metricas/comentarios/<semana>/<id>.json`). Es la tabla del Paso 2: no
@@ -263,11 +268,14 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
 - `experimentos`: cada experimento declarado en las últimas semanas, con
   `evaluarDesde` (lunes + `semanasExperimento` semanas), `evaluable` y la media
   relativa de las piezas del experimento (`experimento`) contra el control
-  (`control`): el resto de su semana y, si la variable es un parámetro de la
-  puerta, también las piezas de semanas anteriores producidas con otro valor
-  (`control.historico` dice cuántas). Así un experimento que abarca todos los
-  reels de la semana se compara contra las semanas previas, no contra los
-  carruseles. `variableValida: false` significa que la variable no es una de
+  (`control`): el resto de su semana **del mismo formato** (un experimento de
+  reels nunca se compara con los carruseles; es el mismo control con que
+  `validar.mjs` revisa los confusores) y, si la variable es un parámetro de la
+  puerta, también las piezas de semanas anteriores del mismo formato
+  producidas con otro valor (`control.historico` dice cuántas). Si el
+  experimento abarca todos los reels de la semana y no hay histórico,
+  `control.n` es 0: no hay contra qué compararlo; ciérralo como `sin datos
+  suficientes` o espera otra semana. `variableValida: false` significa que la variable no es una de
   las permitidas (Paso 4). `confusores`: lo que cambió junto con la variable
   (de `plan.json`); con confusores, el resultado se escribe como efecto del
   paquete, no de la variable sola. `borradas` lista las piezas del experimento que
@@ -286,12 +294,50 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   cambio claro` o `n insuficiente`: hacen falta 6 piezas por lado) y
   `simultaneas` (otras reglas que entraron en la misma ventana: el efecto es
   del paquete).
+- `lectorFrio`: los fallos y dudas del lector frío de las últimas 4 semanas
+  (`semanas`), agrupados por causa. Sale de `lectorFrio.notas` de cada pieza y
+  de `plan.json → caidas` (Paso 6), sin LLM: cada causa tiene la pregunta del
+  cuestionario a la que pertenece y palabras clave. Totales: `piezas`,
+  `aLaPrimera`, `reescritas`, `caidas` y `caidasSinNotas` (caídas que solo
+  nombra `motivo`: se sabe que cayeron, no por qué). En `causas`, de la más
+  frecuente a la menos: `causa` (p. ej. `termino-sin-explicar`,
+  `promesa-incumplida`, `dato-sin-contexto`, `portada-sin-resultado`,
+  `sin-accion`), `pregunta`, `descripcion`, `fallos` (intentos que obligaron a
+  reescribir), `dudas` (NB que no bloquearon), `piezas` (`"<semana>/<id>"` y
+  `desenlace`: `cayó`, `pasó tras reescribir` o `pasó con duda`) y un
+  `ejemplo` textual. `otro` es un fallo sin causa reconocida: lee su ejemplo.
+  Es el dato más abundante que tienes (unas 20 respuestas por semana contra un
+  puñado de piezas medidas); úsalo en el Paso 2.
 - `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
   arregles tú: son zona del bot o del usuario.
 
 **Tú no cambias `config.json`.** Si `parametros`, `experimentos` o el
 diagnóstico sugieren mover un parámetro, lo **propones** en `aprendizajes.md`
 (`Propuesta:` con el dato); el cambio lo aplica el usuario.
+
+### Probar una regla antes de proponerla
+
+Toda `Propuesta:` que cambie la puerta (`config.json → puerta`, `scoreMin`,
+topes) o una regla del validador se prueba antes sobre **todas las semanas
+pasadas**. Copia `config.json` a un temporal (fuera de la base, p. ej.
+`/tmp/config-candidata.json`), cambia solo lo que propones y corre:
+
+```bash
+node _calendario/validar.mjs --probar /tmp/config-candidata.json
+```
+
+Si la regla es de código (algo que `validar.mjs` no revisa hoy), escribe el
+validador candidato en un temporal y pásalo también:
+`node _calendario/validar.mjs --probar /tmp/config-candidata.json /tmp/validar-candidato.mjs`
+(o solo el `.mjs`, con la config vigente). Nunca edites el `validar.mjs` de la base.
+
+El informe compara la candidata con lo vigente y lista solo lo que **cambia**:
+las piezas que la candidata rechazaría y hoy pasan (`•` publicada, `★`
+**ganadora** de `bucle.json`) y las que dejaría pasar. Su última línea
+(`Para la Propuesta: probada sobre N semanas …: rechazaría X de Y publicadas y
+Z de W ganadoras`) va **copiada** en la `Propuesta:`. Si rechaza una ganadora,
+dilo en la propuesta y explica por qué igual conviene, o no la propongas: una
+regla que habría frenado lo que mejor funcionó va contra la evidencia.
 
 ## Paso 2 — Evaluar la semana pasada
 
@@ -303,6 +349,14 @@ de medición (`bucle.json → ventanaMedicion`):
   `hookTexto`, `retencion`, `followsPorVisita`, `seguidoresDiaSiguiente` y el
   alcance para entender *por qué*). Con alcance < `umbralAlcanceTasas` se comparan
   conteos absolutos; desde ese umbral, tasas por alcance.
+- **Dónde se va el espectador** (reels, `bucle.json → piezas[].abandono`): si
+  en varios reels el abandono cae en la escena 1 (`Hook`), el problema es el
+  primer cuadro; si cae siempre en la misma plantilla o posición (p. ej. el
+  `Lead` de la escena 2), esa escena sobra o tarda en pagar lo que promete el
+  Hook. Escríbelo en `aprendizajes.md` con el dato («abandono en la escena 2
+  (Lead) en 4 de 6 reels, visionado medio 4,8 s»). No compares una pieza
+  fallida contra una ganadora escena por escena: con 2 o 3 ganadoras sale
+  anecdótico.
 - **Cerrar experimentos** que cumplen `semanasExperimento` semanas
   (`bucle.json → experimentos[].evaluable`): completa su entrada en
   `experimentos.md` con el resultado y el dato (`experimento` contra `control`,
@@ -320,7 +374,10 @@ de medición (`bucle.json → ventanaMedicion`):
   cada una con el dato que la respalda (`- 2026-10-11 · <frase>. Dato: <número
   y ventana>`). Si un parámetro de la puerta merece cambiar (≥ `semanasExperimento`
   semanas y ≥ 6 piezas por valor en `bucle.json → parametros`), escríbelo como
-  `Propuesta:` con el dato; no lo apliques.
+  `Propuesta:` con el dato; no lo apliques. Toda `Propuesta:` que cambie la
+  puerta o una regla del validador cita además la última línea de
+  `validar.mjs --probar` («Probar una regla antes de proponerla», Paso 1):
+  sin esa prueba la propuesta está incompleta.
 - **Reglas aplicadas** (`bucle.json → reglas`): una regla con `veredicto:
   "empeoró"` (n suficiente en ambos lados) se reporta en `aprendizajes.md` como
   `Propuesta: revertir <id> (<descripcion>). Dato: <metrica> <antes.media> →
@@ -335,6 +392,27 @@ de medición (`bucle.json → ventanaMedicion`):
 - **Diagnóstico mensual** de `bucle.json`: si dice "cambiar la categoría de
   hook" de un arquetipo, hazlo esta semana; si dice "falta entregable o
   destinatario", revisa la recompensa de cada pieza antes de escribir.
+- **Fallos del lector frío por causa** (`bucle.json → lectorFrio.causas`):
+  mira las 3 primeras. Una causa con `fallos ≥ 3` en ≥ 3 piezas distintas de
+  al menos 2 semanas es un patrón: tu escritura la repite y el lector la caza
+  después, a costa de vueltas. Para ella:
+  1. Esta semana, revísala en cada pieza **antes** del Paso 6 (p. ej.
+     `promesa-incumplida`: cuenta que el número del título coincida con lo que
+     aparece; `termino-sin-explicar`: cada marca o herramienta nueva se
+     explica en la slide donde aparece; `dato-sin-contexto`: toda cifra dice
+     quién la midió y contra qué).
+  2. Si el validador podría detectarla (un número del título contra los
+     pasos, una marca sin explicar), escribe en `aprendizajes.md` una
+     `Propuesta:` de regla con el dato: causa, `fallos`, `dudas`, cuántas
+     piezas y semanas, y el `ejemplo`. Ejemplo: `Propuesta: el validador
+     compara el número del título con los pasos numerados. Dato:
+     promesa-incumplida, 9 fallos y 9 dudas en 12 piezas de 3 semanas («vieron
+     6 preguntas prometidas y solo 3 pasos numerados»)`.
+  3. Si una causa tiene muchas `dudas` y casi ningún `fallo` (p. ej.
+     `sin-accion` en reels con video que el lector de texto no ve), dilo en
+     `aprendizajes.md`: el cuestionario quizá no mide bien esas piezas. No lo
+     cambies tú: `lector-frio.md` es del usuario.
+  Con `caidasSinNotas` no hay causa que contar: no inventes una.
 
 ## Paso 3 — Elegir temas
 
@@ -1254,6 +1332,24 @@ ninguna regla la cubre, la duda bloquea.
 Si una condición que cuenta falla, reescribe y vuelve a lanzar ambos (con
 subagentes nuevos y una nueva salida de `--lector`). Registra el resultado en
 `plan.json → lectorFrio` (`intentos`, `resultado: "ok"`, `notas`).
+
+En `notas`, cada intento fallido va como `vN: <qué falló>; <qué cambiaste>`
+(el fallo primero, la corrección después de `; se …`): el bot cuenta las
+causas desde ahí (`bucle.json → lectorFrio`) y el último intento (el que pasó)
+no cuenta como fallo.
+
+Si una pieza **no pasa** en `puerta.reescriturasMax` vueltas y la quitas del
+plan, no la borres sin rastro: agrégala a `plan.json → caidas` (lista, al
+nivel de `piezas`) con su `id`, `intentos` y las `notas` de cada intento con
+el mismo formato:
+
+```json
+"caidas": [
+  {"id": "sab-reel-dots-de-openai", "intentos": 3, "notas": "v1: el completo no entendió «Dots»; se explicó en el paso 1.\nv2: «3 puntos» no se cumplía, solo había uno; se quitó el número.\nv3: el con prisa respondió «no sé» a la 7."}
+]
+```
+
+Así una pieza caída también cuenta en los fallos por causa.
 
 ## Paso 7 — Validar
 

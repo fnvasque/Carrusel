@@ -6,6 +6,8 @@ import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
 import { kbDir } from "../kb/store.ts";
 import { antesDespues, leerReglas, type ComparacionRegla } from "./reglas.ts";
+import { escenaDeAbandono, escenasDeReel, type Abandono } from "./escenas.ts";
+import { resumirLectorFrio, type ResumenLector } from "./lector-causas.ts";
 import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLeida, type Senal } from "./plan.ts";
 import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
@@ -14,7 +16,7 @@ import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWER
  * ventanaMedicion`, por defecto 7 d) ya tomadas calcula pesos por
  * tema/arquetipo/hook (con encogimiento), ganadores, derivados pendientes, horas
  * desde `online_followers`, seguidores por pieza, comparaciones de parámetros de
- * la puerta, experimentos y el diagnóstico mensual. Todo es puro salvo
+ * la puerta, experimentos, el diagnóstico mensual y los fallos del lector frío por causa. Todo es puro salvo
  * `escribirBucle`, que lee la base y escribe `_metricas/bucle.json`; el agente
  * planificador lo lee el domingo en vez de recalcular estadística en la nube.
  *
@@ -527,6 +529,8 @@ export interface EntradasBucle {
   comentarios?: Record<string, { texto?: unknown; fecha?: unknown }[]>;
   /** `_calendario/reglas.json` tal cual (registro de reglas aplicadas, del usuario); ausente → sin comparación. */
   reglas?: unknown;
+  /** Borradores de los reels (`_calendario/<semana>/<id>.json`), por clave `"<semana>/<id>"`, para `abandono`. */
+  borradores?: Record<string, unknown>;
 }
 
 const MAX_COMENTARIOS_PIEZA = 10;
@@ -555,10 +559,12 @@ export interface Experimento {
   evaluable: boolean;
   experimento: { n: number; media?: number };
   /**
-   * Control: las piezas de la misma semana fuera del experimento y, si la variable es un
+   * Control: las piezas de la misma semana fuera del experimento **y del mismo formato**
+   * (igual que `confusoresDelExperimento` de validar.mjs) y, si la variable es un
    * parámetro de la puerta, también las piezas de semanas anteriores producidas con otro
-   * valor (`historico` = cuántas de esas). Así un experimento que abarca todos los reels
-   * de la semana se compara contra las semanas previas, no contra los carruseles.
+   * valor y el mismo formato (`historico` = cuántas de esas). Así un experimento de reels
+   * nunca se compara contra los carruseles; si abarca todos los reels de la semana, su
+   * control son las semanas previas (o queda en `n: 0`).
    */
   control: { n: number; media?: number; historico?: number };
   /** Piezas del experimento que el bot dio por borradas de Instagram: no tendrán métricas. */
@@ -603,6 +609,8 @@ export interface PiezaBucle {
   seguidoresDiaSiguiente?: number;
   /** Los 10 comentarios más recientes guardados en `_metricas/comentarios/` (texto, ≤ 200 caracteres). */
   comentariosTexto?: string[];
+  /** Reels: escena en la que cae el visionado medio (`avgWatchMs`), con los tiempos del motor escalados a la duración real (`escenas.ts`). */
+  abandono?: Abandono;
 }
 
 export interface BucleJson {
@@ -636,6 +644,8 @@ export interface BucleJson {
   experimentos: Experimento[];
   /** Antes/después de cada regla ya aplicada (`reglas.json`), por formato (`reglas.ts`). */
   reglas: ComparacionRegla[];
+  /** Fallos y dudas del lector frío de las últimas 4 semanas, agrupados por causa (`lector-causas.ts`). */
+  lectorFrio: ResumenLector;
   avisos: string[];
 }
 
@@ -767,6 +777,19 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     });
   }
   const seguidoresPieza = seguidoresPorPieza(esObj(cuenta.porDia) ? (cuenta.porDia as Record<string, number>) : {}, publicadas);
+  // Duración real de cada reel: la que midió el Mac (render.json) o, si no, la del registro.
+  const duracionPorClave = new Map<string, number>();
+  for (const r of Array.isArray(e.registro) ? e.registro : []) {
+    if (esObj(r) && esNum(r.duracionMs) && texto(r.piezaId) && /^\d{4}-\d{2}-\d{2}$/.test(texto(r.semana))) duracionPorClave.set(clavePieza(texto(r.semana), texto(r.piezaId)), r.duracionMs);
+  }
+  for (const s of semanas) {
+    for (const [id, r] of Object.entries(esObj(s.render) ? s.render : {})) {
+      const d = esObj(r) && esObj(r.medios) ? r.medios.duracionMs : undefined;
+      if (esNum(d)) duracionPorClave.set(clavePieza(s.semana, id), d);
+    }
+  }
+  const abandonoDe = (x: Medicion): Abandono | undefined =>
+    x.formato === "reel" && esObj(e.borradores) ? escenaDeAbandono(escenasDeReel(e.borradores[claveDe(x)], duracionPorClave.get(claveDe(x))), x.avgWatchMs) : undefined;
   const tasa = (num: number | undefined, reach: number | undefined): number | undefined =>
     esNum(num) && esNum(reach) && reach > 0 ? r4(num / reach) : undefined;
   const piezas: PiezaBucle[] = [...m]
@@ -782,6 +805,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
         visitasPerfil: x.profileVisits, follows: x.follows, followsPorVisita: tasa(x.follows, x.profileVisits),
         seguidoresDiaSiguiente: seguidoresPieza[claveDe(x)],
         comentariosTexto: comentariosRecientes(esObj(e.comentarios) ? e.comentarios[claveDe(x)] : undefined),
+        abandono: abandonoDe(x),
       };
       // Sin `undefined` en el JSON: el planificador lee solo claves presentes.
       return Object.fromEntries(Object.entries(fila).filter(([, v]) => v !== undefined)) as PiezaBucle;
@@ -810,15 +834,18 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     if (!esObj(x) || typeof x.variable !== "string") continue;
     const piezas = Array.isArray(x.piezas) ? x.piezas.filter((p): p is string => typeof p === "string") : [];
     const planPiezas = s.plan.piezas ?? [];
-    const deLaSemana = planPiezas.map((p) => p.id);
     const evaluarDesde = addDays(s.semana, 7 * semanasExp);
-    const control: Experimento["control"] = resumen(s.semana, deLaSemana.filter((id) => !piezas.includes(id)));
+    // Mismo formato que las piezas del experimento (como `confusoresDelExperimento` de validar.mjs):
+    // un experimento de reels no se compara contra los carruseles de su semana.
+    const formatos = new Set(planPiezas.filter((p) => piezas.includes(p.id)).map((p) => texto(p.formato)).filter(Boolean));
+    const mismoFormato = (f: unknown): boolean => !formatos.size || formatos.has(texto(f));
+    const restoSemana = planPiezas.filter((p) => !piezas.includes(p.id) && mismoFormato(p.formato)).map((p) => p.id);
+    const control: Experimento["control"] = resumen(s.semana, restoSemana);
     // Control histórico: con una variable de la puerta, las piezas medidas de semanas
     // anteriores producidas con otro valor del mismo parámetro (y el mismo formato).
     if (puertaKeys.includes(x.variable)) {
       const primera = planPiezas.find((p) => piezas.includes(p.id) && esObj(p.parametros) && p.parametros[x.variable] !== undefined);
       const valorExp = primera ? valorTexto(primera.parametros![x.variable]) : undefined;
-      const formatos = new Set(planPiezas.filter((p) => piezas.includes(p.id)).map((p) => texto(p.formato)).filter(Boolean));
       if (valorExp !== undefined) {
         const historicos = idx.filter(
           ({ m: y }) =>
@@ -826,7 +853,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
             (!formatos.size || !y.formato || formatos.has(y.formato)),
         );
         if (historicos.length) {
-          const rels = [...deLaSemana.filter((id) => !piezas.includes(id)).map((id) => relPorClave.get(clavePieza(s.semana, id))).filter(esNum), ...historicos.map((h) => h.rel)];
+          const rels = [...restoSemana.map((id) => relPorClave.get(clavePieza(s.semana, id))).filter(esNum), ...historicos.map((h) => h.rel)];
           control.n = rels.length;
           control.media = r4(media(rels));
           control.historico = historicos.length;
@@ -864,6 +891,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     parametros,
     experimentos,
     reglas: antesDespues(reglasLeidas.reglas, idx),
+    lectorFrio: resumirLectorFrio(semanas.map((s) => s.plan)),
     avisos,
   };
 }
@@ -928,7 +956,24 @@ async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahor
   } catch (err) {
     console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios(), reglas };
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios(), reglas, borradores: leerBorradores(semanas) };
+}
+
+/** Borradores de los reels de `semanas` (`_calendario/<semana>/<id>.json`). Ilegibles o ausentes se omiten. */
+export function leerBorradores(semanas: SemanaLeida[], dir = calendarioDir()): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const s of semanas) {
+    for (const p of s.plan?.piezas ?? []) {
+      // El id ya lo validó plan.ts (minúsculas, números y -): no sale de la carpeta.
+      if (p.formato !== "reel") continue;
+      try {
+        out[clavePieza(s.semana, p.id)] = JSON.parse(readFileSync(join(dir, s.semana, `${p.id}.json`), "utf8"));
+      } catch {
+        // sin borrador: la pieza sale sin `abandono`.
+      }
+    }
+  }
+  return out;
 }
 
 /** `_metricas/comentarios/<semana>/<id>.json` → `{ "<semana>/<id>": comentarios }`. Archivos ilegibles se ignoran. */
