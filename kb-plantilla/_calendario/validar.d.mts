@@ -41,3 +41,4 @@ export declare function motivoReferenciaNoLista(text: string, tema: string, sema
 export declare function leerAlcance(raiz: string): { dentro: Set<string>; despues: Set<string>; fuera: Set<string> } | undefined;
 export declare function erroresDeReferencias(pieza: unknown, raiz: string, semana: string, alcance?: ReturnType<typeof leerAlcance>): string[];
 export declare function validarCandidatos(data: unknown, semana: string, alcance?: ReturnType<typeof leerAlcance>): string[];
+export declare function segundosNarracion(texto: unknown): number | undefined;

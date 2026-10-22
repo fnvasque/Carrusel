@@ -5,6 +5,7 @@ import type { Instantanea } from "../insights/snapshots.ts";
 import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
 import { kbDir } from "../kb/store.ts";
+import { escenaDeAbandono, escenasDeReel, type Abandono } from "./escenas.ts";
 import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLeida, type Senal } from "./plan.ts";
 import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
@@ -524,6 +525,8 @@ export interface EntradasBucle {
   anterior?: unknown;
   /** Comentarios guardados por pieza (`_metricas/comentarios/<semana>/<id>.json`), por clave `"<semana>/<id>"`. */
   comentarios?: Record<string, { texto?: unknown; fecha?: unknown }[]>;
+  /** Borradores de los reels (`_calendario/<semana>/<id>.json`), por clave `"<semana>/<id>"`, para `abandono`. */
+  borradores?: Record<string, unknown>;
 }
 
 const MAX_COMENTARIOS_PIEZA = 10;
@@ -600,6 +603,8 @@ export interface PiezaBucle {
   seguidoresDiaSiguiente?: number;
   /** Los 10 comentarios más recientes guardados en `_metricas/comentarios/` (texto, ≤ 200 caracteres). */
   comentariosTexto?: string[];
+  /** Reels: escena en la que cae el visionado medio (`avgWatchMs`), con los tiempos del motor escalados a la duración real (`escenas.ts`). */
+  abandono?: Abandono;
 }
 
 export interface BucleJson {
@@ -760,6 +765,19 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     });
   }
   const seguidoresPieza = seguidoresPorPieza(esObj(cuenta.porDia) ? (cuenta.porDia as Record<string, number>) : {}, publicadas);
+  // Duración real de cada reel: la que midió el Mac (render.json) o, si no, la del registro.
+  const duracionPorClave = new Map<string, number>();
+  for (const r of Array.isArray(e.registro) ? e.registro : []) {
+    if (esObj(r) && esNum(r.duracionMs) && texto(r.piezaId) && /^\d{4}-\d{2}-\d{2}$/.test(texto(r.semana))) duracionPorClave.set(clavePieza(texto(r.semana), texto(r.piezaId)), r.duracionMs);
+  }
+  for (const s of semanas) {
+    for (const [id, r] of Object.entries(esObj(s.render) ? s.render : {})) {
+      const d = esObj(r) && esObj(r.medios) ? r.medios.duracionMs : undefined;
+      if (esNum(d)) duracionPorClave.set(clavePieza(s.semana, id), d);
+    }
+  }
+  const abandonoDe = (x: Medicion): Abandono | undefined =>
+    x.formato === "reel" && esObj(e.borradores) ? escenaDeAbandono(escenasDeReel(e.borradores[claveDe(x)], duracionPorClave.get(claveDe(x))), x.avgWatchMs) : undefined;
   const tasa = (num: number | undefined, reach: number | undefined): number | undefined =>
     esNum(num) && esNum(reach) && reach > 0 ? r4(num / reach) : undefined;
   const piezas: PiezaBucle[] = [...m]
@@ -775,6 +793,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
         visitasPerfil: x.profileVisits, follows: x.follows, followsPorVisita: tasa(x.follows, x.profileVisits),
         seguidoresDiaSiguiente: seguidoresPieza[claveDe(x)],
         comentariosTexto: comentariosRecientes(esObj(e.comentarios) ? e.comentarios[claveDe(x)] : undefined),
+        abandono: abandonoDe(x),
       };
       // Sin `undefined` en el JSON: el planificador lee solo claves presentes.
       return Object.fromEntries(Object.entries(fila).filter(([, v]) => v !== undefined)) as PiezaBucle;
@@ -913,7 +932,24 @@ async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahor
   } catch (err) {
     console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios() };
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios(), borradores: leerBorradores(semanas) };
+}
+
+/** Borradores de los reels de `semanas` (`_calendario/<semana>/<id>.json`). Ilegibles o ausentes se omiten. */
+export function leerBorradores(semanas: SemanaLeida[], dir = calendarioDir()): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const s of semanas) {
+    for (const p of s.plan?.piezas ?? []) {
+      // El id ya lo validó plan.ts (minúsculas, números y -): no sale de la carpeta.
+      if (p.formato !== "reel") continue;
+      try {
+        out[clavePieza(s.semana, p.id)] = JSON.parse(readFileSync(join(dir, s.semana, `${p.id}.json`), "utf8"));
+      } catch {
+        // sin borrador: la pieza sale sin `abandono`.
+      }
+    }
+  }
+  return out;
 }
 
 /** `_metricas/comentarios/<semana>/<id>.json` → `{ "<semana>/<id>": comentarios }`. Archivos ilegibles se ignoran. */
