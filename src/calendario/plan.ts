@@ -43,6 +43,8 @@ export interface Plan {
   experimento: { variable: string; hipotesis: string; piezas: string[]; confusores?: string[] } | null;
   piezas: Pieza[];
   motivo?: string;
+  /** Piezas que no pasaron el lector frío y se quitaron del plan, con sus notas (las lee el bucle para agrupar fallos por causa). */
+  caidas?: { id: string; intentos?: number; notas?: string }[];
 }
 
 /** URLs públicas de una pieza, armadas por el bot al publicar (`mediosPublicos`). Nunca se guardan. */
@@ -127,6 +129,7 @@ export const PlanSchema: z.ZodType<Plan, z.ZodTypeDef, unknown> = z
     experimento: z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()), confusores: z.array(z.string()).optional() }).nullable().default(null),
     piezas: z.array(PiezaSchema),
     motivo: z.string().optional(),
+    caidas: z.array(z.object({ id: z.string(), intentos: z.number().int().optional(), notas: z.string().optional() })).optional(),
   })
   .superRefine((p, ctx) => {
     const vistos = new Set<string>();

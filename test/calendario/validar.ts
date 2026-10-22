@@ -580,6 +580,16 @@ function plan(over: Record<string, unknown> = {}): any {
 
 check("calendario/validar: plan válido → []", () => assertNone(validarPlan(plan(), config)));
 
+check("calendario/validar: plan.caidas (piezas que no pasaron el lector frío) se valida y lo lee plan.ts", () => {
+  const caidas = [{ id: "sab-reel-dots", intentos: 3, notas: "v1: el completo no entendió «Dots»" }];
+  assertNone(validarPlan(plan({ caidas }), config));
+  assert.deepEqual(parsePlan(JSON.stringify(plan({ caidas }))).caidas, caidas);
+  assertHas(validarPlan(plan({ caidas: "x" }), config), /caidas debe ser una lista/);
+  assertHas(validarPlan(plan({ caidas: [{ notas: "x" }] }), config), /caidas\[0\] necesita id/);
+  assertHas(validarPlan(plan({ caidas: [{ id: "a", intentos: 0 }] }), config), /intentos debe ser un entero/);
+  assertHas(validarPlan(plan({ caidas: [{ id: "a", notas: 3 }] }), config), /notas debe ser texto/);
+});
+
 check("calendario/validar: plan — dos piezas a menos de separacionMinHoras → error", () => {
   const p = plan();
   p.piezas[1].hora = "08:30"; // lun 14:00 → mar 08:30 = 18,5 h
