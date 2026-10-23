@@ -789,6 +789,175 @@ await checkAsync("crearEscritorRender (I4): commit de render.json fallido → er
   }
 });
 
+// --- visual.json (fase 2): misma maquinaria que render.json ---
+
+function baseGit(raiz: string): { bare: string; mac: string } {
+  const bare = join(raiz, "remoto.git");
+  git(raiz, "init", "--bare", "-b", "main", bare);
+  const mac = join(raiz, "mac");
+  git(raiz, "clone", bare, mac);
+  mkdirSync(join(mac, "_calendario", SEMANA), { recursive: true });
+  writeFileSync(join(mac, "_calendario", SEMANA, "plan.json"), "{}");
+  git(mac, "add", ".");
+  git(mac, "commit", "-m", "plan");
+  git(mac, "push", "-u", "origin", "main");
+  return { bare, mac };
+}
+
+async function conEnvGit<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = { KB_DIR: process.env.KB_DIR, PUSH: process.env.KB_GIT_PUSH, GIT: process.env.KB_GIT };
+  try {
+    return await fn();
+  } finally {
+    for (const [k, v] of [["KB_DIR", prev.KB_DIR], ["KB_GIT_PUSH", prev.PUSH], ["KB_GIT", prev.GIT]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+await checkAsync("crearEscritorRender: escribirVisual + confirmar → visual.json fusionado por id, commit «calendario: visual …» y push", () =>
+  conEnvGit(async () => {
+    const raiz = mkdtempSync(join(tmpdir(), "cal-git-visual-"));
+    try {
+      const { bare, mac } = baseGit(raiz);
+      process.env.KB_DIR = mac;
+      process.env.KB_GIT_PUSH = "1";
+      delete process.env.KB_GIT;
+      const avisos: string[] = [];
+      const esc = crearEscritorRender({ avisar: async (t) => void avisos.push(t) });
+      const fase1 = [{ tipo: "tilde" as const, motivo: "m1", en: "1" }];
+      await esc.escribirVisual(SEMANA, "mar-a", { fase1 });
+      await esc.escribirVisual(SEMANA, "_presupuesto", { imagenes: 3, usd: 0.1 });
+      await esc.escribirRender(SEMANA, "mar-a", { estado: "renderizado", en: "1" });
+      await esc.confirmar(SEMANA);
+      assert.deepEqual(avisos, []);
+      assert.equal(esc.huboError(), false);
+      const remoto = JSON.parse(git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/visual.json`));
+      assert.deepEqual(remoto, { "mar-a": { fase1 }, _presupuesto: { imagenes: 3, usd: 0.1 } });
+      assert.ok(JSON.parse(git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/render.json`))["mar-a"], "render.json sube igual");
+      const log = git(raiz, "--git-dir", bare, "log", "--format=%s", "main").trim().split("\n");
+      assert.ok(log.includes(`calendario: visual ${SEMANA} (2 piezas)`), log.join("\n"));
+      assert.ok(log.includes(`calendario: render ${SEMANA} (1 pieza)`), log.join("\n"));
+
+      // Reemplazo por id (no fusión profunda): otra entrada de la misma pieza la pisa entera.
+      await esc.escribirVisual(SEMANA, "mar-a", { fase1: [...fase1, { tipo: "zona", motivo: "m2", en: "2" }] });
+      await esc.confirmar(SEMANA);
+      const v2 = JSON.parse(git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/visual.json`));
+      assert.equal(v2["mar-a"].fase1.length, 2);
+      assert.deepEqual(v2._presupuesto, { imagenes: 3, usd: 0.1 }, "las otras ids se conservan");
+      assert.equal(git(mac, "status", "--porcelain").trim(), "");
+    } finally {
+      rmSync(raiz, { recursive: true, force: true });
+    }
+  }),
+);
+
+// Review Focus 2: un commit local de visual.json sin subir es «propio» para alinearConRemoto.
+await checkAsync("sincronizarPendiente: un commit local «calendario: visual …» sin subir se re-aplica y sube (no «no son de render.json»)", () =>
+  conEnvGit(async () => {
+    const raiz = mkdtempSync(join(tmpdir(), "cal-git-visual-pend-"));
+    try {
+      const { bare, mac } = baseGit(raiz);
+      const otro = join(raiz, "otro");
+      git(raiz, "clone", bare, otro);
+      process.env.KB_DIR = mac;
+      delete process.env.KB_GIT;
+      // Sin push: queda un commit local de visual.json (y otro de render.json).
+      process.env.KB_GIT_PUSH = "0";
+      const esc = crearEscritorRender({ avisar: async () => {} });
+      await esc.escribirVisual(SEMANA, "mar-a", { fase1: [{ tipo: "tilde", motivo: "m", en: "1" }] });
+      await esc.escribirRender(SEMANA, "mar-a", { estado: "renderizado", en: "1" });
+      await esc.confirmar(SEMANA);
+      const asuntos = git(mac, "log", "--format=%s", "@{u}..HEAD").trim().split("\n");
+      assert.ok(asuntos.includes(`calendario: visual ${SEMANA} (1 pieza)`), asuntos.join("\n"));
+      // El remoto avanzó entre medio (otra máquina): obliga a alinear.
+      writeFileSync(join(otro, "_calendario", SEMANA, "estado.json"), "{}");
+      git(otro, "add", ".");
+      git(otro, "commit", "-m", "otro");
+      git(otro, "push");
+
+      process.env.KB_GIT_PUSH = "1";
+      const err = await sincronizarPendiente([SEMANA]);
+      assert.equal(err, undefined, err);
+      const v = JSON.parse(git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/visual.json`));
+      assert.equal(v["mar-a"].fase1[0].motivo, "m");
+      assert.ok(JSON.parse(git(raiz, "--git-dir", bare, "show", `main:_calendario/${SEMANA}/render.json`))["mar-a"]);
+      assert.equal(git(mac, "rev-list", "--count", "@{u}..HEAD").trim(), "0");
+      assert.equal(git(mac, "status", "--porcelain").trim(), "");
+    } finally {
+      rmSync(raiz, { recursive: true, force: true });
+    }
+  }),
+);
+
+await checkAsync("sincronizarPendiente sin push (KB_GIT_PUSH≠1): también commitea el visual.json pendiente", () =>
+  conEnvGit(async () => {
+    const raiz = mkdtempSync(join(tmpdir(), "cal-git-visual-local-"));
+    try {
+      const { mac } = baseGit(raiz);
+      process.env.KB_DIR = mac;
+      process.env.KB_GIT_PUSH = "0";
+      delete process.env.KB_GIT;
+      writeFileSync(join(mac, "_calendario", SEMANA, "visual.json"), JSON.stringify({ "mar-a": { fase1: [] } }));
+      assert.equal(await sincronizarPendiente([SEMANA]), undefined);
+      assert.equal(git(mac, "log", "-1", "--format=%s").trim(), `calendario: visual ${SEMANA} (recuperado)`);
+      assert.equal(git(mac, "status", "--porcelain").trim(), "");
+    } finally {
+      rmSync(raiz, { recursive: true, force: true });
+    }
+  }),
+);
+
+await checkAsync("procesar: ErrorVisual anota los motivos nuevos en visual.json (fase1 acumulativo, conserva revisor)", () =>
+  conEnvGit(() =>
+    conOut(async (out) => {
+      const kb = mkdtempSync(join(tmpdir(), "cal-kb-visual-"));
+      try {
+        process.env.KB_DIR = kb;
+        const revisor = { en: "0", modelo: "m", estado: "revisado" as const, imagenes: [], usd: 0 };
+        mkdirSync(semanaDir(SEMANA), { recursive: true });
+        writeFileSync(join(semanaDir(SEMANA), "visual.json"), JSON.stringify({ "lun-visual": { revisor, fase1: [{ tipo: "zona", motivo: "previo", en: "0" }] } }));
+        const escritosVisual: [string, string, unknown][] = [];
+        const tilde = `escena 1 (Hook): tilde pisa (${TOKEN})`;
+        let err = new ErrorVisual([{ tipo: "tilde", motivo: tilde }]);
+        const mk = () => falsos({
+          render: async () => {
+            throw err;
+          },
+          escribirVisual: async (s, id, e) => {
+            escritosVisual.push([s, id, e]);
+          },
+        });
+        await procesar([pend("lun-visual")], out, ENV, mk().deps);
+        assert.equal(escritosVisual.length, 1);
+        const [s, id, e] = escritosVisual[0] as [string, string, { revisor?: unknown; fase1: { tipo: string; motivo: string; en: string }[] }];
+        assert.equal(s, SEMANA);
+        assert.equal(id, "lun-visual");
+        assert.deepEqual(e.revisor, revisor, "conserva el revisor");
+        assert.equal(e.fase1.length, 2);
+        assert.deepEqual(e.fase1[0], { tipo: "zona", motivo: "previo", en: "0" });
+        assert.equal(e.fase1[1].tipo, "tilde");
+        assert.match(e.fase1[1].motivo, /tilde pisa/);
+        assert.ok(!e.fase1[1].motivo.includes(TOKEN), "sin token");
+        assert.equal(e.fase1[1].en, AHORA.toISOString());
+
+        // Mismo motivo en la corrida siguiente: ya avisado → no se anota de nuevo.
+        await procesar([pend("lun-visual")], out, ENV, mk().deps);
+        assert.equal(escritosVisual.length, 1, "el motivo ya avisado no se repite en fase1");
+        // Uno nuevo de otro tipo: se anota solo ese.
+        err = new ErrorVisual([{ tipo: "tilde", motivo: tilde }, { tipo: "puntuacion", motivo: "espacio antes de «,»" }]);
+        await procesar([pend("lun-visual")], out, ENV, mk().deps);
+        assert.equal(escritosVisual.length, 2);
+        const nuevo = (escritosVisual[1][2] as { fase1: { tipo: string; motivo: string }[] }).fase1;
+        assert.deepEqual(nuevo.slice(-1).map((x) => [x.tipo, x.motivo]), [["puntuacion", "espacio antes de «,»"]]);
+      } finally {
+        rmSync(kb, { recursive: true, force: true });
+      }
+    }),
+  ),
+);
+
 // --- Telegram directo ---
 
 await checkAsync("avisarTelegram: manda a cada chat, oculta tokens y nunca lanza", async () => {

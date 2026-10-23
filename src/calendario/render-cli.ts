@@ -161,6 +161,7 @@ try {
       rsync: rsyncReal,
       verificar: verificarReal,
       escribirRender: escritor.escribirRender,
+      escribirVisual: escritor.escribirVisual,
       confirmar: escritor.confirmar,
       avisar,
       log: (t) => console.log(ocultarToken(t, token)),
