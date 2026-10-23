@@ -10,7 +10,7 @@ import { localParts } from "./time.ts";
 
 export type TipoHallazgo = "tilde" | "puntuacion" | "transicion" | "numero-solo" | "zona" | "fondo-compite" | "fondo-ajeno";
 
-export interface VeredictoImagen { n: number; que: string; compite: boolean; ajeno: boolean; frase: string }
+export interface VeredictoImagen { n: number; que: string; /** Índice (desde 0) de la slide o escena del cuadro; ausente en veredictos antiguos. */ slide?: number; compite: boolean; ajeno: boolean; frase: string }
 
 export interface RevisionPieza {
   en: string;
@@ -26,7 +26,11 @@ export interface RevisionPieza {
   usdEstimado?: true;
 }
 
+/** Lo que hizo la fase 3 con la pieza: `en` es la fecha ISO; `slides` los índices que se re-renderizaron con fondo liso. */
+export interface CorreccionPieza { en: string; estado: "aplicada" | "fallida" | "omitida"; slides: number[]; motivo?: string }
+
 export interface VisualPieza {
+  correccion?: CorreccionPieza;
   revisor?: RevisionPieza;
   /** Revisiones fallidas sin veredicto (sin costo o con costo estimado); al llegar al tope se anota «sin revisar». */
   intentos?: number;
@@ -76,6 +80,12 @@ export async function leerVisual(semana: string): Promise<VisualJson> {
     if ("fase1" in pieza && !Array.isArray(pieza.fase1)) delete pieza.fase1;
     if ("revisor" in pieza && !(esObjeto(pieza.revisor) && Array.isArray(pieza.revisor.imagenes))) delete pieza.revisor;
     if ("intentos" in pieza && !(Number.isInteger(pieza.intentos) && (pieza.intentos as number) >= 0)) delete pieza.intentos;
+    if ("correccion" in pieza) {
+      const c = pieza.correccion;
+      const ok = esObjeto(c) && typeof c.en === "string" && (c.estado === "aplicada" || c.estado === "fallida" || c.estado === "omitida") &&
+        Array.isArray(c.slides) && c.slides.every((x) => Number.isInteger(x) && (x as number) >= 0) && (c.motivo === undefined || typeof c.motivo === "string");
+      if (!ok) delete pieza.correccion;
+    }
     out[k] = pieza;
   }
   return out as VisualJson;

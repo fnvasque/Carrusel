@@ -173,7 +173,7 @@ try {
     assert.ok(!readdirSync(join(medios, semana, "prueba-reel")).some((f) => /^\d+\.jpg$/.test(f)), "los cuadros no se subieron");
 
     // Un segundo más allá del final del video: ffmpeg sale 0 sin archivo → error claro.
-    await assert.rejects(extraerCuadros(finalReel, destino, [{ n: 1, que: "fuera", t: 9999, archivo: "reel.mp4" }]), /No pude extraer el cuadro/);
+    await assert.rejects(extraerCuadros(finalReel, destino, [{ n: 1, que: "fuera", slide: 0, t: 9999, archivo: "reel.mp4" }]), /No pude extraer el cuadro/);
 
     // render.json llegó al remoto, con las URLs que el servidor sirve.
     const clon = join(raiz, "clon");

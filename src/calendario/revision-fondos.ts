@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { cuadrosARevisar, extraerCuadros, transicionDe } from "./cuadros-visuales.ts";
+import { cuadrosARevisar, extraerCuadros, transicionDe, type Cuadro } from "./cuadros-visuales.ts";
 import { parseBorrador, type Borrador } from "./draft.ts";
 import { estadoEfectivo, type Pieza, type SemanaLeida } from "./plan.ts";
 import { TEXT_KEYS } from "./qa.ts";
@@ -212,11 +212,13 @@ export async function revisarRenderizadas(
 
         let revision: RevisionPieza;
         let rutas: { n: number; ruta: string; que: string }[] = [];
+        let cuadrosPedidos: Cuadro[] = [];
         let intentos: number | undefined;
         if (c.imagenes === 0) {
           revision = sinRevisar(en, c.motivo ?? "sin cupo");
         } else {
           const cuadros = cuadrosARevisar(pieza.formato, b, manifiesto.escenas, transicion, Math.min(c.imagenes, TOPES_REVISOR.imagenesPorPieza), quitados);
+          cuadrosPedidos = cuadros;
           // Un fallo al extraer no se anota: la próxima corrida reintenta.
           rutas = await deps.extraer(final, destino, cuadros);
           // El plazo se mira también justo antes de llamar: así se pasa a lo más por una llamada.
@@ -252,7 +254,13 @@ export async function revisarRenderizadas(
             res.usd += usd;
           }
         }
-        revision = { ...revision, ...(revision.motivo !== undefined ? { motivo: sinClaves(revision.motivo) } : {}) };
+        // Cada veredicto lleva la slide de su cuadro (mismo `n`) para que la fase 3 sepa qué corregir.
+        const slidePorN = new Map(cuadrosPedidos.map((q) => [q.n, q.slide]));
+        revision = {
+          ...revision,
+          ...(revision.motivo !== undefined ? { motivo: sinClaves(revision.motivo) } : {}),
+          imagenes: revision.imagenes.map((v) => (slidePorN.has(v.n) ? { ...v, slide: slidePorN.get(v.n) as number } : v)),
+        };
 
         await escribir(semana, id, { ...previa, ...(intentos !== undefined ? { intentos } : {}), revisor: revision });
         await escribir(semana, "_presupuesto", { ...pres });

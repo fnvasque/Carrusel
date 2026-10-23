@@ -496,3 +496,13 @@ await checkAsync("revisarRenderizadas: 5 escenas señaladas → 3 fotos (tope po
     assert.ok(m.reg.logs.some((l) => /2 imagen\(es\) señalada\(s\) más quedan solo en visual\.json/.test(l)), m.reg.logs.join("\n"));
   }),
 );
+
+await checkAsync("revisarRenderizadas: cada veredicto guardado lleva la slide de su cuadro", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    await revisarRenderizadas(m.semanas, m.out, deps());
+    const imgs = m.visual.get(SEMANA)!["mar-reel-uno"].revisor!.imagenes;
+    // Reel de 2 escenas: portada (0), escena 1 a 1 s y final (0), escena 2 a 0 s y final (1).
+    assert.deepEqual(imgs.map((v) => [v.que, v.slide]), m.reg.extraer[0].map((c) => [c.que, c.slide]));
+    assert.deepEqual(imgs.map((v) => v.slide), [0, 0, 0, 1, 1]);
+  }),
+);

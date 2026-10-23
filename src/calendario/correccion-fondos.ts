@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { calendarioDir, listarSemanas } from "./plan.ts";
-import { leerRespuestasVisuales, leerVisual, resumenVisual, visualPath } from "./visual.ts";
+import type { Borrador } from "./draft.ts";
+import { leerRespuestasVisuales, leerVisual, resumenVisual, visualPath, type VeredictoImagen } from "./visual.ts";
 
 /** Puerta de la fase 3 (corrección automática de fondos): cuántos avisos respondidos y qué precisión hacen falta. */
 export const UMBRAL_CORRECCION = { respondidos: 30, precision: 0.8 } as const;
@@ -46,4 +47,26 @@ export async function leerPuertaCorreccion(): Promise<PuertaCorreccion> {
   } catch (err) {
     return { activa: false, respondidos: 0, motivo: `no se pudo leer la puerta: ${err instanceof Error ? err.message : String(err)}` };
   }
+}
+
+/**
+ * Pura: índices de slide (ordenados, sin repetir) con aviso (`compite || ajeno`) cuyo borrador tiene
+ * `background.ai` y no es `Clip`; excluye los que `fondosIaQuitados` ya quita (`yaQuitadas`).
+ * Falla seguro: un veredicto sin `slide` entero ≥ 0 o fuera de rango no corrige nada.
+ */
+export function slidesACorregir(b: Borrador, imagenes: VeredictoImagen[], yaQuitadas: number[]): number[] {
+  const quitadas = new Set(yaQuitadas);
+  const out = new Set<number>();
+  for (const v of imagenes) {
+    if (!v || (!v.compite && !v.ajeno)) continue;
+    const i = v.slide;
+    if (typeof i !== "number" || !Number.isInteger(i) || i < 0 || i >= b.slides.length) continue;
+    if (quitadas.has(i)) continue;
+    const s = b.slides[i];
+    if (s.template === "Clip") continue;
+    const bg = s.background as Record<string, unknown> | undefined | null;
+    if (!bg || typeof bg !== "object" || typeof bg.ai !== "string") continue;
+    out.add(i);
+  }
+  return [...out].sort((x, y) => x - y);
 }
