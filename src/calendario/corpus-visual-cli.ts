@@ -1,16 +1,18 @@
 import { existsSync } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { ErrorVisual } from "../render/revision.ts";
 import { resumirCorpus, type ResultadoCorpus } from "./corpus-visual.ts";
 
 /**
- * `npm run calendario:corpus-visual -- --kb <dir> [--semanas a,b,c] [--solo <id>]`
+ * `npm run calendario:corpus-visual -- --kb <dir> [--semanas a,b,c] [--solo <id>] [--conservar <dir>]`
  * Re-renderiza cada pieza del plan de 3 semanas (sin importar hora ni estado) en una carpeta
  * temporal con la revisión visual en modo bloquear. Solo lectura sobre la base: no sube nada,
  * no escribe render.json, no avisa por Telegram, no llama a APIs de pago (fondos ai solo de caché).
- * Sale con código 1 si hay al menos una violación visual.
+ * Sale con código 1 si hay al menos una violación visual, y con 2 si `--semanas`/`--solo` no
+ * coinciden con ninguna pieza. `--conservar <dir>` copia los archivos de cada pieza (también los
+ * intermedios de `.trabajo/` cuando la revisión la bloquea) a `<dir>/<semana>/<id>/` para sacar cuadros.
  */
 
 const arg = (n: string): string | undefined => {
@@ -21,6 +23,7 @@ const arg = (n: string): string | undefined => {
 const kb = resolve(arg("kb") ?? join(process.cwd(), "knowledge"));
 const semanasPedidas = (arg("semanas") ?? "2026-10-05,2026-10-12,2026-10-19").split(",").map((s) => s.trim()).filter(Boolean);
 const solo = arg("solo");
+const conservar = arg("conservar") ? resolve(arg("conservar")!) : undefined;
 
 // Antes de importar nada que lea la base o la caché de fondos.
 process.env.KB_DIR = kb;
@@ -67,11 +70,17 @@ for (const semana of semanasPedidas) {
       else r = { semana, id: pieza.id, estado: "otro", motivos: [`entorno: ${e instanceof Error ? e.message : String(e)}`] };
     }
     resultados.push(r);
+    if (conservar) await cp(tmp, join(conservar, semana, pieza.id), { recursive: true });
     console.log(`${r.estado.padEnd(7)} ${semana}/${pieza.id} (${pieza.formato}) ${((Date.now() - t0) / 1000).toFixed(1)} s${r.motivos.length ? ` — ${r.motivos.join(" | ")}` : ""}`);
     await rm(tmp, { recursive: true, force: true });
   }
 }
 await rm(raiz, { recursive: true, force: true });
+
+if (resultados.length === 0) {
+  console.error(`❌ Ninguna pieza coincide con --semanas ${semanasPedidas.join(",")}${solo ? ` --solo ${solo}` : ""} en ${kb}.`);
+  process.exit(2);
+}
 
 const { texto, violaciones } = resumirCorpus(resultados);
 console.log(texto);
