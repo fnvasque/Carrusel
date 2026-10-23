@@ -25,6 +25,7 @@ import {
 import { qaHookVideo, qaImagen, qaReel, type Puerta } from "./qa.ts";
 import { CLIPS_DIR_DEFECTO, clipsFaltantes, mezclarClips, rangosClips, rutaClip } from "./clips.ts";
 import { zonedToUtc } from "./time.ts";
+import { leerVisual, type PresupuestoSemana, type TipoHallazgo, type VisualPieza } from "./visual.ts";
 
 /**
  * Render del calendario en el Mac (`npm run calendario:render`, lanzado cada hora
@@ -42,7 +43,7 @@ export interface PiezaPendiente {
 }
 
 /** Instante de publicación de una pieza (hora local de Chile). */
-function horaDe(p: Pieza): number {
+export function horaDe(p: Pieza): number {
   return zonedToUtc(p.dia, p.hora).getTime();
 }
 
@@ -109,7 +110,7 @@ export function dirMediosValido(dir: string): boolean {
 
 export interface Deps {
   /** Renderiza la pieza en `tmp` (y corre el QA). Devuelve los nombres de archivo. Lanza si falla. */
-  render: (p: PiezaPendiente, tmp: string) => Promise<{ archivos: string[]; duracionMs?: number }>;
+  render: (p: PiezaPendiente, tmp: string) => Promise<{ archivos: string[]; duracionMs?: number; escenas?: { start: number; dur: number }[] }>;
   /** Sube `local/` a `remoto` (`host:dir/semana/id/`, o una ruta local). Lanza si falla. */
   rsync: (local: string, remoto: string) => Promise<void>;
   /** ¿El servidor sirve `url` con 200 y el Content-Type `tipo`? */
@@ -118,6 +119,12 @@ export interface Deps {
   escribirRender: (semana: string, id: string, e: RenderEntry) => Promise<void>;
   /** Avisa por Telegram. `false` = no se entregó (el aviso visual se repite en la próxima corrida). */
   avisar: (texto: string) => Promise<boolean | void>;
+  /**
+   * Anota la entrada de `visual.json` de una pieza (`_presupuesto` para el contador). Opcional.
+   * Reemplaza por id, también dentro de la corrida (el buffer no fusiona): pasa siempre el valor
+   * completo (p. ej. el contador `_presupuesto` acumulado en memoria, no un incremento).
+   */
+  escribirVisual?: (semana: string, id: string, e: VisualPieza | PresupuestoSemana) => Promise<void>;
   /** Escribe de una vez lo acumulado de una semana (un commit por semana y corrida). */
   confirmar?: (semana: string) => Promise<void>;
   ahora?: () => Date;
@@ -138,20 +145,27 @@ export interface EnvRender {
 /** Manifiesto de una carpeta final: qué archivos tiene y la duración del reel. No se sube. */
 export const MANIFIESTO = ".manifiesto.json";
 
-interface Manifiesto {
+export interface Manifiesto {
   archivos: string[];
   duracionMs?: number;
+  /** Reel: inicio y duración (s) de cada escena, para elegir los cuadros de la revisión visual. */
+  escenas?: { start: number; dur: number }[];
 }
 
 const ARCHIVO_RE = /^[a-z0-9][a-z0-9._-]*\.(jpg|mp4)$/;
 
 /** Manifiesto válido y con todos sus archivos presentes, o undefined (carpeta incompleta o ajena). */
-async function leerManifiesto(final: string): Promise<Manifiesto | undefined> {
+export async function leerManifiesto(final: string): Promise<Manifiesto | undefined> {
   try {
     const m = JSON.parse(await readFile(join(final, MANIFIESTO), "utf8")) as Manifiesto;
     if (!Array.isArray(m.archivos) || !m.archivos.length) return undefined;
     if (!m.archivos.every((a) => typeof a === "string" && ARCHIVO_RE.test(a) && existsSync(join(final, a)))) return undefined;
     if (m.duracionMs !== undefined && typeof m.duracionMs !== "number") return undefined;
+    // `escenas` es opcional (manifiestos antiguos no lo traen); mal formado se ignora, no invalida la carpeta.
+    if (m.escenas !== undefined) {
+      const ok = Array.isArray(m.escenas) && m.escenas.every((e) => e && Number.isFinite(e.start) && Number.isFinite(e.dur));
+      if (!ok) delete m.escenas;
+    }
     return m;
   } catch {
     return undefined;
@@ -270,10 +284,23 @@ export async function procesar(
       await mkdir(tmp, { recursive: true });
       try {
         const r = await deps.render(p, tmp);
-        manifiesto = { archivos: r.archivos, ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}) };
+        manifiesto = { archivos: r.archivos, ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}), ...(r.escenas?.length ? { escenas: r.escenas } : {}) };
         await writeFile(join(tmp, MANIFIESTO), JSON.stringify(manifiesto), "utf8");
         await rename(tmp, final);
         await olvidarAvisosVisuales(outRoot, p.semana, id).catch((e) => log(`⚠️  No pude limpiar el registro de avisos visuales: ${oculto(razon(e))}`));
+        // Render nuevo: el veredicto del revisor (y sus intentos) era del render anterior; se
+        // borra para que la revisión de fondos mire este. fase1 se conserva.
+        if (deps.escribirVisual) {
+          try {
+            const previa: VisualPieza = (await leerVisual(p.semana))[id] ?? {};
+            if (previa.revisor !== undefined || previa.intentos !== undefined) {
+              const { revisor: _r, intentos: _i, ...resto } = previa;
+              await deps.escribirVisual(p.semana, id, resto);
+            }
+          } catch (err) {
+            log(`⚠️  No pude limpiar el revisor de ${id} en visual.json: ${oculto(razon(err))}`);
+          }
+        }
       } catch (e) {
         await rm(tmp, { recursive: true, force: true });
         // Revisión visual (antes que el error de entorno): no se sube, sigue planificada y
@@ -282,6 +309,26 @@ export async function procesar(
           const motivos = [...new Set(e.hallazgos.map((h) => oculto(h.motivo)))];
           if (!motivos.length) motivos.push(oculto(e.message));
           log(`✗ ${etiqueta} no pasa la revisión visual: ${motivos.join("; ")}`);
+          // Registro común (visual.json), independiente de Telegram: cada (tipo, motivo) una
+          // sola vez por pieza, con la hora de detección. Una recurrencia no se re-anota.
+          if (deps.escribirVisual) {
+            try {
+              const detectado = en();
+              const previa: VisualPieza = (await leerVisual(p.semana))[id] ?? {};
+              const vistos = new Set((previa.fase1 ?? []).map((f) => JSON.stringify([f.tipo, f.motivo])));
+              const items: { tipo: TipoHallazgo; motivo: string; en: string }[] = [];
+              for (const h of e.hallazgos) {
+                const motivo = oculto(h.motivo);
+                const k = JSON.stringify([h.tipo, motivo]);
+                if (vistos.has(k)) continue;
+                vistos.add(k);
+                items.push({ tipo: h.tipo, motivo, en: detectado });
+              }
+              if (items.length) await deps.escribirVisual(p.semana, id, { ...previa, fase1: [...(previa.fase1 ?? []), ...items] });
+            } catch (err) {
+              log(`⚠️  No pude anotar la fase 1 en visual.json: ${oculto(razon(err))}`);
+            }
+          }
           // Se anotan solo si el aviso llegó: si Telegram falla, la próxima corrida vuelve a avisar.
           const nuevos = await avisosVisualesPendientes(outRoot, p.semana, id, motivos);
           if (nuevos.length) {
@@ -589,7 +636,7 @@ export async function renderPieza(
     /** Solo para el corpus de la revisión visual: salta la puerta de score (`scoreDraft`). Nunca en el render del calendario. */
     omitirScore?: boolean;
   },
-): Promise<{ archivos: string[]; duracionMs?: number }> {
+): Promise<{ archivos: string[]; duracionMs?: number; escenas?: { start: number; dur: number }[] }> {
   const texto = await leerBorradorSeguro(p.semana, p.pieza.borrador);
   let b: Borrador;
   try {
@@ -616,6 +663,7 @@ export async function renderPieza(
   const archivos: string[] = [];
   const motivos: string[] = [];
   let duracionMs: number | undefined;
+  let escenas: { start: number; dur: number }[] | undefined;
 
   if (p.pieza.formato === "carrusel") {
     const spec = borradorASpec(b);
@@ -668,6 +716,7 @@ export async function renderPieza(
     ffmpeg(["-ss", "0", "-i", join(tmp, "reel.mp4"), "-frames:v", "1", "-q:v", "2", join(tmp, "cover.jpg")]);
     archivos.push("reel.mp4", "cover.jpg");
     duracionMs = r.durationMs;
+    escenas = r.timing.scenes.map((e) => ({ start: e.start, dur: e.dur }));
     const qa = await qaReel(join(tmp, "reel.mp4"), join(tmp, "cover.jpg"), spec, opts.puerta, r.timing);
     motivos.push(...qa.motivos);
   }
@@ -682,7 +731,7 @@ export async function renderPieza(
 
   await rm(trabajo, { recursive: true, force: true });
   if (motivos.length) throw new ErrorContenido(motivos);
-  return { archivos, ...(duracionMs !== undefined ? { duracionMs } : {}) };
+  return { archivos, ...(duracionMs !== undefined ? { duracionMs } : {}), ...(escenas ? { escenas } : {}) };
 }
 
 
@@ -761,12 +810,23 @@ function gitEn(cwd: string, args: string[]): Promise<{ code: number; out: string
 
 const ultimaLinea = (s: string): string => s.trim().split("\n").pop() ?? "";
 const lineas = (s: string): string[] => s.split("\n").map((l) => l.trim()).filter(Boolean);
-/** render.json de una semana, relativo a la raíz del repo. */
-const RENDER_REL_RE = /(?:^|\/)_calendario\/(\d{4}-\d{2}-\d{2})\/render\.json$/;
+/** render.json o visual.json de una semana, relativo a la raíz del repo. */
+const RENDER_REL_RE = /(?:^|\/)_calendario\/(\d{4}-\d{2}-\d{2})\/(render\.json|visual\.json)$/;
 const ASUNTO_RENDER = "calendario: render ";
+const ASUNTO_VISUAL = "calendario: visual ";
 const REINTENTOS_PUSH = 3;
 
+/** Archivos que escribe el Mac en la semana (único escritor de cada uno). */
+type ArchivoMac = "render.json" | "visual.json";
+const ASUNTO: Record<ArchivoMac, string> = { "render.json": ASUNTO_RENDER, "visual.json": ASUNTO_VISUAL };
+
 type Entradas = Record<string, unknown>;
+/** Las entradas pendientes se indexan por (semana, archivo): clave `<semana>/<archivo>`. */
+const clave = (semana: string, archivo: ArchivoMac): string => `${semana}/${archivo}`;
+function deClave(k: string): { semana: string; archivo: ArchivoMac } {
+  const i = k.indexOf("/");
+  return { semana: k.slice(0, i), archivo: k.slice(i + 1) as ArchivoMac };
+}
 
 function parsearMapa(texto: string | undefined, origen: string): Entradas {
   if (texto === undefined) return {};
@@ -788,9 +848,9 @@ async function leerSiExiste(path: string): Promise<string | undefined> {
   }
 }
 
-/** Aplica `entradas` sobre el render.json que hay en disco (tmp + rename). Devuelve la ruta. */
-async function aplicarEntradas(semana: string, entradas: Entradas): Promise<string> {
-  const archivo = join(semanaDir(semana), "render.json");
+/** Aplica `entradas` (reemplazo por id) sobre el render.json o visual.json en disco (tmp + rename). Devuelve la ruta. */
+async function aplicarEntradas(semana: string, nombre: ArchivoMac, entradas: Entradas): Promise<string> {
+  const archivo = join(semanaDir(semana), nombre);
   const actual = parsearMapa(await leerSiExiste(archivo), archivo);
   await mkdir(dirname(archivo), { recursive: true });
   const tmp = `${archivo}.tmp-${process.pid}`;
@@ -800,10 +860,10 @@ async function aplicarEntradas(semana: string, entradas: Entradas): Promise<stri
 }
 
 /** Commit local de un solo archivo. */
-async function commitArchivo(root: string, archivo: string, n: number, semana: string): Promise<boolean> {
+async function commitArchivo(root: string, archivo: string, n: number, semana: string, nombre: ArchivoMac): Promise<boolean> {
   const rel = relative(root, await realpath(archivo));
   if ((await gitEn(root, ["add", "--", rel])).code !== 0) return false;
-  const msg = `${ASUNTO_RENDER}${semana} (${n} ${n === 1 ? "pieza" : "piezas"})`;
+  const msg = `${ASUNTO[nombre]}${semana} (${n} ${n === 1 ? "pieza" : "piezas"})`;
   return (await gitEn(root, ["commit", "-m", msg, "--", rel])).code === 0;
 }
 
@@ -813,14 +873,17 @@ async function commitArchivo(root: string, archivo: string, n: number, semana: s
  * la próxima corrida lo sube (`sincronizarPendiente`), pero esta corrida no es buena (I4).
  */
 async function escribirLocal(root: string | undefined, todas: Map<string, Entradas>): Promise<string | undefined> {
-  const fallidas: string[] = [];
-  for (const [semana, entradas] of todas) {
+  const fallidas = new Map<ArchivoMac, string[]>();
+  for (const [k, entradas] of todas) {
+    const { semana, archivo: nombre } = deClave(k);
     const n = Object.keys(entradas).length;
     if (!n) continue;
-    const archivo = await aplicarEntradas(semana, entradas);
-    if (root && !(await commitArchivo(root, archivo, n, semana))) fallidas.push(semana);
+    const archivo = await aplicarEntradas(semana, nombre, entradas);
+    if (root && !(await commitArchivo(root, archivo, n, semana, nombre))) fallidas.set(nombre, [...(fallidas.get(nombre) ?? []), semana]);
   }
-  return fallidas.length ? `no pude commitear render.json de ${fallidas.join(", ")} (¿otra operación de git tiene tomada la base?)` : undefined;
+  if (!fallidas.size) return undefined;
+  const partes = [...fallidas].map(([nombre, semanas]) => `${nombre} de ${semanas.join(", ")}`);
+  return `no pude commitear ${partes.join("; ")} (¿otra operación de git tiene tomada la base?)`;
 }
 
 function combinar(a: Map<string, Entradas>, b: Map<string, Entradas>): Map<string, Entradas> {
@@ -845,13 +908,13 @@ async function entradasLocales(root: string): Promise<Map<string, Entradas>> {
     if (r.code === 0) for (const l of lineas(r.out)) if (RENDER_REL_RE.test(l)) rels.add(l);
   }
   for (const rel of rels) {
-    const semana = RENDER_REL_RE.exec(rel)![1];
+    const [, semana, nombre] = RENDER_REL_RE.exec(rel)!;
     const local = parsearMapa(await leerSiExiste(join(root, rel)), rel);
     const show = await gitEn(root, ["show", `${base}:${rel}`]);
     const previo = show.code === 0 ? parsearMapa(show.out, `${rel} (remoto)`) : {};
     const cambiadas: Entradas = {};
     for (const [id, e] of Object.entries(local)) if (JSON.stringify(e) !== JSON.stringify(previo[id])) cambiadas[id] = e;
-    if (Object.keys(cambiadas).length) out.set(semana, cambiadas);
+    if (Object.keys(cambiadas).length) out.set(clave(semana, nombre as ArchivoMac), cambiadas);
   }
   return out;
 }
@@ -866,11 +929,11 @@ async function alinearConRemoto(root: string): Promise<string | undefined> {
   if (adelante > 0) {
     const asuntos = lineas((await gitEn(root, ["log", "--format=%s", "@{u}..HEAD"])).out);
     const archivos = lineas((await gitEn(root, ["diff", "--name-only", "@{u}...HEAD"])).out);
-    if (!asuntos.every((s) => s.startsWith(ASUNTO_RENDER)) || !archivos.every((f) => RENDER_REL_RE.test(f))) {
-      return "la base del Mac tiene commits sin subir que no son de render.json; no los toco (revísalos con git log @{u}..HEAD)";
+    if (!asuntos.every((s) => s.startsWith(ASUNTO_RENDER) || s.startsWith(ASUNTO_VISUAL)) || !archivos.every((f) => RENDER_REL_RE.test(f))) {
+      return "la base del Mac tiene commits sin subir que no son de render.json ni visual.json; no los toco (revísalos con git log @{u}..HEAD)";
     }
   }
-  // Los render.json locales sin commit ya están capturados: se descartan para alinear.
+  // Los render.json y visual.json locales sin commit ya están capturados: se descartan para alinear.
   const sucios = lineas((await gitEn(root, ["diff", "--name-only", "HEAD"])).out).filter((f) => RENDER_REL_RE.test(f));
   if (sucios.length) await gitEn(root, ["checkout", "HEAD", "--", ...sucios]);
   const nuevos = lineas((await gitEn(root, ["ls-files", "--others", "--exclude-standard"])).out).filter((f) => RENDER_REL_RE.test(f));
@@ -946,34 +1009,49 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
     if (Object.keys(resto).length) faltan.set(s, resto);
   }
   const errLocal = await escribirLocal(root, faltan);
-  return [error, errLocal].filter(Boolean).join("; ") || "no pude subir render.json";
+  return [error, errLocal].filter(Boolean).join("; ") || "no pude subir render.json/visual.json";
 }
 
 /**
- * Escritor de `render.json` (único archivo que escribe el Mac): acumula las entradas de
- * la corrida y, por semana, las sube con `subirRender` (un solo commit por semana).
+ * Escritor de `render.json` y `visual.json` (los únicos archivos que escribe el Mac): acumula
+ * las entradas de la corrida y, por semana, las sube con `subirRender` (un commit por semana y
+ * archivo). Dentro de la corrida reemplaza la entrada de cada id: hay que pasar el valor completo.
  */
 export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<boolean | void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
   confirmar: (semana: string) => Promise<void>;
+  escribirVisual: (semana: string, id: string, e: VisualPieza | PresupuestoSemana) => Promise<void>;
+  /** Lo anotado con `escribirVisual` en esta corrida y aún sin confirmar (o `undefined`). */
+  visualPendiente: (semana: string, id: string) => unknown;
   /** ¿Alguna semana quedó sin subir? La corrida termina con código ≠ 0 (I4). */
   huboError: () => boolean;
 } {
-  const buffer = new Map<string, Record<string, RenderEntry>>();
+  /** Clave `<semana>/<archivo>` → entradas por id. */
+  const buffer = new Map<string, Entradas>();
   let fallo = false;
+  const anotar = (semana: string, nombre: ArchivoMac, id: string, e: unknown): void => {
+    const k = clave(semana, nombre);
+    const m = buffer.get(k) ?? {};
+    m[id] = e;
+    buffer.set(k, m);
+  };
   return {
     huboError: () => fallo,
-    escribirRender: async (semana, id, e) => {
-      const m = buffer.get(semana) ?? {};
-      m[id] = e;
-      buffer.set(semana, m);
-    },
+    escribirRender: async (semana, id, e) => anotar(semana, "render.json", id, e),
+    escribirVisual: async (semana, id, e) => anotar(semana, "visual.json", id, e),
+    visualPendiente: (semana, id) => buffer.get(clave(semana, "visual.json"))?.[id],
     confirmar: async (semana) => {
-      const nuevas = buffer.get(semana);
-      if (!nuevas || !Object.keys(nuevas).length) return;
-      buffer.delete(semana);
-      const err = await subirRender(new Map([[semana, nuevas as Entradas]]));
+      const nuevas = new Map<string, Entradas>();
+      for (const nombre of ["render.json", "visual.json"] as const) {
+        const k = clave(semana, nombre);
+        const m = buffer.get(k);
+        buffer.delete(k);
+        if (m && Object.keys(m).length) nuevas.set(k, m);
+      }
+      if (!nuevas.size) return;
+      const err = await subirRender(nuevas);
       if (err) fallo = true;
-      if (err) await opts.avisar(`No pude subir render.json de ${semana} a la base (${err}). Quedó en el Mac; la próxima corrida reintenta.`);
+      const nombres = [...nuevas.keys()].map((k) => deClave(k).archivo).join(" y ");
+      if (err) await opts.avisar(`No pude subir ${nombres} de ${semana} a la base (${err}). Quedó en el Mac; la próxima corrida reintenta.`);
     },
   };
 }
@@ -988,8 +1066,10 @@ export async function sincronizarPendiente(semanas: string[]): Promise<string | 
   if (process.env.KB_GIT === "0") return undefined;
   if (process.env.KB_GIT_PUSH !== "1") {
     for (const s of semanas) {
-      const archivo = join(semanaDir(s), "render.json");
-      if (existsSync(archivo)) await commitPaths([archivo], `${ASUNTO_RENDER}${s} (recuperado)`);
+      for (const nombre of ["render.json", "visual.json"] as const) {
+        const archivo = join(semanaDir(s), nombre);
+        if (existsSync(archivo)) await commitPaths([archivo], `${ASUNTO[nombre]}${s} (recuperado)`);
+      }
     }
     return undefined;
   }

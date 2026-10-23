@@ -38,6 +38,7 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["reel-35s", "2026-10-26"], ["carrusel-denso", "2026-10-26"], ["series-publico-profesional", "2026-10-26"],
     ["hook-umbral-7", "2026-10-26"], ["lector-prisa-p8-nb", "2026-10-26"],
     ["revision-visual-fase1", "2026-10-24"],
+    ["revision-visual-fase2", "2026-10-24"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));
 });

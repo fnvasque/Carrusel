@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { check, checkAsync } from "../_check.ts";
+import { writeFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { enviarFotoTelegram } from "../../src/calendario/telegram-directo.ts";
 import {
-  avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
+  avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, callbackVisual, leerCallbackVisual, captionVisual, textoRespuestaVisual, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
   archivoDeUrl, argsPreview, arranqueScheduler, mediosParaLimpiar, modoCalendario, ordenesDesde, previewsPendientes, publicadas, recordatorioLunes, rutaMedioLocal, semanasConPlan,
   silencioCalendario, TELEGRAM_CAPTION_MAX, truncar,
 } from "../../src/calendario/telegram.ts";
@@ -515,4 +519,74 @@ check("medios para limpiar: publicadas por su publicadoEn; saltadas y fallidas p
   // Render fallido (render.json) a su hora también queda saltado en estado.json; sin estado no se borra nada.
   const sinEstado = semana([pieza({ id: "jue-nada", dia: "2026-10-15" })]);
   assert.deepEqual(mediosParaLimpiar([sinEstado]), []);
+});
+
+check("cal-visual: ida y vuelta con id corto y largo, ≤ 64 bytes", () => {
+  const largo = "mie-carrusel-" + "x".repeat(60);
+  const s = semana([pieza({ id: "lun-a" }), pieza({ id: largo })]);
+  for (const id of ["lun-a", largo]) {
+    for (const r of ["si", "no"] as const) {
+      const d = callbackVisual("2026-10-12", id, 7, r);
+      assert.ok(Buffer.byteLength(d) <= 64, d);
+      assert.deepEqual(leerCallbackVisual(d, [s]), { semana: "2026-10-12", id, n: 7, respuesta: r });
+    }
+  }
+  assert.ok(callbackVisual("2026-10-12", largo, 7, "si").includes(":~"));
+});
+
+check("cal-visual: n, respuesta, semana o huella inválidos → undefined", () => {
+  const s = semana([pieza({ id: "lun-a" })]);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-12:lun-a:x:si", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-12:lun-a:0:si", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-12:lun-a:100:si", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-12:lun-a:1:quizas", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-19:lun-a:1:si", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-12:~000000000000:1:si", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-10-12:lun-a:1:si:extra", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-saltar:2026-10-12:lun-a", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-11-02:lun-a:1:si", [s]), undefined); // semana fuera de las activas
+});
+
+check("captionVisual: formato y tope", () => {
+  const c = captionVisual("lun-a", "2026-10-12", "slide 2", "frase", "el fondo compite con el texto");
+  assert.ok(c.startsWith("🖼️ Revisión visual (aviso, no bloquea): lun-a · slide 2\nfrase"));
+  assert.ok(c.endsWith("¿Tenía razón?"));
+  assert.ok(captionVisual("a", "s", "q", "z".repeat(3000), "t").length <= TELEGRAM_CAPTION_MAX);
+});
+
+// Ajustado en la tarea 6 (misma fase): con frase larga se recorta la frase y la pregunta final se conserva.
+check("captionVisual: frase larga conserva el tipo y «¿Tenía razón?»", () => {
+  const c = captionVisual("lun-a", "s", "slide 2", "😀".repeat(2000), "el fondo compite");
+  assert.ok(c.length <= TELEGRAM_CAPTION_MAX);
+  assert.ok(c.endsWith("\n(el fondo compite)\n¿Tenía razón?"));
+  assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(c));
+});
+
+check("textoRespuestaVisual", () => {
+  assert.equal(textoRespuestaVisual("si"), "→ Tenía razón");
+  assert.equal(textoRespuestaVisual("no"), "→ No");
+});
+
+await checkAsync("enviarFotoTelegram: multipart con botones; 500 → false; sin config → false sin fetch", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "foto-"));
+  const ruta = join(dir, "f.jpg");
+  writeFileSync(ruta, Buffer.from([1, 2, 3]));
+  const env = { TELEGRAM_BOT_TOKEN: "TOK123", TELEGRAM_ALLOWED_CHAT_IDS: "42" };
+  const botones = [[{ texto: "Tenía razón", data: "a" }, { texto: "No", data: "b" }]];
+  let url = "";
+  let form: FormData | undefined;
+  const ok = (async (u: string, init: RequestInit) => { url = u; form = init.body as FormData; return new Response("{}", { status: 200 }); }) as unknown as typeof fetch;
+  assert.equal(await enviarFotoTelegram(ruta, "cap", botones, { env, fetch: ok }), true);
+  assert.ok(url.endsWith("/sendPhoto"));
+  assert.equal(form!.get("chat_id"), "42");
+  assert.equal(form!.get("caption"), "cap");
+  assert.ok(form!.get("photo") instanceof Blob);
+  const km = JSON.parse(String(form!.get("reply_markup")));
+  assert.deepEqual(km.inline_keyboard[0], [{ text: "Tenía razón", callback_data: "a" }, { text: "No", callback_data: "b" }]);
+  const mal = (async () => new Response("x", { status: 500 })) as unknown as typeof fetch;
+  assert.equal(await enviarFotoTelegram(ruta, "cap", botones, { env, fetch: mal }), false);
+  let llamado = false;
+  const espia = (async () => { llamado = true; return new Response("{}"); }) as unknown as typeof fetch;
+  assert.equal(await enviarFotoTelegram(ruta, "cap", botones, { env: {}, fetch: espia }), false);
+  assert.equal(llamado, false);
 });

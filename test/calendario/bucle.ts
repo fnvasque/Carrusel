@@ -818,3 +818,23 @@ check("construirBucle: con una variable de la puerta el control suma las piezas 
   assert.deepEqual(sinPuerta.experimentos[0]!.control, { n: 0 });
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
 });
+
+check("construirBucle: incluye visual solo cuando hay entradas visuales", () => {
+  const base = { ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: undefined, config: undefined };
+  assert.equal("visual" in construirBucle(base), false);
+  assert.equal("visual" in construirBucle({ ...base, visual: [] }), false);
+  const visual = { p1: { revisor: { en: "x", modelo: "m", estado: "revisado" as const, usd: 0, imagenes: [{ n: 1, que: "x", compite: true, ajeno: false, frase: "" }] } } };
+  const b = construirBucle({ ...base, visual: [{ semana: "2026-10-19", visual, respuestas: [{ id: "p1", n: 1, respuesta: "si", en: "2026-10-20T10:00:00Z" }] }] });
+  assert.equal(b.visual?.total.precision, 1);
+});
+
+check("construirBucle: las alertas del registro visual se copian a avisos", () => {
+  const base = { ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: undefined, config: undefined };
+  const reglas = { reglas: [{ id: "revision-visual-fase1", desde: "2026-10-20", formato: null, descripcion: "d" }] };
+  const visual = { p1: { fase1: [{ tipo: "zona" as const, motivo: "m", en: "2026-10-22T10:00:00Z" }] } };
+  const b = construirBucle({ ...base, reglas, visual: [{ semana: "2026-10-19", visual, respuestas: [] }] });
+  assert.deepEqual(b.visual?.alertas, ["el motor volvió a fallar en zona (1 casos desde 2026-10-20): revisar el código"]);
+  assert.ok(b.avisos.includes("revisión visual: el motor volvió a fallar en zona (1 casos desde 2026-10-20): revisar el código"), b.avisos.join("\n"));
+  const sin = construirBucle({ ...base, reglas, visual: [{ semana: "2026-10-19", visual: {}, respuestas: [] }] });
+  assert.ok(!sin.avisos.some((a) => a.startsWith("revisión visual:")));
+});

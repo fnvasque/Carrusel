@@ -16,5 +16,9 @@ import "./calendario/escenas.ts";
 import "./calendario/lector-causas.ts";
 import "./calendario/telegram.ts";
 import "./calendario/corpus.ts";
+import "./calendario/visual.ts";
+import "./calendario/cuadros-visuales.ts";
+import "./calendario/revisor-visual.ts";
+import "./calendario/revision-fondos.ts";
 
 await done();

@@ -8,10 +8,12 @@ import { checkAsync, done } from "../_check.ts";
 import { startHttp } from "../../src/kb/inbox.ts";
 import { manejarMedio } from "../../src/calendario/media-server.ts";
 import { leerSemana, urlPublica } from "../../src/calendario/plan.ts";
+import { cuadrosARevisar, extraerCuadros, transicionDe } from "../../src/calendario/cuadros-visuales.ts";
+import { parseBorrador } from "../../src/calendario/draft.ts";
 import { grisDeImagen, luminanciaMedia } from "../../src/calendario/qa.ts";
 import { addDays, localParts, weekMonday } from "../../src/calendario/time.ts";
 import {
-  crearEscritorRender, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, verificarReal,
+  MANIFIESTO, crearEscritorRender, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, verificarReal,
 } from "../../src/calendario/render.ts";
 
 /**
@@ -150,6 +152,28 @@ try {
     assert.deepEqual(archivos, ["01.jpg", "02.jpg", "03.jpg", "04.jpg", "05.jpg", "06.jpg", "07.jpg", "story.jpg"]);
     assert.equal(dims(join(car, "01.jpg")), "1080x1350");
     assert.equal(dims(join(car, "story.jpg")), "1080x1920");
+
+    // Manifiesto con las escenas del reel (no se sube) y cuadros a revisar fuera de la carpeta final.
+    const finalReel = join(outRoot, semana, "prueba-reel");
+    const man = JSON.parse(readFileSync(join(finalReel, MANIFIESTO), "utf8"));
+    assert.ok(Array.isArray(man.escenas) && man.escenas.length === reelDraft.slides.length, "manifiesto con una escena por slide");
+    assert.ok(man.escenas.every((e: { start: number; dur: number }) => Number.isFinite(e.start) && e.dur > 0));
+    const antes = readdirSync(finalReel).sort();
+    const bReel = parseBorrador(JSON.stringify(reelDraft));
+    const cuadros = cuadrosARevisar("reel", { ...bReel, slides: bReel.slides.map((s, i) => (i === 1 ? { ...s, background: { ai: "x" } } : s)) }, man.escenas, transicionDe(bReel), 8);
+    assert.ok(cuadros.length >= 4, "portada + cuadros de la escena 2");
+    const destino = join(outRoot, ".revision", semana, "prueba-reel");
+    const ext = await extraerCuadros(finalReel, destino, cuadros);
+    assert.equal(ext.length, cuadros.length);
+    for (const e of ext) {
+      assert.ok(e.ruta.startsWith(destino) && existsSync(e.ruta), e.que);
+      assert.equal(dims(e.ruta).split("x")[0], "540");
+    }
+    assert.deepEqual(readdirSync(finalReel).sort(), antes, "extraer cuadros no añade nada a la carpeta final");
+    assert.ok(!readdirSync(join(medios, semana, "prueba-reel")).some((f) => /^\d+\.jpg$/.test(f)), "los cuadros no se subieron");
+
+    // Un segundo más allá del final del video: ffmpeg sale 0 sin archivo → error claro.
+    await assert.rejects(extraerCuadros(finalReel, destino, [{ n: 1, que: "fuera", t: 9999, archivo: "reel.mp4" }]), /No pude extraer el cuadro/);
 
     // render.json llegó al remoto, con las URLs que el servidor sirve.
     const clon = join(raiz, "clon");

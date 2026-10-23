@@ -339,8 +339,23 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   `ejemplo` textual. `otro` es un fallo sin causa reconocida: lee su ejemplo.
   Es el dato más abundante que tienes (unas 20 respuestas por semana contra un
   puñado de piezas medidas); úsalo en el Paso 2.
-- `avisos`: problemas de lectura del bot (un `plan.json` ilegible…). No los
-  arregles tú: son zona del bot o del usuario.
+- `visual` (solo si el Mac ya anotó revisiones visuales): el registro de la
+  revisión visual del render. `porSemana` trae, por semana, `avisos` (imágenes
+  que el revisor con IA señaló por fondo), `respondidos`, `aciertos` («Tenía
+  razón» del usuario) y `precision` (aciertos / respondidos; falta si nadie
+  respondió); `total` lo mismo sumado. `porTipo` cuenta los hallazgos por tipo
+  (`fondo-compite`, `fondo-ajeno` y los de la fase 1: `tilde`, `puntuacion`,
+  `zona`…) y semana. Es solo informativo: no cambia el plan. Dos campos piden
+  algo:
+  - `propuestas`: un tipo de fondo que se repite (≥ 3 casos en ≥ 2 semanas).
+    Escríbelo en `aprendizajes.md` como `Propuesta:` con el dato (tipo, casos
+    y semanas) para que el usuario la apruebe; tú no cambias cómo se piden los
+    fondos hasta que la apruebe.
+  - `alertas`: el motor de la fase 1 volvió a fallar en un tipo que ya estaba
+    corregido. Menciónalo al usuario (en `plan.json → motivo` y en tu resumen
+    final); es un arreglo de código, no tuyo. También aparece en `avisos`.
+- `avisos`: problemas de lectura del bot (un `plan.json` ilegible…) y las
+  `alertas` de `visual`. No los arregles tú: son zona del bot o del usuario.
 
 **Tú no cambias `config.json`.** Si `parametros`, `experimentos` o el
 diagnóstico sugieren mover un parámetro, lo **propones** en `aprendizajes.md`
