@@ -37,6 +37,9 @@ import {
   PATRONES_HOOK,
   erroresDeHookJuez,
   mensajeJuez,
+  SERIES_CALIDAD,
+  SEMANAS_PAQUETE,
+  MOTIVO_PAQUETE,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -1927,4 +1930,75 @@ check("hook-juez: borde de fecha — 2026-10-26 exige candidatos y juez; 2026-10
   const sin = (dia: string) => { const p = pieza({ dia }); return soloHook(validarPieza(p, config)); };
   assertHas(sin("2026-10-26"), /candidatos/);
   assertNone(sin("2026-10-25"));
+});
+
+// --- series nuevas y semanas del paquete (desde DESDE_CALIDAD) ---
+
+check("series: las constantes son las de la spec", () => {
+  assert.deepEqual(SERIES_CALIDAD, ["hazlo-con-ia", "criterio", "lo-probe-por-ti"]);
+  assert.deepEqual(SEMANAS_PAQUETE, ["2026-10-26", "2026-11-02"]);
+  assert.equal(MOTIVO_PAQUETE, "paquete calidad-contenido");
+});
+
+check("series: desde DESDE_CALIDAD solo valen las series nuevas; antes, cualquier slug", () => {
+  const ser = (dia: string, serie: string | null) => validarPieza(pieza({ dia, serie }), config).filter((e) => /serie/.test(e));
+  const errs = ser("2026-10-28", "gratis-vs-pago");
+  assertHas(errs, /serie/);
+  for (const s of SERIES_CALIDAD) assertHas(errs, new RegExp(s));
+  assertNone(ser("2026-10-28", "criterio"));
+  assertNone(ser("2026-10-28", null));
+  assertNone(ser("2026-10-21", "gratis-vs-pago"));
+  assertHas(ser("2026-10-21", "Mala Serie"), /serie/);
+});
+
+const sinExp = (errs: string[]) => errs.filter((e) => /experimento/.test(e));
+const planPaquete = (semana: string, experimento: unknown) =>
+  plan({
+    semana,
+    experimento,
+    piezas: [pieza({ id: "x-reel", dia: semana, borrador: "x-reel.json" })],
+  });
+
+check("paquete: semana 2026-10-26 con variable null y el motivo → sin error de experimento", () => {
+  assertNone(sinExp(validarPlan(planPaquete("2026-10-26", { variable: null, motivo: MOTIVO_PAQUETE }), config)));
+  assertNone(sinExp(validarPlan(planPaquete("2026-11-02", { variable: null, motivo: MOTIVO_PAQUETE }), config)));
+});
+
+check("paquete: semana del paquete con una variable → error que menciona el paquete", () => {
+  const e = validarPlan(planPaquete("2026-10-26", { variable: "hora", hipotesis: "h", piezas: ["x-reel"] }), config);
+  assertHas(e, /paquete calidad-contenido/);
+});
+
+check("paquete: semana del paquete con experimento null o sin el motivo → error", () => {
+  assertHas(validarPlan(planPaquete("2026-10-26", null), config), /paquete calidad-contenido/);
+  assertHas(validarPlan(planPaquete("2026-10-26", { variable: null }), config), /paquete calidad-contenido/);
+});
+
+check("paquete: semana 2026-11-09 con experimento null → plan: falta experimento", () => {
+  assertHas(validarPlan(planPaquete("2026-11-09", null), config), /plan: falta experimento/);
+});
+
+check("paquete: semana anterior (2026-10-19) sigue como siempre", () => {
+  assertHas(validarPlan(planPaquete("2026-10-19", { variable: null, motivo: MOTIVO_PAQUETE }), config), /experimento\.variable/);
+});
+
+check("paquete: en sus semanas no se fijan duracionMaxSegundos ni ritmoReel; tampoco se exigen", () => {
+  const sinClaves = (dia: string, quitar: string[]) => {
+    const parametros = clone(PARAMETROS);
+    for (const k of quitar) delete parametros[k];
+    return validarPieza(pieza({ dia, parametros, ...(dia >= "2026-10-26" ? { serie: null } : {}) }), config).filter((e) => /parametros/.test(e));
+  };
+  assertNone(sinClaves("2026-11-03", ["duracionMaxSegundos", "ritmoReel"]));
+  assertHas(sinClaves("2026-11-03", []), /duracionMaxSegundos/);
+  assertHas(sinClaves("2026-11-03", ["duracionMaxSegundos"]), /ritmoReel/);
+  assertHas(sinClaves("2026-11-03", ["ritmoReel"]), /duracionMaxSegundos/);
+  // fuera del paquete se siguen exigiendo
+  assertHas(sinClaves("2026-11-09", ["duracionMaxSegundos", "ritmoReel"]), /falta parametros\.duracionMaxSegundos/);
+  assertHas(sinClaves("2026-10-25", ["duracionMaxSegundos"]), /falta parametros\.duracionMaxSegundos/);
+});
+
+check("paquete: pieza del 2026-11-03 con duracionMaxSegundos o ritmoReel → error", () => {
+  const sin = (k: string) => { const parametros = clone(PARAMETROS); for (const x of ["duracionMaxSegundos", "ritmoReel"]) delete parametros[x]; parametros[k] = PARAMETROS[k]; return parametros; };
+  assertHas(validarPieza(pieza({ dia: "2026-11-03", parametros: { ...sin("duracionMaxSegundos"), duracionMaxSegundos: 60 } }), config), /duracionMaxSegundos.*paquete calidad-contenido/);
+  assertHas(validarPieza(pieza({ dia: "2026-11-03", parametros: sin("ritmoReel") }), config), /ritmoReel.*paquete calidad-contenido/);
 });

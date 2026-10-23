@@ -653,7 +653,13 @@ function erroresDeParametros(parametros, config, dia) {
     if (!Object.hasOwn(parametros, k)) {
       // Palancas nuevas: solo se exigen desde su semana (las anteriores no las conocían).
       if (PARAMETROS_DESDE[k] && typeof dia === "string" && dia < PARAMETROS_DESDE[k]) continue;
+      // Semanas del paquete: esas palancas no se fijan, así que tampoco se exigen.
+      if (PARAMETROS_FUERA_PAQUETE.includes(k) && enPaquete(dia)) continue;
       errs.push(`falta parametros.${k} (el valor de puerta.${k} que usaste)`);
+      continue;
+    }
+    if (PARAMETROS_FUERA_PAQUETE.includes(k) && enPaquete(dia)) {
+      errs.push(`parametros.${k} no se fija en las semanas del ${MOTIVO_PAQUETE} (${SEMANAS_PAQUETE.join(", ")}): quítalo`);
       continue;
     }
     const v = parametros[k];
@@ -725,6 +731,15 @@ export const PATRONES_HOOK = ["en-juego", "error-comun", "dato-contrario", "ante
 const CANDIDATOS_MIN = 8;
 const CANDIDATOS_MAX = 10;
 const PATRONES_MIN = 3;
+
+/** Series válidas desde DESDE_CALIDAD (el público profesional; `gratis-vs-pago` deja de valer). */
+export const SERIES_CALIDAD = ["hazlo-con-ia", "criterio", "lo-probe-por-ti"];
+/** Lunes de las semanas del paquete calidad-contenido: sin experimento propio y sin tocar duración ni ritmo del reel. */
+export const SEMANAS_PAQUETE = ["2026-10-26", "2026-11-02"];
+export const MOTIVO_PAQUETE = "paquete calidad-contenido";
+/** Un día cae en una semana del paquete (lunes a domingo). */
+const enPaquete = (dia) => typeof dia === "string" && SEMANAS_PAQUETE.some((l) => dia >= l && dia <= sumarDias(l, 6));
+const PARAMETROS_FUERA_PAQUETE = ["duracionMaxSegundos", "ritmoReel"];
 
 /** El hook exige candidatos y juez desde DESDE_CALIDAD (comparación de AAAA-MM-DD). */
 const exigeJuez = (p) => typeof p.dia === "string" && p.dia >= DESDE_CALIDAD;
@@ -823,7 +838,9 @@ function erroresDePieza(p, config) {
     errs.push("origen inválido: { fichas: [...], referencias: [...] }");
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
-  if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (hazlo-con-ia, gratis-vs-pago, lo-probe-por-ti) o null");
+  if (exigeJuez(p)) {
+    if (p.serie !== undefined && p.serie !== null && !SERIES_CALIDAD.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${DESDE_CALIDAD}: usa ${SERIES_CALIDAD.join(", ")} o null`);
+  } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
   errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined));
@@ -1503,7 +1520,11 @@ export function validarPlan(plan, config) {
       const h = +((conHora[i].min - conHora[i - 1].min) / 60).toFixed(2);
       if (h < sep) errs.push(`${conHora[i].id}: está a ${h} h de ${conHora[i - 1].id} (mínimo ${sep} h, config.separacionMinHoras)`);
     }
-    if (exp === null || exp === undefined) {
+    if (semanaOk && SEMANAS_PAQUETE.includes(semana)) {
+      if (!(esObj(exp) && exp.variable === null && exp.motivo === MOTIVO_PAQUETE)) {
+        errs.push(`plan: la semana ${semana} es del ${MOTIVO_PAQUETE} y no lleva experimento: usa experimento { "variable": null, "motivo": "${MOTIVO_PAQUETE}" }`);
+      }
+    } else if (exp === null || exp === undefined) {
       if (plan.piezas.length > 0) errs.push("plan: falta experimento (una variable por semana)");
     } else if (!esObj(exp)) errs.push("plan: experimento debe ser un objeto o null");
     else {

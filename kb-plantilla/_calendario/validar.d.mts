@@ -65,3 +65,6 @@ export declare const PATRONES_HOOK: string[];
 export declare function erroresDeHookJuez(p: object, borrador?: object): string[];
 export declare function mensajeJuez(seccion: string, candidatos: object[]): string;
 export declare function seccionDelJuez(md: string): string | undefined;
+export declare const SERIES_CALIDAD: string[];
+export declare const SEMANAS_PAQUETE: string[];
+export declare const MOTIVO_PAQUETE: string;
