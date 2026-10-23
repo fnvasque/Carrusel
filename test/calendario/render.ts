@@ -278,6 +278,30 @@ await checkAsync("procesar: ErrorVisual → sigue planificada, sin escribir, un 
   }),
 );
 
+await checkAsync("procesar: aviso visual no entregado (false o lanza) → la próxima corrida vuelve a avisar", () =>
+  conOut(async (out) => {
+    const falla = { render: async (): Promise<never> => { throw visual("escena 2 (Step): tilde de «CÓMO» pisa la línea anterior"); } };
+    // 1.ª corrida: Telegram no lo recibe (avisarTelegram devuelve false).
+    let intentos = 0;
+    let { deps, reg } = falsos({ ...falla, avisar: async () => { intentos++; return false; } });
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.equal(intentos, 1);
+    assert.ok(reg.logs.some((l) => /no se entregó/.test(l)), reg.logs.join("\n"));
+    // 2.ª corrida: el aviso lanza.
+    ({ deps, reg } = falsos({ ...falla, avisar: async () => { intentos++; throw new Error("sin red"); } }));
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.equal(intentos, 2, "se reintenta el aviso");
+    // 3.ª corrida: llega; 4.ª: ya no se repite.
+    ({ deps, reg } = falsos(falla));
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.equal(reg.avisos.length, 1, "avisa en cuanto se puede entregar");
+    assert.match(reg.avisos[0], /lun-sin-aviso/);
+    ({ deps, reg } = falsos(falla));
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.deepEqual(reg.avisos, [], "entregado una vez, no se repite");
+  }),
+);
+
 await checkAsync("avisosVisualesNuevos: registro ausente o corrupto cuenta como vacío; olvidar borra la entrada", () =>
   conOut(async (out) => {
     assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-a", ["m1", "m2", "m1"]), ["m1", "m2"]);

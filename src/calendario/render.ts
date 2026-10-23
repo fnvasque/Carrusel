@@ -116,7 +116,8 @@ export interface Deps {
   verificar: (url: string, tipo: string) => Promise<boolean>;
   /** Anota la entrada de una pieza (puede acumular y escribir en `confirmar`). */
   escribirRender: (semana: string, id: string, e: RenderEntry) => Promise<void>;
-  avisar: (texto: string) => Promise<void>;
+  /** Avisa por Telegram. `false` = no se entregó (el aviso visual se repite en la próxima corrida). */
+  avisar: (texto: string) => Promise<boolean | void>;
   /** Escribe de una vez lo acumulado de una semana (un commit por semana y corrida). */
   confirmar?: (semana: string) => Promise<void>;
   ahora?: () => Date;
@@ -212,13 +213,15 @@ export async function procesar(
   const ahora = deps.ahora ?? (() => new Date());
   const log = deps.log ?? ((t: string) => console.log(t));
   const oculto = (s: string): string => ocultarToken(s, env.token);
-  const avisar = async (texto: string): Promise<void> => {
+  /** Devuelve si el aviso se entregó: `deps.avisar` no lanzó ni devolvió `false`. */
+  const avisar = async (texto: string): Promise<boolean> => {
     const t = oculto(texto);
     log(`⚠️  ${t}`);
     try {
-      await deps.avisar(t);
+      return (await deps.avisar(t)) !== false;
     } catch (e) {
       log(`⚠️  No pude enviar el aviso: ${oculto(razon(e))}`);
+      return false;
     }
   };
   const confirmar = async (semana: string): Promise<void> => {
@@ -277,14 +280,17 @@ export async function procesar(
           const motivos = [...new Set(e.hallazgos.map((h) => oculto(h.motivo)))];
           if (!motivos.length) motivos.push(oculto(e.message));
           log(`✗ ${etiqueta} no pasa la revisión visual: ${motivos.join("; ")}`);
-          let nuevos = motivos;
-          try {
-            nuevos = await avisosVisualesNuevos(outRoot, p.semana, id, motivos);
-          } catch (err) {
-            log(`⚠️  No pude leer/escribir el registro de avisos visuales: ${oculto(razon(err))}`);
-          }
+          // Se anotan solo si el aviso llegó: si Telegram falla, la próxima corrida vuelve a avisar.
+          const nuevos = await avisosVisualesPendientes(outRoot, p.semana, id, motivos);
           if (nuevos.length) {
-            await avisar(`Revisión visual: ${id} (${p.semana}) no se sube: ${nuevos.join("; ")}. Sigue planificada; se reintenta cada hora hasta su hora.`);
+            const entregado = await avisar(`Revisión visual: ${id} (${p.semana}) no se sube: ${nuevos.join("; ")}. Sigue planificada; se reintenta cada hora hasta su hora.`);
+            if (entregado) {
+              await anotarAvisosVisuales(outRoot, p.semana, id, nuevos).catch((err) =>
+                log(`⚠️  No pude escribir el registro de avisos visuales: ${oculto(razon(err))}`),
+              );
+            } else {
+              log(`⚠️  El aviso visual de ${id} no se entregó: se repite en la próxima corrida.`);
+            }
           }
           res.pendientes++;
           continue;
@@ -379,18 +385,33 @@ async function escribirAvisosVisuales(outRoot: string, r: RegistroVisual): Promi
 }
 
 /**
+ * Motivos de la pieza aún no avisados (sin repetir), según <outRoot>/.avisos-visuales.json.
+ * No escribe: se anotan con `anotarAvisosVisuales` cuando el aviso se entregó.
+ */
+export async function avisosVisualesPendientes(outRoot: string, semana: string, id: string, motivos: string[]): Promise<string[]> {
+  const ya = new Set((await leerAvisosVisuales(outRoot))[`${semana}/${id}`] ?? []);
+  return [...new Set(motivos)].filter((m) => !ya.has(m));
+}
+
+/** Anota `motivos` como ya avisados para la pieza (sin repetir). */
+export async function anotarAvisosVisuales(outRoot: string, semana: string, id: string, motivos: string[]): Promise<void> {
+  const r = await leerAvisosVisuales(outRoot);
+  const clave = `${semana}/${id}`;
+  const ya = r[clave] ?? [];
+  const nuevos = [...new Set(motivos)].filter((m) => !ya.includes(m));
+  if (!nuevos.length) return;
+  r[clave] = [...ya, ...nuevos];
+  await escribirAvisosVisuales(outRoot, r);
+}
+
+/**
  * Registro de avisos visuales ya enviados: <outRoot>/.avisos-visuales.json =
  * { "<semana>/<id>": string[] }. Devuelve los motivos aún no avisados (sin repetir)
  * y los anota.
  */
 export async function avisosVisualesNuevos(outRoot: string, semana: string, id: string, motivos: string[]): Promise<string[]> {
-  const r = await leerAvisosVisuales(outRoot);
-  const clave = `${semana}/${id}`;
-  const ya = new Set(r[clave] ?? []);
-  const nuevos = [...new Set(motivos)].filter((m) => !ya.has(m));
-  if (!nuevos.length) return [];
-  r[clave] = [...ya, ...nuevos];
-  await escribirAvisosVisuales(outRoot, r);
+  const nuevos = await avisosVisualesPendientes(outRoot, semana, id, motivos);
+  await anotarAvisosVisuales(outRoot, semana, id, nuevos);
   return nuevos;
 }
 
@@ -451,7 +472,7 @@ export async function leerPuerta(): Promise<Puerta> {
  * VOZ_DEFECTO; `false` apaga la narración). Una voz desconocida se avisa y cae
  * a la de defecto: el reel sale igual.
  */
-export async function leerVoz(avisar?: (texto: string) => Promise<void>): Promise<Voz | false> {
+export async function leerVoz(avisar?: (texto: string) => Promise<boolean | void>): Promise<Voz | false> {
   try {
     const cfg = JSON.parse(await readFile(join(calendarioDir(), "config.json"), "utf8"));
     if (cfg?.voz === false) return false;
@@ -559,7 +580,7 @@ export async function renderPieza(
     audioDir: string;
     puerta: Puerta;
     voz?: Voz | false;
-    avisar?: (texto: string) => Promise<void>;
+    avisar?: (texto: string) => Promise<boolean | void>;
     clipsDir?: string;
     /** Solo para el corpus de la revisión visual: salta la puerta de score (`scoreDraft`). Nunca en el render del calendario. */
     omitirScore?: boolean;
@@ -928,7 +949,7 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
  * Escritor de `render.json` (único archivo que escribe el Mac): acumula las entradas de
  * la corrida y, por semana, las sube con `subirRender` (un solo commit por semana).
  */
-export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
+export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<boolean | void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
   confirmar: (semana: string) => Promise<void>;
   /** ¿Alguna semana quedó sin subir? La corrida termina con código ≠ 0 (I4). */
   huboError: () => boolean;
