@@ -42,11 +42,13 @@ import {
   SERIES_CALIDAD,
   SEMANAS_PAQUETE,
   MOTIVO_PAQUETE,
+  NADA_NUEVO_RE,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
 import { scoreDraft } from "../../src/remix/registry.ts";
-import { THRESHOLD } from "../../src/score/virality.ts";
+import { THRESHOLD, scoreReel } from "../../src/score/virality.ts";
+import { NADA_NUEVO_RE as NADA_NUEVO_LECTOR } from "../../src/calendario/lector-causas.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
@@ -2365,4 +2367,36 @@ check("pr56-7: --juez con id inexistente o semana inválida da el mismo error cl
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// --- pendientes chicos del paquete calidad-contenido ---
+
+check("chicos-1: el score de reel da los 2 puntos de voz con 85 palabras (tope de 35 s) y no con 95", () => {
+  const base = JSON.parse(readFileSync(new URL("./fixtures/calidad/reel-criterio.json", import.meta.url), "utf8"));
+  const conPalabras = (total: number) => {
+    const d = JSON.parse(JSON.stringify(base));
+    const actual = d.slides.reduce((a: number, s: any) => a + s.narracion.trim().split(/\s+/).length, 0);
+    // El relleno va en una escena del medio, sin tocar el Hook ni el Cta.
+    d.slides[1].narracion += " " + Array(Math.max(0, total - actual)).fill("más").join(" ");
+    return d;
+  };
+  const nar = (d: any) => scoreReel(d).dimensions.find((x) => /narraci/i.test(x.name))!;
+  const a = nar(conPalabras(85)), b = nar(conPalabras(95));
+  assert.equal(a.score - b.score, 2, JSON.stringify([a, b]));
+  assert.ok(!a.notes.some((n) => /palabras de voz/.test(n)), a.notes.join("|"));
+  assert.ok(b.notes.some((n) => /95 palabras de voz/.test(n)), b.notes.join("|"));
+});
+
+check("chicos-2: la lista «nada nuevo» de validar.mjs y la de lector-causas.ts no divergen", () => {
+  assert.deepEqual(NADA_NUEVO_LECTOR.map((r) => r.source), NADA_NUEVO_RE.map((r: RegExp) => r.source));
+});
+
+check("chicos-3: «ya sabía quién…» no es nada nuevo (ni en las notas ni en el lector)", () => {
+  const frase = "ya sabia quien es Mollick pero no lo de las 18 tareas";
+  assert.ok(!NADA_NUEVO_RE.some((r: RegExp) => r.test(frase.toLowerCase())));
+  assert.ok(!NADA_NUEVO_LECTOR.some((r) => r.test(frase.toLowerCase())));
+  assert.ok(NADA_NUEVO_RE.some((r: RegExp) => r.test("ya sabia todo")));
+  assert.ok(!NADA_NUEVO_RE.some((r: RegExp) => r.test("ya sabia quienes lo midieron")));
+  const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
+  assertNone(conNotas("NB: «Ya sabía quién es Mollick pero no lo de las 18 tareas» → con prisa P8: no bloquea"));
 });

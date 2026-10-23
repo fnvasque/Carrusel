@@ -725,10 +725,10 @@ export function erroresDeRetencion(borrador, pieza, config) {
 
 /**
  * Respuestas de la P8 que dicen «ya lo sabía» (sobre texto normalizado: minúsculas, sin
- * tildes). «Ya sabía qué/cuál/cómo/dónde…» no cuenta: nombra lo que sabía y lo que no.
+ * tildes). «Ya sabía qué/cuál/cómo/dónde/quién…» no cuenta: nombra lo que sabía y lo que no.
  * Las mismas que la causa `nada-nuevo` de `src/calendario/lector-causas.ts`.
  */
-export const NADA_NUEVO_RE = [/nada\s+(de\s+)?nuevo/, /ya (lo )?sabia(?!\s+(que|cual|como|donde))/, /ya lo conocia/, /no aprendi nada/, /nada que no supiera/];
+export const NADA_NUEVO_RE = [/nada\s+(de\s+)?nuevo/, /ya (lo )?sabia(?!\s+(?:que|cual(?:es)?|como|donde|quien(?:es)?)\b)/, /ya lo conocia/, /no aprendi nada/, /nada que no supiera/];
 
 /** Una duda no bloqueante bien escrita: `NB: «cita textual» → regla` (la regla hasta el fin de línea, "; NB:" o el final). */
 const NB_RE = /\bNB: «[^«»\n]+» → (?:(?!;\s*NB\b)[^\n])*?\S(?=\s*(?:;\s*NB\b|\n|$))/g;
@@ -1918,15 +1918,15 @@ export const EJEMPLO = {
         senal: "guardados",
         tema: "[[Automatización con IA]]",
         pilar: "herramienta",
-        hook: { categoria: "curiosidad", texto: "Convierte 6 PDFs en un podcast gratis", score: 9 },
+        hook: { categoria: "curiosidad", texto: "Tus 6 informes pendientes, en un podcast", score: 9 },
         emocion: ["curiosidad", "alivio"],
         entregable: "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
-        fraseAmigo: "hay una herramienta gratis que convierte tus documentos en un podcast para escuchar caminando",
+        fraseAmigo: "hay una herramienta que convierte los informes que no alcanzas a leer en un podcast para escuchar de camino al trabajo",
         lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)" },
         origen: { fichas: ["fuentes/2026-10-04-dm-ejemplo.md"], referencias: ["referencias/notebooklm.md"] },
         derivadoDe: null,
         caption:
-          "Automatización para estudiar: 6 PDFs convertidos en un podcast gratis.\n\nGuárdalo para tu próxima semana de lectura y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+          "Automatización para el trabajo: 6 informes convertidos en un podcast.\n\nGuárdalo para tu próxima pila de informes y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
         borrador: "lun-reel-pdfs-a-podcast.json",
         estado: "planificado",
         parametros: {
@@ -1959,7 +1959,7 @@ export const EJEMPLO = {
     slides: [
       {
         template: "Hook",
-        props: { title: "Convierte 6 PDFs en un podcast gratis", highlight: "podcast", subtitle: "El truco es el prompt" },
+        props: { title: "Tus 6 informes pendientes, en un podcast", highlight: "podcast", subtitle: "El truco es el prompt" },
         background: { ai: "pila de documentos de papel que se transforman en ondas de sonido" },
       },
       {

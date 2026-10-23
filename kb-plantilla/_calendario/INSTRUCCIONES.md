@@ -107,8 +107,9 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    cuenta ganó 1 seguidor con 188 de alcance (87 % no seguidores): quien llega
    por un reel genérico no sigue una cuenta de IA.
 7. **En reels, el gesto se pide antes del segundo 5.** El destinatario del envío
-   ("para tu amigo que…", "si estudias…") va en el `subtitle` del `Hook` o en la
-   primera escena, no solo en el `Cta`: con 3 a 5 s de visionado medio, más del
+   ("para tu amigo que…", "si tienes un equipo a cargo…") va en el `subtitle`
+   del `Hook` o en la primera escena, no solo en el `Cta`: con 3 a 5 s de
+   visionado medio, más del
    90 % de la audiencia nunca llega al `Cta` (0 envíos en 9 piezas al
    2026-10-15). El `Cta` sigue cerrando igual.
 8. **El `Hook` dice qué te llevas.** Desde 2026-10-19, el `title` o el
@@ -135,7 +136,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    **En reels, desde 2026-10-19, el resultado se ve en el primer cuadro:** el
    `Hook` lleva `resultado` (≤ 20 palabras, no cuenta para el tiempo de lectura: lo que aparece en pantalla cuando
    la IA ya terminó, tal cual se lee), `app` (la IA) y `modo` (`aviso`: una
-   notificación del celular, «Recordatorio: pagar la luz · hoy 9:00»;
+   notificación del celular, «Resumen de tu área · hoy 8:00»;
    `respuesta`: la burbuja con lo que contestó la IA). La tarjeta sale arriba
    desde el cuadro 0 y el `title` va debajo, más chico, como pie de foto
    (≤ 7 palabras, mejor 6). El `subtitle` sobra: la narración lo dice. Motivo: con 3 a 5 s
@@ -815,13 +816,13 @@ Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
 {
   "template": "Hook",
   "props": {
-    "title": "ChatGPT te avisa solo",
-    "highlight": "solo",
+    "title": "ChatGPT te resume tu área cada mañana",
+    "highlight": "cada mañana",
     "app": "ChatGPT",
     "modo": "aviso",
-    "resultado": "Recordatorio: pagar la luz. Hoy, 9:00."
+    "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."
   },
-  "narracion": "ChatGPT te recuerda pagar la luz, solo, cada mes."
+  "narracion": "ChatGPT te deja listo el resumen de tu área, solo, cada mañana."
 }
 ```
 
@@ -830,10 +831,10 @@ Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
   "template": "Screen",
   "props": {
     "app": "ChatGPT",
-    "prompt": "Avísame cada 1 del mes: pagar la luz",
-    "respuesta": "Listo. Te recordaré pagar la luz el día 1 de cada mes a las 9:00."
+    "prompt": "Cada día a las 8:00, resume las noticias de mi área",
+    "respuesta": "Listo. Cada día a las 8:00 te dejaré el resumen de las noticias de tu área."
   },
-  "narracion": "Le escribes esto una sola vez, y ChatGPT te lo recuerda todos los meses."
+  "narracion": "Le escribes esto una sola vez, y ChatGPT te lo deja listo todas las mañanas."
 }
 ```
 
@@ -854,9 +855,8 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
   palabras (tope 24). Unas **80 palabras de voz** dan ~33–34 s.
 - El tiempo extra va a **explicar**: una escena de contexto y una de matiz o
   límite (lo que el lector no sabía), no más pasos ni más datos sueltos.
-- Score léxico: la rúbrica de reel da 2 puntos por 20 a 60 palabras de voz
-  (calibrada para 20 s). Pasar de 60 cuesta esos 2: hazlo si la pieza va
-  holgada sobre 75.
+- Score léxico: la rúbrica de reel da 2 puntos por 20 a 90 palabras de voz
+  (cabe el tope de 35 s). Con unas 80 no pierdes nada; pasar de 90 cuesta esos 2.
 - Si no cabe: acorta la voz de las escenas del medio antes que quitar el
   contexto; el detalle que sobra va al caption. El Cta no se quita.
 - En `ensenar` (solo en experimentos fuera del paquete): cada bullet suma
@@ -1021,7 +1021,7 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   (8); la voz del Hook **no lee el titular** (4); un **destinatario antes del
   segundo 5** en la voz del Hook o de la segunda escena («si siempre
   olvidas…», «para tu amigo que…», regla 7) (3); la voz del Cta pide el gesto
-  (guardar, mandar, comentar) (3); 20 a 60 palabras de voz en total (2).
+  (guardar, mandar, comentar) (3); 20 a 90 palabras de voz en total (2).
 - **Pantalla (20)**: una `Screen` con `app`, `prompt` (≤ 30 palabras) y
   `respuesta` (3 a 45) (10); respuesta **concreta** (lista, dato, frase hecha;
   no «listo») (5); la `Screen` en la **primera mitad** del reel (5). Una pieza
@@ -1374,7 +1374,7 @@ cuadro, `Screen`). Una entrada de `plan.json → piezas`:
   "pilar": "herramienta",
   "hook": {
     "categoria": "curiosidad",
-    "texto": "Convierte 6 PDFs en un podcast gratis",
+    "texto": "Tus 6 informes pendientes, en un podcast",
     "score": 9
   },
   "emocion": [
@@ -1382,7 +1382,7 @@ cuadro, `Screen`). Una entrada de `plan.json → piezas`:
     "alivio"
   ],
   "entregable": "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
-  "fraseAmigo": "hay una herramienta gratis que convierte tus documentos en un podcast para escuchar caminando",
+  "fraseAmigo": "hay una herramienta que convierte los informes que no alcanzas a leer en un podcast para escuchar de camino al trabajo",
   "lectorFrio": {
     "intentos": 2,
     "resultado": "ok",
@@ -1397,7 +1397,7 @@ cuadro, `Screen`). Una entrada de `plan.json → piezas`:
     ]
   },
   "derivadoDe": null,
-  "caption": "Automatización para estudiar: 6 PDFs convertidos en un podcast gratis.\n\nGuárdalo para tu próxima semana de lectura y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+  "caption": "Automatización para el trabajo: 6 informes convertidos en un podcast.\n\nGuárdalo para tu próxima pila de informes y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
   "borrador": "lun-reel-pdfs-a-podcast.json",
   "estado": "planificado",
   "parametros": {
@@ -1447,7 +1447,7 @@ Su borrador, `_calendario/2026-10-12/lun-reel-pdfs-a-podcast.json`:
     {
       "template": "Hook",
       "props": {
-        "title": "Convierte 6 PDFs en un podcast gratis",
+        "title": "Tus 6 informes pendientes, en un podcast",
         "highlight": "podcast",
         "subtitle": "El truco es el prompt"
       },

@@ -113,3 +113,16 @@ check("pr56-8: sin-accion no calza con «nada de nuevo» ni «nada, nuevo» de l
   assert.ok(!causasDeFallo("respondió nada nuevo en P8").includes("sin-accion"));
   assert.deepEqual(causasDeFallo("el con prisa no haría nada"), ["sin-accion"]);
 });
+
+check("chicos-3: «ya sabía quién es X pero no…» no es nada-nuevo", () => {
+  assert.ok(!causasDeFallo("el completo: ya sabía quién es Mollick pero no lo de las 18 tareas").includes("nada-nuevo"));
+});
+
+check("chicos-4: «no aprendí nada» y «nada que no supiera» son nada-nuevo y no sin-accion; «no haría nada» sigue siendo sin-accion", () => {
+  for (const f of ["el completo respondió no aprendí nada en P8", "el con prisa: nada que no supiera"]) {
+    const c = causasDeFallo(f);
+    assert.ok(c.includes("nada-nuevo"), f);
+    assert.ok(!c.includes("sin-accion"), `${f}: ${c.join(",")}`);
+  }
+  assert.deepEqual(causasDeFallo("el con prisa no haría nada"), ["sin-accion"]);
+});

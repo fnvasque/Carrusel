@@ -240,9 +240,9 @@ fuera de lo que la IA hace bien). Todos con la misma tarjeta: resultado
 Lo que gana suele juntar tensión y promesa: el 3 dice qué pasó, con su alcance
 (no siempre ayuda: en una de las tareas les fue peor), y qué te llevas (cuándo
 revisar). Un título como «Con IA, más errores» generalizaría un resultado de
-una sola tarea: el estudio midió mejoras en 18. El 2 engancha pero no dice qué te llevas; el 1
-es claro pero plano. Así se ve el resultado en `plan.json` (los demás
-candidatos, abreviados aquí; en el plan van los 8 completos):
+una sola tarea: el estudio midió mejoras en 18. El 2 engancha pero no dice qué
+te llevas; el 1 es claro pero plano. Así se ve el resultado en `plan.json`
+(los demás candidatos, abreviados aquí; en el plan van los 8 completos):
 
 ```json
 "hook": {
