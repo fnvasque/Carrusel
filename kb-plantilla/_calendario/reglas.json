@@ -105,6 +105,13 @@
       "formato": null,
       "descripcion": "La pregunta 8 (novedad) del lector con prisa deja de bloquear; solo bloquea la del lector completo",
       "fuente": "Backtest 2026-10-23: el con prisa marcaba «nada nuevo» en 9 de 20 piezas propias viendo solo títulos; PR claude/pendientes-chicos"
+    },
+    {
+      "id": "revision-visual-fase1",
+      "desde": "2026-10-24",
+      "formato": null,
+      "descripcion": "Revisión visual exacta en el render del Mac (tilde, puntuación, transición, número solo, zona): bloquea y avisa una vez",
+      "fuente": "PR de la fase 1 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
     }
   ]
 }
