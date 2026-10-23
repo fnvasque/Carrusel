@@ -14,6 +14,7 @@ import { revisarRenderizadas, type DepsRevision } from "../../src/calendario/rev
 import { claveFila } from "../../src/calendario/scheduler.ts";
 import { previewsPendientes } from "../../src/calendario/telegram.ts";
 import { ErrorVisual } from "../../src/render/revision.ts";
+import { HECHO, RESPALDO } from "../../src/calendario/hook-video.ts";
 import { leerVisual, visualPath, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "../../src/calendario/visual.ts";
 
 check("correccion-fondos: con interruptor, 30 respondidos y precisión 0,8 la puerta está activa", () => {
@@ -355,7 +356,7 @@ await checkAsync("corregirFondos: la hora cruza el margen durante el render → 
   }),
 );
 
-await checkAsync("corregirFondos: la hora cruza el margen durante la subida → omitida, render.json intacto, el Mac queda igual que el servidor", () =>
+await checkAsync("corregirFondos: la hora cruza el margen durante la subida → aplicada sin reescribir render.json, render.json intacto, el Mac queda igual que el servidor", () =>
   conMundoC([piezaPlan("lun-reel-subida", "14:00")], { "lun-reel-subida": { revisor: AVISO_PORTADA } }, async (m, deps) => {
     const base = deps();
     const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-subida" }], m.out, ENV_C, PUERTA_ON, {
@@ -365,7 +366,7 @@ await checkAsync("corregirFondos: la hora cruza el margen durante la subida → 
         m.reloj.t = new Date("2026-10-26T16:45:00Z").getTime();
       },
     });
-    assert.deepEqual(r, { aplicadas: 0, fallidas: 0, omitidas: 1 });
+    assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
     assert.equal(m.reg.render_json.length, 0, "render.json no se reescribe sin margen (no manda un preview nuevo)");
     assert.equal(m.reg.rsync.length, 1, "no vuelve a subir el original tan cerca de la hora");
     const final = join(m.out, SEM, "lun-reel-subida");
@@ -373,8 +374,8 @@ await checkAsync("corregirFondos: la hora cruza el margen durante la subida → 
     assert.ok(existsSync(join(final, MANIFIESTO)));
     assert.deepEqual(restos(m.out, "lun-reel-subida"), []);
     const c = m.visual.get(SEM)!["lun-reel-subida"].correccion;
-    assert.equal(c?.estado, "omitida");
-    assert.match(c?.motivo ?? "", /^sin margen antes de la hora/);
+    assert.equal(c?.estado, "aplicada", "los archivos corregidos se van a publicar");
+    assert.equal(c?.motivo, "subida sin reescribir render.json: sin margen antes de la hora");
     assert.equal(m.reg.avisos.length, 1, "avisa que el preview no muestra lo que se publicará");
   }),
 );
@@ -450,7 +451,8 @@ await checkAsync("corregirFondos: puerta inactiva → no hace nada y lo loguea u
   }),
 );
 
-const FILTROS: { caso: string; entrada: VisualPieza; estado?: SemanaLeida["estado"]; sinManifiesto?: boolean; id?: string }[] = [
+const PROMPT_HOOK = "una persona chilena abre su correo en un notebook en una oficina luminosa";
+const FILTROS: { caso: string; entrada: VisualPieza; estado?: SemanaLeida["estado"]; sinManifiesto?: boolean; id?: string; ajustar?: (m: MundoC) => void; log?: RegExp }[] = [
   { caso: "correccion previa", entrada: { revisor: AVISO_PORTADA, correccion: { en: "x", estado: "fallida", slides: [0] } } },
   { caso: "sin revisor", entrada: {} },
   { caso: "revisor «sin revisar»", entrada: { revisor: { ...AVISO_PORTADA, estado: "sin revisar" } } },
@@ -459,16 +461,32 @@ const FILTROS: { caso: string; entrada: VisualPieza; estado?: SemanaLeida["estad
   { caso: "saltada", entrada: { revisor: AVISO_PORTADA }, estado: { "lun-filtro": { estado: "saltado" } } },
   { caso: "sin manifiesto", entrada: { revisor: AVISO_PORTADA }, sinManifiesto: true },
   { caso: "sin pieza en el plan", entrada: { revisor: AVISO_PORTADA }, id: "lun-no-existe" },
+  // Fix 1: hook de video Kling (pagado). Re-renderizar la carpeta lo borraría.
+  { caso: "borrador con hookVideo", entrada: { revisor: AVISO_PORTADA }, log: /hook de video/,
+    ajustar: () => writeFileSync(join(semanaDir(SEM), "lun-filtro.json"), JSON.stringify({ ...BOR_AI, hookVideo: { prompt: PROMPT_HOOK } })) },
+  { caso: "carpeta final con la marca HECHO del hook de video", entrada: { revisor: AVISO_PORTADA }, log: /hook de video/,
+    ajustar: (m) => writeFileSync(join(m.out, SEM, "lun-filtro", HECHO), "{}") },
+  { caso: "carpeta final con el RESPALDO del hook de video", entrada: { revisor: AVISO_PORTADA }, log: /hook de video/,
+    ajustar: (m) => writeFileSync(join(m.out, SEM, "lun-filtro", RESPALDO), "x") },
+  // Fix 3: sin render.json «renderizado» con medios (la subida de procesar quedó pendiente).
+  { caso: "sin entrada en render.json", entrada: { revisor: AVISO_PORTADA }, ajustar: (m) => void delete m.semanas[0].render["lun-filtro"] },
+  { caso: "render.json renderizado sin medios", entrada: { revisor: AVISO_PORTADA },
+    ajustar: (m) => void (m.semanas[0].render["lun-filtro"] = { estado: "renderizado", en: EN_ORIGINAL }) },
 ];
 for (const f of FILTROS) {
   await checkAsync(`corregirFondos: ${f.caso} → no hace nada`, () =>
     conMundoC([piezaPlan("lun-filtro", "14:00")], { "lun-filtro": f.entrada, ...(f.id ? { [f.id]: f.entrada } : {}) }, async (m, deps) => {
       if (f.sinManifiesto) rmSync(join(m.out, SEM, "lun-filtro", MANIFIESTO));
+      f.ajustar?.(m);
+      const final = join(m.out, SEM, "lun-filtro");
+      const archivosAntes = readdirSync(final).sort();
       const antes = structuredClone(m.visual.get(SEM));
       const r = await corregirFondos(m.semanas, [{ semana: SEM, id: f.id ?? "lun-filtro" }], m.out, ENV_C, PUERTA_ON, deps());
       assert.deepEqual(r, { aplicadas: 0, fallidas: 0, omitidas: 0 });
       assert.equal(m.reg.render.length + m.reg.rsync.length + m.reg.render_json.length + m.reg.avisos.length, 0);
       assert.deepEqual(m.visual.get(SEM), antes);
+      assert.deepEqual(readdirSync(final).sort(), archivosAntes, "la carpeta final no se toca");
+      if (f.log) assert.ok(m.reg.logs.some((l) => f.log!.test(l)), m.reg.logs.join(" | "));
     }, f.estado ?? {}),
   );
 }
@@ -554,3 +572,35 @@ await checkAsync("revisarRenderizadas: una pieza con correccion (aplicada) no se
     }
   }),
 );
+
+// Fix 2: si borrar la previa falla tras una corrección (aplicada o caso (c)), la corrida siguiente no la revierte.
+for (const caso of ["aplicada", "sin margen tras subir"] as const) {
+  await checkAsync(`corregirFondos: el borrado de la previa falla (${caso}) → la corrida siguiente no revierte nada`, () =>
+    conMundoC([piezaPlan("lun-reel-borra", "14:00")], { "lun-reel-borra": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      const base = deps();
+      const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-borra" }], m.out, ENV_C, PUERTA_ON, {
+        ...base,
+        borrar: async () => {
+          throw new Error("EBUSY");
+        },
+        rsync: async (l, rem) => {
+          await base.rsync(l, rem);
+          if (caso === "sin margen tras subir") m.reloj.t = new Date("2026-10-26T16:45:00Z").getTime();
+        },
+      });
+      assert.equal(r.aplicadas, 1);
+      assert.equal(r.fallidas, 0);
+      const final = join(m.out, SEM, "lun-reel-borra");
+      assert.equal(leer(join(final, "cover.jpg")), "nuevo");
+      assert.ok(!restos(m.out, "lun-reel-borra").some((f) => /\.prev-/.test(f)), "no queda una .prev- reconocible");
+      // Corrida siguiente (puerta inactiva: solo la recuperación): nada vuelve atrás.
+      m.reloj.t = T0.getTime();
+      const rsyncs = m.reg.rsync.length;
+      await corregirFondos(m.semanas, [], m.out, ENV_C, { activa: false, motivo: "apagada en config.json", respondidos: 0 }, deps());
+      assert.equal(leer(join(final, "cover.jpg")), "nuevo", "la final sigue corregida");
+      assert.equal(leer(join(m.server, SEM, "lun-reel-borra", "cover.jpg")), "nuevo", "el servidor sigue corregido");
+      assert.equal(m.reg.rsync.length, rsyncs, "sin re-subir el original");
+      assert.deepEqual(restos(m.out, "lun-reel-borra"), [], "la recuperación limpia el resto descartado");
+    }),
+  );
+}

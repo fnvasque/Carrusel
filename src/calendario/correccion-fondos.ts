@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { calendarioDir, estadoEfectivo, listarSemanas, ocultarToken, semanaDir, urlPublica, type Pieza, type SemanaLeida } from "./plan.ts";
 import { parseBorrador, type Borrador } from "./draft.ts";
+import { HECHO, RESPALDO } from "./hook-video.ts";
 import {
   MANIFIESTO, armarMedios, destinoRemoto, fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, tipoDe,
   type Deps, type EnvRender, type Manifiesto, type PiezaPendiente,
@@ -100,12 +101,15 @@ export interface DepsCorreccion {
   visualPendiente?: (semana: string, id: string) => unknown;
   /** Lector de visual.json (por defecto el de la base). */
   leerVisual?: (semana: string) => Promise<VisualJson>;
+  /** Borra una carpeta ya descartada (por defecto `rm -rf`); inyectable para probar un borrado que falla. */
+  borrar?: (ruta: string) => Promise<void>;
 }
 
 const SEMANA_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{3,80}$/;
 const PREV_RE = /^([a-z0-9-]{3,80})\.prev-\d+$/;
-const TMP_CORR_RE = /^([a-z0-9-]{3,80})\.tmp-corr-\d+$/;
+/** Restos propios: el tmp del re-render y la previa ya descartada (`procesar` también borra `<id>.tmp-*`). */
+const TMP_CORR_RE = /^([a-z0-9-]{3,80})\.tmp-(corr|descartada)-\d+$/;
 
 const esObjeto = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
 const razon = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -132,7 +136,14 @@ const mismosArchivos = (a: string[], b: string[]): boolean => JSON.stringify([..
  * Al empezar (aunque la puerta esté inactiva) deshace lo que dejó una corrida cortada:
  * una `<id>.prev-*` válida siempre es el original verificado que corresponde a render.json
  * (render.json se confirma después de que esta función borra la previa), así que se
- * restaura como final y, si queda margen, se re-sube para dejar el servidor igual.
+ * restaura como final y, si queda margen, se re-sube para dejar el servidor igual. Por eso,
+ * una vez que el render nuevo queda como definitivo, la previa primero se renombra a
+ * `<id>.tmp-descartada-<pid>` (que la recuperación no restaura) y solo después se borra.
+ *
+ * Riesgo conocido, sin resolver en código: `/publicar` (`ordenes.forzar` en el scheduler del
+ * bot) puede adelantar la publicación, y el Mac no ve esa orden. `conMargen` solo protege la
+ * hora del plan. Una publicación forzada durante la subida de un carrusel podría mezclar
+ * slides viejas y nuevas (rsync reemplaza archivo por archivo).
  */
 export async function corregirFondos(
   semanas: SemanaLeida[],
@@ -260,12 +271,22 @@ export async function corregirFondos(
         const { s, pieza } = pz;
         const ef = estadoEfectivo(pieza, s.render[id], s.estado[id]);
         if (ef === "publicado" || ef === "saltado" || ef === "fallido") continue;
+        // Solo piezas cuya subida quedó anotada en render.json (si la subida de procesar quedó pendiente, no).
+        const rj = s.render[id];
+        if (rj?.estado !== "renderizado" || !rj.medios) continue;
         const t = horaSegura(pieza);
         if (t === undefined) continue;
         const carpeta = join(outRoot, semana);
         const final = join(carpeta, id);
         const original = await leerManifiesto(final);
         if (!original) continue;
+        // Hook de video Kling (pagado): reemplazó reel.mp4 en la final y dejó HECHO y RESPALDO,
+        // que el manifiesto no lista. Un re-render limpio borraría el clip y la tarea del hook
+        // volvería a gastar créditos cerca de la hora: nunca se corrige.
+        if (existsSync(join(final, HECHO)) || existsSync(join(final, RESPALDO))) {
+          log(`🖼️  ${id} (${semana}): tiene hook de video aplicado; no corrijo sus fondos.`);
+          continue;
+        }
         const previa = await entradaDe(semana, id);
         if (previa.correccion) continue;
         if (previa.revisor?.estado !== "revisado") continue;
@@ -273,6 +294,10 @@ export async function corregirFondos(
         try {
           b = parseBorrador(await leerBorradorSeguro(semana, pieza.borrador));
         } catch {
+          continue;
+        }
+        if (b.hookVideo !== undefined) {
+          log(`🖼️  ${id} (${semana}): su borrador pide hook de video; no corrijo sus fondos.`);
           continue;
         }
         const ya = ((await fondosIaQuitados(semana)).get(id) ?? []).map((x) => x.slide);
@@ -308,6 +333,29 @@ export async function corregirFondos(
         const tmp = join(carpeta, `${id}.tmp-corr-${process.pid}`);
         const prev = join(carpeta, `${id}.prev-${process.pid}`);
         let movido = false; // ¿la final original está en `prev`?
+        const descartada = join(carpeta, `${id}.tmp-descartada-${process.pid}`);
+        /**
+         * El render nuevo queda como definitivo: desde aquí ya no se puede restaurar (`movido`
+         * en false) y la previa deja de parecer válida antes de borrarla (rename a un nombre que
+         * la recuperación no toma; si falla, se le quita el manifiesto). Nunca lanza.
+         */
+        const descartarPrevia = async (): Promise<void> => {
+          movido = false;
+          let aBorrar = descartada;
+          try {
+            await rm(descartada, { recursive: true, force: true });
+            await rename(prev, descartada);
+          } catch (e) {
+            aBorrar = prev;
+            log(`⚠️  No pude apartar ${prev} (${razon(e)}); le quito el manifiesto antes de borrarla.`);
+            await unlink(join(prev, MANIFIESTO)).catch((err) => log(`⚠️  No pude quitar el manifiesto de ${prev}: ${razon(err)}; la próxima corrida podría restaurarla.`));
+          }
+          try {
+            await (deps.borrar ?? ((r: string) => rm(r, { recursive: true, force: true })))(aBorrar);
+          } catch (e) {
+            log(`⚠️  No pude borrar ${aBorrar}: ${razon(e)} (ya no se restaura; la próxima corrida la limpia).`);
+          }
+        };
         const restaurar = async (): Promise<void> => {
           if (!movido) return;
           await rm(final, { recursive: true, force: true });
@@ -380,10 +428,12 @@ export async function corregirFondos(
           // original (otra subida aún más cerca de la hora es justo la carrera que se evita)
           // ni reescribir render.json (mandaría un preview nuevo ya sin margen). La final del
           // Mac queda con el render nuevo para coincidir con el servidor; la previa se borra.
+          // Se anota «aplicada» (con motivo): los archivos corregidos son los que se publicarán.
           if (!conMargen(t)) {
-            await rm(prev, { recursive: true, force: true });
-            movido = false;
-            await omitir(`${SIN_MARGEN} (los archivos corregidos ya estaban subidos con los mismos nombres; render.json sin cambios)`);
+            await descartarPrevia();
+            await anotar("aplicada", `subida sin reescribir render.json: ${SIN_MARGEN}`);
+            res.aplicadas++;
+            log(`🖼️  ${id} (${semana}): corrección subida sin reescribir render.json (${SIN_MARGEN}).`);
             await avisar(`Corrección de fondos de ${id} (${semana}): la subida terminó sin margen antes de la hora. El servidor ya tiene la versión sin el fondo ai de ${slides.map((i) => `slide ${i + 1}`).join(", ")} y es la que se publicará, pero no mando un preview nuevo (render.json sin cambios).`);
             continue;
           }
@@ -396,8 +446,7 @@ export async function corregirFondos(
             await fallar(`no pude anotar render.json: ${razon(e)}`, ` (${re})`);
             continue;
           }
-          await rm(prev, { recursive: true, force: true }).catch((e) => log(`⚠️  No pude borrar ${prev}: ${razon(e)}`));
-          movido = false;
+          await descartarPrevia();
           await anotar("aplicada");
           res.aplicadas++;
           log(`🖼️  ✓ ${id} (${semana}): fondo ai quitado en ${slides.map((i) => `slide ${i + 1}`).join(", ")}, re-renderizada y subida.`);
