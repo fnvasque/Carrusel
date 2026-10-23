@@ -1,13 +1,14 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { cuadrosARevisar, extraerCuadros, transicionDe, type Cuadro } from "./cuadros-visuales.ts";
+import { corregirFondos, type DepsCorreccion, type PuertaCorreccion } from "./correccion-fondos.ts";
 import { parseBorrador, type Borrador } from "./draft.ts";
-import { estadoEfectivo, type Pieza, type SemanaLeida } from "./plan.ts";
+import { estadoEfectivo, leerSemana, type Pieza, type SemanaLeida } from "./plan.ts";
 import { TEXT_KEYS } from "./qa.ts";
-import { fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto } from "./render.ts";
+import { fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, type EnvRender } from "./render.ts";
 import type { LlamarModelo, revisarFondos } from "./revisor-visual.ts";
 import { callbackVisual, captionVisual } from "./telegram.ts";
-import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type PresupuestoSemana, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "./visual.ts";
+import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type CorreccionPieza, type PresupuestoSemana, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "./visual.ts";
 
 /**
  * Revisión de fondos con modelo de visión en el Mac, después de `procesar` (solo avisa,
@@ -15,6 +16,18 @@ import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type PresupuestoSemana, typ
  * `revisor` ni `correccion` en visual.json, saca los cuadros, pregunta al modelo, anota el veredicto y
  * el gasto de la semana (`_presupuesto`) y manda una foto con botones por imagen señalada
  * (una por escena o slide, a lo más 3 por pieza). Corre cada hora sin supervisión y gasta dinero: respeta los topes y nunca lanza.
+ *
+ * Reparto en dos pasos (fase 3): la corrección automática tiene que correr entre la revisión y
+ * el aviso, para que la caption diga si la slide se corrigió.
+ *  1. `revisarSinAvisar`: revisa y anota (igual que la fase 2) y deja en cola las fotos a
+ *     mandar, con sus cuadros aún en `<outRoot>/.revision/<semana>/<id>/`. Las piezas sin fotos
+ *     en cola borran sus cuadros al terminar, como antes.
+ *  2. (opcional) `corregirFondos` sobre `piezas` (las revisadas en esta corrida).
+ *  3. `avisarRevisadas`: manda las fotos en cola (si la hora de la pieza no pasó mientras tanto)
+ *     y borra siempre los cuadros que quedaban, también ante un error.
+ * La foto avisada es del render que el revisor marcó (el ANTERIOR a la corrección): así se mide si
+ * el revisor tenía razón. Si esa slide quedó corregida, la caption lleva «(corregido: fondo quitado)».
+ * `revisarRenderizadas` (fase 2) = 1 + 3; `revisarYCorregir` (render-cli) = 1 + 2 + 3.
  */
 
 export interface DepsRevision {
@@ -82,25 +95,67 @@ export function avisosDe(imagenes: VeredictoImagen[]): VeredictoImagen[] {
   return out;
 }
 
-/** Revisa las piezas renderizadas en outRoot (carpeta final con manifiesto) cuya entrada en visual.json no tiene `revisor` y cuya hora no pasó. Respeta topes; nunca lanza. Devuelve un resumen. */
-export async function revisarRenderizadas(
+export interface ResumenRevision { revisadas: number; sinRevisar: number; avisos: number; usd: number }
+
+/** Una foto en cola: el veredicto señalado y su cuadro extraído. */
+export interface FotoPendiente { v: VeredictoImagen; ruta: string }
+
+/** Lo que deja `revisarSinAvisar` para `avisarRevisadas`. */
+export interface RevisionCorrida {
+  resumen: ResumenRevision;
+  /** Piezas con veredicto «revisado» en esta corrida: las candidatas de `corregirFondos`. */
+  piezas: { semana: string; id: string }[];
+  /** Fotos por mandar, por pieza, en orden de hora. */
+  avisos: { semana: string; id: string; t: number; fotos: FotoPendiente[] }[];
+  /** Borra los cuadros que siguen en disco (idempotente; nunca lanza). */
+  limpiar: () => Promise<void>;
+}
+
+/** Fase 2 completa (revisar y avisar sin corrección en medio). Respeta topes; nunca lanza. Devuelve un resumen. */
+export async function revisarRenderizadas(semanas: SemanaLeida[], outRoot: string, deps: DepsRevision): Promise<ResumenRevision> {
+  const c = await revisarSinAvisar(semanas, outRoot, deps);
+  c.resumen.avisos = await avisarRevisadas(c, deps);
+  return c.resumen;
+}
+
+const logSeguro = (deps: Pick<DepsRevision, "log">) => (t: string): void => {
+  try {
+    deps.log(sinClaves(t));
+  } catch {
+    // un log que falla no corta la revisión
+  }
+};
+
+/**
+ * Paso 1: revisa las piezas renderizadas en outRoot (carpeta final con manifiesto) cuya entrada en
+ * visual.json no tiene `revisor` ni `correccion` y cuya hora no pasó, anota el veredicto y deja en
+ * cola las fotos (sin mandarlas). Respeta topes; nunca lanza. Quien la llama debe llamar después
+ * a `avisarRevisadas` (o a `limpiar`) para borrar los cuadros en cola.
+ */
+export async function revisarSinAvisar(
   semanas: SemanaLeida[],
   outRoot: string,
   deps: DepsRevision,
-): Promise<{ revisadas: number; sinRevisar: number; avisos: number; usd: number }> {
-  const res = { revisadas: 0, sinRevisar: 0, avisos: 0, usd: 0 };
-  const log = (t: string): void => {
-    try {
-      deps.log(sinClaves(t));
-    } catch {
-      // un log que falla no corta la revisión
-    }
+): Promise<RevisionCorrida> {
+  const res: ResumenRevision = { revisadas: 0, sinRevisar: 0, avisos: 0, usd: 0 };
+  const log = logSeguro(deps);
+  const enCola = new Set<string>();
+  const corrida: RevisionCorrida = {
+    resumen: res,
+    piezas: [],
+    avisos: [],
+    limpiar: async () => {
+      for (const d of [...enCola]) {
+        enCola.delete(d);
+        await rm(d, { recursive: true, force: true }).catch((e) => log(`⚠️  No pude borrar ${d}: ${razon(e)}`));
+      }
+    },
   };
   try {
     const env = deps.env ?? process.env;
     if (!env.OPENAI_API_KEY?.trim()) {
       log("🖼️  Revisión de fondos: falta OPENAI_API_KEY; no reviso nada (se reintenta cuando haya clave).");
-      return res;
+      return corrida;
     }
     const ahora = deps.ahora ?? (() => new Date());
     const limite = ahora().getTime() + (deps.plazoMs ?? PLAZO_REVISION_MS);
@@ -189,6 +244,7 @@ export async function revisarRenderizadas(
       const { id } = pieza;
       const final = join(outRoot, semana, id);
       const destino = join(outRoot, ".revision", semana, id);
+      let guardar = false; // ¿quedan fotos en cola con cuadros en `destino`?
       try {
         if (t <= ahora().getTime()) continue;
         const manifiesto = await leerManifiesto(final);
@@ -268,6 +324,7 @@ export async function revisarRenderizadas(
 
         if (revision.estado === "revisado") {
           res.revisadas++;
+          corrida.piezas.push({ semana, id });
           log(`🖼️  ${id} (${semana}): fondos revisados (${revision.imagenes.length} imagen(es), US$${revision.usd.toFixed(4)}).`);
         } else {
           res.sinRevisar++;
@@ -283,11 +340,59 @@ export async function revisarRenderizadas(
         const aAvisar = avisosDe(revision.imagenes);
         const resto = revision.imagenes.filter((v) => v.compite || v.ajeno).length - aAvisar.length;
         if (resto > 0) log(`🖼️  ${id} (${semana}): ${resto} imagen(es) señalada(s) más quedan solo en visual.json (una foto por escena, ${TOPES_REVISOR.avisosPorPieza} por pieza).`);
+        const fotos: FotoPendiente[] = [];
         for (const v of aAvisar) {
           const ruta = rutas.find((r) => r.n === v.n)?.ruta;
-          if (!ruta) continue;
+          if (ruta) fotos.push({ v, ruta });
+        }
+        if (fotos.length) {
+          corrida.avisos.push({ semana, id, t, fotos });
+          enCola.add(destino);
+          guardar = true;
+        }
+      } catch (e) {
+        log(`⚠️  Revisión de fondos: ${id} (${semana}) quedó sin revisar en esta corrida: ${razon(e)}`);
+      } finally {
+        if (!guardar) await rm(destino, { recursive: true, force: true }).catch((e) => log(`⚠️  No pude borrar ${destino}: ${razon(e)}`));
+      }
+    }
+  } catch (e) {
+    log(`⚠️  Revisión de fondos: error inesperado: ${razon(e)}`);
+  }
+  return corrida;
+}
+
+/**
+ * Paso 3: manda las fotos en cola de `revisarSinAvisar` y borra siempre sus cuadros. Una pieza cuya
+ * hora pasó desde la revisión (p. ej. durante la corrección) ya no se avisa, como en la fase 2.
+ * `correccionDe` (fase 3) da la corrección de la pieza tras `corregirFondos`: «corregido» solo si
+ * quedó `aplicada` y la slide de la foto está entre las corregidas. Devuelve los avisos que llegaron. Nunca lanza.
+ */
+export async function avisarRevisadas(
+  corrida: RevisionCorrida,
+  deps: Pick<DepsRevision, "enviarFoto" | "log" | "ahora">,
+  correccionDe?: (semana: string, id: string) => CorreccionPieza | undefined,
+): Promise<number> {
+  const log = logSeguro(deps);
+  const ahora = deps.ahora ?? (() => new Date());
+  let avisos = 0;
+  try {
+    for (const { semana, id, t, fotos } of corrida.avisos) {
+      try {
+        if (t <= ahora().getTime()) {
+          log(`🖼️  ${id} (${semana}): su hora pasó antes de mandar los avisos; no los mando.`);
+          continue;
+        }
+        let corr: CorreccionPieza | undefined;
+        try {
+          corr = correccionDe?.(semana, id);
+        } catch {
+          corr = undefined;
+        }
+        for (const { v, ruta } of fotos) {
           const tipo = v.compite ? "fondo-compite" : "fondo-ajeno";
-          const caption = captionVisual(id, semana, v.que, sinClaves(v.frase), tipo);
+          const corregido = corr?.estado === "aplicada" && typeof v.slide === "number" && Array.isArray(corr.slides) && corr.slides.includes(v.slide);
+          const caption = captionVisual(id, semana, v.que, sinClaves(v.frase), tipo, corregido || undefined);
           const botones = [[
             { texto: "Tenía razón", data: callbackVisual(semana, id, v.n, "si") },
             { texto: "No", data: callbackVisual(semana, id, v.n, "no") },
@@ -298,17 +403,69 @@ export async function revisarRenderizadas(
           } catch (e) {
             log(`⚠️  Revisión de fondos: no pude mandar la foto ${v.n} de ${id}: ${razon(e)}`);
           }
-          if (ok) res.avisos++;
+          if (ok) avisos++;
           else log(`⚠️  Revisión de fondos: el aviso de la imagen ${v.n} de ${id} no llegó (no se reintenta).`);
         }
       } catch (e) {
-        log(`⚠️  Revisión de fondos: ${id} (${semana}) quedó sin revisar en esta corrida: ${razon(e)}`);
-      } finally {
-        await rm(destino, { recursive: true, force: true }).catch((e) => log(`⚠️  No pude borrar ${destino}: ${razon(e)}`));
+        log(`⚠️  Revisión de fondos: no pude avisar ${id} (${semana}): ${razon(e)}`);
       }
     }
-  } catch (e) {
-    log(`⚠️  Revisión de fondos: error inesperado: ${razon(e)}`);
+  } finally {
+    await corrida.limpiar();
   }
-  return res;
+  return avisos;
+}
+
+/**
+ * Revisión + corrección (fase 3) + aviso, en ese orden (ver el reparto arriba). `corregirFondos`
+ * corre siempre (recupera restos de una corrida cortada aunque la puerta esté inactiva, y loguea
+ * «fase 3 inactiva» una sola vez). `semanas` debe traer el render.json de ESTA corrida (ver
+ * `releerSemanas`): `corregirFondos` solo toca piezas «renderizado» con medios. Nunca lanza.
+ */
+export async function revisarYCorregir(
+  semanas: SemanaLeida[],
+  outRoot: string,
+  deps: DepsRevision,
+  corr: { env: EnvRender; puerta: PuertaCorreccion; deps: DepsCorreccion },
+): Promise<{ revision: ResumenRevision; correccion: { aplicadas: number; fallidas: number; omitidas: number } }> {
+  const corrida = await revisarSinAvisar(semanas, outRoot, deps);
+  let correccion = { aplicadas: 0, fallidas: 0, omitidas: 0 };
+  // Lo que `corregirFondos` anota por pieza, para la caption (además va al escritor como siempre).
+  const anotadas = new Map<string, CorreccionPieza>();
+  try {
+    correccion = await corregirFondos(semanas, corrida.piezas, outRoot, corr.env, corr.puerta, {
+      ...corr.deps,
+      escribirVisual: async (semana, id, e) => {
+        if (e.correccion) anotadas.set(`${semana}/${id}`, e.correccion);
+        await corr.deps.escribirVisual(semana, id, e);
+      },
+    });
+  } catch (e) {
+    logSeguro(deps)(`⚠️  Corrección de fondos: error inesperado: ${razon(e)}`);
+  }
+  corrida.resumen.avisos = await avisarRevisadas(corrida, deps, (semana, id) => anotadas.get(`${semana}/${id}`));
+  return { revision: corrida.resumen, correccion };
+}
+
+/**
+ * Vuelve a leer cada semana del disco de la base (después de los `confirmar` de `procesar`), para
+ * que la revisión y la corrección vean el render.json de esta corrida: una pieza renderizada recién
+ * no está «renderizado» en las semanas leídas antes de `procesar`, y como sale de la revisión con
+ * `revisor` ya no se corregiría nunca. Si la relectura falla o no encuentra la semana, se queda la leída.
+ */
+export async function releerSemanas(
+  semanas: SemanaLeida[],
+  leer: (semana: string) => Promise<SemanaLeida | undefined> = leerSemana,
+  log: (t: string) => void = () => {},
+): Promise<SemanaLeida[]> {
+  const out: SemanaLeida[] = [];
+  for (const s of semanas) {
+    try {
+      out.push((await leer(s.semana)) ?? s);
+    } catch (e) {
+      log(`⚠️  No pude releer la semana ${s.semana} (${razon(e)}); sigo con la leída al empezar.`);
+      out.push(s);
+    }
+  }
+  return out;
 }

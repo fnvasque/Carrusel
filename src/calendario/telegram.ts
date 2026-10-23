@@ -309,9 +309,10 @@ export function leerCallbackVisual(
 }
 
 /** Caption del aviso de revisión visual (foto con botones). `tipo`: qué le pasa al fondo. */
-export function captionVisual(id: string, _semana: string, que: string, frase: string, tipo: string): string {
+export function captionVisual(id: string, _semana: string, que: string, frase: string, tipo: string, corregido?: boolean): string {
   const cabeza = `🖼️ Revisión visual (aviso, no bloquea): ${id} · ${que}\n`;
-  const cola = `\n(${tipo})\n¿Tenía razón?`;
+  // Fase 3: la foto es del render que el revisor marcó; esa slide ya se re-renderizó con fondo liso.
+  const cola = `\n(${tipo})${corregido ? "\n(corregido: fondo quitado)" : ""}\n¿Tenía razón?`;
   // Se recorta la frase, no la cola: la pregunta final tiene que quedar siempre.
   const sitio = TELEGRAM_CAPTION_MAX - cabeza.length - cola.length;
   if (sitio >= 20) return `${cabeza}${truncar(frase, sitio)}${cola}`;

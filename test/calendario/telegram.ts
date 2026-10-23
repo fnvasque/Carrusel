@@ -562,6 +562,18 @@ check("captionVisual: frase larga conserva el tipo y «¿Tenía razón?»", () =
   assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(c));
 });
 
+check("captionVisual: con corregido agrega «(corregido: fondo quitado)»; sin el flag no cambia", () => {
+  const sin = captionVisual("lun-a", "s", "portada", "frase", "fondo-compite");
+  assert.equal(captionVisual("lun-a", "s", "portada", "frase", "fondo-compite", false), sin);
+  assert.equal(sin, "🖼️ Revisión visual (aviso, no bloquea): lun-a · portada\nfrase\n(fondo-compite)\n¿Tenía razón?");
+  const con = captionVisual("lun-a", "s", "portada", "frase", "fondo-compite", true);
+  assert.ok(con.includes("(corregido: fondo quitado)"), con);
+  assert.ok(con.endsWith("¿Tenía razón?"));
+  const larga = captionVisual("lun-a", "s", "portada", "z".repeat(3000), "fondo-compite", true);
+  assert.ok(larga.length <= TELEGRAM_CAPTION_MAX);
+  assert.ok(larga.includes("(corregido: fondo quitado)"));
+});
+
 check("textoRespuestaVisual", () => {
   assert.equal(textoRespuestaVisual("si"), "→ Tenía razón");
   assert.equal(textoRespuestaVisual("no"), "→ No");

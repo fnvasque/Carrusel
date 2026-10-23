@@ -7,6 +7,10 @@ import { parsePlan, semanaDir, type SemanaLeida } from "../../src/calendario/pla
 import { MANIFIESTO } from "../../src/calendario/render.ts";
 import { revisarRenderizadas, type DepsRevision } from "../../src/calendario/revision-fondos.ts";
 import type { Cuadro } from "../../src/calendario/cuadros-visuales.ts";
+import type { DepsCorreccion, PuertaCorreccion } from "../../src/calendario/correccion-fondos.ts";
+import type { EnvRender } from "../../src/calendario/render.ts";
+import type { RenderEntry } from "../../src/calendario/plan.ts";
+import { avisarRevisadas, releerSemanas, revisarSinAvisar, revisarYCorregir } from "../../src/calendario/revision-fondos.ts";
 import type { PresupuestoSemana, RevisionPieza, VisualJson, VisualPieza } from "../../src/calendario/visual.ts";
 
 /**
@@ -506,3 +510,170 @@ await checkAsync("revisarRenderizadas: cada veredicto guardado lleva la slide de
     assert.deepEqual(imgs.map((v) => v.slide), [0, 0, 0, 1, 1]);
   }),
 );
+
+// --- Fase 3: revisar → corregir → avisar (Task 4) ---
+
+const ENV_T4: EnvRender = { base: "https://media.test/m", token: "tok123", host: "", dir: "" };
+const ACTIVA: PuertaCorreccion = { activa: true, motivo: "activa", respondidos: 30, precision: 0.9 };
+const INACTIVA: PuertaCorreccion = { activa: false, motivo: "apagada en config.json", respondidos: 0 };
+const RENDER_OK: RenderEntry = { estado: "renderizado", medios: { archivos: ["reel.mp4"], cover: "cover.jpg", duracionMs: 4900 }, en: "2026-10-26T13:00:00.000Z" };
+
+/** Semanas con render.json «renderizado» (como las relee render-cli después de procesar). */
+const conRender = (m: Mundo): SemanaLeida[] =>
+  m.semanas.map((s) => ({ ...s, render: Object.fromEntries(s.plan.piezas.map((p) => [p.id, structuredClone(RENDER_OK)])) }));
+
+function depsCorr(m: Mundo, reg: { render: unknown[]; avisos: string[] }, o: Partial<DepsCorreccion> = {}): DepsCorreccion {
+  return {
+    render: async (_p, tmp, quitar) => {
+      reg.render.push(quitar);
+      mkdirSync(tmp, { recursive: true });
+      for (const a of ["reel.mp4", "cover.jpg"]) writeFileSync(join(tmp, a), "nuevo");
+      return { archivos: ["reel.mp4", "cover.jpg"], duracionMs: 4900, escenas: ESCENAS };
+    },
+    rsync: async () => {},
+    verificar: async () => true,
+    escribirRender: async () => {},
+    escribirVisual: async (semana, id, e) => {
+      const v = m.visual.get(semana) ?? {};
+      (v as Record<string, VisualPieza>)[id] = structuredClone(e);
+      m.visual.set(semana, v);
+    },
+    leerVisual: async (semana) => structuredClone(m.visual.get(semana) ?? {}),
+    avisar: async (t) => {
+      reg.avisos.push(t);
+      return true;
+    },
+    log: (t) => m.reg.logs.push(t),
+    ahora: () => AHORA,
+    ...o,
+  };
+}
+
+await checkAsync("revisarYCorregir: con la puerta activa, la pieza marcada se corrige antes del aviso y su foto lleva «(corregido: fondo quitado)»", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const reg = { render: [] as unknown[], avisos: [] as string[] };
+    const r = await revisarYCorregir(conRender(m), m.out, deps(), { env: ENV_T4, puerta: ACTIVA, deps: depsCorr(m, reg) });
+    assert.deepEqual(r.correccion, { aplicadas: 1, fallidas: 0, omitidas: 0 });
+    assert.deepEqual(r.revision, { revisadas: 1, sinRevisar: 0, avisos: 1, usd: 0.01 });
+    assert.equal(reg.render.length, 1, "un re-render");
+    assert.equal(m.visual.get(SEMANA)!["mar-reel-uno"].correccion?.estado, "aplicada");
+    assert.equal(m.reg.fotos.length, 1);
+    assert.match(m.reg.fotos[0].caption, /\(fondo-compite\)\n\(corregido: fondo quitado\)\n¿Tenía razón\?$/);
+    assert.ok(!existsSync(join(m.out, ".revision", SEMANA, "mar-reel-uno")), "los cuadros se borran después del aviso");
+    assert.ok(!m.reg.logs.some((l) => /fase 3 inactiva/.test(l)));
+  }),
+);
+
+await checkAsync("revisarYCorregir: con la puerta inactiva los avisos son idénticos a la fase 2 y «fase 3 inactiva» sale una vez", async () => {
+  const dos = [MANANA("mar-reel-uno"), pieza("mie-reel-dos", "2026-10-28", "14:00")];
+  let fase2: { caption: string; ruta: string; botones: unknown }[] = [];
+  let r2: unknown;
+  await conMundo(dos, async (m, deps) => {
+    r2 = await revisarRenderizadas(m.semanas, m.out, deps());
+    fase2 = m.reg.fotos.map((f) => ({ caption: f.caption, ruta: f.ruta.slice(m.out.length), botones: f.botones }));
+  });
+  await conMundo(dos, async (m, deps) => {
+    const reg = { render: [] as unknown[], avisos: [] as string[] };
+    const r = await revisarYCorregir(conRender(m), m.out, deps(), { env: ENV_T4, puerta: INACTIVA, deps: depsCorr(m, reg) });
+    assert.equal(fase2.length, 2);
+    assert.deepEqual(m.reg.fotos.map((f) => ({ caption: f.caption, ruta: f.ruta.slice(m.out.length), botones: f.botones })), fase2);
+    assert.deepEqual(r.revision, r2);
+    assert.deepEqual(r.correccion, { aplicadas: 0, fallidas: 0, omitidas: 0 });
+    assert.equal(reg.render.length, 0);
+    assert.equal(m.reg.logs.filter((l) => /fase 3 inactiva: apagada en config\.json/.test(l)).length, 1, m.reg.logs.join("\n"));
+    assert.ok(Object.values(m.visual.get(SEMANA)!).every((e) => !("correccion" in (e as object))));
+  });
+});
+
+await checkAsync("revisarYCorregir: una corrección fallida deja la caption de la fase 2", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const reg = { render: [] as unknown[], avisos: [] as string[] };
+    const r = await revisarYCorregir(conRender(m), m.out, deps(), {
+      env: ENV_T4, puerta: ACTIVA,
+      deps: depsCorr(m, reg, { render: async () => { throw new Error("chromium se cayó"); } }),
+    });
+    assert.equal(r.correccion.fallidas, 1);
+    assert.equal(m.visual.get(SEMANA)!["mar-reel-uno"].correccion?.estado, "fallida");
+    assert.equal(m.reg.fotos.length, 1);
+    assert.ok(!m.reg.fotos[0].caption.includes("corregido"), m.reg.fotos[0].caption);
+    assert.equal(reg.avisos.length, 1, "un aviso de la corrección fallida");
+  }),
+);
+
+await checkAsync("revisarYCorregir: sin render.json «renderizado» (semanas sin releer) no corrige y avisa como la fase 2", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const reg = { render: [] as unknown[], avisos: [] as string[] };
+    const r = await revisarYCorregir(m.semanas, m.out, deps(), { env: ENV_T4, puerta: ACTIVA, deps: depsCorr(m, reg) });
+    assert.deepEqual(r.correccion, { aplicadas: 0, fallidas: 0, omitidas: 0 });
+    assert.equal(m.reg.fotos.length, 1);
+    assert.ok(!m.reg.fotos[0].caption.includes("corregido"));
+  }),
+);
+
+await checkAsync("revisarYCorregir: si la hora pasa durante la corrección no se avisa, y los cuadros se borran igual", () =>
+  conMundo([pieza("lun-pronto", "2026-10-26", "13:00")], async (m, deps) => {
+    let reloj = AHORA.getTime();
+    const ahora = (): Date => new Date(reloj);
+    const reg = { render: [] as unknown[], avisos: [] as string[] };
+    const base = depsCorr(m, reg);
+    const r = await revisarYCorregir(conRender(m), m.out, deps({ ahora }), {
+      env: ENV_T4, puerta: ACTIVA,
+      deps: { ...base, ahora, render: async (p, tmp, q) => { reloj += 2 * 60 * 60_000; return base.render(p, tmp, q); } },
+    });
+    assert.equal(r.correccion.omitidas, 1);
+    assert.equal(m.reg.fotos.length, 0);
+    assert.equal(r.revision.avisos, 0);
+    assert.ok(m.reg.logs.some((l) => /lun-pronto/.test(l) && /hora pasó/.test(l)), m.reg.logs.join("\n"));
+    assert.ok(!existsSync(join(m.out, ".revision", SEMANA, "lun-pronto")));
+  }),
+);
+
+await checkAsync("revisarYCorregir: si enviarFoto lanza, no lanza y los cuadros se borran", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const reg = { render: [] as unknown[], avisos: [] as string[] };
+    const r = await revisarYCorregir(conRender(m), m.out, deps({ enviarFoto: async () => { throw new Error("red"); } }), { env: ENV_T4, puerta: ACTIVA, deps: depsCorr(m, reg) });
+    assert.equal(r.revision.avisos, 0);
+    assert.equal(r.correccion.aplicadas, 1);
+    assert.ok(!existsSync(join(m.out, ".revision", SEMANA, "mar-reel-uno")));
+  }),
+);
+
+await checkAsync("avisarRevisadas: «corregido» solo si la slide avisada está entre las corregidas y la corrección quedó aplicada", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const d = deps();
+    const c = await revisarSinAvisar(m.semanas, m.out, d);
+    assert.deepEqual(c.piezas, [{ semana: SEMANA, id: "mar-reel-uno" }]);
+    assert.equal(m.reg.fotos.length, 0, "revisar no manda fotos");
+    assert.ok(existsSync(join(m.out, ".revision", SEMANA, "mar-reel-uno")), "los cuadros siguen hasta avisar");
+    // El aviso es de la portada (slide 0): una corrección de la slide 1 no la marca.
+    const n = await avisarRevisadas(c, d, () => ({ en: "x", estado: "aplicada", slides: [1] }));
+    assert.equal(n, 1);
+    assert.ok(!m.reg.fotos[0].caption.includes("corregido"));
+    assert.ok(!existsSync(join(m.out, ".revision", SEMANA, "mar-reel-uno")));
+  }),
+);
+
+await checkAsync("avisarRevisadas: «omitida» no marca la caption", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const d = deps();
+    const c = await revisarSinAvisar(m.semanas, m.out, d);
+    await avisarRevisadas(c, d, () => ({ en: "x", estado: "omitida", slides: [0] }));
+    assert.ok(!m.reg.fotos[0].caption.includes("corregido"));
+  }),
+);
+
+await checkAsync("releerSemanas: toma el render.json escrito por procesar y conserva la semana si la relectura falla", async () => {
+  const s1 = { semana: "2026-10-19", plan: { piezas: [] }, render: {}, estado: {} } as unknown as SemanaLeida;
+  const s2 = { semana: "2026-10-26", plan: { piezas: [] }, render: {}, estado: {} } as unknown as SemanaLeida;
+  const nueva = { ...s1, render: { a: RENDER_OK } } as SemanaLeida;
+  const logs: string[] = [];
+  const r = await releerSemanas([s1, s2], async (s) => {
+    if (s === "2026-10-19") return nueva;
+    throw new Error("plan roto");
+  }, (t) => logs.push(t));
+  assert.equal(r[0], nueva);
+  assert.equal(r[1], s2);
+  assert.ok(logs.some((l) => /2026-10-26/.test(l) && /plan roto/.test(l)));
+  const r2 = await releerSemanas([s1], async () => undefined, () => {});
+  assert.equal(r2[0], s1, "undefined conserva la leída");
+});

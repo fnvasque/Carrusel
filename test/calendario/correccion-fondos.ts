@@ -89,6 +89,27 @@ await checkAsync("correccion-fondos: leerPuertaCorreccion suma las semanas con v
   });
 });
 
+await checkAsync("correccion-fondos: leerPuertaCorreccion compara la precisión sin redondear (159 de 200 = 0,795 → inactiva)", async () => {
+  await conKb(async (dir) => {
+    const cal = join(dir, "_calendario");
+    const sem = "2026-10-19";
+    mkdirSync(join(cal, sem), { recursive: true });
+    writeFileSync(join(cal, "config.json"), JSON.stringify({ revisionVisual: { corregir: true } }));
+    const imagenes = Array.from({ length: 200 }, (_, i) => ({ n: i + 1, que: "x", compite: true, ajeno: false, frase: "" }));
+    writeFileSync(join(cal, sem, "visual.json"), JSON.stringify({ p: { revisor: { en: "x", modelo: "m", estado: "revisado", usd: 0, imagenes } } }));
+    const lineas = imagenes.map((v, i) => JSON.stringify({ id: "p", n: v.n, respuesta: i < 159 ? "si" : "no", en: "2026-10-20T10:00:00Z" }));
+    writeFileSync(join(cal, sem, "visual-respuestas.jsonl"), `${lineas.join("\n")}\n`);
+    const p = await leerPuertaCorreccion();
+    assert.equal(p.respondidos, 200);
+    assert.equal(p.activa, false, p.motivo);
+    assert.match(p.motivo, /precisión 0,79 < 0,8/);
+    // 160 de 200 = 0,8 justo: activa.
+    const lineas2 = imagenes.map((v, i) => JSON.stringify({ id: "p", n: v.n, respuesta: i < 160 ? "si" : "no", en: "2026-10-20T10:00:00Z" }));
+    writeFileSync(join(cal, sem, "visual-respuestas.jsonl"), `${lineas2.join("\n")}\n`);
+    assert.equal((await leerPuertaCorreccion()).activa, true);
+  });
+});
+
 // --- Qué slides corregir (fase 3) ---
 const bor = (slides: { template: string; background?: unknown }[]): Borrador => ({ name: "x", pillar: "herramienta", slides: slides.map((s) => ({ props: {}, ...s })) }) as unknown as Borrador;
 const vd = (slide: number | undefined, o: Partial<VeredictoImagen> = {}): VeredictoImagen => ({ n: 1, que: "portada", ...(slide !== undefined ? { slide } : {}), compite: true, ajeno: false, frase: "f", ...o });

@@ -18,8 +18,11 @@ export const UMBRAL_CORRECCION = { respondidos: 30, precision: 0.8 } as const;
 
 export interface PuertaCorreccion { activa: boolean; motivo: string; respondidos: number; precision?: number }
 
-/** Número con coma decimal (0.72 → «0,72»). */
-const coma = (x: number): string => String(x).replace(".", ",");
+/**
+ * Número con coma decimal y a lo más 2 decimales, truncado hacia abajo (0.72 → «0,72»; 0.795 →
+ * «0,79»): solo para el motivo. Truncar evita que 0,795 se lea «0,8 < 0,8».
+ */
+const coma = (x: number): string => String(Math.floor(x * 100 + 1e-9) / 100).replace(".", ",");
 
 /** Pura: decide con el interruptor de `config.json` y el resumen de precisión del revisor. */
 export function puertaCorreccion(interruptor: unknown, total: { respondidos: number; precision?: number }): PuertaCorreccion {
@@ -52,7 +55,9 @@ export async function leerPuertaCorreccion(): Promise<PuertaCorreccion> {
       const [visual, respuestas] = await Promise.all([leerVisual(semana), leerRespuestasVisuales(semana)]);
       semanas.push({ semana, visual, respuestas });
     }
-    return puertaCorreccion(interruptor, resumenVisual(semanas).total);
+    // La precisión se compara sin redondear: `resumenVisual` la redondea a 2 decimales (0,795 → 0,8).
+    const { respondidos, aciertos } = resumenVisual(semanas).total;
+    return puertaCorreccion(interruptor, { respondidos, ...(respondidos > 0 ? { precision: aciertos / respondidos } : {}) });
   } catch (err) {
     return { activa: false, respondidos: 0, motivo: `no se pudo leer la puerta: ${err instanceof Error ? err.message : String(err)}` };
   }

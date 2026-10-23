@@ -343,7 +343,9 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   revisión visual del render. `porSemana` trae, por semana, `avisos` (imágenes
   que el revisor con IA señaló por fondo), `respondidos`, `aciertos` («Tenía
   razón» del usuario) y `precision` (aciertos / respondidos; falta si nadie
-  respondió); `total` lo mismo sumado. `porTipo` cuenta los hallazgos por tipo
+  respondió); `total` lo mismo sumado. `correcciones` (por semana y en `total`;
+  falta si no hubo ninguna) cuenta lo que hizo la fase 3: `aplicadas` (fondo
+  ai quitado y re-renderizado), `fallidas` y `omitidas`. `porTipo` cuenta los hallazgos por tipo
   (`fondo-compite`, `fondo-ajeno` y los de la fase 1: `tilde`, `puntuacion`,
   `zona`…) y semana. Es solo informativo: no cambia el plan. Dos campos piden
   algo:

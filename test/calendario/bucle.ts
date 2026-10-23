@@ -838,3 +838,15 @@ check("construirBucle: las alertas del registro visual se copian a avisos", () =
   const sin = construirBucle({ ...base, reglas, visual: [{ semana: "2026-10-19", visual: {}, respuestas: [] }] });
   assert.ok(!sin.avisos.some((a) => a.startsWith("revisión visual:")));
 });
+
+check("construirBucle: visual incluye las correcciones de la fase 3", () => {
+  const base = { ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: undefined, config: undefined };
+  const visual = {
+    p1: { correccion: { en: "2026-10-20T10:00:00Z", estado: "aplicada" as const, slides: [0] } },
+    p2: { correccion: { en: "2026-10-20T10:00:00Z", estado: "fallida" as const, slides: [1], motivo: "m" } },
+  };
+  const b = construirBucle({ ...base, visual: [{ semana: "2026-10-19", visual, respuestas: [] }] });
+  assert.deepEqual(b.visual?.porSemana[0].correcciones, { aplicadas: 1, fallidas: 1, omitidas: 0 });
+  assert.deepEqual(b.visual?.total.correcciones, { aplicadas: 1, fallidas: 1, omitidas: 0 });
+  assert.deepEqual(JSON.parse(JSON.stringify(b)).visual.total.correcciones, { aplicadas: 1, fallidas: 1, omitidas: 0 });
+});

@@ -161,3 +161,16 @@ check("resumenVisual: dos piezas con n=1 y respuestas distintas se cuentan por s
   const respuestas: RespuestaVisual[] = [{ id: "a", n: 1, respuesta: "si", en: "2026-10-20T10:00:00Z" }, { id: "b", n: 1, respuesta: "no", en: "2026-10-20T10:01:00Z" }];
   assert.deepEqual(resumenVisual([{ semana: "2026-10-19", visual, respuestas }]).total, { avisos: 2, respondidos: 2, aciertos: 1, precision: 0.5 });
 });
+
+check("resumenVisual: cuenta las correcciones de la fase 3 por semana y en total; las mal formadas no cuentan", () => {
+  const corr = (estado: string): VisualPieza => ({ correccion: { en: "2026-10-20T10:00:00Z", estado, slides: [0] } } as unknown as VisualPieza);
+  const s1: VisualJson = { a: corr("aplicada"), b: corr("aplicada"), c: corr("fallida"), d: corr("rara"), e: { correccion: null } as unknown as VisualPieza, f: revV([]) };
+  const s2: VisualJson = { g: corr("omitida"), h: corr("aplicada") };
+  const r = resumenVisual([{ semana: "2026-10-19", visual: s1, respuestas: [] }, { semana: "2026-10-26", visual: s2, respuestas: [] }, { semana: "2026-11-02", visual: { i: revV([]) }, respuestas: [] }]);
+  assert.deepEqual(r.porSemana[0].correcciones, { aplicadas: 2, fallidas: 1, omitidas: 0 });
+  assert.deepEqual(r.porSemana[1].correcciones, { aplicadas: 1, fallidas: 0, omitidas: 1 });
+  // Sin correcciones la semana no lleva el campo (como `precision` sin respondidos).
+  assert.equal("correcciones" in r.porSemana[2], false);
+  assert.deepEqual(r.total.correcciones, { aplicadas: 3, fallidas: 1, omitidas: 1 });
+  assert.equal("correcciones" in resumenVisual([{ semana: "2026-10-19", visual: { f: revV([]) }, respuestas: [] }]).total, false);
+});
