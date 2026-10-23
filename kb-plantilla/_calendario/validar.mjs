@@ -720,6 +720,71 @@ function erroresDeNotas(notas) {
 }
 
 /** Errores de los campos de planificación de una pieza (los que exige la puerta). */
+/** Desde este día el hook sale de 8 a 10 candidatos y lo elige un juez separado. */
+export const DESDE_CALIDAD = "2026-10-26";
+export const PATRONES_HOOK = ["en-juego", "error-comun", "dato-contrario", "antes-despues", "pregunta-del-jefe", "resultado"];
+const CANDIDATOS_MIN = 8;
+const CANDIDATOS_MAX = 10;
+const PATRONES_MIN = 3;
+
+/** El hook exige candidatos y juez desde DESDE_CALIDAD (comparación de AAAA-MM-DD). */
+const exigeJuez = (p) => typeof p.dia === "string" && p.dia >= DESDE_CALIDAD;
+
+/** Candidato elegido por el juez, o undefined si falta o el índice no sirve. */
+function candidatoElegido(hook) {
+  if (!esObj(hook) || !Array.isArray(hook.candidatos) || !esObj(hook.juez)) return undefined;
+  const i = hook.juez.elegido;
+  return Number.isInteger(i) && i >= 0 && i < hook.candidatos.length && esObj(hook.candidatos[i]) ? hook.candidatos[i] : undefined;
+}
+
+/**
+ * Errores del hook con candidatos y juez (piezas desde DESDE_CALIDAD): de 8 a 10
+ * candidatos de al menos 3 patrones, `juez.elegido` válido, `hook.texto` igual al
+ * título elegido y `hook.score` igual a la nota del juez. Con `borrador`, además
+ * el Hook del borrador debe repetir título, subtítulo y resultado del elegido.
+ */
+export function erroresDeHookJuez(p, borrador) {
+  const errs = [];
+  const h = esObj(p) ? p.hook : undefined;
+  if (!esObj(h)) return errs; // "hook incompleto" ya lo dice erroresDePieza
+  const cands = h.candidatos;
+  if (!Array.isArray(cands)) errs.push(`hook.candidatos falta: desde el ${DESDE_CALIDAD} el hook sale de ${CANDIDATOS_MIN} a ${CANDIDATOS_MAX} candidatos`);
+  else {
+    if (cands.length < CANDIDATOS_MIN || cands.length > CANDIDATOS_MAX) errs.push(`hook.candidatos tiene ${cands.length}: deben ser ${CANDIDATOS_MIN} a ${CANDIDATOS_MAX} candidatos`);
+    const patrones = new Set();
+    cands.forEach((c, i) => {
+      if (!esObj(c) || !esTexto(c.title)) return errs.push(`hook.candidatos[${i}] inválido: { patron, title, subtitle?, resultado? }`);
+      if (!PATRONES_HOOK.includes(c.patron)) errs.push(`hook.candidatos[${i}].patron ${q(c.patron)} inválido (PATRONES_HOOK: ${PATRONES_HOOK.join(", ")})`);
+      else patrones.add(c.patron);
+      for (const k of ["subtitle", "resultado"]) if (c[k] !== undefined && !esTexto(c[k])) errs.push(`hook.candidatos[${i}].${k} debe ser texto`);
+    });
+    if (patrones.size < PATRONES_MIN) errs.push(`hook.candidatos usa ${patrones.size} patrón(es): se piden al menos ${PATRONES_MIN} patrones distintos (${PATRONES_HOOK.join(", ")})`);
+  }
+  const j = h.juez;
+  if (!esObj(j)) errs.push("hook.juez falta: { elegido, nota, respuestas }");
+  else {
+    if (!Number.isInteger(j.elegido) || (Array.isArray(cands) && (j.elegido < 0 || j.elegido >= cands.length))) errs.push(`hook.juez.elegido ${q(j.elegido)} inválido: índice (desde 0) de hook.candidatos`);
+    if (typeof j.nota !== "number" || !Number.isFinite(j.nota) || j.nota < 0 || j.nota > 10) errs.push(`hook.juez.nota ${q(j.nota)} inválida (0 a 10)`);
+    else if (h.score !== j.nota) errs.push(`hook.score debe ser la nota del juez (score ${q(h.score)}, nota ${q(j.nota)})`);
+    if (!esTexto(j.respuestas)) errs.push("hook.juez.respuestas falta: la respuesta JSON del juez, tal cual");
+  }
+  const el = candidatoElegido(h);
+  if (el && esTexto(el.title) && h.texto !== el.title) errs.push(`hook.texto ${q(h.texto)} debe ser el título del candidato elegido (${q(el.title)})`);
+  if (el && esObj(borrador)) {
+    const hook = Array.isArray(borrador.slides) ? borrador.slides.find((s) => esObj(s) && s.template === "Hook") : undefined;
+    if (esObj(hook) && esObj(hook.props)) {
+      const pr = hook.props;
+      const cmp = (campo, esperado, real) => {
+        if (esperado !== real) errs.push(`el Hook del borrador debe repetir el candidato elegido: ${campo} ${q(real)} ≠ ${q(esperado)}`);
+      };
+      cmp("title", el.title, pr.title);
+      cmp("subtitle", el.subtitle, pr.subtitle);
+      if (el.resultado !== undefined) cmp("resultado", el.resultado, pr.resultado);
+    }
+  }
+  return errs;
+}
+
 function erroresDePieza(p, config) {
   const errs = [];
   const id = p.id;
@@ -745,6 +810,7 @@ function erroresDePieza(p, config) {
   else if (typeof p.hook.score !== "number" || !Number.isFinite(p.hook.score) || p.hook.score < umbral) {
     errs.push(`hook.score ${q(p.hook.score)} bajo el umbral ${umbral} (puerta.hookUmbral, en cada criterio)`);
   }
+  if (exigeJuez(p)) errs.push(...erroresDeHookJuez(p));
   if (!esObj(p.lectorFrio) || p.lectorFrio.resultado !== "ok") {
     errs.push(`lectorFrio.resultado debe ser exactamente "ok" (es ${q(esObj(p.lectorFrio) ? p.lectorFrio.resultado : p.lectorFrio)})`);
   } else {
@@ -866,6 +932,7 @@ function erroresDeBorrador(b, p, config) {
   } else if (b.audio !== undefined && !audioSeguro) {
     errs.push(`audio ${q(b.audio)} inválido: solo el nombre de una pista, sin rutas`); // en carrusel se ignora, pero no con rutas
   }
+  if (exigeJuez(p)) errs.push(...erroresDeHookJuez(p, b).filter((e) => e.startsWith("el Hook del borrador")));
   errs.push(...erroresDeHookVideo(b, p));
   errs.push(...erroresDeClips(b, p));
   if (!Array.isArray(b.slides)) {
@@ -1292,6 +1359,37 @@ export function mensajeLector(seccionLector, perfil, texto) {
     "",
     texto,
   ].join("\n");
+}
+
+/**
+ * Mensaje completo para el subagente juez: la sección "Para el juez" de
+ * `guia-hooks.md` COPIADA y los candidatos numerados desde 1 (solo title,
+ * subtitle y resultado: sin patrón, tema ni entregable, para no sesgarlo).
+ */
+export function mensajeJuez(seccion, candidatos) {
+  const items = candidatos.map((c, i) => {
+    const lineas = [`${i + 1}. ${c.title}`];
+    if (c.subtitle) lineas.push(`   Subtítulo: ${c.subtitle}`);
+    if (c.resultado) lineas.push(`   Resultado en pantalla: ${c.resultado}`);
+    return lineas.join("\n");
+  });
+  return [
+    "Responde como el juez de estas instrucciones. No abras ni busques ningún archivo: todo lo que necesitas está en este mensaje.",
+    "",
+    seccion.trim(),
+    "",
+    "## Candidatos",
+    "",
+    items.join("\n\n"),
+  ].join("\n");
+}
+
+/** La sección "## Para el juez" de `guia-hooks.md` (hasta el siguiente "## "). */
+export function seccionDelJuez(md) {
+  const i = md.indexOf("## Para el juez");
+  if (i < 0) return undefined;
+  const fin = md.indexOf("\n## ", i + 3);
+  return md.slice(i, fin < 0 ? undefined : fin).trim();
 }
 
 /** La sección "## Para el lector" de `lector-frio.md` (hasta el siguiente "## "). */
@@ -1977,6 +2075,32 @@ function imprimirLector(here, semana, id, fallar) {
   );
 }
 
+/** `--juez <semana> <id>`: el mensaje exacto para el subagente juez del hook. */
+function imprimirJuez(here, semana, id, fallar) {
+  const uso = "uso: node _calendario/validar.mjs --juez <semana AAAA-MM-DD> <id>";
+  if (!fechaValida(semana)) fallar([`${uso} (semana ${q(semana)} inválida)`]);
+  if (typeof id !== "string" || !ID_RE.test(id)) fallar([`${uso} (id ${q(id)} inválido)`]);
+  const plan = leerJson(join(here, semana, "plan.json"));
+  if ("error" in plan) fallar([`${semana}/plan.json ${plan.error}`]);
+  const piezas = esObj(plan.data) && Array.isArray(plan.data.piezas) ? plan.data.piezas.filter(esObj) : [];
+  const p = piezas.find((x) => x.id === id);
+  if (!p) {
+    const ids = piezas.map((x) => x.id).filter((x) => typeof x === "string");
+    fallar([`no hay ninguna pieza con id ${q(id)} en ${semana}/plan.json (ids: ${ids.length ? ids.join(", ") : "ninguno"})`]);
+  }
+  const cands = esObj(p.hook) ? p.hook.candidatos : undefined;
+  if (!Array.isArray(cands) || !cands.length || !cands.every((c) => esObj(c) && esTexto(c.title))) fallar([`${id}: hook.candidatos falta o es inválido en ${semana}/plan.json`]);
+  let md;
+  try {
+    md = readFileSync(join(here, "guia-hooks.md"), "utf8");
+  } catch {
+    fallar(["no se pudo leer la guía de hooks (guia-hooks.md junto a validar.mjs)"]);
+  }
+  const seccion = seccionDelJuez(md);
+  if (!seccion) fallar(['guia-hooks.md no tiene la sección "## Para el juez"']);
+  console.log(`=== MENSAJE PARA EL SUBAGENTE JUEZ (pégalo tal cual) ===\n${mensajeJuez(seccion, cands)}\n=== FIN ===\n`);
+}
+
 function main(args) {
   const here = dirname(self);
   const cfg = leerJson(join(here, "config.json"));
@@ -2002,9 +2126,13 @@ function main(args) {
     imprimirLector(here, args[1], args[2], fallar);
     return;
   }
+  if (args[0] === "--juez") {
+    imprimirJuez(here, args[1], args[2], fallar);
+    return;
+  }
   if (args[0] === "--probar") return imprimirPrueba(here, config, args.slice(1), fallar);
   const semana = args[0];
-  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test | --lector <semana> <id> | --probar <config.json> [<validar.mjs>] (recibí ${q(semana)})`]);
+  if (!fechaValida(semana)) fallar([`uso: node _calendario/validar.mjs <semana AAAA-MM-DD> | --self-test | --lector <semana> <id> | --juez <semana> <id> | --probar <config.json> [<validar.mjs>] (recibí ${q(semana)})`]);
   const repo = repoDeCodigo(join(here, ".."));
   const score = repo
     ? (b) => {

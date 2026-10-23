@@ -33,6 +33,10 @@ import {
   DESDE_CONFUSORES,
   validarCandidatos,
   motivoReferenciaNoLista,
+  DESDE_CALIDAD,
+  PATRONES_HOOK,
+  erroresDeHookJuez,
+  mensajeJuez,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -468,7 +472,7 @@ check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas c
     ],
   };
   // Semana con narración obligatoria (≥ DESDE_NARRACION): narraciones cortas que caben en 20 s.
-  const p = pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, ritmoReel: "gancho", duracionMaxSegundos: 20 } });
+  const p = pieza({ dia: "2026-10-25", parametros: { ...PARAMETROS, ritmoReel: "gancho", duracionMaxSegundos: 20 } });
   assertNone(vb(p, corto));
   assert.ok(duracionReel(corto) <= 20, `gancho 6 escenas: ${duracionReel(corto)} s`);
   // En ensenar, el borrador de prueba (un Step con 2 bullets, ~12 palabras por escena) se pasa: ~22 s.
@@ -476,14 +480,14 @@ check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas c
   assert.ok(duracionReel(ens) > 20, `ensenar con bullets: ${duracionReel(ens)} s`);
   ens.slides.forEach((x: any) => (x.narracion = "Sube tus apuntes y pide el audio."));
   Object.assign(ens.slides[0].props, { app: "NotebookLM", resultado: "Podcast listo." });
-  assertHas(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens), /tope es 20 s/);
+  assertHas(vb(pieza({ dia: "2026-10-25", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens), /tope es 20 s/);
   // Cabe con 4 escenas de ≤ 6 palabras y sin bullets (lo que dice el manual).
   ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast", app: "NotebookLM", resultado: "Podcast listo." };
   ens.slides[1].props = { step: "1", heading: "Sube tus PDFs", body: "Arrastra los archivos." };
   ens.slides[2].props = { step: "2", heading: "Pide el resumen en audio", body: "Versión corta." };
   ens.slides[3].props = { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "x" };
   assert.ok(duracionReel(ens) <= 20 && duracionReel(ens) >= 15, `ensenar 4 escenas cortas: ${duracionReel(ens)} s`);
-  assertNone(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens));
+  assertNone(vb(pieza({ dia: "2026-10-25", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens));
 });
 
 check("calendario/validar: presupuesto de lectura en gancho — 7 palabras en el Hook, 5 en el arranque y 10 en el medio pasan; de más fallan", () => {
@@ -1796,4 +1800,113 @@ check("calendario/validar: Hook — resultado en el primer cuadro: obligatorio e
   assertNone(vb(carrusel, bc));
   const t = textosLector(bc, "carrusel");
   assert.ok(t.conPrisa.includes("NotebookLM (aviso, ahora): Podcast listo: 10 minutos."), "con prisa ve la tarjeta de resultado");
+});
+
+// --- hook con candidatos y juez (desde DESDE_CALIDAD) ---
+
+const PAT = ["en-juego", "error-comun", "dato-contrario", "antes-despues"];
+function candidatos(n: number, patrones = PAT): any[] {
+  return Array.from({ length: n }, (_, i) => ({ patron: patrones[i % patrones.length], title: `Candidato número ${i + 1} del hook`, subtitle: `Subtítulo ${i + 1}` }));
+}
+function piezaJuez(over: Record<string, unknown> = {}, hookOver: Record<string, unknown> = {}): any {
+  const cands = candidatos(8);
+  return pieza({
+    dia: "2026-10-27",
+    hook: { categoria: "en-juego", texto: cands[2].title, score: 9, candidatos: cands, juez: { elegido: 2, nota: 9, respuestas: "{}" }, ...hookOver },
+    ...over,
+  });
+}
+const soloHook = (errs: string[]) => errs.filter((e) => /hook|candidat|juez/i.test(e));
+
+check("hook-juez: DESDE_CALIDAD y PATRONES_HOOK son los de la spec", () => {
+  assert.equal(DESDE_CALIDAD, "2026-10-26");
+  assert.deepEqual(PATRONES_HOOK, ["en-juego", "error-comun", "dato-contrario", "antes-despues", "pregunta-del-jefe", "resultado"]);
+});
+
+check("hook-juez: una pieza con 8 candidatos de 4 patrones y juez coherente no da errores de hook", () => {
+  assertNone(soloHook(validarPieza(piezaJuez(), config)));
+  assertNone(erroresDeHookJuez(piezaJuez()));
+});
+
+check("hook-juez: 7 candidatos → error de 8 a 10", () => {
+  const p = piezaJuez();
+  p.hook.candidatos = candidatos(7);
+  p.hook.texto = p.hook.candidatos[2].title;
+  assertHas(validarPieza(p, config), /8 a 10 candidatos/);
+  p.hook.candidatos = candidatos(11);
+  assertHas(validarPieza(p, config), /8 a 10 candidatos/);
+});
+
+check("hook-juez: 9 candidatos de 2 patrones → al menos 3 patrones", () => {
+  const p = piezaJuez();
+  p.hook.candidatos = candidatos(9, ["en-juego", "resultado"]);
+  p.hook.texto = p.hook.candidatos[2].title;
+  assertHas(validarPieza(p, config), /al menos 3 patrones/);
+});
+
+check("hook-juez: patrón fuera de PATRONES_HOOK → error con la lista", () => {
+  const p = piezaJuez();
+  p.hook.candidatos[0].patron = "gancho";
+  assertHas(validarPieza(p, config), /PATRONES_HOOK|en-juego, error-comun/);
+});
+
+check("hook-juez: hook.score debe ser la nota del juez", () => {
+  const p = piezaJuez({}, { score: 8, juez: { elegido: 2, nota: 9, respuestas: "{}" } });
+  assertHas(validarPieza(p, config), /hook\.score debe ser la nota del juez/);
+});
+
+check("hook-juez: elegido inválido o hook.texto distinto del candidato elegido → error", () => {
+  const a = piezaJuez();
+  a.hook.juez.elegido = 12;
+  assertHas(validarPieza(a, config), /elegido/);
+  const b = piezaJuez();
+  b.hook.texto = "Otro texto cualquiera";
+  assertHas(validarPieza(b, config), /hook\.texto/);
+});
+
+check("hook-juez: faltan candidatos o juez → error", () => {
+  const p = piezaJuez();
+  delete p.hook.candidatos;
+  assertHas(validarPieza(p, config), /candidatos/);
+  const q2 = piezaJuez();
+  delete q2.hook.juez;
+  assertHas(validarPieza(q2, config), /juez/);
+});
+
+check("hook-juez: el Hook del borrador debe coincidir con el candidato elegido (title, subtitle, resultado)", () => {
+  const p = piezaJuez();
+  const b = borrador();
+  b.slides[0].props = { title: p.hook.candidatos[2].title, subtitle: "Subtítulo 3", highlight: "hook", app: "NotebookLM", resultado: "Listo.", modo: "aviso" };
+  assert.deepEqual(soloHook(vb(p, b)).filter((e) => /candidato elegido/.test(e)), []);
+  b.slides[0].props.title = "Convierte 6 PDFs en un podcast";
+  const e1 = vb(p, b).filter((e) => /candidato elegido/.test(e));
+  assert.ok(e1.some((e) => e.includes("Convierte 6 PDFs en un podcast") && e.includes(p.hook.candidatos[2].title)), JSON.stringify(e1));
+  b.slides[0].props.title = p.hook.candidatos[2].title;
+  b.slides[0].props.subtitle = "Otro subtítulo";
+  const e2 = vb(p, b).filter((e) => /candidato elegido/.test(e));
+  assert.ok(e2.some((e) => e.includes("Otro subtítulo") && e.includes("Subtítulo 3")), JSON.stringify(e2));
+  delete b.slides[0].props.subtitle;
+  assert.ok(vb(p, b).some((e) => /candidato elegido/.test(e)), "falta subtitle del candidato");
+  // resultado del candidato
+  p.hook.candidatos[2].resultado = "Podcast listo.";
+  b.slides[0].props.subtitle = "Subtítulo 3";
+  assert.ok(vb(p, b).some((e) => /candidato elegido.*resultado|resultado.*candidato elegido/.test(e)));
+});
+
+check("hook-juez: antes de DESDE_CALIDAD el hook se valida como siempre (sin candidatos ni juez)", () => {
+  const p = pieza({ dia: "2026-10-20" });
+  assertNone(soloHook(validarPieza(p, config)));
+  assert.deepEqual(vb(p).filter((e) => /candidato|juez/.test(e)), []);
+});
+
+check("hook-juez: mensajeJuez enumera los candidatos sin patrón", () => {
+  const cands = [
+    { patron: "en-juego", title: "Tu equipo ya usa IA mejor que tú", subtitle: "Y no lo dice", resultado: "Informe listo." },
+    { patron: "error-comun", title: "El error que cuesta horas" },
+  ];
+  const m = mensajeJuez("## Para el juez\nPerfil.", cands);
+  assert.ok(m.includes("1. ") && m.includes("2. "));
+  for (const c of cands) assert.ok(m.includes(c.title));
+  assert.ok(m.includes("Y no lo dice") && m.includes("Informe listo."));
+  assert.ok(!/patron/i.test(m) && !m.includes("en-juego") && !m.includes("error-comun"));
 });

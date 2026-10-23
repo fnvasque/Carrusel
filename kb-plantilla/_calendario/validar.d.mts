@@ -60,3 +60,8 @@ export declare function probarRegla(
 ): ResultadoPrueba;
 export declare function ganadorasDeBucle(bucle: unknown): string[];
 export declare function informePrueba(r: ResultadoPrueba): string;
+export declare const DESDE_CALIDAD: string;
+export declare const PATRONES_HOOK: string[];
+export declare function erroresDeHookJuez(p: object, borrador?: object): string[];
+export declare function mensajeJuez(seccion: string, candidatos: object[]): string;
+export declare function seccionDelJuez(md: string): string | undefined;
