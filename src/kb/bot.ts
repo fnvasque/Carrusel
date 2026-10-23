@@ -23,10 +23,11 @@ import {
   cargarFilasDb, claveFila, depsReales, esPausado, guardarClaveDb, leerClaveDb, ORDEN_PUBLICAR, ORDEN_SALTAR, tick, type SchedulerDeps,
 } from "../calendario/scheduler.ts";
 import {
-  argsPreview, avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, ETAPAS_RENDER, formatSemana, idDesdeArgumento, leerCallbackSaltar,
+  argsPreview, avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, ETAPAS_RENDER, leerCallbackVisual, textoRespuestaVisual, TELEGRAM_CAPTION_MAX, truncar, formatSemana, idDesdeArgumento, leerCallbackSaltar,
   arranqueScheduler, mediosParaLimpiar, modoCalendario, previewsPendientes, recordatorioLunes, semanasConPlan, silencioCalendario, TEXTO_POST_PUBLICACION,
   TEXTO_RECORDATORIO_LUNES,
 } from "../calendario/telegram.ts";
+import { anotarRespuestaVisual } from "../calendario/visual.ts";
 import { graphGet } from "../meta/client.ts";
 import { guardarCuenta, rutasCommitInstantaneas, tomarInstantaneas } from "../insights/snapshots.ts";
 import { guardarEstado, leerEstado, resumenDelDomingo, resumenReciente, textoPost } from "../insights/lectura.ts";
@@ -305,6 +306,19 @@ bot.callbackQuery(/^cal-saltar:/, async (ctx) => {
   const chatId = ctx.chat?.id;
   if (chatId === undefined) return;
   await botonSaltar(chatId, ctx.callbackQuery.data, () => ctx.editMessageReplyMarkup({ reply_markup: undefined }).then(() => undefined));
+});
+
+// Respuesta a la revisión visual (botones de la foto que manda el Mac). Registrado antes del
+// genérico de callback_query:data. Anotar no publica nada, así que vale aunque el calendario esté apagado.
+bot.callbackQuery(/^cal-visual:/, async (ctx) => {
+  await ctx.answerCallbackQuery({ text: "Anotado" }).catch(() => {});
+  const chatId = ctx.chat?.id;
+  if (chatId === undefined) return;
+  const msg = ctx.callbackQuery.message;
+  const previo = msg && "caption" in msg ? msg.caption ?? "" : "";
+  await botonVisual(chatId, ctx.callbackQuery.data, async (linea) => {
+    await ctx.editMessageCaption({ caption: truncar(`${previo}\n${linea}`, TELEGRAM_CAPTION_MAX), reply_markup: undefined });
+  });
 });
 
 // --- links y preguntas ---
@@ -1165,6 +1179,25 @@ async function botonSaltar(chatId: number, data: string, quitarBoton: () => Prom
     if (await saltar(chatId, x, true)) await quitarBoton().catch(() => {});
   } catch (err) {
     await bot.api.sendMessage(chatId, `❌ Saltar: ${sinToken(errText(err))}`).catch(() => {});
+  }
+}
+
+/** Botón de la revisión visual: anota la respuesta (una línea más por toque; gana la última) y la sube a la base. */
+async function botonVisual(chatId: number, data: string, marcar: (linea: string) => Promise<unknown>): Promise<void> {
+  try {
+    const { semanas } = await semanasActivas();
+    const ref = leerCallbackVisual(data, semanas);
+    if (!ref) {
+      await bot.api.sendMessage(chatId, "Ese botón ya no vale (la pieza ya no está en esta semana ni en la siguiente). No anoté nada.");
+      return;
+    }
+    await serial(async () => {
+      const ruta = await anotarRespuestaVisual(ref.semana, { id: ref.id, n: ref.n, respuesta: ref.respuesta, en: new Date().toISOString() });
+      await commitPaths([ruta], `calendario: respuesta visual ${ref.semana}/${ref.id} #${ref.n}`);
+    });
+    await marcar(textoRespuestaVisual(ref.respuesta)).catch(() => {});
+  } catch (err) {
+    await bot.api.sendMessage(chatId, `❌ Respuesta visual: ${sinToken(errText(err))}`).catch(() => {});
   }
 }
 

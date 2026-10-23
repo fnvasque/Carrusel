@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { ocultarToken } from "./plan.ts";
+import { TELEGRAM_CAPTION_MAX, truncar } from "./telegram.ts";
 
 /**
  * Aviso por Telegram desde el Mac. El Mac no corre el bot (el único bot vive en el
@@ -85,7 +86,7 @@ export async function enviarFotoTelegram(
     try {
       const form = new FormData();
       form.set("chat_id", String(chat_id));
-      form.set("caption", limpiar(caption, env).slice(0, 1024));
+      form.set("caption", truncar(limpiar(caption, env), TELEGRAM_CAPTION_MAX));
       form.set("reply_markup", markup);
       form.set("photo", new Blob([new Uint8Array(bytes)]), nombre);
       const res = await hacer(`https://api.telegram.org/bot${token}/sendPhoto`, {

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { enviarFotoTelegram } from "../../src/calendario/telegram-directo.ts";
 import {
-  avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, callbackVisual, leerCallbackVisual, captionVisual, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
+  avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, callbackVisual, leerCallbackVisual, captionVisual, textoRespuestaVisual, formatPreview, formatSemana, idDesdeArgumento, leerCallbackSaltar,
   archivoDeUrl, argsPreview, arranqueScheduler, mediosParaLimpiar, modoCalendario, ordenesDesde, previewsPendientes, publicadas, recordatorioLunes, rutaMedioLocal, semanasConPlan,
   silencioCalendario, TELEGRAM_CAPTION_MAX, truncar,
 } from "../../src/calendario/telegram.ts";
@@ -544,6 +544,7 @@ check("cal-visual: n, respuesta, semana o huella inválidos → undefined", () =
   assert.equal(leerCallbackVisual("cal-visual:2026-10-12:~000000000000:1:si", [s]), undefined);
   assert.equal(leerCallbackVisual("cal-visual:2026-10-12:lun-a:1:si:extra", [s]), undefined);
   assert.equal(leerCallbackVisual("cal-saltar:2026-10-12:lun-a", [s]), undefined);
+  assert.equal(leerCallbackVisual("cal-visual:2026-11-02:lun-a:1:si", [s]), undefined); // semana fuera de las activas
 });
 
 check("captionVisual: formato y tope", () => {
@@ -551,6 +552,19 @@ check("captionVisual: formato y tope", () => {
   assert.ok(c.startsWith("🖼️ Revisión visual (aviso, no bloquea): lun-a · slide 2\nfrase"));
   assert.ok(c.endsWith("¿Tenía razón?"));
   assert.ok(captionVisual("a", "s", "q", "z".repeat(3000), "t").length <= TELEGRAM_CAPTION_MAX);
+});
+
+// Ajustado en la tarea 6 (misma fase): con frase larga se recorta la frase y la pregunta final se conserva.
+check("captionVisual: frase larga conserva el tipo y «¿Tenía razón?»", () => {
+  const c = captionVisual("lun-a", "s", "slide 2", "😀".repeat(2000), "el fondo compite");
+  assert.ok(c.length <= TELEGRAM_CAPTION_MAX);
+  assert.ok(c.endsWith("\n(el fondo compite)\n¿Tenía razón?"));
+  assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(c));
+});
+
+check("textoRespuestaVisual", () => {
+  assert.equal(textoRespuestaVisual("si"), "→ Tenía razón");
+  assert.equal(textoRespuestaVisual("no"), "→ No");
 });
 
 await checkAsync("enviarFotoTelegram: multipart con botones; 500 → false; sin config → false sin fetch", async () => {

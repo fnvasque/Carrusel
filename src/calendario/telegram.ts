@@ -310,7 +310,17 @@ export function leerCallbackVisual(
 
 /** Caption del aviso de revisión visual (foto con botones). `tipo`: qué le pasa al fondo. */
 export function captionVisual(id: string, _semana: string, que: string, frase: string, tipo: string): string {
-  return truncar(`🖼️ Revisión visual (aviso, no bloquea): ${id} · ${que}\n${frase}\n(${tipo})\n¿Tenía razón?`, TELEGRAM_CAPTION_MAX);
+  const cabeza = `🖼️ Revisión visual (aviso, no bloquea): ${id} · ${que}\n`;
+  const cola = `\n(${tipo})\n¿Tenía razón?`;
+  // Se recorta la frase, no la cola: la pregunta final tiene que quedar siempre.
+  const sitio = TELEGRAM_CAPTION_MAX - cabeza.length - cola.length;
+  if (sitio >= 20) return `${cabeza}${truncar(frase, sitio)}${cola}`;
+  return truncar(`${cabeza}${frase}${cola}`, TELEGRAM_CAPTION_MAX);
+}
+
+/** Línea que se agrega a la caption cuando se toca un botón de la revisión visual. */
+export function textoRespuestaVisual(respuesta: "si" | "no"): string {
+  return respuesta === "si" ? "→ Tenía razón" : "→ No";
 }
 
 /** Ventana del aviso post-publicación: desde 2 min después del publish hasta 1 h. */
