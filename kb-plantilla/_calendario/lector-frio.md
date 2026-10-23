@@ -104,17 +104,19 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    propósito de los reels; hooks como «¿Por qué tu texto se olvida?» nombran un
    problema sin decir qué te llevas, y con 3 s de visionado medio nadie llega
    a la respuesta.
-8. La respuesta 8 nombra algo que el lector aprendió. Bloquea si responde
-   "nada nuevo" y, en el lector **completo**, también si nombra algo que la
-   pieza no enseña (que no está en ninguna slide). En el lector **con prisa**
-   bloquea solo "nada nuevo": ve únicamente los títulos, y si ni ellos traen
-   algo nuevo, la pieza es básica. Prueba de novedad (2026-10-22): el público ya
-   paga una IA y usa lo básico; una pieza que repite lo básico no suma.
+8. La respuesta 8 nombra algo que el lector aprendió. En el lector
+   **completo** bloquea si responde "nada nuevo" (o "ya lo sabía") y también si
+   nombra algo que la pieza no enseña (que no está en ninguna slide). Prueba de
+   novedad (2026-10-22): el público ya paga una IA y usa lo básico; una pieza
+   que repite lo básico no suma. En el lector **con prisa** la 8 **no
+   bloquea** (desde 2026-10-23): ve solo los títulos y en el backtest marcó
+   "nada nuevo" en 9 de 20 piezas aunque el cuerpo trajera algo nuevo; se
+   registra como `NB` con `con prisa P8: no bloquea`.
 
 - **Lector completo:** deben cumplirse las ocho (1–8), con la 3 y la 6 como
   están escritas arriba.
-- **Lector con prisa:** cuentan solo la 1, la 2, la 5, la 7 y la 8. La 7 nunca va
-  como `NB`. Sus respuestas 3, 4 y 6
+- **Lector con prisa:** cuentan solo la 1, la 2, la 5 y la 7. La 7 nunca va
+  como `NB`. Sus respuestas 3, 4, 6 y 8
   **no bloquean**. El lector con prisa no ve el cuerpo a propósito; echarlo de
   menos es esperable.
 
@@ -136,9 +138,8 @@ Reglas que puedes citar (con dónde lo explica la pieza cuando corresponda):
 - `completo P6: no es contradicción, promesa incumplida ni paso imposible`
 - `completo P5: acción distinta a la señal`, `con prisa P5: acción distinta a la señal`
 - `con prisa P3: no bloquea`, `con prisa P4: no bloquea`, `con prisa P6: no bloquea`
-- `con prisa P8: no bloquea` (solo si su respuesta nombra algo que la pieza no
-  enseña; "nada nuevo" bloquea siempre). El lector completo no tiene escape en
-  la 8.
+- `con prisa P8: no bloquea` (también con "nada nuevo": anótalo igual, sirve
+  al bucle). El lector completo no tiene escape en la 8.
 
 Una entrada por línea (o separadas por `; `). El validador rechaza un `NB` mal
 escrito y cualquier "no bloquea" fuera de un `NB`. Si no puedes citar una regla

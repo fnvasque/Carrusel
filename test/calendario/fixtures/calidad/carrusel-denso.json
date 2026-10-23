@@ -1,12 +1,12 @@
 {
   "name": "mar-carrusel-que-revisar-del-informe-de-la-ia",
-  "angle": "de leer el informe de la IA por encima a revisar los cuatro puntos donde más falla",
+  "angle": "de leer el informe de la IA por encima a revisar los dos puntos donde más falla",
   "pillar": "herramienta",
   "slides": [
     {
       "template": "Hook",
       "props": {
-        "title": "4 cosas que revisar en lo que entrega la IA",
+        "title": "2 cosas que revisar en lo que entrega la IA",
         "highlight": "revisar",
         "subtitle": "No es leerlo de nuevo: es saber dónde mirar y por qué"
       }

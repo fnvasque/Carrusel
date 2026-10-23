@@ -126,8 +126,9 @@
       "respaldo": "skill"
     },
     "hookUmbral": {
-      "valor": 8,
-      "respaldo": "skill"
+      "valor": 7,
+      "respaldo": "base",
+      "nota": "2026-10-23: backtest del juez de hooks (informes/backtest-filtro-calidad-2026-10-23.md): con 8 candidatos escritos con la guía, el juez dio 7 a 5 de 6 piezas y 8 a una sola; con 8 la semana saldría casi vacía. Antes 8 (skill), cuando el planificador se ponía la nota a sí mismo."
     },
     "lecturaPalabrasPorSegundo": {
       "valor": 2.5,

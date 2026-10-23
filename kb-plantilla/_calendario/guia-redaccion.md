@@ -153,9 +153,9 @@ y la promesa completa en 3 s. El espacio extra es para el medio:
   total**, dan ~33–34 s. Cada palabra de voz suma ~0,35 s.
 - Usa el espacio para una escena de **contexto** (quién lo midió) y una de
   **matiz o límite** (lo que no sabía), no para más pasos.
-- Score léxico: la rúbrica de reel aún da 2 puntos por 20 a 60 palabras de voz
-  (la calibraron para 20 s). Pasar de 60 cuesta esos 2 puntos: hazlo solo si la
-  pieza va holgada sobre 75.
+- Score léxico: la rúbrica de reel da 2 puntos por 20 a 90 palabras de voz (cabe
+  el tope de 35 s). Con unas 80 palabras no pierdes nada; pasar de 90 cuesta
+  esos 2 puntos y no cabe en 35 s.
 
 **Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
 `context`, `myth`, `reality` y `note` llegan a `cuerpoMaxPalabrasCarrusel`
@@ -184,12 +184,13 @@ como pieza de la serie `criterio`. Mismos hechos (referencia
 | `Step` 3 | «La regla: revísala como a alguien nuevo» / «Tarea nueva: revisa su trabajo.» | «La regla: ¿ya la viste acertar en esto?» / «No hay lista de tareas seguras: si no la viste acertar en esa, revísala entera.» |
 | `Cta` | «Guárdala antes de delegar» / «Guarda la regla para tu próximo informe.» | «Mándaselo a quien firma sin revisar» / «Mándaselo a quien firma sin revisar lo de la IA.» |
 
-El después dura ~34,5 s con 86 palabras de voz (el antes, ~20 s con 35) y pasa el
-validador con la puerta de la plantilla. Qué cambió: el título dice el alcance (no siempre ayuda; no «con IA, más errores», que generalizaría una sola tarea); cada escena tiene sujeto,
-verbo y consecuencia; los números dicen quién y comparado con qué; «tareas
-nuevas» volvió a lo que el estudio midió; la voz nunca lee el título; y lo
-nuevo para el lector (no hay lista de tareas seguras) es la regla, no una nota
-al pie.
+El después dura ~34,5 s con 86 palabras de voz (el antes, ~20 s con 35) y pasa
+el validador con la puerta de la plantilla. Qué cambió: el título dice el
+alcance (no siempre ayuda; no «con IA, más errores», que generalizaría una
+sola tarea); cada escena tiene sujeto, verbo y consecuencia; los números dicen
+quién y comparado con qué; «tareas nuevas» volvió a lo que el estudio midió;
+la voz nunca lee el título; y lo nuevo para el lector (no hay lista de tareas
+seguras) es la regla, no una nota al pie.
 
 ## Lista de chequeo
 

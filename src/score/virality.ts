@@ -274,7 +274,8 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
   const cta = slides.find((s) => /cta/i.test(s.template));
   if (cta && has(txt(cta.narracion), GESTO)) nar += 3; else { narNotes.push("la voz del Cta no pide el gesto"); suggestions.push("La narración del Cta pide guardar o mandárselo a alguien."); }
   const totalPal = narraciones.reduce((a, n) => a + palabras(n), 0);
-  if (totalPal >= 20 && totalPal <= 60) nar += 2; else { narNotes.push(`${totalPal} palabras de voz (20 a 60 para caber en 20 s)`); if (totalPal > 60) suggestions.push("Acorta la narración: con más de 60 palabras el reel no cabe en 20 s."); }
+  // Tope de 35 s (~0,35 s por palabra): hasta ~90 palabras de voz caben.
+  if (totalPal >= 20 && totalPal <= 90) nar += 2; else { narNotes.push(`${totalPal} palabras de voz (20 a 90 para caber en 35 s)`); if (totalPal > 90) suggestions.push("Acorta la narración: con más de 90 palabras el reel no cabe en 35 s."); }
 
   // --- Pantalla (20): la IA se ve haciéndolo ---
   const scrNotes: string[] = [];
