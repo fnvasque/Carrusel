@@ -6,7 +6,7 @@ import { htmlShell } from "../src/render/htmlShell.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
 import { Hook, Lead, Step, Stat, Prompt, Screen, MythReality, Cta } from "../src/templates/index.ts";
 import { FORMATS, type CarouselSpec, type Format } from "../src/templates/types.ts";
-import { REEL_SAFE_BOTTOM } from "../src/templates/layout.ts";
+import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP } from "../src/templates/layout.ts";
 import smoke from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
 import mentiras from "../carousels/mentiras-ia.ts";
@@ -45,7 +45,7 @@ const stress: { name: string; template: ComponentType<any>; props: Record<string
 
 /** Problemas de límites del slide renderizado en `page`. */
 async function problems(page: Page, format: Format): Promise<string[]> {
-  return page.evaluate(({ h, reel, safe }) => {
+  return page.evaluate(({ h, reel, safe, safeTop }) => {
     const out: string[] = [];
     const src = document.querySelector('[data-brand="source"]');
     const srcTop = src ? src.getBoundingClientRect().top : Infinity;
@@ -59,6 +59,7 @@ async function problems(page: Page, format: Format): Promise<string[]> {
       const r = e.getBoundingClientRect();
       const t = (e.textContent ?? "").slice(0, 30);
       const brand = e.closest("[data-brand]");
+      if (reel && r.top < safeTop - 1) out.push(`sobre el límite superior (${Math.round(r.top)} < ${safeTop}): "${t}"`);
       if (r.bottom > limit + 1) out.push(`bajo el límite (${Math.round(r.bottom)} > ${limit}): "${t}"`);
       if (r.top < 0 || r.left < 60 || r.right > 1080 - 60) out.push(`fuera de márgenes (${Math.round(r.left)}-${Math.round(r.right)}, top ${Math.round(r.top)}): "${t}"`);
       if (!brand && r.bottom > srcTop + 1) out.push(`pisa la fuente al pie (${Math.round(r.bottom)} > ${Math.round(srcTop)}): "${t}"`);
@@ -66,7 +67,7 @@ async function problems(page: Page, format: Format): Promise<string[]> {
       if (getComputedStyle(e).display !== "inline" && e.scrollWidth > e.clientWidth + 1) out.push(`desborde horizontal: "${t}"`);
     });
     return out;
-  }, { h: FORMATS[format].height, reel: format === "reel", safe: REEL_SAFE_BOTTOM });
+  }, { h: FORMATS[format].height, reel: format === "reel", safe: REEL_SAFE_BOTTOM, safeTop: REEL_SAFE_TOP });
 }
 
 /** Fondos `ai` → color plano: el layout no depende del fondo y así no se llama a la API. */

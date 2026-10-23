@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { check } from "../_check.ts";
 import { luminanciaMedia, hayTextoEnZona, tiemposDeLectura, esPantallaNegra } from "../../src/calendario/qa.ts";
+import { franjaSegura } from "../../src/templates/layout.ts";
 import { Hook } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
 
@@ -73,4 +74,10 @@ check("R16: negro puro y #06060A liso son pantalla negra; pieza lima con texto c
   assert.equal(esPantallaNegra(g), false);
   const tenue = new Uint8Array(1000).fill(40); // media 15 % pero sin píxeles claros
   assert.equal(esPantallaNegra(tenue), true);
+});
+
+check("franjaSegura: sale de las constantes de layout, en fracciones de cualquier escala", () => {
+  assert.deepEqual(franjaSegura(540, 960), [150 / 1920, 1480 / 1920]);
+  assert.deepEqual(franjaSegura(1080, 1920), [150 / 1920, 1480 / 1920]);
+  assert.deepEqual(franjaSegura(1080, 1350), [72 / 1350, 1 - 72 / 1350]);
 });

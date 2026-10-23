@@ -15,6 +15,14 @@ export const REEL_SAFE_BOTTOM = 440;
 export const REEL_SAFE_TOP = 150;
 /** Margen vertical del post (arriba y abajo). */
 export const POST_PAD_Y = theme.padding - 24;
+/**
+ * Franja vertical segura del texto, en fracciones del alto (valen a cualquier
+ * escala): 9:16 deja fuera la UI de IG; 4:5 solo el margen del post.
+ */
+export function franjaSegura(w: number, h: number): [number, number] {
+  if (h / w > 1.5) return [REEL_SAFE_TOP / 1920, (1920 - REEL_SAFE_BOTTOM) / 1920];
+  return [POST_PAD_Y / 1350, 1 - POST_PAD_Y / 1350];
+}
 /** Alto de la cabecera de marca (etiqueta + wordmark). */
 export const HEADER_HEIGHT = 44;
 /** Aire entre la cabecera y el contenido. */
