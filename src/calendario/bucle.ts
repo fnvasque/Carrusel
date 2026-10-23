@@ -5,6 +5,7 @@ import type { Instantanea } from "../insights/snapshots.ts";
 import { domingoDeResumen } from "../insights/summary.ts";
 import { topicKey } from "../kb/markdown.ts";
 import { kbDir } from "../kb/store.ts";
+import { leerRespuestasVisuales, leerVisual, resumenVisual, type RespuestaVisual, type ResumenVisual, type VisualJson } from "./visual.ts";
 import { antesDespues, leerReglas, type ComparacionRegla } from "./reglas.ts";
 import { escenaDeAbandono, escenasDeReel, type Abandono } from "./escenas.ts";
 import { resumirLectorFrio, type ResumenLector } from "./lector-causas.ts";
@@ -531,6 +532,8 @@ export interface EntradasBucle {
   reglas?: unknown;
   /** Borradores de los reels (`_calendario/<semana>/<id>.json`), por clave `"<semana>/<id>"`, para `abandono`. */
   borradores?: Record<string, unknown>;
+  /** Registro visual de las últimas semanas (`visual.json` + `visual-respuestas.jsonl`); ausente o vacío → sin sección `visual`. */
+  visual?: { semana: string; visual: VisualJson; respuestas: RespuestaVisual[] }[];
 }
 
 const MAX_COMENTARIOS_PIEZA = 10;
@@ -646,6 +649,8 @@ export interface BucleJson {
   reglas: ComparacionRegla[];
   /** Fallos y dudas del lector frío de las últimas 4 semanas, agrupados por causa (`lector-causas.ts`). */
   lectorFrio: ResumenLector;
+  /** Precisión del revisor visual, hallazgos por tipo, alertas y propuestas (`visual.ts`); solo si hay datos. */
+  visual?: ResumenVisual;
   avisos: string[];
 }
 
@@ -892,6 +897,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     experimentos,
     reglas: antesDespues(reglasLeidas.reglas, idx),
     lectorFrio: resumirLectorFrio(semanas.map((s) => s.plan)),
+    ...(e.visual && e.visual.length > 0 ? { visual: resumenVisual(e.visual, reglasLeidas.reglas.find((r) => r.id === "revision-visual-fase1")?.desde) } : {}),
     avisos,
   };
 }
@@ -923,7 +929,7 @@ export interface DepsBucle {
 /** Semanas de historia que se leen (hasta 12 de experimentos). */
 const SEMANAS_LEIDAS = 12;
 
-async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahora">> {
+async function leerBase(rutaAnterior: string, ahora: Date = new Date()): Promise<Omit<EntradasBucle, "ahora">> {
   // Import dinámico: lectura.ts usa `diagnosticoDeDatos` de este módulo y no debe formar un ciclo estático.
   const { leerCuenta, leerInstantaneas, leerRegistroPublicados } = await import("../insights/lectura.ts");
   const avisos: string[] = [];
@@ -956,7 +962,14 @@ async function leerBase(rutaAnterior: string): Promise<Omit<EntradasBucle, "ahor
   } catch (err) {
     console.warn(`⚠️  bucle.json anterior ausente o ilegible: el historial de ganadores parte vacío (${err instanceof Error ? err.message : String(err)}).`);
   }
-  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios(), reglas, borradores: leerBorradores(semanas) };
+  // Registro visual de las últimas 4 semanas (≤ la que se planifica); archivos ausentes → vacío.
+  const visual: NonNullable<EntradasBucle["visual"]> = [];
+  const hasta = semanaAPlanificar(ahora);
+  for (const s of semanas.filter((x) => x.semana <= hasta).slice(-4)) {
+    const [v, respuestas] = await Promise.all([leerVisual(s.semana), leerRespuestasVisuales(s.semana)]);
+    if (Object.keys(v).length > 0 || respuestas.length > 0) visual.push({ semana: s.semana, visual: v, respuestas });
+  }
+  return { instantaneas: leerInstantaneas(registro), registro, semanas, cuenta: leerCuenta(), config, avisos, anterior, comentarios: leerComentarios(), reglas, borradores: leerBorradores(semanas), visual };
 }
 
 /** Borradores de los reels de `semanas` (`_calendario/<semana>/<id>.json`). Ilegibles o ausentes se omiten. */
@@ -1012,7 +1025,7 @@ export function leerComentarios(dir = join(kbDir(), "_metricas", "comentarios"))
  */
 export async function escribirBucle(now: Date, deps: DepsBucle = {}): Promise<string[]> {
   const ruta = deps.ruta ?? join(kbDir(), "_metricas", "bucle.json");
-  const entradas = await (deps.leer ?? (() => leerBase(ruta)))(now);
+  const entradas = await (deps.leer ?? ((n) => leerBase(ruta, n)))(now);
   const bucle = construirBucle({ ...entradas, ahora: now });
   mkdirSync(dirname(ruta), { recursive: true });
   const tmp = `${ruta}.${process.pid}.tmp`;

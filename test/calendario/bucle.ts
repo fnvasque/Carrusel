@@ -818,3 +818,12 @@ check("construirBucle: con una variable de la puerta el control suma las piezas 
   assert.deepEqual(sinPuerta.experimentos[0]!.control, { n: 0 });
   sinNumerosRaros(JSON.parse(JSON.stringify(b)));
 });
+
+check("construirBucle: incluye visual solo cuando hay entradas visuales", () => {
+  const base = { ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: undefined, config: undefined };
+  assert.equal("visual" in construirBucle(base), false);
+  assert.equal("visual" in construirBucle({ ...base, visual: [] }), false);
+  const visual = { p1: { revisor: { en: "x", modelo: "m", estado: "revisado" as const, usd: 0, imagenes: [{ n: 1, que: "x", compite: true, ajeno: false, frase: "" }] } } };
+  const b = construirBucle({ ...base, visual: [{ semana: "2026-10-19", visual, respuestas: [{ id: "p1", n: 1, respuesta: "si", en: "2026-10-20T10:00:00Z" }] }] });
+  assert.equal(b.visual?.total.precision, 1);
+});

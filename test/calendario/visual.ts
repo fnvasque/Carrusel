@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
-import { anotarRespuestaVisual, cupo, sinClaves, leerRespuestasVisuales, leerVisual, respuestasVisualesPath, visualPath } from "../../src/calendario/visual.ts";
+import { resumenVisual, type RespuestaVisual, type VeredictoImagen, type VisualJson, type VisualPieza, anotarRespuestaVisual, cupo, sinClaves, leerRespuestasVisuales, leerVisual, respuestasVisualesPath, visualPath } from "../../src/calendario/visual.ts";
 
 check("visual: sinClaves oculta fragmentos con forma de clave de API", () => {
   assert.equal(sinClaves("Incorrect API key provided: sk-proj-AbC_12-x9. Otra: sk-xyz"), "Incorrect API key provided: sk-…. Otra: sk-…");
@@ -89,4 +89,43 @@ await checkAsync("visual: respuestas — una línea mala entre dos buenas se sal
     assert.equal(readFileSync(ruta, "utf8").trim().split("\n").length, 2);
     assert.deepEqual((await leerRespuestasVisuales("2026-10-19")).map((x) => x.n), [3, 4]);
   });
+});
+
+// --- resumenVisual ---
+const imgV = (n: number, o: Partial<VeredictoImagen> = {}): VeredictoImagen => ({ n, que: "x", compite: false, ajeno: false, frase: "", ...o });
+const revV = (imagenes: VeredictoImagen[]): VisualPieza => ({ revisor: { en: "2026-10-20T10:00:00Z", modelo: "m", estado: "revisado", imagenes, usd: 0 } });
+
+check("resumenVisual: precisión 2/3 con un aviso sin responder; doble respuesta gana la última", () => {
+  const visual: VisualJson = { p1: revV([imgV(1, { compite: true }), imgV(2, { ajeno: true }), imgV(3, { compite: true }), imgV(4, { ajeno: true }), imgV(5)]) };
+  const respuestas: RespuestaVisual[] = [
+    { id: "p1", n: 1, respuesta: "si", en: "2026-10-20T10:00:00Z" },
+    { id: "p1", n: 2, respuesta: "no", en: "2026-10-20T10:01:00Z" },
+    { id: "p1", n: 2, respuesta: "si", en: "2026-10-20T10:02:00Z" },
+    { id: "p1", n: 3, respuesta: "no", en: "2026-10-20T10:03:00Z" },
+  ];
+  const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas }]);
+  assert.deepEqual(r.porSemana[0], { semana: "2026-10-19", avisos: 4, respondidos: 3, aciertos: 2, precision: 0.67 });
+  assert.deepEqual(r.total, { avisos: 4, respondidos: 3, aciertos: 2, precision: 0.67 });
+});
+
+check("resumenVisual: sin respuestas no hay precisión; sin revisar no cuenta", () => {
+  const visual: VisualJson = { p1: { revisor: { en: "x", modelo: "m", estado: "sin revisar", imagenes: [imgV(1, { compite: true })], usd: 0 } }, p2: revV([imgV(1, { compite: true })]) };
+  const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }]);
+  assert.deepEqual(r.porSemana[0], { semana: "2026-10-19", avisos: 1, respondidos: 0, aciertos: 0 });
+  assert.equal(r.total.precision, undefined);
+});
+
+check("resumenVisual: propuesta con 3 casos fondo-ajeno en 2 semanas; no con 1 semana", () => {
+  const aj = (k: number): VisualJson => ({ p: revV(Array.from({ length: k }, (_, i) => imgV(i + 1, { ajeno: true }))) });
+  const dos = resumenVisual([{ semana: "2026-10-12", visual: aj(1), respuestas: [] }, { semana: "2026-10-19", visual: aj(2), respuestas: [] }]);
+  assert.deepEqual(dos.propuestas, ["proponer regla en aprendizajes.md: fondo-ajeno (3 casos en 2 semanas)"]);
+  assert.deepEqual(dos.porTipo, { "fondo-ajeno": { "2026-10-12": 1, "2026-10-19": 2 } });
+  assert.deepEqual(resumenVisual([{ semana: "2026-10-19", visual: aj(3), respuestas: [] }]).propuestas, []);
+});
+
+check("resumenVisual: zona de fase 1 posterior a desde alerta; anterior no", () => {
+  const visual: VisualJson = { p: { fase1: [{ tipo: "zona", motivo: "m", en: "2026-10-22T10:00:00Z" }, { tipo: "tilde", motivo: "m", en: "2026-10-01T10:00:00Z" }] } };
+  const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }], "2026-10-20");
+  assert.deepEqual(r.alertas, ["el motor volvió a fallar en zona (1 casos desde 2026-10-20): revisar el código"]);
+  assert.deepEqual(resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }]).alertas, []);
 });
