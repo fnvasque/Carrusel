@@ -28,10 +28,14 @@ explicar y sin exagerar.
 ## 1. Cada escena es una idea completa
 
 Cada escena del reel y cada slide del carrusel dice **quién o qué**, **hace
-qué** y **por qué importa o qué cambia**. El texto en pantalla puede ser corto;
-entre pantalla y voz, la idea tiene que quedar entera. Prohibidos los
-fragmentos sin verbo («Dónde acierta: tareas conocidas») y los que tienen verbo
-pero no consecuencia («En 18 tareas, acertó.»).
+qué** y **por qué importa o qué cambia**. Se juzga **pantalla y voz juntas**:
+en un reel, el texto en pantalla puede ser un rótulo corto («En 18 tareas: 25 %
+más rápido») si la voz de esa escena trae el sujeto, el verbo y la
+consecuencia. En un carrusel no hay voz: el título puede ser rótulo si el
+cuerpo o los bullets completan la idea. Prohibidas las escenas donde ni la
+pantalla ni la voz completan la idea: un rótulo sin voz que lo explique
+(«Dónde acierta: tareas conocidas» con «En 18 tareas, acertó.») o una frase con
+verbo pero sin consecuencia («En 18 tareas, acertó.»).
 
 - **Mal:** en pantalla «Dónde acierta: tareas conocidas», voz «En 18 tareas,
   acertó.» (jue 2026-10-22). ¿Quién acertó? ¿En qué? ¿Y qué ganaron?
@@ -59,8 +63,8 @@ la voz, en el `context` del `Stat` o en el cuerpo del carrusel.
 - **Mal:** en pantalla «117 correos al día», voz «Lo midió Microsoft.» (mie
   2026-10-21).
 - **Bien:** en pantalla «117 correos al día por persona», voz «Microsoft lo
-  contó en quienes usan Microsoft 365: la mayoría se lee en menos de un
-  minuto.»
+  contó en usuarios de Microsoft 365, en 2025, junto con 153 mensajes de Teams
+  al día.»
 
 Lo que ya estaba bien (vie 2026-10-23): el `Stat` «2,2 horas» con el contexto
 «Encuesta en Estados Unidos a quienes usan IA en el trabajo. Es lo que cada
@@ -173,15 +177,15 @@ como pieza de la serie `criterio`. Mismos hechos (referencia
 
 | Escena | Antes (en pantalla / voz) | Después (en pantalla / voz) |
 |---|---|---|
-| `Hook` | «¿Cuándo no confiar en la IA? 1 regla» / «Contestó segura y estaba mal. Una regla.» | «Con IA, más errores: cuándo revisar» / «Con IA, estos consultores acertaron menos. Si tu equipo usa IA, esto te sirve.» |
+| `Hook` | «¿Cuándo no confiar en la IA? 1 regla» / «Contestó segura y estaba mal. Una regla.» | «La IA no siempre ayuda: cuándo revisar» / «En una de las tareas, con IA acertaron menos. Si tu equipo usa IA, te sirve.» |
 | `Lead` | «758 consultores lo probaron» / «Con IA iban más rápido, hasta que…» | «758 consultores, con y sin IA» / «Harvard y BCG los midieron con y sin GPT-4, en las mismas tareas.» |
 | `Step` 1 | «Dónde acierta: tareas conocidas» / «En 18 tareas, acertó.» | «En 18 tareas: 25 % más rápido» / «En 18 tareas reales de consultoría, con IA fueron 25 % más rápidos y con más calidad.» |
 | `Step` 2 | «Dónde falla: tareas nuevas, con seguridad» / «En una distinta, falló segura.» | «En otra igual de difícil: 19 puntos menos» / «En otra, fuera de lo que la IA hace bien, le creyeron y acertaron menos.» |
 | `Step` 3 | «La regla: revísala como a alguien nuevo» / «Tarea nueva: revisa su trabajo.» | «La regla: ¿ya la viste acertar en esto?» / «No hay lista de tareas seguras: si no la viste acertar en esa, revísala entera.» |
-| `Cta` | «Guárdala antes de delegar» / «Guarda la regla para tu próximo informe.» | «Mándaselo a quien firma sin revisar» / «Mándaselo a quien firma sin revisar lo que hizo la IA.» |
+| `Cta` | «Guárdala antes de delegar» / «Guarda la regla para tu próximo informe.» | «Mándaselo a quien firma sin revisar» / «Mándaselo a quien firma sin revisar lo de la IA.» |
 
-El después dura ~34 s con 85 palabras de voz (el antes, ~20 s con 35) y pasa el
-validador con la puerta de la plantilla. Qué cambió: cada escena tiene sujeto,
+El después dura ~34,5 s con 86 palabras de voz (el antes, ~20 s con 35) y pasa el
+validador con la puerta de la plantilla. Qué cambió: el título dice el alcance (no siempre ayuda; no «con IA, más errores», que generalizaría una sola tarea); cada escena tiene sujeto,
 verbo y consecuencia; los números dicen quién y comparado con qué; «tareas
 nuevas» volvió a lo que el estudio midió; la voz nunca lee el título; y lo
 nuevo para el lector (no hay lista de tareas seguras) es la regla, no una nota
@@ -194,8 +198,9 @@ reescribe la escena; no lo dejes para el lector.
 
 1. **Lo nuevo**: puedo decir en una línea qué no sabía un usuario frecuente, y
    sale de la referencia con cita.
-2. **Idea completa**: cada escena o slide tiene quién o qué, hace qué y por qué
-   importa. Ninguna es un fragmento sin verbo.
+2. **Idea completa**: en cada escena, pantalla y voz juntas (en carrusel,
+   título y cuerpo juntos) dicen quién o qué, hace qué y por qué importa. La
+   pantalla puede ser un rótulo si la voz trae sujeto, verbo y consecuencia.
 3. **«¿Y?»**: ninguna escena deja preguntar «¿y?».
 4. **Números**: cada cifra dice quién la midió, a cuántos y comparado con qué,
    y no dice más que la referencia.

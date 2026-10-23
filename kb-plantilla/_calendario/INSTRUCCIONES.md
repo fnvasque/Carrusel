@@ -124,8 +124,8 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    (Paso 5, `guia-hooks.md`); la regla 8 sigue valiendo para todos.
    - Mal: «¿Por qué tu texto se olvida?» + «El truco: no decirlo». Bien:
      «Haz que tu texto se recuerde» + subtítulo «1 prompt de ChatGPT».
-   - Mal: «¿Pagar por ordenar 117 correos? No, gratis». Bien: «De 117 correos
-     a 2, con Claude» (el gancho no es el precio: este público paga).
+   - Mal: «¿Pagar por ordenar 117 correos? No, gratis». Bien: «Claude: de no
+     leídos a 2 urgentes» (el gancho no es el precio: este público paga).
    - Mal: «¿Cuánto tiempo te ahorra la IA? 3 estudios». Bien: «“¿Cuánto nos
      ahorra la IA?”: qué responderle a tu jefe» + subtítulo «3 estudios, lo
      que miden y cómo medirlo en tu equipo».
@@ -138,7 +138,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    notificación del celular, «Recordatorio: pagar la luz · hoy 9:00»;
    `respuesta`: la burbuja con lo que contestó la IA). La tarjeta sale arriba
    desde el cuadro 0 y el `title` va debajo, más chico, como pie de foto
-   (≤ 6 palabras). El `subtitle` sobra: la narración lo dice. Motivo: con 3 a 5 s
+   (≤ 7 palabras, mejor 6). El `subtitle` sobra: la narración lo dice. Motivo: con 3 a 5 s
    de visionado medio, un título sobre fondo negro no retiene a nadie; una
    pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
    no se anuncia).
@@ -1204,18 +1204,18 @@ la plantilla, los carruseles van a las 13:00):
       "pilar": "trabajo",
       "serie": "criterio",
       "hook": {
-        "categoria": "controversia", "texto": "Con IA, más errores: cuándo revisar", "score": 9,
+        "categoria": "controversia", "texto": "La IA no siempre ayuda: cuándo revisar", "score": 9,
         "candidatos": [
           {"patron": "resultado", "title": "Cuándo revisar a la IA: 1 regla", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
           {"patron": "en-juego", "title": "Lo hizo la IA, lo firmas tú", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "dato-contrario", "title": "Con IA, más errores: cuándo revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
+          {"patron": "dato-contrario", "title": "La IA no siempre ayuda: cuándo revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
           {"patron": "pregunta-del-jefe", "title": "«¿Revisaste lo que hizo la IA?»", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
           {"patron": "error-comun", "title": "El error: creerle igual a la IA", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "antes-despues", "title": "Más rápido con IA, hasta esta tarea", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
+          {"patron": "dato-contrario", "title": "Más rápido con IA, hasta esta tarea", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
           {"patron": "en-juego", "title": "Tu equipo usa IA: qué revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
           {"patron": "dato-contrario", "title": "Con IA acertaron menos. ¿Dónde?", "resultado": "Seguro: la respuesta es la B. (Era la C.)"}
         ],
-        "juez": {"elegido": 3, "nota": 9, "respuestas": "{\"elegido\": 3, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"una regla\"}, \"2\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no sé qué me llevo\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"cuándo revisar lo que hace la IA, con el dato de por qué\"}, \"4\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"nada, es una pregunta\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no confiar igual en todo\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"saber dónde deja de servir\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"qué revisar de mi equipo\"}, \"8\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"dónde se equivoca\"}}}"}
+        "juez": {"elegido": 3, "nota": 9, "respuestas": "{\"elegido\": 3, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"una regla\"}, \"2\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no sé qué me llevo\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"cuándo revisar lo que hace la IA, porque en una tarea falló\"}, \"4\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"nada, es una pregunta\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no confiar igual en todo\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"saber dónde deja de servir\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"qué revisar de mi equipo\"}, \"8\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"dónde se equivoca\"}}}"}
       },
       "emocion": ["sorpresa", "alivio"],
       "entregable": "la regla para decidir cuándo revisar lo que entrega la IA: si no la viste acertar en esa tarea, se revisa entera, porque en el estudio de Harvard y BCG acertó menos en una tarea que parecía igual de difícil",
@@ -1316,11 +1316,11 @@ la plantilla, los carruseles van a las 13:00):
           {"patron": "pregunta-del-jefe", "title": "«¿Viste la noticia?» ChatGPT ya te avisó", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
           {"patron": "error-comun", "title": "El error: pedirle a ChatGPT cada día", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
           {"patron": "antes-despues", "title": "De buscar noticias a recibirlas de ChatGPT", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "resultado", "title": "Lo probé: ChatGPT trabaja mientras duermes", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
+          {"patron": "resultado", "title": "Tu resumen diario, programado en ChatGPT", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
           {"patron": "resultado", "title": "Programa a ChatGPT: un resumen diario", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
           {"patron": "antes-despues", "title": "Antes buscabas; ahora ChatGPT te avisa", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."}
         ],
-        "juez": {"elegido": 1, "nota": 8, "respuestas": "{\"elegido\": 1, \"nota\": 8, \"porCandidato\": {\"1\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"un resumen de mi área cada mañana, sin pedirlo\"}, \"2\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"estar al día\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"que me avise\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"no pedirlo cada día\"}, \"5\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"recibir noticias\"}, \"6\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"que trabaje solo\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"programar un resumen\"}, \"8\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"que me avise\"}}}"}
+        "juez": {"elegido": 1, "nota": 8, "respuestas": "{\"elegido\": 1, \"nota\": 8, \"porCandidato\": {\"1\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"un resumen de mi área cada mañana, sin pedirlo\"}, \"2\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"estar al día\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"que me avise\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"no pedirlo cada día\"}, \"5\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"recibir noticias\"}, \"6\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"un resumen que se programa una vez\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"programar un resumen\"}, \"8\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"que me avise\"}}}"}
       },
       "emocion": ["curiosidad", "alivio"],
       "entregable": "la tarea programada de ChatGPT que te deja cada mañana el resumen de noticias de tu área: se pide en el chat, se confirma y llega por aviso o correo, con su veredicto para un jefe de área",

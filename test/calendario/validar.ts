@@ -2138,3 +2138,22 @@ check("ejemplo y esqueleto: el EJEMPLO pasa validarSemana; desde DESDE_CALIDAD l
     assert.ok(!/gratis/i.test(p.hook.texto), `${p.id}: «gratis» no es gancho para este público`);
   }
 });
+
+check("guías y esqueleto (revisión 1): ejemplos con el alcance de su dato y tope único del título de reel", () => {
+  const hooks = readFileSync(join(DIR, "guia-hooks.md"), "utf8");
+  const red = readFileSync(join(DIR, "guia-redaccion.md"), "utf8");
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const [nombre, t] of [["guia-hooks", hooks], ["guia-redaccion", red], ["INSTRUCCIONES", md]] as const) {
+    assert.ok(!t.includes("«Con IA, más errores: cuándo revisar»") && !t.includes('"Con IA, más errores: cuándo revisar"'), `${nombre}: generaliza una sola tarea`);
+    assert.ok(!t.includes("menos de un minuto"), `${nombre}: dato que no está en la referencia`);
+    assert.ok(!t.includes("De 117 correos a 2"), `${nombre}: el promedio de Microsoft no es la bandeja de la pantalla`);
+    assert.ok(!/mientras duermes/.test(t), `${nombre}: gancho viejo`);
+    assert.ok(!t.includes("(≤ 6 palabras)"), `${nombre}: el tope del título de reel es ≤ 7, mejor 6`);
+  }
+  assert.ok(hooks.includes("sesiones de programación"), "el 15 % / 28 % lleva su alcance");
+  assert.ok(red.includes("pantalla y voz juntas"), "la regla de idea completa juzga pantalla + voz");
+  const esqueleto = JSON.parse(md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/)![1]);
+  const mie = esqueleto.piezas.find((p: any) => p.serie === "criterio");
+  assert.equal(mie.hook.texto, "La IA no siempre ayuda: cuándo revisar");
+  assertNone(erroresDeHookJuez(mie));
+});

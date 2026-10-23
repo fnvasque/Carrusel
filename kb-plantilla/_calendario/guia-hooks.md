@@ -44,7 +44,7 @@ no una función de la app. Lo que está en juego para este público:
 | **El juicio de su jefe**: lo que entrega con su nombre, lo que le van a preguntar | «Que ChatGPT critique antes que tu jefe» |
 | **El trabajo de su equipo**: lo que recibe hecho con IA, cómo lo revisa, cómo lo encarga | «Tu equipo te entrega trabajo hecho con IA» |
 | **Su tiempo**: horas que de verdad se ahorran o se pierden, medidas, no prometidas | «Creían ir más rápido con IA. Iban más lentos» |
-| **Su criterio frente a la IA**: cuándo creerle, cuándo revisar, qué no delegar | «Con IA, más errores: cuándo revisar» |
+| **Su criterio frente a la IA**: cuándo creerle, cuándo revisar, qué no delegar | «La IA no siempre ayuda: cuándo revisar» |
 
 Las frases de la tabla muestran el tono; cada cifra de un hook real sale de la
 referencia de la pieza (regla dura 5), igual que en el cuerpo.
@@ -142,8 +142,10 @@ contarlo.
 - **Bien:** «El error al encargarle trabajo a la IA» + subtítulo «Las 6
   preguntas de un buen jefe, en una plantilla para copiar». El lector se
   pregunta si lo comete; el subtítulo dice qué se lleva. El dato de la pieza
-  lo sostiene: Anthropic midió 15 % de tareas logradas en principiantes y 28 %
-  en quienes dan instrucciones precisas.
+  lo sostiene, con su alcance: en unas 400.000 sesiones de programación con
+  su IA, Anthropic midió 15 % de tareas logradas en principiantes y 28 % en
+  quienes daban instrucciones precisas. Es un estudio de programación: la pieza
+  lo dice.
 
 Trampa: un error que nadie comete o que un usuario frecuente ya corrigió
 («no le hablas por favor a ChatGPT»). Tiene que ser de alguien que ya usa IA
@@ -173,11 +175,12 @@ el «después» es la tarjeta de `resultado`.
 
 - **Mal:** «¿Pagar por ordenar 117 correos? No, gratis» (mie 2026-10-21). El
   gancho es el precio, y este público ya paga.
-- **Bien:** «De 117 correos a 2, con Claude» + resultado «Hoy: 2
+- **Bien:** «Claude: de no leídos a 2 urgentes» + resultado «Hoy: 2
   urgentes, 9 informativos, el resto a ignorar. Respuestas listas, sin
-  enviar.» El antes es la bandeja que conoce; el después, la lista que puede
-  atender. La voz aclara que 117 es el promedio que contó Microsoft, no su
-  bandeja.
+  enviar.» El antes es su bandeja sin leer; el después, lo que la tarjeta
+  muestra que Claude ordenó. No uses el promedio de Microsoft (117 correos al
+  día) como si fuera esa bandeja: el antes y el después son los de la
+  pantalla; el 117, si entra, va en otra escena con su fuente.
 
 Trampa: un «después» que la referencia no respalda (horas ahorradas que nadie
 midió). Si no hay dato del después, muéstralo en pantalla en vez de contarlo.
@@ -227,27 +230,29 @@ fuera de lo que la IA hace bien). Todos con la misma tarjeta: resultado
 |---|---|---|
 | 1 | `resultado` | Cuándo revisar a la IA: 1 regla |
 | 2 | `en-juego` | Lo hizo la IA, lo firmas tú |
-| 3 | `dato-contrario` | Con IA, más errores: cuándo revisar |
+| 3 | `dato-contrario` | La IA no siempre ayuda: cuándo revisar |
 | 4 | `pregunta-del-jefe` | «¿Revisaste lo que hizo la IA?» |
 | 5 | `error-comun` | El error: creerle igual a la IA |
-| 6 | `antes-despues` | Más rápido con IA, hasta esta tarea |
+| 6 | `dato-contrario` | Más rápido con IA, hasta esta tarea |
 | 7 | `en-juego` | Tu equipo usa IA: qué revisar |
 | 8 | `dato-contrario` | Con IA acertaron menos. ¿Dónde? |
 
-Lo que gana suele juntar tensión y promesa: el 3 dice qué pasó (más errores) y
-qué te llevas (cuándo revisar). El 2 engancha pero no dice qué te llevas; el 1
+Lo que gana suele juntar tensión y promesa: el 3 dice qué pasó, con su alcance
+(no siempre ayuda: en una de las tareas les fue peor), y qué te llevas (cuándo
+revisar). Un título como «Con IA, más errores» generalizaría un resultado de
+una sola tarea: el estudio midió mejoras en 18. El 2 engancha pero no dice qué te llevas; el 1
 es claro pero plano. Así se ve el resultado en `plan.json` (los demás
 candidatos, abreviados aquí; en el plan van los 8 completos):
 
 ```json
 "hook": {
   "categoria": "controversia",
-  "texto": "Con IA, más errores: cuándo revisar",
+  "texto": "La IA no siempre ayuda: cuándo revisar",
   "score": 9,
   "candidatos": [
     { "patron": "resultado", "title": "Cuándo revisar a la IA: 1 regla", "resultado": "Seguro: la respuesta es la B. (Era la C.)" },
     { "patron": "en-juego", "title": "Lo hizo la IA, lo firmas tú", "resultado": "Seguro: la respuesta es la B. (Era la C.)" },
-    { "patron": "dato-contrario", "title": "Con IA, más errores: cuándo revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)" }
+    { "patron": "dato-contrario", "title": "La IA no siempre ayuda: cuándo revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)" }
   ],
   "juez": { "elegido": 3, "nota": 9, "respuestas": "{\"elegido\": 3, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"una regla para revisar\"}}}" }
 }
