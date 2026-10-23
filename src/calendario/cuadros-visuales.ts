@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync, statSync } from "node:fs";
+import { mkdir, rm } from "node:fs/promises";
+import { isAbsolute, join, relative } from "node:path";
 import { DEFAULT_PACE, PACES } from "../reel/timing.ts";
 import type { Borrador } from "./draft.ts";
 
@@ -68,16 +69,31 @@ export function cuadrosARevisar(
     });
   } else if (escenas) {
     const ultima = escenas.length - 1;
+    const totalAprox = escenas.length ? escenas[ultima].start + escenas[ultima].dur : 0;
     b.slides.forEach((s, i) => {
       const e = escenas[i];
       if (!e || !(s.template === "Clip" || interesa(i))) return;
       const nombre = `escena ${i + 1} (${s.template})`;
       const fin = i === ultima ? e.start + e.dur - 0.05 : e.start + e.dur - transicion - 0.05;
-      cand.push(
-        { que: `${nombre} a 0 s`, t: r3(e.start), archivo: "reel.mp4", prio: PRIORIDAD.cero },
-        { que: `${nombre} a 1 s`, t: r3(e.start + 1), archivo: "reel.mp4", prio: PRIORIDAD.uno },
-        { que: `${nombre} final`, t: r3(fin), archivo: "reel.mp4", prio: PRIORIDAD.final },
-      );
+      // Cada t se acota a la escena: [inicio, min(fin de escena − 0,05, fin del reel − 0,05)].
+      const tope = Math.min(e.start + e.dur - 0.05, totalAprox - 0.05);
+      const acotar = (t: number): number => r3(Math.max(e.start, Math.min(t, tope)));
+      // En orden de prioridad (finales, 0 s, 1 s): ante t repetido (±0,01 s) se queda el de mayor prioridad.
+      const posibles: Candidato[] = [
+        { que: `${nombre} final`, t: acotar(fin), archivo: "reel.mp4", prio: PRIORIDAD.final },
+        // La portada (cover.jpg) ya es el cuadro 0 s de la escena 1: no se repite.
+        ...(i === 0 && e.start === 0 ? [] : [{ que: `${nombre} a 0 s`, t: acotar(e.start), archivo: "reel.mp4", prio: PRIORIDAD.cero }]),
+        { que: `${nombre} a 1 s`, t: acotar(e.start + 1), archivo: "reel.mp4", prio: PRIORIDAD.uno },
+      ];
+      const vistos = new Set<number>();
+      const unicos = posibles.filter((c) => {
+        const k = Math.round((c.t as number) * 100);
+        if (vistos.has(k)) return false;
+        vistos.add(k);
+        return true;
+      });
+      // Orden cronológico dentro de la escena (0 s, 1 s, final).
+      cand.push(...unicos.sort((x, y) => (x.t as number) - (y.t as number) || x.prio - y.prio));
     });
   }
 
@@ -85,7 +101,6 @@ export function cuadrosARevisar(
   const orden = cand.map((c, idx) => ({ c, idx }));
   const elegidos = [...orden].sort((a, z) => a.c.prio - z.c.prio || a.idx - z.idx).slice(0, Math.max(1, max));
   elegidos.sort((a, z) => a.idx - z.idx);
-  // El orden de inserción de una escena es 0 s, 1 s, final: ya es cronológico.
   return elegidos.map(({ c }, k) => {
     const { prio: _p, ...resto } = c;
     return { n: k + 1, ...resto };
@@ -98,13 +113,20 @@ export function cuadrosARevisar(
  * Devuelve las rutas. Un fallo de ffmpeg lanza un Error en español.
  */
 export async function extraerCuadros(final: string, destino: string, cuadros: Cuadro[]): Promise<{ n: number; ruta: string; que: string }[]> {
+  const rel = relative(final, destino);
+  if (!rel.startsWith("..") || isAbsolute(rel)) throw new Error(`El destino de los cuadros (${destino}) debe estar fuera de la carpeta final (${final}): se subiría al servidor.`);
+  // Sin restos de una corrida anterior.
+  await rm(destino, { recursive: true, force: true });
   await mkdir(destino, { recursive: true });
   const out: { n: number; ruta: string; que: string }[] = [];
   for (const c of cuadros) {
     const ruta = join(destino, `${c.n}.jpg`);
     const args = ["-y", "-v", "error", ...(c.t !== undefined ? ["-ss", String(c.t)] : []), "-i", join(final, c.archivo), "-frames:v", "1", "-vf", "scale=540:-2", "-q:v", "3", ruta];
-    const r = spawnSync("ffmpeg", args, { timeout: 60_000 });
-    if (r.error || r.status !== 0) throw new Error(`No pude extraer el cuadro «${c.que}» de ${c.archivo}: ${r.error?.message ?? String(r.stderr).trim()}`);
+    const r = spawnSync("ffmpeg", args, { timeout: 20_000 });
+    // ffmpeg sale 0 sin escribir nada si el segundo cae más allá del final del video.
+    if (r.error || r.status !== 0 || !existsSync(ruta) || statSync(ruta).size === 0) {
+      throw new Error(`No pude extraer el cuadro «${c.que}» de ${c.archivo}: ${r.error?.message ?? (String(r.stderr).trim() || "no se generó el archivo")}`);
+    }
     out.push({ n: c.n, ruta, que: c.que });
   }
   return out;

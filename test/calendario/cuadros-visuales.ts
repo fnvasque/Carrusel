@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
-import { check } from "../_check.ts";
+import { mkdtempSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { check, checkAsync } from "../_check.ts";
 import type { Borrador } from "../../src/calendario/draft.ts";
-import { cuadrosARevisar } from "../../src/calendario/cuadros-visuales.ts";
+import { cuadrosARevisar, extraerCuadros } from "../../src/calendario/cuadros-visuales.ts";
 
 const slide = (template: string, background?: Record<string, unknown>) =>
   ({ template, props: {}, ...(background ? { background } : {}) });
@@ -30,14 +33,13 @@ check("cuadros: quitados (ai que el render descarta) no se revisan", () => {
   assert.deepEqual(cuadrosARevisar("carrusel", b, undefined, 0.5, 8, [2]).map((c) => c.que), ["portada"]);
 });
 
-check("cuadros: reel de 6 escenas con Clip en la 1 y la 3 → portada + 6 cuadros", () => {
+check("cuadros: reel de 6 escenas con Clip en la 1 y la 3 → portada + 5 cuadros (el 0 s de la escena 1 es la portada)", () => {
   const b = borr([slide("Clip"), slide("Lead"), slide("Clip"), slide("Step"), slide("Step"), slide("Cta")]);
   const c = cuadrosARevisar("reel", b, escenas6, 0.5, 20);
-  assert.equal(c.length, 7);
+  assert.equal(c.length, 6);
   assert.deepEqual(c[0], { n: 1, que: "portada", archivo: "cover.jpg" });
-  assert.deepEqual(c.map((x) => x.n), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(c.map((x) => x.n), [1, 2, 3, 4, 5, 6]);
   assert.deepEqual(c.slice(1).map((x) => [x.que, x.t, x.archivo]), [
-    ["escena 1 (Clip) a 0 s", 0, "reel.mp4"],
     ["escena 1 (Clip) a 1 s", 1, "reel.mp4"],
     ["escena 1 (Clip) final", 3.45, "reel.mp4"],
     ["escena 3 (Clip) a 0 s", 8, "reel.mp4"],
@@ -57,7 +59,7 @@ check("cuadros: la última escena termina en total − 0,05 y la transición sal
 check("cuadros: max 4 recorta por prioridad (portada, finales, 0 s, 1 s) y conserva el orden", () => {
   const b = borr([slide("Clip"), slide("Lead"), slide("Clip"), slide("Step"), slide("Step"), slide("Cta")]);
   const c = cuadrosARevisar("reel", b, escenas6, 0.5, 4);
-  assert.deepEqual(c.map((x) => x.que), ["portada", "escena 1 (Clip) a 0 s", "escena 1 (Clip) final", "escena 3 (Clip) final"]);
+  assert.deepEqual(c.map((x) => x.que), ["portada", "escena 1 (Clip) final", "escena 3 (Clip) a 0 s", "escena 3 (Clip) final"]);
   assert.deepEqual(c.map((x) => x.n), [1, 2, 3, 4]);
 });
 
@@ -70,4 +72,30 @@ check("cuadros: reel sin escenas → solo la portada; max 1 → portada", () => 
 check("cuadros: carrusel recortado a max conserva la portada", () => {
   const b = borr([slide("Hook"), slide("Lead", { ai: "a" }), slide("Step", { ai: "a" }), slide("Cta", { ai: "a" })]);
   assert.deepEqual(cuadrosARevisar("carrusel", b, undefined, 0.5, 2).map((c) => c.que), ["portada", "slide 2"]);
+});
+
+check("cuadros: escena de 0,8 s → el cuadro de 1 s se acota y se funde con el final", () => {
+  const b = borr([slide("Hook"), slide("Clip"), slide("Cta")]);
+  const es = [{ start: 0, dur: 3 }, { start: 3, dur: 0.8 }, { start: 3.8, dur: 3 }];
+  const c = cuadrosARevisar("reel", b, es, 0.5, 20).filter((x) => x.que.startsWith("escena 2"));
+  assert.ok(c.every((x) => x.t! >= 3 && x.t! <= 3.75), JSON.stringify(c));
+  assert.equal(new Set(c.map((x) => Math.round(x.t! * 100))).size, c.length, "sin t repetidos");
+  assert.ok(c.some((x) => x.que.endsWith("final")));
+});
+
+check("cuadros: primera escena más corta que transición + 0,05 → ningún t negativo", () => {
+  const b = borr([slide("Clip"), slide("Cta")]);
+  const c = cuadrosARevisar("reel", b, [{ start: 0, dur: 0.4 }, { start: 0.4, dur: 3 }], 0.5, 20);
+  assert.ok(c.every((x) => x.t === undefined || x.t >= 0), JSON.stringify(c));
+  assert.ok(c.some((x) => x.que === "escena 1 (Clip) final" && x.t === 0));
+});
+
+await checkAsync("extraerCuadros: destino dentro de la carpeta final → error; destino viejo se limpia", async () => {
+  const raiz = mkdtempSync(join(tmpdir(), "cuadros-dest-"));
+  const final = join(raiz, "final");
+  await assert.rejects(extraerCuadros(final, join(final, "rev"), []), /fuera de la carpeta final/);
+  await assert.rejects(extraerCuadros(final, final, []), /fuera de la carpeta final/);
+  const dest = join(raiz, ".revision", "s", "id");
+  await extraerCuadros(final, dest, []);
+  assert.deepEqual(readdirSync(dest), []);
 });
