@@ -557,7 +557,12 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   (el validador las rechaza); el reel va con `"pace": "gancho"` y el tope de la
   puerta (35 s). Los experimentos abiertos de antes se evalúan igual en el
   Paso 2. **Vence el 2026-11-08**: desde la semana del 2026-11-09 vuelve la
-  regla de abajo.
+  regla de abajo. Las fechas del paquete salen de `config.json → paquete`
+  (`desde`: primer día con candidatos y juez y series nuevas; `semanas`: los
+  lunes sin experimento propio; `motivo`: el texto exacto del experimento). Si
+  el usuario corre el paquete (plan B: no se instaló a tiempo), las cambia ahí
+  —y los `desde` de `reglas.json` en la plantilla—, no en `validar.mjs`; vale lo
+  que diga tu `config.json`, aunque este manual nombre otras fechas.
 - **Un experimento por semana**, declarado antes de escribir. Variables
   permitidas: `tema`, `arquetipo`, `hora`, `duracion`, `hook` (tipo de hook),
   `hookVideo` (clip de video detrás del hook, ver Paso 5) o
@@ -1110,7 +1115,8 @@ test lo verifica). Es la semana del 2026-11-09: la primera después del paquete,
 con experimento propio y cada hook con sus candidatos y la respuesta del juez.
 Cópiala y cambia el contenido de cada pieza: ids, temas, candidatos, juez,
 captions, `origen` y `parametros` con los valores que de verdad usaste. **En
-las semanas del paquete (2026-10-26 y 2026-11-02)** cambia además el
+las semanas del paquete (2026-10-26 y 2026-11-02, o las de `config.json →
+paquete` si el usuario las corrió)** cambia además el
 experimento por `{ "variable": null, "motivo": "paquete calidad-contenido" }` y
 quita `ritmoReel` y `duracionMaxSegundos` de cada `parametros` (Paso 4). Las
 horas son las del mix de tu `config.json` (aquí, con la separación de 20 h de

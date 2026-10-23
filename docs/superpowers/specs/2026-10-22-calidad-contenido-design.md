@@ -100,7 +100,10 @@ Consecuencias para las piezas:
   las 06:00** y la investigación semanal dos horas antes. Para que la semana del
   **2026-10-26** salga con las reglas nuevas, todo debe estar mergeado e
   instalado en la base antes del sábado 2026-10-24 en la noche. Si no alcanza,
-  arranca la semana del 2026-11-02 y se corren todas las fechas una semana.
+  arranca la semana del 2026-11-02 y se corren todas las fechas una semana:
+  el bloque `paquete` de `_calendario/config.json` (`desde`, `semanas`,
+  `motivo`; sin él valen `DESDE_CALIDAD` y `SEMANAS_PAQUETE` de `validar.mjs`)
+  y los `desde` de `reglas.json` en la plantilla.
 - **Puerta de calidad**: `npm run typecheck && npm test` en 0, más
   `node kb-plantilla/_calendario/validar.mjs --self-test`.
 - **Regla de `reglas.json`** (AGENTS.md): la PR agrega una entrada por regla

@@ -665,12 +665,13 @@ function erroresDeParametros(parametros, config, dia) {
       // Palancas nuevas: solo se exigen desde su semana (las anteriores no las conocían).
       if (PARAMETROS_DESDE[k] && typeof dia === "string" && dia < PARAMETROS_DESDE[k]) continue;
       // Semanas del paquete: esas palancas no se fijan, así que tampoco se exigen.
-      if (PARAMETROS_FUERA_PAQUETE.includes(k) && enPaquete(dia)) continue;
+      if (PARAMETROS_FUERA_PAQUETE.includes(k) && enPaquete(dia, config)) continue;
       errs.push(`falta parametros.${k} (el valor de puerta.${k} que usaste)`);
       continue;
     }
-    if (PARAMETROS_FUERA_PAQUETE.includes(k) && enPaquete(dia)) {
-      errs.push(`parametros.${k} no se fija en las semanas del ${MOTIVO_PAQUETE} (${SEMANAS_PAQUETE.join(", ")}): quítalo`);
+    if (PARAMETROS_FUERA_PAQUETE.includes(k) && enPaquete(dia, config)) {
+      const paq = paqueteDe(config);
+      errs.push(`parametros.${k} no se fija en las semanas del ${paq.motivo} (${paq.semanas.join(", ")}): quítalo`);
       continue;
     }
     const v = parametros[k];
@@ -704,11 +705,11 @@ export function erroresDeRetencion(borrador, pieza, config) {
     const pace = ritmoDelBorrador(borrador);
     if (typeof params.ritmoReel === "string" && PACES.includes(params.ritmoReel) && params.ritmoReel !== pace) {
       errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con parametros.ritmoReel ${q(params.ritmoReel)} (pon el mismo en los dos)`);
-    } else if (params.ritmoReel === undefined && enPaquete(pieza.dia)) {
+    } else if (params.ritmoReel === undefined && enPaquete(pieza.dia, config)) {
       // En el paquete parametros.ritmoReel no se fija: el pace se compara con la puerta.
       const vigente = puerta(config, "ritmoReel");
       if (typeof vigente === "string" && PACES.includes(vigente) && vigente !== pace) {
-        errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con puerta.ritmoReel ${q(vigente)} (en el ${MOTIVO_PAQUETE} el ritmo es el de la puerta)`);
+        errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con puerta.ritmoReel ${q(vigente)} (en el ${paqueteDe(config).motivo} el ritmo es el de la puerta)`);
       }
     }
     const tope = typeof params.duracionMaxSegundos === "number" && params.duracionMaxSegundos > 0 ? params.duracionMaxSegundos : puerta(config, "duracionMaxSegundos");
@@ -721,6 +722,13 @@ export function erroresDeRetencion(borrador, pieza, config) {
     return errs;
   });
 }
+
+/**
+ * Respuestas de la P8 que dicen «ya lo sabía» (sobre texto normalizado: minúsculas, sin
+ * tildes). «Ya sabía qué/cuál/cómo/dónde…» no cuenta: nombra lo que sabía y lo que no.
+ * Las mismas que la causa `nada-nuevo` de `src/calendario/lector-causas.ts`.
+ */
+export const NADA_NUEVO_RE = [/nada\s+(de\s+)?nuevo/, /ya (lo )?sabia(?!\s+(que|cual|como|donde))/, /ya lo conocia/, /no aprendi nada/, /nada que no supiera/];
 
 /** Una duda no bloqueante bien escrita: `NB: «cita textual» → regla` (la regla hasta el fin de línea, "; NB:" o el final). */
 const NB_RE = /\bNB: «[^«»\n]+» → (?:(?!;\s*NB\b)[^\n])*?\S(?=\s*(?:;\s*NB\b|\n|$))/g;
@@ -739,8 +747,8 @@ function erroresDeNotas(notas) {
   if (bien.length !== total) return [`lectorFrio.notas: hay ${total - bien.length} NB mal escrito(s); ${formato}`];
   for (const nb of bien) {
     const m = /^NB: «([^«»\n]+)» → (.*)$/s.exec(nb);
-    if (m && /^(?:con prisa|completo) p8\b/.test(normalizar(m[2]).trim()) && /nada\s+nuevo/.test(normalizar(m[1]))) {
-      return [`lectorFrio.notas: un NB de la P8 no puede citar «nada nuevo» (en la P8 eso bloquea, no es NB); si el lector nombra algo que la pieza no enseña, cítalo`];
+    if (m && /^(?:con prisa|completo) p8\b/.test(normalizar(m[2]).trim()) && NADA_NUEVO_RE.some((r) => r.test(normalizar(m[1])))) {
+      return [`lectorFrio.notas: un NB de la P8 no puede citar «nada nuevo» ni «ya lo sabía» (en la P8 eso bloquea, no es NB); si el lector nombra algo que la pieza no enseña, cítalo`];
     }
   }
   const fueraDeNB = notas.replace(NB_RE, "");
@@ -748,24 +756,45 @@ function erroresDeNotas(notas) {
   return [];
 }
 
-/** Desde este día el hook sale de 8 a 10 candidatos y lo elige un juez separado. */
+/**
+ * Desde este día el hook sale de 8 a 10 candidatos y lo elige un juez separado. Valor por
+ * defecto: manda `config.paquete.desde` si viene (ver `paqueteDe`).
+ */
 export const DESDE_CALIDAD = "2026-10-26";
 export const PATRONES_HOOK = ["en-juego", "error-comun", "dato-contrario", "antes-despues", "pregunta-del-jefe", "resultado"];
 const CANDIDATOS_MIN = 8;
 const CANDIDATOS_MAX = 10;
 const PATRONES_MIN = 3;
 
-/** Series válidas desde DESDE_CALIDAD (el público profesional; `gratis-vs-pago` deja de valer). */
+/** Series válidas desde `paquete.desde` (el público profesional; `gratis-vs-pago` deja de valer). */
 export const SERIES_CALIDAD = ["hazlo-con-ia", "criterio", "lo-probe-por-ti"];
-/** Lunes de las semanas del paquete calidad-contenido: sin experimento propio y sin tocar duración ni ritmo del reel. */
+/**
+ * Lunes de las semanas del paquete calidad-contenido: sin experimento propio y sin tocar
+ * duración ni ritmo del reel. Valor por defecto: manda `config.paquete.semanas` si viene.
+ */
 export const SEMANAS_PAQUETE = ["2026-10-26", "2026-11-02"];
 export const MOTIVO_PAQUETE = "paquete calidad-contenido";
-/** Un día cae en una semana del paquete (lunes a domingo). */
-const enPaquete = (dia) => typeof dia === "string" && SEMANAS_PAQUETE.some((l) => dia >= l && dia <= sumarDias(l, 6));
 const PARAMETROS_FUERA_PAQUETE = ["duracionMaxSegundos", "ritmoReel"];
 
-/** El hook exige candidatos y juez desde DESDE_CALIDAD (comparación de AAAA-MM-DD). */
-const exigeJuez = (p) => typeof p.dia === "string" && p.dia >= DESDE_CALIDAD;
+/**
+ * Fechas del paquete: `config.paquete` (opcional, lo edita el usuario para correr el paquete
+ * sin tocar el código) o, campo a campo, las constantes de arriba. Un campo inválido cae al
+ * valor por defecto (`validarConfig` ya lo reporta).
+ */
+function paqueteDe(config) {
+  const p = esObj(config) && esObj(config.paquete) ? config.paquete : {};
+  return {
+    desde: fechaValida(p.desde) ? p.desde : DESDE_CALIDAD,
+    semanas: Array.isArray(p.semanas) && p.semanas.length > 0 && p.semanas.every(fechaValida) ? p.semanas : SEMANAS_PAQUETE,
+    motivo: esTexto(p.motivo) ? p.motivo : MOTIVO_PAQUETE,
+  };
+}
+
+/** Un día cae en una semana del paquete (lunes a domingo). */
+const enPaquete = (dia, config) => typeof dia === "string" && paqueteDe(config).semanas.some((l) => dia >= l && dia <= sumarDias(l, 6));
+
+/** El hook exige candidatos y juez desde `paquete.desde` (comparación de AAAA-MM-DD). */
+const exigeJuez = (p, config) => typeof p.dia === "string" && p.dia >= paqueteDe(config).desde;
 
 /** Candidato elegido por el juez (`elegido` es 1-based: el número de la lista), o undefined si falta o no sirve. */
 function candidatoElegido(hook) {
@@ -775,17 +804,17 @@ function candidatoElegido(hook) {
 }
 
 /**
- * Errores del hook con candidatos y juez (piezas desde DESDE_CALIDAD): de 8 a 10
+ * Errores del hook con candidatos y juez (piezas desde `paquete.desde`): de 8 a 10
  * candidatos de al menos 3 patrones, `juez.elegido` válido (1-based: el número de la lista que ve el juez), `hook.texto` igual al
  * título elegido y `hook.score` igual a la nota del juez. Con `borrador`, además
- * el Hook del borrador debe repetir título, subtítulo y resultado del elegido.
+ * los de `erroresDeHookBorrador` (la portada repite el candidato elegido).
  */
-export function erroresDeHookJuez(p, borrador) {
+export function erroresDeHookJuez(p, borrador, config) {
   const errs = [];
   const h = esObj(p) ? p.hook : undefined;
   if (!esObj(h)) return errs; // "hook incompleto" ya lo dice erroresDePieza
   const cands = h.candidatos;
-  if (!Array.isArray(cands)) errs.push(`hook.candidatos falta: desde el ${DESDE_CALIDAD} el hook sale de ${CANDIDATOS_MIN} a ${CANDIDATOS_MAX} candidatos`);
+  if (!Array.isArray(cands)) errs.push(`hook.candidatos falta: desde el ${paqueteDe(config).desde} el hook sale de ${CANDIDATOS_MIN} a ${CANDIDATOS_MAX} candidatos`);
   else {
     if (cands.length < CANDIDATOS_MIN || cands.length > CANDIDATOS_MAX) errs.push(`hook.candidatos tiene ${cands.length}: deben ser ${CANDIDATOS_MIN} a ${CANDIDATOS_MAX} candidatos`);
     const patrones = new Set();
@@ -816,18 +845,38 @@ export function erroresDeHookJuez(p, borrador) {
   }
   const el = candidatoElegido(h);
   if (el && esTexto(el.title) && h.texto !== el.title) errs.push(`hook.texto ${q(h.texto)} debe ser el título del candidato elegido (${q(el.title)})`);
-  if (el && esObj(borrador)) {
-    const hook = Array.isArray(borrador.slides) ? borrador.slides.find((s) => esObj(s) && s.template === "Hook") : undefined;
-    if (esObj(hook) && esObj(hook.props)) {
-      const pr = hook.props;
-      const cmp = (campo, esperado, real) => {
-        if (esperado !== real) errs.push(`el Hook del borrador debe repetir el candidato elegido: ${campo} ${q(real)} ≠ ${q(esperado)}`);
-      };
-      cmp("title", el.title, pr.title);
-      cmp("subtitle", el.subtitle, pr.subtitle);
-      if (el.resultado !== undefined) cmp("resultado", el.resultado, pr.resultado);
+  if (esObj(borrador)) errs.push(...erroresDeHookBorrador(p, borrador));
+  return errs;
+}
+
+/**
+ * Solo la portada del borrador contra el candidato elegido (si no hay elegido válido, nada:
+ * eso lo dice `erroresDeHookJuez`). Con un `Clip` de portada (reel sin Hook) su `title` es
+ * el título elegido y el elegido no trae `subtitle` ni `resultado` (el Clip no los muestra);
+ * si no, el Hook del borrador repite título, subtítulo y resultado del elegido.
+ */
+export function erroresDeHookBorrador(p, borrador) {
+  const el = esObj(p) ? candidatoElegido(p.hook) : undefined;
+  if (!el || !esObj(borrador) || !Array.isArray(borrador.slides)) return [];
+  const errs = [];
+  const portada = borrador.slides[0];
+  if (esObj(portada) && portada.template === "Clip") {
+    const pr = esObj(portada.props) ? portada.props : {};
+    if (el.title !== pr.title) errs.push(`el Clip de portada debe repetir el título del candidato elegido: title ${q(pr.title)} ≠ ${q(el.title)}`);
+    for (const k of ["subtitle", "resultado"]) {
+      if (el[k] !== undefined) errs.push(`con un Clip de portada el candidato elegido no lleva ${k} (el Clip no lo muestra): quítalo del candidato o usa un Hook de portada`);
     }
+    return errs;
   }
+  const hook = borrador.slides.find((s) => esObj(s) && s.template === "Hook");
+  if (!esObj(hook) || !esObj(hook.props)) return errs;
+  const pr = hook.props;
+  const cmp = (campo, esperado, real) => {
+    if (esperado !== real) errs.push(`el Hook del borrador debe repetir el candidato elegido: ${campo} ${q(real)} ≠ ${q(esperado)}`);
+  };
+  cmp("title", el.title, pr.title);
+  cmp("subtitle", el.subtitle, pr.subtitle);
+  if (el.resultado !== undefined) cmp("resultado", el.resultado, pr.resultado);
   return errs;
 }
 
@@ -857,7 +906,7 @@ function erroresDePieza(p, config) {
   else if (typeof p.hook.score !== "number" || !Number.isFinite(p.hook.score) || p.hook.score < umbral) {
     errs.push(`hook.score ${q(p.hook.score)} bajo el umbral ${umbral} (puerta.hookUmbral, en cada criterio)`);
   }
-  if (exigeJuez(p)) errs.push(...erroresDeHookJuez(p));
+  if (exigeJuez(p, config)) errs.push(...erroresDeHookJuez(p, undefined, config));
   if (!esObj(p.lectorFrio) || p.lectorFrio.resultado !== "ok") {
     errs.push(`lectorFrio.resultado debe ser exactamente "ok" (es ${q(esObj(p.lectorFrio) ? p.lectorFrio.resultado : p.lectorFrio)})`);
   } else {
@@ -870,8 +919,8 @@ function erroresDePieza(p, config) {
     errs.push("origen inválido: { fichas: [...], referencias: [...] }");
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
-  if (exigeJuez(p)) {
-    if (p.serie !== undefined && p.serie !== null && !SERIES_CALIDAD.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${DESDE_CALIDAD}: usa ${SERIES_CALIDAD.join(", ")} o null`);
+  if (exigeJuez(p, config)) {
+    if (p.serie !== undefined && p.serie !== null && !SERIES_CALIDAD.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${SERIES_CALIDAD.join(", ")} o null`);
   } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
@@ -981,7 +1030,7 @@ function erroresDeBorrador(b, p, config) {
   } else if (b.audio !== undefined && !audioSeguro) {
     errs.push(`audio ${q(b.audio)} inválido: solo el nombre de una pista, sin rutas`); // en carrusel se ignora, pero no con rutas
   }
-  if (exigeJuez(p)) errs.push(...erroresDeHookJuez(p, b).filter((e) => e.startsWith("el Hook del borrador")));
+  if (exigeJuez(p, config)) errs.push(...erroresDeHookBorrador(p, b));
   errs.push(...erroresDeHookVideo(b, p));
   errs.push(...erroresDeClips(b, p));
   if (!Array.isArray(b.slides)) {
@@ -1552,11 +1601,12 @@ export function validarPlan(plan, config) {
       const h = +((conHora[i].min - conHora[i - 1].min) / 60).toFixed(2);
       if (h < sep) errs.push(`${conHora[i].id}: está a ${h} h de ${conHora[i - 1].id} (mínimo ${sep} h, config.separacionMinHoras)`);
     }
-    if (semanaOk && SEMANAS_PAQUETE.includes(semana)) {
+    const paq = paqueteDe(config);
+    if (semanaOk && paq.semanas.includes(semana)) {
       if (plan.piezas.length === 0 && (exp === null || exp === undefined)) {
         // sin piezas no hay nada que medir: experimento null, como fuera del paquete
-      } else if (!(esObj(exp) && exp.variable === null && exp.motivo === MOTIVO_PAQUETE)) {
-        errs.push(`plan: la semana ${semana} es del ${MOTIVO_PAQUETE} y no lleva experimento: usa experimento { "variable": null, "motivo": "${MOTIVO_PAQUETE}" }`);
+      } else if (!(esObj(exp) && exp.variable === null && exp.motivo === paq.motivo)) {
+        errs.push(`plan: la semana ${semana} es del ${paq.motivo} y no lleva experimento: usa experimento { "variable": null, "motivo": "${paq.motivo}" }`);
       }
     } else if (exp === null || exp === undefined) {
       if (plan.piezas.length > 0) errs.push("plan: falta experimento (una variable por semana)");
@@ -1694,6 +1744,17 @@ export function validarConfig(config) {
     const seValor = esObj(se) ? se.valor : se;
     if (se !== undefined && !(Number.isInteger(seValor) && seValor >= 1 && seValor <= 12)) {
       errs.push("semanasExperimento.valor debe ser un entero entre 1 y 12 (semanas hasta evaluar un experimento)");
+    }
+    // Fechas del paquete calidad-contenido (opcional; sin él valen DESDE_CALIDAD y SEMANAS_PAQUETE).
+    const paq = config.paquete;
+    if (paq !== undefined) {
+      if (!esObj(paq)) errs.push('paquete debe ser { "desde": "AAAA-MM-DD" (lunes), "semanas": ["AAAA-MM-DD" (lunes), …], "motivo": "texto" }');
+      else {
+        const lunes = (d) => fechaValida(d) && diaSemana(d) === 1;
+        if (!lunes(paq.desde)) errs.push(`paquete.desde ${q(paq.desde)} debe ser un lunes (AAAA-MM-DD): el primer día del paquete`);
+        if (!Array.isArray(paq.semanas) || !paq.semanas.length || !paq.semanas.every(lunes)) errs.push("paquete.semanas debe ser una lista de lunes (AAAA-MM-DD): las semanas del paquete, sin experimento propio");
+        if (!esTexto(paq.motivo)) errs.push("paquete.motivo debe ser un texto (el motivo que lleva el experimento de esas semanas)");
+      }
     }
     if (!Array.isArray(config.pilares) || !config.pilares.length || !config.pilares.every(esTexto)) errs.push("pilares debe ser una lista de textos");
     if (!Array.isArray(config.hashtagsBase) || !config.hashtagsBase.every((h) => typeof h === "string" && HASHTAG_RE.test(h))) {
@@ -2104,9 +2165,11 @@ async function imprimirPrueba(here, configActual, args, fallar) {
   console.log(informePrueba(r));
 }
 
-/** `--lector <semana> <id>`: los dos textos y el mensaje exacto para cada subagente. */
-function imprimirLector(here, semana, id, fallar) {
-  const uso = "uso: node _calendario/validar.mjs --lector <semana AAAA-MM-DD> <id>";
+/**
+ * La pieza `id` de `<semana>/plan.json` para `--lector` y `--juez`: valida semana e id y,
+ * si algo falla, llama a `fallar` (sale con 1) con `uso` o la lista de ids de la semana.
+ */
+function piezaDelPlan(here, semana, id, fallar, uso) {
   if (!fechaValida(semana)) fallar([`${uso} (semana ${q(semana)} inválida)`]);
   if (typeof id !== "string" || !ID_RE.test(id)) fallar([`${uso} (id ${q(id)} inválido)`]);
   const plan = leerJson(join(here, semana, "plan.json"));
@@ -2117,6 +2180,12 @@ function imprimirLector(here, semana, id, fallar) {
     const ids = piezas.map((x) => x.id).filter((x) => typeof x === "string");
     fallar([`no hay ninguna pieza con id ${q(id)} en ${semana}/plan.json (ids: ${ids.length ? ids.join(", ") : "ninguno"})`]);
   }
+  return p;
+}
+
+/** `--lector <semana> <id>`: los dos textos y el mensaje exacto para cada subagente. */
+function imprimirLector(here, semana, id, fallar) {
+  const p = piezaDelPlan(here, semana, id, fallar, "uso: node _calendario/validar.mjs --lector <semana AAAA-MM-DD> <id>");
   const b = leerJson(join(here, semana, `${id}.json`));
   if ("error" in b) fallar([`${semana}/${id}.json ${b.error}`]);
   let md;
@@ -2141,17 +2210,7 @@ function imprimirLector(here, semana, id, fallar) {
 
 /** `--juez <semana> <id>`: el mensaje exacto para el subagente juez del hook. */
 function imprimirJuez(here, semana, id, fallar) {
-  const uso = "uso: node _calendario/validar.mjs --juez <semana AAAA-MM-DD> <id>";
-  if (!fechaValida(semana)) fallar([`${uso} (semana ${q(semana)} inválida)`]);
-  if (typeof id !== "string" || !ID_RE.test(id)) fallar([`${uso} (id ${q(id)} inválido)`]);
-  const plan = leerJson(join(here, semana, "plan.json"));
-  if ("error" in plan) fallar([`${semana}/plan.json ${plan.error}`]);
-  const piezas = esObj(plan.data) && Array.isArray(plan.data.piezas) ? plan.data.piezas.filter(esObj) : [];
-  const p = piezas.find((x) => x.id === id);
-  if (!p) {
-    const ids = piezas.map((x) => x.id).filter((x) => typeof x === "string");
-    fallar([`no hay ninguna pieza con id ${q(id)} en ${semana}/plan.json (ids: ${ids.length ? ids.join(", ") : "ninguno"})`]);
-  }
+  const p = piezaDelPlan(here, semana, id, fallar, "uso: node _calendario/validar.mjs --juez <semana AAAA-MM-DD> <id>");
   const cands = esObj(p.hook) ? p.hook.candidatos : undefined;
   if (!Array.isArray(cands) || !cands.length || !cands.every((c) => esObj(c) && esTexto(c.title))) fallar([`${id}: hook.candidatos falta o es inválido en ${semana}/plan.json`]);
   let md;
