@@ -47,6 +47,9 @@ materia prima de sus piezas. Lee primero:
   `despues` (si sobra espacio) y `fuera` (nunca se investigan solos). Un tema que
   no está en ninguna lista cuenta como `fuera`. Compara nombres sin tildes, sin
   mayúsculas y sin `[[ ]]`.
+  **`enfoqueIA`** (en el mismo archivo): temas que entran **solo desde cómo la
+  IA los cambia** (liderazgo, modelos mentales, hábitos y decisiones,
+  productividad). El valor de cada tema es el ángulo que manda; ver Paso 3.
 - `_investigacion/pedidos.md` (del usuario): líneas `- AAAA-MM-DD · <Tema>`. Un
   pedido está **pendiente** si `registro.md` no tiene una línea de ese tema con
   fecha igual o posterior. Ignora la línea de ejemplo `AAAA-MM-DD · <Tema>`.
@@ -109,6 +112,13 @@ lo demás de este manual sigue igual (zonas, citas, validar, registro, resumen).
    frecuente (qué es un prompt, que existe un plan gratis) no es hallazgo: busca
    lo que no sabría. Lo del susto se trata con datos y algo que hacer, nunca con
    alarmismo.
+   **Temas con `enfoqueIA`** (`alcance.json`): toda referencia responde *cómo
+   cambia ese tema con IA*, según el ángulo de `enfoqueIA`: una herramienta de
+   IA que lo hace, un estudio o dato que mide el efecto de la IA en eso, o un
+   método que usa una IA en sus pasos. Lo que se sostiene sin IA (un estudio de
+   hábitos sin IA, una técnica de liderazgo clásica) **no se elige** como
+   referencia nueva aunque se repita en las fichas; si una referencia existente
+   del tema no tiene ángulo de IA, no la refresques: nómbrala en el resumen.
    Para el `tipo`: `metodo` es algo que se aplica con pasos (una técnica, una
    receta, un proceso); `concepto` es una idea o arquitectura que se explica.
 3. Para cada referencia, busca si ya existe en `referencias/` (compara `nombre`
@@ -154,6 +164,7 @@ Plataforma de automatización de flujos, open source y self-hosteable [1].
 
 ## Para la audiencia
 - **Por qué importa:** para quién hace una diferencia y cuál, en una frase [1]
+  (en temas con `enfoqueIA`: qué cambia la IA en ese tema, con el dato [n])
 - **Qué se puede hacer:** 1 a 3 usos concretos que un profesional no técnico
   puede repetir hoy en su trabajo, cada uno con lo que la herramienta hace de verdad [1][2]
 - **Lo que no sabe un usuario frecuente:** lo que alguien que ya usa Claude o
