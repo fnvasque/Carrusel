@@ -12,7 +12,7 @@ import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type PresupuestoSemana, typ
 /**
  * Revisión de fondos con modelo de visión en el Mac, después de `procesar` (solo avisa,
  * nunca bloquea): por cada pieza renderizada cuya hora no pasó y que aún no tiene
- * `revisor` en visual.json, saca los cuadros, pregunta al modelo, anota el veredicto y
+ * `revisor` ni `correccion` en visual.json, saca los cuadros, pregunta al modelo, anota el veredicto y
  * el gasto de la semana (`_presupuesto`) y manda una foto con botones por imagen señalada
  * (una por escena o slide, a lo más 3 por pieza). Corre cada hora sin supervisión y gasta dinero: respeta los topes y nunca lanza.
  */
@@ -194,7 +194,8 @@ export async function revisarRenderizadas(
         const manifiesto = await leerManifiesto(final);
         if (!manifiesto) continue;
         const previa = await entradaDe(semana, id);
-        if (previa.revisor) continue;
+        // Con `correccion` (fase 3) no se vuelve a revisar: una corrección por pieza, sin bucle.
+        if (previa.revisor || previa.correccion) continue;
 
         let b: Borrador;
         try {

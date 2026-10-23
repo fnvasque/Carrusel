@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -7,11 +8,12 @@ import { join } from "node:path";
 import { checkAsync, done } from "../_check.ts";
 import { startHttp } from "../../src/kb/inbox.ts";
 import { manejarMedio } from "../../src/calendario/media-server.ts";
-import { leerSemana, urlPublica } from "../../src/calendario/plan.ts";
+import { leerSemana, urlPublica, type Pieza } from "../../src/calendario/plan.ts";
 import { cuadrosARevisar, extraerCuadros, transicionDe } from "../../src/calendario/cuadros-visuales.ts";
 import { parseBorrador } from "../../src/calendario/draft.ts";
 import { grisDeImagen, luminanciaMedia } from "../../src/calendario/qa.ts";
 import { addDays, localParts, weekMonday } from "../../src/calendario/time.ts";
+import { applyBrandStyle } from "../../src/render/background.ts";
 import {
   MANIFIESTO, crearEscritorRender, leerPuerta, pendientes, procesar, renderPieza, rsyncReal, verificarReal,
 } from "../../src/calendario/render.ts";
@@ -209,6 +211,50 @@ try {
     assert.ok((await luz(join(clipOut, "reel.mp4"))) > 0.1, "el cuadro 0 del reel debe mostrar el clip");
     const s3 = await leerSemana(semana);
     assert.deepEqual(pendientes([s3!], new Date()), []);
+  });
+
+  await checkAsync("renderPieza con quitarFondos: la portada sale sin la imagen ai de la caché (fase 3)", async () => {
+    // Fondo ai resuelto desde una caché temporal con un fixture blanco: sin API (solo-caché).
+    const cache = join(raiz, "cache-ai");
+    mkdirSync(cache, { recursive: true });
+    const prompt = "una oficina luminosa vacía";
+    const clave = createHash("sha256").update(`${applyBrandStyle(prompt)}|1024x1536|medium`).digest("hex");
+    ffmpeg(["-f", "lavfi", "-i", "color=c=white:s=1024x1536:d=1", "-frames:v", "1", join(cache, `${clave}.png`)]);
+    const envPrev = { CARRUSEL_AI_CACHE_DIR: process.env.CARRUSEL_AI_CACHE_DIR, CARRUSEL_AI_SOLO_CACHE: process.env.CARRUSEL_AI_SOLO_CACHE };
+    process.env.CARRUSEL_AI_CACHE_DIR = cache;
+    process.env.CARRUSEL_AI_SOLO_CACHE = "1";
+    try {
+      const b0 = borrador("carrusel");
+      const b = { ...b0, slides: b0.slides.map((sl, i) => (i === 0 ? { ...sl, background: { ai: prompt } } : sl)) };
+      writeFileSync(join(sd, "prueba-fondo.json"), JSON.stringify(b));
+      // Fuera del plan: fondosIaQuitados no le quita nada (solo cuenta las piezas del plan).
+      const p = { semana, pieza: pieza("prueba-fondo", otroDia, "carrusel") as unknown as Pieza, borradorPath: join(sd, "prueba-fondo.json") };
+      const puerta = await leerPuerta();
+      const avisosFondo: string[] = [];
+      const con = join(raiz, "fondo-con");
+      const sin = join(raiz, "fondo-sin");
+      mkdirSync(con);
+      mkdirSync(sin);
+      await renderPieza(p, con, { audioDir, puerta, avisar: async (t) => void avisosFondo.push(t) });
+      assert.equal(avisosFondo.length, 0, "sin quitarFondos no se quita nada");
+      await renderPieza(p, sin, { audioDir, puerta, avisar: async (t) => void avisosFondo.push(t), quitarFondos: [{ slide: 0, motivo: "el revisor visual lo marcó (compite)" }] });
+      const luz = async (f: string) => luminanciaMedia(await grisDeImagen(f, 1080, 1350));
+      const lCon = await luz(join(con, "01.jpg"));
+      const lSin = await luz(join(sin, "01.jpg"));
+      console.log(`(luminancia de la portada: con fondo ${lCon.toFixed(3)}, sin fondo ${lSin.toFixed(3)})`);
+      assert.ok(lCon > 0.3, `con el fondo blanco de la caché la portada es clara (${lCon})`);
+      assert.ok(lSin < 0.15, `sin el fondo ai la portada vuelve al fondo oscuro por defecto (${lSin})`);
+      assert.ok(lCon - lSin > 0.2);
+      // Las demás slides no cambian (solo se quitó la 0).
+      assert.equal(await luz(join(con, "02.jpg")), await luz(join(sin, "02.jpg")));
+      assert.equal(avisosFondo.length, 1);
+      assert.match(avisosFondo[0], /Fondo ai quitado en prueba-fondo .*slide 1, el revisor visual lo marcó \(compite\)/);
+    } finally {
+      for (const [k, v] of Object.entries(envPrev)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
   });
 } finally {
   server.close();
