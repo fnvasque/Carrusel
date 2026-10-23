@@ -37,10 +37,11 @@ eso, la prueba no vale y se repite.
 
 Eres este perfil y respondes como él, con honestidad, sin ayudar al autor:
 
-**Perfil completo:** Hispanohablante de 25 a 45 años, curioso de la IA, **no técnico**, viendo esto en el celular, distraído, con el pulgar listo para pasar.
+**Perfil completo:** Profesional hispanohablante con cargo medio (jefe de área, coordinador o gerente de primera línea), no programador, que ya paga Claude o ChatGPT y lo usa en el trabajo. Le queda algo de susto de que la IA afecte su trabajo (quedarse atrás frente a colegas que la usan mejor, o que coordinar y revisar pierda valor) y le interesa el liderazgo en la era de la IA. Busca criterio, no funciones nuevas; está viendo esto en el celular, distraído, con el pulgar listo para pasar.
 
-**Perfil "con prisa":** el mismo hispanohablante de 25 a 45 años, curioso de la
-IA, no técnico, en el celular y distraído, pero con más prisa todavía: solo
+**Perfil "con prisa":** el mismo profesional con cargo medio, no programador, que
+ya paga Claude o ChatGPT y lo usa en el trabajo, en el celular y distraído, pero
+con más prisa todavía: solo
 alcanza a ver lo que salta a la vista en cada slide antes de pasar: títulos,
 palabra destacada, número de paso, el prompt para copiar, el mito y la realidad,
 y la cifra de un dato. No lee los párrafos de explicación.
@@ -60,6 +61,8 @@ ni lo completes con lo que sabes.
 7. Mira **solo la Slide 1** (en el video es lo único que alcanzas a ver en los
    primeros 2 segundos). Solo con eso: ¿qué vas a conseguir si sigues mirando?
    Si no lo sabes, responde "no sé".
+8. ¿Qué aprendiste que no sabías antes de verlo? Si ya sabías todo, responde
+   "nada nuevo".
 
 ### Formato de respuesta
 
@@ -67,7 +70,7 @@ Responde **solo** este JSON, sin texto antes ni después. Si en la 3 o la 6 no
 hay nada, deja el texto vacío (`""`).
 
 ```json
-{ "1": "...", "2": "...", "3": "...", "4": "...", "5": "...", "6": "...", "7": "..." }
+{ "1": "...", "2": "...", "3": "...", "4": "...", "5": "...", "6": "...", "7": "...", "8": "..." }
 ```
 
 ## Para el planificador: criterio de paso
@@ -101,10 +104,16 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    propósito de los reels; hooks como «¿Por qué tu texto se olvida?» nombran un
    problema sin decir qué te llevas, y con 3 s de visionado medio nadie llega
    a la respuesta.
+8. La respuesta 8 nombra algo que el lector aprendió. Bloquea si responde
+   "nada nuevo" y, en el lector **completo**, también si nombra algo que la
+   pieza no enseña (que no está en ninguna slide). En el lector **con prisa**
+   bloquea solo "nada nuevo": ve únicamente los títulos, y si ni ellos traen
+   algo nuevo, la pieza es básica. Prueba de novedad (2026-10-22): el público ya
+   paga una IA y usa lo básico; una pieza que repite lo básico no suma.
 
-- **Lector completo:** deben cumplirse las siete (1–7), con la 3 y la 6 como
+- **Lector completo:** deben cumplirse las ocho (1–8), con la 3 y la 6 como
   están escritas arriba.
-- **Lector con prisa:** cuentan solo la 1, la 2, la 5 y la 7. La 7 nunca va
+- **Lector con prisa:** cuentan solo la 1, la 2, la 5, la 7 y la 8. La 7 nunca va
   como `NB`. Sus respuestas 3, 4 y 6
   **no bloquean**. El lector con prisa no ve el cuerpo a propósito; echarlo de
   menos es esperable.
@@ -127,6 +136,9 @@ Reglas que puedes citar (con dónde lo explica la pieza cuando corresponda):
 - `completo P6: no es contradicción, promesa incumplida ni paso imposible`
 - `completo P5: acción distinta a la señal`, `con prisa P5: acción distinta a la señal`
 - `con prisa P3: no bloquea`, `con prisa P4: no bloquea`, `con prisa P6: no bloquea`
+- `con prisa P8: no bloquea` (solo si su respuesta nombra algo que la pieza no
+  enseña; "nada nuevo" bloquea siempre). El lector completo no tiene escape en
+  la 8.
 
 Una entrada por línea (o separadas por `; `). El validador rechaza un `NB` mal
 escrito y cualquier "no bloquea" fuera de un `NB`. Si no puedes citar una regla

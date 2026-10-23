@@ -26,6 +26,7 @@ export type CausaId =
   | "pasos-incompletos"
   | "confuso"
   | "portada-sin-resultado"
+  | "nada-nuevo"
   | "otro";
 
 interface DefCausa {
@@ -44,12 +45,13 @@ export const CAUSAS: DefCausa[] = [
   { id: "dato-sin-contexto", pregunta: 3, descripcion: "Una cifra o estudio sin decir quién lo midió ni qué compara", claves: [/cifra/, /\bdatos?\b/, /estudio/, /\bmidi/, /\bmedido/, /\d ?%/, /\b\d[\d.,]* (puntos|veces|horas|dolares|profesionales|consultores|sesiones|correos|personas)\b/, /\b\d[\d.,]* ?\/ ?\d/] },
   { id: "termino-sin-explicar", pregunta: 3, descripcion: "Una palabra, marca o herramienta que el lector no entendió", claves: [/no (se |la |lo )?entend/, /no (se |la |lo )?entiend/, /sin explicar/, /no (se |estaba )explic/, /no (sabia|se sabe|sabe|se|supo|supieron) (bien )?(que|cual) (es|son|era|eran|significa|incluia)\b/, /sin saber que/, /no me dice nada/, /no lo conocia/, /suena tecnic/, /formal/, /no se que es/] },
   { id: "emocion", pregunta: 4, descripcion: "La primera slide despierta desconfianza o incomodidad", claves: [/desconf/, /apurad/, /raro/, /se siente/, /me pregunto si/] },
-  { id: "sin-accion", pregunta: 5, descripcion: "El lector no haría nada al terminar («nada», pasar de largo)", claves: [/\bnada\b/, /de largo/, /paso entero/] },
+  { id: "sin-accion", pregunta: 5, descripcion: "El lector no haría nada al terminar («nada», pasar de largo)", claves: [/\bnada\b(?! nuevo)/, /de largo/, /paso entero/] },
   { id: "accion-distinta", pregunta: 5, descripcion: "La acción que haría no es la de la señal objetivo", claves: [/respond\w* guardar/, /guardar con senal/, /\bguardar/, /envi/, /coment/, /mandar/] },
   { id: "contradiccion", pregunta: 6, descripcion: "Dos partes de la pieza se contradicen", claves: [/contradic/, /chocaba/, /\bchoca\b/, /se pelean/, /no coincid/, /\bno son\b \d/] },
   { id: "promesa-incumplida", pregunta: 6, descripcion: "El título promete algo (un número, «gratis», un resultado) que la pieza no entrega", claves: [/promet/, /promesa/, /no llegaba/, /no se cumpl/, /solo (habia|aparece|una|uno|muestra|\d)/, /contra \d+ pasos/, /no los nombra/, /nunca (dice|vi|muestra)/, /no cerraba/] },
   { id: "pasos-incompletos", pregunta: 6, descripcion: "Faltan pasos para conseguir el entregable (dónde, cómo, con qué)", claves: [/no (supo|sabe|se sabe|sabria) (decirle )?(como|de donde|donde|que numero|cual|con que)/, /pasos sin/, /donde (escribir|pegar|mirar)/, /que boton/, /falta el \d/, /no (dice|explica) (como|donde)/, /como se activa/, /no pudo seguir/, /hay que activar/, /\bcomo\b.*\?/] },
   { id: "confuso", pregunta: 6, descripcion: "Otra confusión o duda sobre la pieza", claves: [/no (supe|se si)/, /confus/, /dud/] },
+  { id: "nada-nuevo", pregunta: 8, descripcion: "El lector ya sabía lo que la pieza enseña", claves: [/nada nuevo/, /ya (lo )?sabia/, /ya lo conocia/] },
 ];
 
 const OTRO: DefCausa = { id: "otro", descripcion: "Fallo sin causa reconocida: revisa la cita", claves: [] };

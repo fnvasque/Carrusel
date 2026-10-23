@@ -21,6 +21,7 @@ import {
   textoPastilla,
   textosLector,
   validarBorrador,
+  seccionDelLector,
   validarCaption,
   validarConfig,
   validarPieza,
@@ -1011,7 +1012,8 @@ check("calendario/validar: INSTRUCCIONES.md trae el ejemplo idéntico al embebid
 
 check("calendario/validar: lector-frio.md trae perfil, 6 preguntas, formato JSON y prohibiciones", () => {
   const md = readFileSync(join(DIR, "lector-frio.md"), "utf8");
-  assert.ok(md.includes("Hispanohablante de 25 a 45 años, curioso de la IA, **no técnico**, viendo esto en el celular, distraído, con el pulgar listo para pasar."));
+  // Desde 2026-10-22 el perfil es el público profesional (antes: «Hispanohablante de 25 a 45 años… no técnico»).
+  assert.ok(md.includes("viendo esto en el celular, distraído, con el pulgar listo para pasar."));
   assert.ok(/con prisa/.test(md));
   for (const q of ["¿De qué trata, en una frase?", "¿Qué te llevas o qué puedes hacer después de verlo?", "¿Qué palabra o frase no entendiste o te hizo dudar?", "¿Qué sentiste al ver la primera slide?", "¿Qué harías al terminar?", "¿Algo te confundió, se contradijo o prometió algo que no llegó?"]) {
     assert.ok(md.includes(q), `falta: ${q}`);
@@ -2001,4 +2003,15 @@ check("paquete: pieza del 2026-11-03 con duracionMaxSegundos o ritmoReel → err
   const sin = (k: string) => { const parametros = clone(PARAMETROS); for (const x of ["duracionMaxSegundos", "ritmoReel"]) delete parametros[x]; parametros[k] = PARAMETROS[k]; return parametros; };
   assertHas(validarPieza(pieza({ dia: "2026-11-03", parametros: { ...sin("duracionMaxSegundos"), duracionMaxSegundos: 60 } }), config), /duracionMaxSegundos.*paquete calidad-contenido/);
   assertHas(validarPieza(pieza({ dia: "2026-11-03", parametros: sin("ritmoReel") }), config), /ritmoReel.*paquete calidad-contenido/);
+});
+
+check("calendario/validar: lector-frio.md — público profesional y pregunta 8 (novedad)", () => {
+  const md = readFileSync(join(DIR, "lector-frio.md"), "utf8");
+  const seccion = seccionDelLector(md)!;
+  assert.ok(seccion.includes("cargo medio") && seccion.includes("ya paga"));
+  assert.ok(seccion.includes("8. ¿Qué aprendiste que no sabías"));
+  assert.ok(!seccion.includes("no técnico, viendo esto"));
+  assert.ok(seccion.includes('"8"'));
+  assert.ok(md.includes("la 1, la 2, la 5, la 7 y la 8"));
+  assert.ok(md.includes("con prisa P8: no bloquea"));
 });
