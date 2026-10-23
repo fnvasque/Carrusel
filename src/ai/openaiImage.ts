@@ -4,7 +4,18 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import OpenAI from "openai";
 
-const CACHE_DIR = join(process.cwd(), ".cache", "ai");
+/** Carpeta de la caché de fondos. `CARRUSEL_AI_CACHE_DIR` la cambia (el corpus visual lee la del Mac sin escribirla). */
+function cacheDir(): string {
+  return process.env.CARRUSEL_AI_CACHE_DIR?.trim() || join(process.cwd(), ".cache", "ai");
+}
+
+/** Con `CARRUSEL_AI_SOLO_CACHE=1` y el fondo fuera de caché: no se llama a la API (ni hace falta clave). */
+export class ErrorSinCacheIa extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ErrorSinCacheIa";
+  }
+}
 
 /** Tamaños soportados por gpt-image-1. 1024x1536 (2:3) es el más cercano al 4:5 del lienzo. */
 export type ImageSize = "1024x1024" | "1024x1536" | "1536x1024";
@@ -39,11 +50,16 @@ export async function generateBackground(prompt: string, opts: GenerateOptions =
   const quality = opts.quality ?? "medium";
 
   const key = createHash("sha256").update(`${prompt}|${size}|${quality}`).digest("hex");
-  const cachePath = join(CACHE_DIR, `${key}.png`);
+  const cachePath = join(cacheDir(), `${key}.png`);
 
   if (existsSync(cachePath)) {
     const cached = await readFile(cachePath);
     return toDataUri(cached);
+  }
+
+  // Antes de getClient(): sin caché y en modo solo-caché no se necesita clave ni se escribe nada.
+  if (process.env.CARRUSEL_AI_SOLO_CACHE === "1") {
+    throw new ErrorSinCacheIa("Fondo ai fuera de caché y CARRUSEL_AI_SOLO_CACHE=1: no se llama a la API.");
   }
 
   const res = await getClient().images.generate({
@@ -58,7 +74,7 @@ export async function generateBackground(prompt: string, opts: GenerateOptions =
   if (!b64) throw new Error("gpt-image-1 no devolvió datos de imagen.");
 
   const buf = Buffer.from(b64, "base64");
-  await mkdir(CACHE_DIR, { recursive: true });
+  await mkdir(cacheDir(), { recursive: true });
   await writeFile(cachePath, buf);
   return toDataUri(buf);
 }

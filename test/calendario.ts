@@ -15,5 +15,6 @@ import "./calendario/reglas.ts";
 import "./calendario/escenas.ts";
 import "./calendario/lector-causas.ts";
 import "./calendario/telegram.ts";
+import "./calendario/corpus.ts";
 
 await done();
