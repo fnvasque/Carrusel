@@ -1812,7 +1812,7 @@ function piezaJuez(over: Record<string, unknown> = {}, hookOver: Record<string, 
   const cands = candidatos(8);
   return pieza({
     dia: "2026-10-27",
-    hook: { categoria: "en-juego", texto: cands[2].title, score: 9, candidatos: cands, juez: { elegido: 2, nota: 9, respuestas: "{}" }, ...hookOver },
+    hook: { categoria: "en-juego", texto: cands[2].title, score: 9, candidatos: cands, juez: { elegido: 3, nota: 9, respuestas: "{}" }, ...hookOver },
     ...over,
   });
 }
@@ -1851,7 +1851,7 @@ check("hook-juez: patrón fuera de PATRONES_HOOK → error con la lista", () => 
 });
 
 check("hook-juez: hook.score debe ser la nota del juez", () => {
-  const p = piezaJuez({}, { score: 8, juez: { elegido: 2, nota: 9, respuestas: "{}" } });
+  const p = piezaJuez({}, { score: 8, juez: { elegido: 3, nota: 9, respuestas: "{}" } });
   assertHas(validarPieza(p, config), /hook\.score debe ser la nota del juez/);
 });
 
@@ -1909,4 +1909,22 @@ check("hook-juez: mensajeJuez enumera los candidatos sin patrón", () => {
   for (const c of cands) assert.ok(m.includes(c.title));
   assert.ok(m.includes("Y no lo dice") && m.includes("Informe listo."));
   assert.ok(!/patron/i.test(m) && !m.includes("en-juego") && !m.includes("error-comun"));
+});
+
+check("hook-juez: elegido es 1-based (0 → error; N → ok; N+1 → error)", () => {
+  const p = piezaJuez();
+  const n = p.hook.candidatos.length;
+  p.hook.juez.elegido = 0;
+  assertHas(validarPieza(p, config), /elegido/);
+  p.hook.juez.elegido = n;
+  p.hook.texto = p.hook.candidatos[n - 1].title;
+  assertNone(soloHook(validarPieza(p, config)));
+  p.hook.juez.elegido = n + 1;
+  assertHas(validarPieza(p, config), /elegido/);
+});
+
+check("hook-juez: borde de fecha — 2026-10-26 exige candidatos y juez; 2026-10-25 no", () => {
+  const sin = (dia: string) => { const p = pieza({ dia }); return soloHook(validarPieza(p, config)); };
+  assertHas(sin("2026-10-26"), /candidatos/);
+  assertNone(sin("2026-10-25"));
 });

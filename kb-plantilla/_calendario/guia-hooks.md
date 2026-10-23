@@ -16,4 +16,4 @@ Responde SOLO con JSON, sin texto antes ni después ni cercos de código:
 
 { "elegido": n, "nota": 0-10, "porCandidato": { "1": { "pulgar": "sí|no", "importa": "sí|no", "teLlevas": "…" } } }
 
-`elegido` es el número del candidato en la lista, empezando en 1. No abras ni busques ningún archivo.
+`elegido` es el número del candidato tal como aparece en la lista (el primero es 1, no 0); se guarda tal cual en `hook.juez.elegido`. No abras ni busques ningún archivo.

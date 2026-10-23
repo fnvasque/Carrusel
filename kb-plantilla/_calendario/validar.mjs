@@ -719,7 +719,6 @@ function erroresDeNotas(notas) {
   return [];
 }
 
-/** Errores de los campos de planificación de una pieza (los que exige la puerta). */
 /** Desde este día el hook sale de 8 a 10 candidatos y lo elige un juez separado. */
 export const DESDE_CALIDAD = "2026-10-26";
 export const PATRONES_HOOK = ["en-juego", "error-comun", "dato-contrario", "antes-despues", "pregunta-del-jefe", "resultado"];
@@ -730,16 +729,16 @@ const PATRONES_MIN = 3;
 /** El hook exige candidatos y juez desde DESDE_CALIDAD (comparación de AAAA-MM-DD). */
 const exigeJuez = (p) => typeof p.dia === "string" && p.dia >= DESDE_CALIDAD;
 
-/** Candidato elegido por el juez, o undefined si falta o el índice no sirve. */
+/** Candidato elegido por el juez (`elegido` es 1-based: el número de la lista), o undefined si falta o no sirve. */
 function candidatoElegido(hook) {
   if (!esObj(hook) || !Array.isArray(hook.candidatos) || !esObj(hook.juez)) return undefined;
   const i = hook.juez.elegido;
-  return Number.isInteger(i) && i >= 0 && i < hook.candidatos.length && esObj(hook.candidatos[i]) ? hook.candidatos[i] : undefined;
+  return Number.isInteger(i) && i >= 1 && i <= hook.candidatos.length && esObj(hook.candidatos[i - 1]) ? hook.candidatos[i - 1] : undefined;
 }
 
 /**
  * Errores del hook con candidatos y juez (piezas desde DESDE_CALIDAD): de 8 a 10
- * candidatos de al menos 3 patrones, `juez.elegido` válido, `hook.texto` igual al
+ * candidatos de al menos 3 patrones, `juez.elegido` válido (1-based: el número de la lista que ve el juez), `hook.texto` igual al
  * título elegido y `hook.score` igual a la nota del juez. Con `borrador`, además
  * el Hook del borrador debe repetir título, subtítulo y resultado del elegido.
  */
@@ -763,7 +762,7 @@ export function erroresDeHookJuez(p, borrador) {
   const j = h.juez;
   if (!esObj(j)) errs.push("hook.juez falta: { elegido, nota, respuestas }");
   else {
-    if (!Number.isInteger(j.elegido) || (Array.isArray(cands) && (j.elegido < 0 || j.elegido >= cands.length))) errs.push(`hook.juez.elegido ${q(j.elegido)} inválido: índice (desde 0) de hook.candidatos`);
+    if (!Number.isInteger(j.elegido) || (Array.isArray(cands) && (j.elegido < 1 || j.elegido > cands.length))) errs.push(`hook.juez.elegido ${q(j.elegido)} inválido: número (desde 1) del candidato en hook.candidatos, el mismo que responde el juez`);
     if (typeof j.nota !== "number" || !Number.isFinite(j.nota) || j.nota < 0 || j.nota > 10) errs.push(`hook.juez.nota ${q(j.nota)} inválida (0 a 10)`);
     else if (h.score !== j.nota) errs.push(`hook.score debe ser la nota del juez (score ${q(h.score)}, nota ${q(j.nota)})`);
     if (!esTexto(j.respuestas)) errs.push("hook.juez.respuestas falta: la respuesta JSON del juez, tal cual");
@@ -785,6 +784,7 @@ export function erroresDeHookJuez(p, borrador) {
   return errs;
 }
 
+/** Errores de los campos de planificación de una pieza (los que exige la puerta). */
 function erroresDePieza(p, config) {
   const errs = [];
   const id = p.id;
