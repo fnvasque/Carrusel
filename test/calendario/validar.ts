@@ -44,6 +44,8 @@ import {
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
+import { scoreDraft } from "../../src/remix/registry.ts";
+import { THRESHOLD } from "../../src/score/virality.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
@@ -2156,4 +2158,13 @@ check("guías y esqueleto (revisión 1): ejemplos con el alcance de su dato y to
   const mie = esqueleto.piezas.find((p: any) => p.serie === "criterio");
   assert.equal(mie.hook.texto, "La IA no siempre ayuda: cuándo revisar");
   assertNone(erroresDeHookJuez(mie));
+});
+
+check("score: piezas de calidad-contenido ≥ 75", () => {
+  // Borradores escritos con las guías (público nuevo, sin «gratis» en el hook): el Mac revalida score ≥ 75 antes de renderizar.
+  for (const [archivo, formato] of [["reel-hazlo", "reel"], ["reel-criterio", "reel"], ["carrusel-denso", "carrusel"]] as const) {
+    const pieza = JSON.parse(readFileSync(new URL(`./fixtures/calidad/${archivo}.json`, import.meta.url), "utf8"));
+    const r = scoreDraft(pieza, { format: formato });
+    assert.ok(r.total >= THRESHOLD, `${archivo}: ${r.total} < ${THRESHOLD} (${r.suggestions.join(" ")})`);
+  }
 });

@@ -1,0 +1,68 @@
+{
+  "name": "mie-reel-cuando-revisar-a-la-ia",
+  "angle": "de confiar en la IA por defecto a revisar según si ya la viste acertar en esa tarea",
+  "pillar": "herramienta",
+  "pace": "gancho",
+  "audio": "digital-clouds.mp3",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "La IA no siempre ayuda: cuándo revisar",
+        "highlight": "cuándo revisar",
+        "app": "ChatGPT",
+        "modo": "aviso",
+        "resultado": "Con IA acertaron 19 puntos menos en una tarea que parecía igual de fácil."
+      },
+      "narracion": "En una tarea, con IA acertaron menos. Si tu equipo entrega informes con IA, mira."
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "758 consultores, con y sin IA",
+        "highlight": "758 consultores",
+        "source": "Fuente: Harvard Business School y BCG, 2023"
+      },
+      "narracion": "Harvard y BCG los midieron con y sin GPT-4, en las mismas tareas."
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "ChatGPT",
+        "prompt": "Resume las causas de la caída de ventas del trimestre para el directorio.",
+        "respuesta": "Tres causas: precio, quiebre de stock en el sur y menor visibilidad en tienda. La primera explica el 60 % de la caída."
+      },
+      "narracion": "La respuesta suena segura. Ahí está el riesgo: ese 60 % puede no salir de ningún dato tuyo."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "En 18 tareas: 25 % más rápido",
+        "body": "Con más calidad en las tareas conocidas."
+      },
+      "narracion": "En 18 tareas reales de consultoría, con IA fueron 25 % más rápidos y con más calidad."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "La regla: ¿ya la viste acertar en esto?",
+        "body": "Si no, revísala entera."
+      },
+      "narracion": "No hay lista de tareas seguras: si no la viste acertar en esa, revisa todo su trabajo."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Mándaselo a quien firma sin revisar",
+        "highlight": "Mándaselo",
+        "handle": "ia.punto.es",
+        "cta": "Mándaselo",
+        "source": "Fuente: Dell'Acqua et al., Navigating the Jagged Technological Frontier, 2023"
+      },
+      "narracion": "Mándaselo a quien firma sin revisar lo que le entrega la IA."
+    }
+  ]
+}
