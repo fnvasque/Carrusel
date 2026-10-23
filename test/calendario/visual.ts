@@ -17,6 +17,15 @@ check("visual: cupo respeta los topes por pieza, por semana y de dinero", () => 
   assert.equal(caro.imagenes, 0);
   assert.equal(caro.motivo, "tope semanal de US$5");
   assert.equal(cupo({ imagenes: 0, usd: 5 }, 4).imagenes, 0);
+  assert.equal(cupo({ imagenes: 130, usd: 1 }, 4).imagenes, 0);
+  assert.deepEqual(cupo({ imagenes: 1, usd: 1 }, 0), { imagenes: 0 });
+  assert.deepEqual(cupo(undefined, -3), { imagenes: 0 });
+  assert.deepEqual(cupo(undefined, NaN), { imagenes: 0 });
+  for (const mala of [{ imagenes: NaN, usd: 0 }, { imagenes: 0, usd: NaN }, { imagenes: -1, usd: 0 }, { imagenes: Infinity, usd: 0 }]) {
+    const c = cupo(mala, 4);
+    assert.equal(c.imagenes, 0);
+    assert.equal(c.motivo, "presupuesto ilegible");
+  }
 });
 
 async function conKb(fn: (dir: string) => Promise<void>): Promise<void> {
@@ -40,6 +49,20 @@ await checkAsync("visual: leerVisual devuelve {} si falta o está corrupto, y le
     assert.deepEqual(await leerVisual("2026-10-19"), {});
     writeFileSync(visualPath("2026-10-19"), JSON.stringify({ _presupuesto: { imagenes: 2, usd: 0.1 } }));
     assert.deepEqual((await leerVisual("2026-10-19"))._presupuesto, { imagenes: 2, usd: 0.1 });
+    writeFileSync(visualPath("2026-10-19"), JSON.stringify({
+      _presupuesto: "abc",
+      arr: [1],
+      txt: "x",
+      p1: { fase1: "no", revisor: { imagenes: "no" } },
+      p2: { fase1: [], revisor: { imagenes: [] } },
+    }));
+    const v = await leerVisual("2026-10-19");
+    assert.equal(v._presupuesto, undefined);
+    assert.deepEqual(Object.keys(v).sort(), ["p1", "p2"]);
+    assert.deepEqual(v.p1, {});
+    assert.deepEqual(v.p2, { fase1: [], revisor: { imagenes: [] } });
+    writeFileSync(visualPath("2026-10-19"), JSON.stringify({ _presupuesto: { imagenes: -1, usd: 0 } }));
+    assert.equal((await leerVisual("2026-10-19"))._presupuesto, undefined);
   });
 });
 
@@ -48,7 +71,7 @@ await checkAsync("visual: respuestas — una línea mala entre dos buenas se sal
     mkdirSync(join(dir, "_calendario", "2026-10-19"), { recursive: true });
     const a = { id: "p1", n: 1, respuesta: "si" as const, en: "2026-10-20T10:00:00Z" };
     const b = { id: "p1", n: 2, respuesta: "no" as const, en: "2026-10-20T10:01:00Z" };
-    writeFileSync(respuestasVisualesPath("2026-10-19"), `${JSON.stringify(a)}\n{mala\n${JSON.stringify(b)}\n`);
+    writeFileSync(respuestasVisualesPath("2026-10-19"), `${JSON.stringify(a)}\n{mala\n${JSON.stringify({ ...a, respuesta: "tal vez" })}\n${JSON.stringify({ ...a, n: 0 })}\n${JSON.stringify(b)}\n`);
     assert.equal((await leerRespuestasVisuales("2026-10-19")).length, 2);
   });
   await conKb(async () => {

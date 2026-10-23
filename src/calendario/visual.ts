@@ -36,18 +36,34 @@ export const TOPES_REVISOR = { imagenesPorPieza: 12, imagenesPorSemana: 120, usd
 export const visualPath = (semana: string): string => join(semanaDir(semana), "visual.json");
 export const respuestasVisualesPath = (semana: string): string => join(semanaDir(semana), "visual-respuestas.jsonl");
 
-/** Lee `visual.json`; si falta o está corrupto devuelve `{}`. */
+const esObjeto = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
+const numOk = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x) && x >= 0;
+
+/** Lee `visual.json` y descarta lo que no tiene la forma esperada; si falta o está corrupto devuelve `{}`. */
 export async function leerVisual(semana: string): Promise<VisualJson> {
+  let raw: unknown;
   try {
-    const raw: unknown = JSON.parse(await readFile(visualPath(semana), "utf8"));
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as VisualJson;
+    raw = JSON.parse(await readFile(visualPath(semana), "utf8"));
   } catch {
-    // falta o corrupto
+    return {};
   }
-  return {};
+  if (!esObjeto(raw)) return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (k === "_presupuesto") {
+      if (esObjeto(v) && numOk(v.imagenes) && numOk(v.usd)) out[k] = { ...v, imagenes: v.imagenes, usd: v.usd };
+      continue;
+    }
+    if (!esObjeto(v)) continue;
+    const pieza: Record<string, unknown> = { ...v };
+    if ("fase1" in pieza && !Array.isArray(pieza.fase1)) delete pieza.fase1;
+    if ("revisor" in pieza && !(esObjeto(pieza.revisor) && Array.isArray(pieza.revisor.imagenes))) delete pieza.revisor;
+    out[k] = pieza;
+  }
+  return out as VisualJson;
 }
 
-/** Lee las respuestas; las líneas que no son JSON de objeto se saltan. */
+/** Lee las respuestas; las líneas que no son JSON o no tienen la forma de `RespuestaVisual` se saltan. */
 export async function leerRespuestasVisuales(semana: string): Promise<RespuestaVisual[]> {
   let texto: string;
   try {
@@ -60,7 +76,9 @@ export async function leerRespuestasVisuales(semana: string): Promise<RespuestaV
     if (!linea.trim()) continue;
     try {
       const o: unknown = JSON.parse(linea);
-      if (o && typeof o === "object" && !Array.isArray(o)) out.push(o as RespuestaVisual);
+      if (esObjeto(o) && typeof o.id === "string" && typeof o.n === "number" && Number.isInteger(o.n) && o.n >= 1 && (o.respuesta === "si" || o.respuesta === "no") && typeof o.en === "string") {
+        out.push(o as unknown as RespuestaVisual);
+      }
     } catch {
       // línea mala
     }
@@ -76,11 +94,13 @@ export async function anotarRespuestaVisual(semana: string, r: RespuestaVisual):
   return ruta;
 }
 
-/** Cuántas imágenes puede revisar la pieza sin pasar los topes (0 = sin revisar), y el motivo si se recorta a 0. */
+/** Cuántas imágenes puede revisar la pieza sin pasar los topes (0 = sin revisar), y el motivo si se recorta a 0. Falla cerrado ante datos ilegibles. */
 export function cupo(pres: PresupuestoSemana | undefined, pedidas: number): { imagenes: number; motivo?: string } {
+  if (pres && (!numOk(pres.usd) || !numOk(pres.imagenes))) return { imagenes: 0, motivo: "presupuesto ilegible" };
   if (pres && pres.usd >= TOPES_REVISOR.usdPorSemana) return { imagenes: 0, motivo: `tope semanal de US$${TOPES_REVISOR.usdPorSemana}` };
+  const pide = Number.isFinite(pedidas) && pedidas > 0 ? Math.floor(pedidas) : 0;
   const restan = TOPES_REVISOR.imagenesPorSemana - (pres?.imagenes ?? 0);
-  const n = Math.max(0, Math.min(pedidas, TOPES_REVISOR.imagenesPorPieza, restan));
-  if (n === 0 && pedidas > 0) return { imagenes: 0, motivo: `tope semanal de ${TOPES_REVISOR.imagenesPorSemana} imágenes` };
+  const n = Math.max(0, Math.min(pide, TOPES_REVISOR.imagenesPorPieza, restan));
+  if (n === 0 && pide > 0) return { imagenes: 0, motivo: `tope semanal de ${TOPES_REVISOR.imagenesPorSemana} imágenes` };
   return { imagenes: n };
 }
