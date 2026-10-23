@@ -6,7 +6,7 @@ Vault de Obsidian versionado en git. Lo escriben dos sistemas y el usuario.
 
 - `fuentes/` — una ficha por post de Instagram guardado o video de YouTube enviado al bot (`tipo: video`), con resumen, ideas clave, herramientas y transcripción. La escribe el bot.
 - `temas/` — una página por tema. Zona `kb:auto` = síntesis del bot; bloque `kb:research` = investigación semanal.
-- `referencias/` — una nota por cosa concreta investigada (software, producto, libro, método, persona, lugar, concepto), con fuentes `[n]`, fecha `revisado` y `## Para la audiencia` (qué puede hacer con eso una persona no técnica; de ahí salen las piezas de Instagram).
+- `referencias/` — una nota por cosa concreta investigada (software, producto, libro, método, persona, lugar, concepto), con fuentes `[n]`, fecha `revisado` y `## Para la audiencia` (qué puede hacer con eso un profesional de cargo medio que ya usa IA; de ahí salen las piezas de Instagram).
 - `_investigacion/` — manual del agente (`INSTRUCCIONES.md`), validador, registro de corridas y resúmenes; `alcance.json` (qué temas sirven a la cuenta) y `pedidos.md` (temas que el usuario pide investigar), ambos del usuario.
 - `_adjuntos/` — imágenes de las fichas.
 - `_calendario/` — calendario de Instagram: manual del planificador (`INSTRUCCIONES.md`), `config.json`, validador y una carpeta por semana (`plan.json` y borradores del agente, `render.json` del Mac, `estado.json` del bot); `registro.jsonl` (bot), `experimentos.md`, `aprendizajes.md` y `candidatos.json` (agente: temas que la investigación debe cubrir para la semana siguiente).
@@ -25,4 +25,4 @@ Vault de Obsidian versionado en git. Lo escriben dos sistemas y el usuario.
 - El bot solo escribe en `fuentes/`, `_adjuntos/` y la zona `kb:auto`; el agente de investigación sigue `_investigacion/INSTRUCCIONES.md`.
 - El planificador sigue `_calendario/INSTRUCCIONES.md`: solo escribe `_calendario/<semana>/plan.json`, sus borradores, `experimentos.md`, `aprendizajes.md` y `candidatos.json`.
 - `_investigacion/alcance.json` y `pedidos.md` son del usuario: los agentes los leen, nunca los escriben.
-- `_calendario/config.json`, `lector-frio.md`, `validar.mjs`, `reglas.json` e `INSTRUCCIONES.md` son del usuario (`scripts/kb-calendario-install.sh`); el agente propone cambios en `aprendizajes.md`, no los aplica.
+- `_calendario/config.json`, `lector-frio.md`, `guia-hooks.md`, `guia-redaccion.md`, `validar.mjs`, `reglas.json` e `INSTRUCCIONES.md` son del usuario (`scripts/kb-calendario-install.sh`); el agente propone cambios en `aprendizajes.md`, no los aplica.

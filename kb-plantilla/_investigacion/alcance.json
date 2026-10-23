@@ -4,26 +4,33 @@
     "Aprendizaje con IA",
     "Automatización con IA",
     "Avances en inteligencia artificial",
-    "Creación de contenido para redes sociales",
-    "Finanzas personales con IA",
-    "Habilidades de comunicación",
-    "Marketing y diseño de conversión",
-    "Monetización con Inteligencia Artificial",
-    "Producción de contenido automatizado",
     "Productividad y gestión del tiempo",
-    "Psicología del comportamiento y toma de decisiones",
-    "Storytelling y narrativa"
+    "Liderazgo y gestión de equipos",
+    "Modelos mentales y pensamiento crítico",
+    "Psicología del comportamiento y toma de decisiones"
   ],
   "despues": [
     "Emprendimiento y startups",
-    "Herramientas de desarrollo open source",
-    "Liderazgo y gestión de equipos",
-    "Modelos mentales y pensamiento crítico"
+    "Marketing y diseño de conversión"
   ],
   "fuera": [
+    "Creación de contenido para redes sociales",
+    "Finanzas personales con IA",
     "Gastronomía y restaurantes",
+    "Habilidades de comunicación",
+    "Herramientas de desarrollo open source",
+    "Monetización con Inteligencia Artificial",
+    "Producción de contenido automatizado",
     "Sin tema",
+    "Storytelling y narrativa",
     "Teoría de las Restricciones",
     "Viajes y turismo económico"
-  ]
+  ],
+  "enfoqueIA": {
+    "_nota": "Del usuario (2026-10-15). Estos temas entran SOLO desde cómo la IA los cambia: qué hace distinto una persona, un equipo o una decisión cuando hay IA de por medio. Lo que se sostiene sin IA (el mito de los 21 días, lenguaje corporal) no se investiga ni se publica.",
+    "Liderazgo y gestión de equipos": "cómo la IA cambia liderar y coordinar equipos: delegar en IA, feedback y reuniones con IA, qué habilidades del líder pesan más cuando la IA hace parte del trabajo, y qué pasa con tu rol y tus habilidades cuando la IA hace parte del trabajo",
+    "Modelos mentales y pensamiento crítico": "pensar mejor con IA y frente a la IA: usarla para contrastar decisiones, sesgos que amplifica, cuándo no confiar en su respuesta",
+    "Psicología del comportamiento y toma de decisiones": "hábitos y decisiones con IA: formar o mantener hábitos con ayuda de una IA, qué pasa con la atención, la motivación y el juicio cuando la IA decide o recuerda por ti",
+    "Productividad y gestión del tiempo": "productividad con IA: qué tareas absorbe la IA, cómo cambia planificar el día y la semana, cuánto tiempo ahorra de verdad según estudios, y qué pasa con tu rol y tus habilidades cuando la IA hace parte del trabajo"
+  }
 }

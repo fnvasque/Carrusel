@@ -25,7 +25,7 @@ import {
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import {
-  autoZoneOf, outsideAgentZones, parseFrontmatter, parseNameStatus, validateAlcance, validateReferencia, validateResumen, validateTopicBlock,
+  autoZoneOf, DESDE_NOVEDAD, outsideAgentZones, parseFrontmatter, parseNameStatus, validateAlcance, validateAudiencia, validateReferencia, validateResumen, validateTopicBlock,
   zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
 import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
@@ -990,6 +990,33 @@ check("validar: Para la audiencia — obligatoria desde 2026-10-05, cuatro rótu
   assert.match(errs(REF_OK.replace("- **Para quién:** quien repite tareas en la oficina.\n", "")), /Para quién/);
   assert.match(errs(REF_OK.replace("- **Límites:** la nube es de pago [1].", "- **Límites:**")), /Límites/);
   assert.match(errs(REF_OK.replace(/(## Para la audiencia\n[\s\S]*?)\s\[\d\]/g, "$1").replace(/(## Para la audiencia\n[\s\S]*?)\s\[\d\]/g, "$1").replace(/(## Para la audiencia\n[\s\S]*?)\s\[\d\]/g, "$1")), /no cita ninguna fuente/);
+});
+
+check("validar: Para la audiencia — desde DESDE_NOVEDAD exige «Lo que no sabe un usuario frecuente»", () => {
+  assert.equal(DESDE_NOVEDAD, "2026-10-25");
+  const cuerpoSin = REF_OK.split("\n---\n")[1];
+  const cuerpoCon = cuerpoSin.replace("- **Para quién:**", "- **Lo que no sabe un usuario frecuente:** el plan gratis ya incluye la API [1].\n- **Para quién:**");
+  assert.match(validateAudiencia(cuerpoSin, "2026-10-25").join(), /Lo que no sabe un usuario frecuente/);
+  assert.deepEqual(validateAudiencia(cuerpoSin, "2026-10-24"), []);
+  assert.deepEqual(validateAudiencia(cuerpoSin), []);
+  assert.deepEqual(validateAudiencia(cuerpoCon, "2026-10-25"), []);
+  // validateReferencia pasa su `revisado`.
+  assert.match(validateReferencia(REF_OK.replace("revisado: 2026-10-12", "revisado: 2026-10-25")).join(), /Lo que no sabe un usuario frecuente/);
+});
+
+check("validar: alcance.json de la plantilla — válido y con el corte de temas", () => {
+  const txt = readFileSync("kb-plantilla/_investigacion/alcance.json", "utf8");
+  assert.deepEqual(validateAlcance(txt), []);
+  const a = JSON.parse(txt);
+  for (const t of ["Creación de contenido para redes sociales", "Monetización con Inteligencia Artificial", "Finanzas personales con IA", "Producción de contenido automatizado", "Herramientas de desarrollo open source"]) {
+    assert.ok(a.fuera.includes(t), t);
+  }
+  assert.ok(a.despues.includes("Marketing y diseño de conversión") && a.despues.includes("Emprendimiento y startups"));
+  for (const t of ["Liderazgo y gestión de equipos", "Modelos mentales y pensamiento crítico", "Psicología del comportamiento y toma de decisiones", "Avances en inteligencia artificial"]) {
+    assert.ok(a.dentro.includes(t), t);
+  }
+  assert.match(a.enfoqueIA["Liderazgo y gestión de equipos"], /tu rol y tus habilidades/);
+  assert.match(a.enfoqueIA["Productividad y gestión del tiempo"], /tu rol y tus habilidades/);
 });
 
 check("validar: alcance.json — listas de temas sin repetir; el agente no toca alcance ni pedidos", () => {

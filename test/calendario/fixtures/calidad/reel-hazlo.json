@@ -1,0 +1,67 @@
+{
+  "name": "lun-reel-prepara-tu-1-a-1",
+  "angle": "de una conversación difícil con alguien de tu equipo a un guion de 1:1 con el contexto que Claude necesita",
+  "pillar": "herramienta",
+  "pace": "gancho",
+  "audio": "digital-clouds.mp3",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "Prepara tu 1:1 difícil con Claude",
+        "highlight": "1:1 difícil",
+        "app": "Claude",
+        "modo": "respuesta",
+        "resultado": "Abre con lo que sí funcionó, nombra el problema con un hecho y cierra pidiendo su versión."
+      },
+      "narracion": "Si tienes un equipo a cargo, hay una charla que postergas. Claude te deja el guion listo."
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "Sin contexto, Claude te da un guion genérico",
+        "highlight": "contexto"
+      },
+      "narracion": "Sin contexto recibes frases de manual. Todo cambia con lo que cuentas antes."
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "Claude",
+        "prompt": "Prepara un 1:1 con Marta: dos informes tarde.",
+        "respuesta": "1. Abre con clientes.\n2. Nombra hechos."
+      },
+      "narracion": "Le dices tu rol, el hecho y qué valoras de ella. Claude ordena la charla."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Dale el hecho, no tu opinión",
+        "body": "Fechas y entregas, no 'es desordenada'."
+      },
+      "narracion": "Un hecho se conversa; una opinión se discute. Pídele fechas, no adjetivos."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Revisa el tono antes de usarlo",
+        "body": "Léelo en voz alta: ¿lo dirías así?"
+      },
+      "narracion": "Claude no conoce a Marta. Léelo en voz alta y cambia lo que no dirías."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Guárdalo para tu próximo 1:1",
+        "highlight": "Guárdalo",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
+        "source": "Fuente: guía de redacción de prompts de Anthropic (contexto y rol)"
+      },
+      "narracion": "Guárdalo para tu próxima charla difícil, y mándaselo a otro jefe que la postergue."
+    }
+  ]
+}

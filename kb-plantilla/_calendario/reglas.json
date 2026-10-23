@@ -42,6 +42,55 @@
       "formato": null,
       "descripcion": "Regla dura 10: la IA se ve en pantalla (slide Screen) en las piezas de herramienta",
       "fuente": "plantilla instalada el 2026-10-17 (bd78b5e, base 0319776); rige desde la semana 2026-10-19"
+    },
+    {
+      "id": "publico-profesional-ia",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "Público nuevo (profesional con cargo medio, no programador) en planificador, lector frío e investigación, y corte de temas en alcance.json",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "lector-novedad-p8",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "Pregunta 8 del lector frío: qué aprendiste que no sabías (bloquea si responde «nada nuevo»)",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "hook-juez",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "Hooks: 8 a 10 candidatos de al menos 3 patrones por pieza y juez de hooks separado; hook.score es la nota del juez",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "guia-redaccion",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "Guía de redacción obligatoria: cada escena es una idea completa, los números llevan contexto y la voz explica sin repetir el título",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "reel-35s",
+      "desde": "2026-10-26",
+      "formato": "reel",
+      "descripcion": "Tope de duración del reel sube de 20 a 35 s (puerta.duracionMaxSegundos); el hook sigue a ≤ 3 s",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "carrusel-denso",
+      "desde": "2026-10-26",
+      "formato": "carrusel",
+      "descripcion": "Carruseles más densos: sube el tope de cuerpo (cuerpoMaxPalabrasCarrusel = 50) y se pide el porqué, el matiz y el ejemplo de trabajo",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "series-publico-profesional",
+      "desde": "2026-10-26",
+      "formato": "reel",
+      "descripcion": "Series de reels reenfocadas al público nuevo: hazlo-con-ia, criterio (nueva) y lo-probe-por-ti; gratis-vs-pago deja de ser válida",
+      "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
     }
   ]
 }

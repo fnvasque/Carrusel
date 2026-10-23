@@ -21,6 +21,7 @@ import {
   textoPastilla,
   textosLector,
   validarBorrador,
+  seccionDelLector,
   validarCaption,
   validarConfig,
   validarPieza,
@@ -33,9 +34,19 @@ import {
   DESDE_CONFUSORES,
   validarCandidatos,
   motivoReferenciaNoLista,
+  DESDE_CALIDAD,
+  PATRONES_HOOK,
+  erroresDeHookJuez,
+  erroresDeHookBorrador,
+  mensajeJuez,
+  SERIES_CALIDAD,
+  SEMANAS_PAQUETE,
+  MOTIVO_PAQUETE,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
+import { scoreDraft } from "../../src/remix/registry.ts";
+import { THRESHOLD } from "../../src/score/virality.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
@@ -370,11 +381,12 @@ check("calendario/validar: pace inválido → error", () => {
 
 // --- palancas de retención (ritmoReel y duracionMaxSegundos; en la puerta desde el 2026-10-14) ---
 
-check("calendario/validar: config.json trae ritmoReel (gancho, base) y duracionMaxSegundos (20) con respaldo", () => {
+check("calendario/validar: config.json trae ritmoReel (gancho, base) y duracionMaxSegundos (35) con respaldo", () => {
   assertNone(validarConfig(CONFIG_PLANTILLA));
   assert.equal(CONFIG_PLANTILLA.puerta.ritmoReel.valor, "gancho");
   assert.equal(CONFIG_PLANTILLA.puerta.ritmoReel.respaldo, "base");
-  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 20);
+  // 2026-10-22: el usuario subió el tope a 35 s (spec calidad-contenido)
+  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 35);
   assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.respaldo, "base");
   assert.equal(DESDE_PALANCAS_RETENCION, "2026-10-19");
   // Un ritmo desconocido en la puerta es error de config; un tope no numérico también.
@@ -451,6 +463,23 @@ check("calendario/validar: duracionMaxSegundos — el reel que se pasa del tope 
   for (const x of [null, 1, "x", [], { slides: "no" }, { slides: [1, 2] }]) assert.ok(Array.isArray(erroresDeRetencion(x, pieza(), config)));
 });
 
+/**
+ * Pieza del 2026-10-26 (semana del paquete calidad-contenido) para el borrador `b`: sin
+ * `ritmoReel` ni `duracionMaxSegundos` en `parametros` (en el paquete no se fijan: valen los de
+ * la puerta) y con 8 candidatos y un juez que elige el Hook de `b` (título y resultado).
+ */
+function piezaDelPaquete(b: any): any {
+  const { ritmoReel: _r, duracionMaxSegundos: _d, ...parametros } = clone(PARAMETROS) as Record<string, unknown>;
+  const h = b.slides[0].props;
+  const patrones = ["en-juego", "error-comun", "dato-contrario", "antes-despues"];
+  const cands: any[] = Array.from({ length: 8 }, (_, i) => ({ patron: patrones[i % 4], title: `Candidato número ${i + 1} del hook` }));
+  cands[2] = { patron: "dato-contrario", title: h.title, ...(h.resultado !== undefined ? { resultado: h.resultado } : {}) };
+  const juez = { elegido: 3, nota: 9, respuestas: JSON.stringify({ elegido: 3, nota: 9, porCandidato: {} }) };
+  return pieza({ dia: "2026-10-26", parametros, hook: { categoria: "en-juego", texto: h.title, score: 9, candidatos: cands, juez } });
+}
+/** Config con la puerta en el ritmo dado y tope de 20 s (en el paquete el tope y el ritmo salen de la puerta). */
+const configTope20 = (ritmo: string) => ({ ...config, puerta: { ...config.puerta, ritmoReel: { valor: ritmo, respaldo: "base" }, duracionMaxSegundos: { valor: 20, respaldo: "base" } } });
+
 check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas cabe; el borrador ensenar de 4 escenas también", () => {
   const corto = {
     name: "lun-reel-resumir-pdfs",
@@ -468,22 +497,22 @@ check("calendario/validar: 20 s de tope — un reel gancho de 6 escenas cortas c
     ],
   };
   // Semana con narración obligatoria (≥ DESDE_NARRACION): narraciones cortas que caben en 20 s.
-  const p = pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, ritmoReel: "gancho", duracionMaxSegundos: 20 } });
-  assertNone(vb(p, corto));
+  const p = piezaDelPaquete(corto);
+  assertNone(vb(p, corto, configTope20("gancho")));
   assert.ok(duracionReel(corto) <= 20, `gancho 6 escenas: ${duracionReel(corto)} s`);
   // En ensenar, el borrador de prueba (un Step con 2 bullets, ~12 palabras por escena) se pasa: ~22 s.
   const ens = borrador();
   assert.ok(duracionReel(ens) > 20, `ensenar con bullets: ${duracionReel(ens)} s`);
   ens.slides.forEach((x: any) => (x.narracion = "Sube tus apuntes y pide el audio."));
   Object.assign(ens.slides[0].props, { app: "NotebookLM", resultado: "Podcast listo." });
-  assertHas(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens), /tope es 20 s/);
+  assertHas(vb(piezaDelPaquete(ens), ens, configTope20("ensenar")), /tope es 20 s/);
   // Cabe con 4 escenas de ≤ 6 palabras y sin bullets (lo que dice el manual).
   ens.slides[0].props = { title: "Convierte tus PDFs en un podcast", highlight: "podcast", app: "NotebookLM", resultado: "Podcast listo." };
   ens.slides[1].props = { step: "1", heading: "Sube tus PDFs", body: "Arrastra los archivos." };
   ens.slides[2].props = { step: "2", heading: "Pide el resumen en audio", body: "Versión corta." };
   ens.slides[3].props = { title: "Guárdalo para tu próxima lectura", highlight: "Guárdalo", cta: "Guárdalo", source: "x" };
   assert.ok(duracionReel(ens) <= 20 && duracionReel(ens) >= 15, `ensenar 4 escenas cortas: ${duracionReel(ens)} s`);
-  assertNone(vb(pieza({ dia: "2026-10-26", parametros: { ...PARAMETROS, duracionMaxSegundos: 20 } }), ens));
+  assertNone(vb(piezaDelPaquete(ens), ens, configTope20("ensenar")));
 });
 
 check("calendario/validar: presupuesto de lectura en gancho — 7 palabras en el Hook, 5 en el arranque y 10 en el medio pasan; de más fallan", () => {
@@ -1004,7 +1033,8 @@ check("calendario/validar: INSTRUCCIONES.md trae el ejemplo idéntico al embebid
 
 check("calendario/validar: lector-frio.md trae perfil, 6 preguntas, formato JSON y prohibiciones", () => {
   const md = readFileSync(join(DIR, "lector-frio.md"), "utf8");
-  assert.ok(md.includes("Hispanohablante de 25 a 45 años, curioso de la IA, **no técnico**, viendo esto en el celular, distraído, con el pulgar listo para pasar."));
+  // Desde 2026-10-22 el perfil es el público profesional (antes: «Hispanohablante de 25 a 45 años… no técnico»).
+  assert.ok(md.includes("viendo esto en el celular, distraído, con el pulgar listo para pasar."));
   assert.ok(/con prisa/.test(md));
   for (const q of ["¿De qué trata, en una frase?", "¿Qué te llevas o qué puedes hacer después de verlo?", "¿Qué palabra o frase no entendiste o te hizo dudar?", "¿Qué sentiste al ver la primera slide?", "¿Qué harías al terminar?", "¿Algo te confundió, se contradijo o prometió algo que no llegó?"]) {
     assert.ok(md.includes(q), `falta: ${q}`);
@@ -1796,4 +1826,543 @@ check("calendario/validar: Hook — resultado en el primer cuadro: obligatorio e
   assertNone(vb(carrusel, bc));
   const t = textosLector(bc, "carrusel");
   assert.ok(t.conPrisa.includes("NotebookLM (aviso, ahora): Podcast listo: 10 minutos."), "con prisa ve la tarjeta de resultado");
+});
+
+// --- hook con candidatos y juez (desde DESDE_CALIDAD) ---
+
+const PAT = ["en-juego", "error-comun", "dato-contrario", "antes-despues"];
+function candidatos(n: number, patrones = PAT): any[] {
+  return Array.from({ length: n }, (_, i) => ({ patron: patrones[i % patrones.length], title: `Candidato número ${i + 1} del hook`, subtitle: `Subtítulo ${i + 1}` }));
+}
+/** Respuesta del juez tal cual (JSON), coherente con elegido y nota. */
+const respJuez = (elegido: number, nota: number) => JSON.stringify({ elegido, nota, porCandidato: { "1": { pulgar: "no", importa: "sí", teLlevas: "algo" } } });
+function piezaJuez(over: Record<string, unknown> = {}, hookOver: Record<string, unknown> = {}): any {
+  const cands = candidatos(8);
+  return pieza({
+    dia: "2026-10-27",
+    hook: { categoria: "en-juego", texto: cands[2].title, score: 9, candidatos: cands, juez: { elegido: 3, nota: 9, respuestas: respJuez(3, 9) }, ...hookOver },
+    ...over,
+  });
+}
+const soloHook = (errs: string[]) => errs.filter((e) => /hook|candidat|juez/i.test(e));
+
+check("hook-juez: DESDE_CALIDAD y PATRONES_HOOK son los de la spec", () => {
+  assert.equal(DESDE_CALIDAD, "2026-10-26");
+  assert.deepEqual(PATRONES_HOOK, ["en-juego", "error-comun", "dato-contrario", "antes-despues", "pregunta-del-jefe", "resultado"]);
+});
+
+check("hook-juez: una pieza con 8 candidatos de 4 patrones y juez coherente no da errores de hook", () => {
+  assertNone(soloHook(validarPieza(piezaJuez(), config)));
+  assertNone(erroresDeHookJuez(piezaJuez()));
+});
+
+check("hook-juez: 7 candidatos → error de 8 a 10", () => {
+  const p = piezaJuez();
+  p.hook.candidatos = candidatos(7);
+  p.hook.texto = p.hook.candidatos[2].title;
+  assertHas(validarPieza(p, config), /8 a 10 candidatos/);
+  p.hook.candidatos = candidatos(11);
+  assertHas(validarPieza(p, config), /8 a 10 candidatos/);
+});
+
+check("hook-juez: 9 candidatos de 2 patrones → al menos 3 patrones", () => {
+  const p = piezaJuez();
+  p.hook.candidatos = candidatos(9, ["en-juego", "resultado"]);
+  p.hook.texto = p.hook.candidatos[2].title;
+  assertHas(validarPieza(p, config), /al menos 3 patrones/);
+});
+
+check("hook-juez: patrón fuera de PATRONES_HOOK → error con la lista", () => {
+  const p = piezaJuez();
+  p.hook.candidatos[0].patron = "gancho";
+  assertHas(validarPieza(p, config), /PATRONES_HOOK|en-juego, error-comun/);
+});
+
+check("hook-juez: hook.score debe ser la nota del juez", () => {
+  const p = piezaJuez({}, { score: 8, juez: { elegido: 3, nota: 9, respuestas: respJuez(3, 9) } });
+  assertHas(validarPieza(p, config), /hook\.score debe ser la nota del juez/);
+});
+
+check("hook-juez: elegido inválido o hook.texto distinto del candidato elegido → error", () => {
+  const a = piezaJuez();
+  a.hook.juez.elegido = 12;
+  assertHas(validarPieza(a, config), /elegido/);
+  const b = piezaJuez();
+  b.hook.texto = "Otro texto cualquiera";
+  assertHas(validarPieza(b, config), /hook\.texto/);
+});
+
+check("hook-juez: faltan candidatos o juez → error", () => {
+  const p = piezaJuez();
+  delete p.hook.candidatos;
+  assertHas(validarPieza(p, config), /candidatos/);
+  const q2 = piezaJuez();
+  delete q2.hook.juez;
+  assertHas(validarPieza(q2, config), /juez/);
+});
+
+check("hook-juez: el Hook del borrador debe coincidir con el candidato elegido (title, subtitle, resultado)", () => {
+  const p = piezaJuez();
+  const b = borrador();
+  b.slides[0].props = { title: p.hook.candidatos[2].title, subtitle: "Subtítulo 3", highlight: "hook", app: "NotebookLM", resultado: "Listo.", modo: "aviso" };
+  assert.deepEqual(soloHook(vb(p, b)).filter((e) => /candidato elegido/.test(e)), []);
+  b.slides[0].props.title = "Convierte 6 PDFs en un podcast";
+  const e1 = vb(p, b).filter((e) => /candidato elegido/.test(e));
+  assert.ok(e1.some((e) => e.includes("Convierte 6 PDFs en un podcast") && e.includes(p.hook.candidatos[2].title)), JSON.stringify(e1));
+  b.slides[0].props.title = p.hook.candidatos[2].title;
+  b.slides[0].props.subtitle = "Otro subtítulo";
+  const e2 = vb(p, b).filter((e) => /candidato elegido/.test(e));
+  assert.ok(e2.some((e) => e.includes("Otro subtítulo") && e.includes("Subtítulo 3")), JSON.stringify(e2));
+  delete b.slides[0].props.subtitle;
+  assert.ok(vb(p, b).some((e) => /candidato elegido/.test(e)), "falta subtitle del candidato");
+  // resultado del candidato
+  p.hook.candidatos[2].resultado = "Podcast listo.";
+  b.slides[0].props.subtitle = "Subtítulo 3";
+  assert.ok(vb(p, b).some((e) => /candidato elegido.*resultado|resultado.*candidato elegido/.test(e)));
+});
+
+check("hook-juez: antes de DESDE_CALIDAD el hook se valida como siempre (sin candidatos ni juez)", () => {
+  const p = pieza({ dia: "2026-10-20" });
+  assertNone(soloHook(validarPieza(p, config)));
+  assert.deepEqual(vb(p).filter((e) => /candidato|juez/.test(e)), []);
+});
+
+check("hook-juez: mensajeJuez enumera los candidatos sin patrón", () => {
+  const cands = [
+    { patron: "en-juego", title: "Tu equipo ya usa IA mejor que tú", subtitle: "Y no lo dice", resultado: "Informe listo." },
+    { patron: "error-comun", title: "El error que cuesta horas" },
+  ];
+  const m = mensajeJuez("## Para el juez\nPerfil.", cands);
+  assert.ok(m.includes("1. ") && m.includes("2. "));
+  for (const c of cands) assert.ok(m.includes(c.title));
+  assert.ok(m.includes("Y no lo dice") && m.includes("Informe listo."));
+  assert.ok(!/patron/i.test(m) && !m.includes("en-juego") && !m.includes("error-comun"));
+});
+
+check("hook-juez: elegido es 1-based (0 → error; N → ok; N+1 → error)", () => {
+  const p = piezaJuez();
+  const n = p.hook.candidatos.length;
+  p.hook.juez.elegido = 0;
+  assertHas(validarPieza(p, config), /elegido/);
+  p.hook.juez.elegido = n;
+  p.hook.juez.respuestas = respJuez(n, 9);
+  p.hook.texto = p.hook.candidatos[n - 1].title;
+  assertNone(soloHook(validarPieza(p, config)));
+  p.hook.juez.elegido = n + 1;
+  assertHas(validarPieza(p, config), /elegido/);
+});
+
+check("hook-juez: borde de fecha — 2026-10-26 exige candidatos y juez; 2026-10-25 no", () => {
+  const sin = (dia: string) => { const p = pieza({ dia }); return soloHook(validarPieza(p, config)); };
+  assertHas(sin("2026-10-26"), /candidatos/);
+  assertNone(sin("2026-10-25"));
+});
+
+// --- series nuevas y semanas del paquete (desde DESDE_CALIDAD) ---
+
+check("series: las constantes son las de la spec", () => {
+  assert.deepEqual(SERIES_CALIDAD, ["hazlo-con-ia", "criterio", "lo-probe-por-ti"]);
+  assert.deepEqual(SEMANAS_PAQUETE, ["2026-10-26", "2026-11-02"]);
+  assert.equal(MOTIVO_PAQUETE, "paquete calidad-contenido");
+});
+
+check("series: desde DESDE_CALIDAD solo valen las series nuevas; antes, cualquier slug", () => {
+  const ser = (dia: string, serie: string | null) => validarPieza(pieza({ dia, serie }), config).filter((e) => /serie/.test(e));
+  const errs = ser("2026-10-28", "gratis-vs-pago");
+  assertHas(errs, /serie/);
+  for (const s of SERIES_CALIDAD) assertHas(errs, new RegExp(s));
+  assertNone(ser("2026-10-28", "criterio"));
+  assertNone(ser("2026-10-28", null));
+  assertNone(ser("2026-10-21", "gratis-vs-pago"));
+  assertHas(ser("2026-10-21", "Mala Serie"), /serie/);
+});
+
+const sinExp = (errs: string[]) => errs.filter((e) => /experimento/.test(e));
+const planPaquete = (semana: string, experimento: unknown) =>
+  plan({
+    semana,
+    experimento,
+    piezas: [pieza({ id: "x-reel", dia: semana, borrador: "x-reel.json" })],
+  });
+
+check("paquete: semana 2026-10-26 con variable null y el motivo → sin error de experimento", () => {
+  assertNone(sinExp(validarPlan(planPaquete("2026-10-26", { variable: null, motivo: MOTIVO_PAQUETE }), config)));
+  assertNone(sinExp(validarPlan(planPaquete("2026-11-02", { variable: null, motivo: MOTIVO_PAQUETE }), config)));
+});
+
+check("paquete: semana del paquete con una variable → error que menciona el paquete", () => {
+  const e = validarPlan(planPaquete("2026-10-26", { variable: "hora", hipotesis: "h", piezas: ["x-reel"] }), config);
+  assertHas(e, /paquete calidad-contenido/);
+});
+
+check("paquete: semana del paquete con experimento null o sin el motivo → error", () => {
+  assertHas(validarPlan(planPaquete("2026-10-26", null), config), /paquete calidad-contenido/);
+  assertHas(validarPlan(planPaquete("2026-10-26", { variable: null }), config), /paquete calidad-contenido/);
+});
+
+check("paquete: semana 2026-11-09 con experimento null → plan: falta experimento", () => {
+  assertHas(validarPlan(planPaquete("2026-11-09", null), config), /plan: falta experimento/);
+});
+
+check("paquete: semana anterior (2026-10-19) sigue como siempre", () => {
+  assertHas(validarPlan(planPaquete("2026-10-19", { variable: null, motivo: MOTIVO_PAQUETE }), config), /experimento\.variable/);
+});
+
+check("paquete: en sus semanas no se fijan duracionMaxSegundos ni ritmoReel; tampoco se exigen", () => {
+  const sinClaves = (dia: string, quitar: string[]) => {
+    const parametros = clone(PARAMETROS);
+    for (const k of quitar) delete parametros[k];
+    return validarPieza(pieza({ dia, parametros, ...(dia >= "2026-10-26" ? { serie: null } : {}) }), config).filter((e) => /parametros/.test(e));
+  };
+  assertNone(sinClaves("2026-11-03", ["duracionMaxSegundos", "ritmoReel"]));
+  assertHas(sinClaves("2026-11-03", []), /duracionMaxSegundos/);
+  assertHas(sinClaves("2026-11-03", ["duracionMaxSegundos"]), /ritmoReel/);
+  assertHas(sinClaves("2026-11-03", ["ritmoReel"]), /duracionMaxSegundos/);
+  // fuera del paquete se siguen exigiendo
+  assertHas(sinClaves("2026-11-09", ["duracionMaxSegundos", "ritmoReel"]), /falta parametros\.duracionMaxSegundos/);
+  assertHas(sinClaves("2026-10-25", ["duracionMaxSegundos"]), /falta parametros\.duracionMaxSegundos/);
+});
+
+check("paquete: pieza del 2026-11-03 con duracionMaxSegundos o ritmoReel → error", () => {
+  const sin = (k: string) => { const parametros = clone(PARAMETROS); for (const x of ["duracionMaxSegundos", "ritmoReel"]) delete parametros[x]; parametros[k] = PARAMETROS[k]; return parametros; };
+  assertHas(validarPieza(pieza({ dia: "2026-11-03", parametros: { ...sin("duracionMaxSegundos"), duracionMaxSegundos: 60 } }), config), /duracionMaxSegundos.*paquete calidad-contenido/);
+  assertHas(validarPieza(pieza({ dia: "2026-11-03", parametros: sin("ritmoReel") }), config), /ritmoReel.*paquete calidad-contenido/);
+});
+
+check("calendario/validar: lector-frio.md — público profesional y pregunta 8 (novedad)", () => {
+  const md = readFileSync(join(DIR, "lector-frio.md"), "utf8");
+  const seccion = seccionDelLector(md)!;
+  assert.ok(seccion.includes("cargo medio") && seccion.includes("ya paga"));
+  assert.ok(seccion.includes("8. ¿Qué aprendiste que no sabías"));
+  assert.ok(!seccion.includes("no técnico, viendo esto"));
+  assert.ok(seccion.includes('"8"'));
+  assert.ok(md.includes("la 1, la 2, la 5, la 7 y la 8"));
+  assert.ok(md.includes("con prisa P8: no bloquea"));
+});
+
+// --- carruseles densos y reels de 35 s (2026-10-22) ---
+
+check("calendario/validar: cuerpoMaxPalabrasCarrusel — body de 45 palabras pasa en carrusel y falla en reel; 51 falla en carrusel", () => {
+  const cfg = CONFIG_PLANTILLA;
+  assert.equal(cfg.puerta.cuerpoMaxPalabrasCarrusel.valor, 50);
+  assert.equal(cfg.puerta.cuerpoMaxPalabrasCarrusel.respaldo, "supuesto");
+  assert.equal(cfg.puerta.cuerpoMaxPalabras.valor, 30);
+  const texto = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`).join(" ");
+  const b = borrador();
+  b.slides[1].props.body = texto(45);
+  assert.ok(!has(reglasDeTexto(b, cfg, "carrusel"), /puerta\.cuerpoMaxPalabras\b/), "carrusel: 45 palabras caben");
+  assert.deepEqual(reglasDeTexto(b, cfg, "carrusel").filter((e) => /cuerpoMaxPalabras/.test(e)), []);
+  assertHas(reglasDeTexto(b, cfg, "reel"), /puerta\.cuerpoMaxPalabras\)/);
+  b.slides[1].props.body = texto(51);
+  assertHas(reglasDeTexto(b, cfg, "carrusel"), /cuerpoMaxPalabrasCarrusel/);
+  // Sin la clave nueva (config vieja) el carrusel usa cuerpoMaxPalabras.
+  const vieja = clone(cfg);
+  delete vieja.puerta.cuerpoMaxPalabrasCarrusel;
+  assertNone(validarConfig(vieja));
+  b.slides[1].props.body = texto(31);
+  assertHas(reglasDeTexto(b, vieja, "carrusel"), /puerta\.cuerpoMaxPalabras\)/);
+});
+
+check("calendario/validar: validarConfig de la plantilla pasa y cuerpoMaxPalabrasCarrusel inválido es error", () => {
+  assertNone(validarConfig(CONFIG_PLANTILLA));
+  for (const valor of [0, -1, "50"]) {
+    const c = clone(CONFIG_PLANTILLA);
+    c.puerta.cuerpoMaxPalabrasCarrusel = { valor, respaldo: "supuesto" };
+    assertHas(validarConfig(c), /cuerpoMaxPalabrasCarrusel/);
+  }
+  // Las piezas no tienen que repetir la clave opcional en parametros.
+  const p = pieza();
+  delete p.parametros.cuerpoMaxPalabrasCarrusel;
+  assert.ok(!has(validarPieza(p, { ...config, puerta: CONFIG_PLANTILLA.puerta }), /cuerpoMaxPalabrasCarrusel/));
+});
+
+check("calendario/validar: tope de 35 s de la plantilla — un reel de ~30 s no tiene errores de retención", () => {
+  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 35);
+  assert.match(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.nota, /^2026-10-22: entrevistas, más espacio para explicar; experimento de 2 semanas desde 2026-10-26\. 2026-10-14:/);
+  const b = borrador();
+  b.slides.splice(2, 0, ...Array.from({ length: 1 }, (_, i) => ({ template: "Step", props: { step: String(i + 3), heading: "Sube tus PDFs a NotebookLM", body: "Crea un cuaderno y arrastra los archivos." } })));
+  const total = duracionReel(b);
+  assert.ok(total >= 25 && total <= 35, `duración del reel de prueba: ${total}`);
+  const p = pieza();
+  delete p.parametros.duracionMaxSegundos;
+  assert.deepEqual(erroresDeRetencion(b, p, CONFIG_PLANTILLA), []);
+});
+
+// --- guías de hooks y redacción, manual para el público nuevo (2026-10-22) ---
+
+check("manual: remite a las dos guías y al juez, tiene la serie criterio y ya no gratis-vs-pago", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const x of ["guia-redaccion.md", "guia-hooks.md", "--juez", "criterio"]) assert.ok(md.includes(x), `falta ${x}`);
+  assert.ok(!md.includes("gratis-vs-pago"), "gratis-vs-pago sigue en el manual");
+  assert.ok(md.includes("node _calendario/validar.mjs --juez"), "falta el comando del juez");
+  assert.ok(md.includes(MOTIVO_PAQUETE), "falta la suspensión del experimento en las semanas del paquete");
+  assert.ok(md.includes("cuerpoMaxPalabrasCarrusel"), "falta el tope de cuerpo de carrusel");
+  assert.ok(md.includes("con prisa P8: no bloquea"), "falta la regla NB de la P8 del con prisa");
+});
+
+check("instalador y CLAUDE.md: copian y suben las dos guías", () => {
+  const sh = readFileSync("scripts/kb-calendario-install.sh", "utf8");
+  for (const g of ["guia-hooks.md", "guia-redaccion.md"]) {
+    assert.equal(sh.split(g).length - 1, 2, `${g} debe salir 2 veces (cp y ADD): ${sh.split(g).length - 1}`);
+    assert.ok(sh.includes(`_calendario/${g}`), `${g} en ADD`);
+    assert.ok(sh.includes(`"$SRC/${g}"`), `${g} en cp`);
+  }
+  const claude = readFileSync("kb-plantilla/CLAUDE.md", "utf8");
+  for (const g of ["guia-hooks.md", "guia-redaccion.md"]) assert.ok(claude.includes(g), `CLAUDE.md: falta ${g}`);
+});
+
+check("guia-hooks.md: un encabezado ## por patrón y la sección del juez al final", () => {
+  const md = readFileSync(join(DIR, "guia-hooks.md"), "utf8");
+  const encabezados = md.split("\n").filter((l) => l.startsWith("## "));
+  for (const p of PATRONES_HOOK) assert.ok(encabezados.some((l) => l.includes(p)), `falta ## ${p}`);
+  assert.ok(encabezados.includes("## Para el juez"));
+  assert.equal(encabezados[encabezados.length - 1], "## Para el juez", "Para el juez va al final (el código la copia hasta el siguiente ##)");
+  // Cada patrón trae su par malo/bueno.
+  for (const p of PATRONES_HOOK) {
+    const i = md.indexOf(encabezados.find((l) => l.includes(p))!);
+    const sec = md.slice(i, md.indexOf("\n## ", i + 3));
+    assert.ok(/Mal/.test(sec) && /Bien/.test(sec), `${p}: falta el par Mal/Bien`);
+  }
+  assert.ok(!/TODO/.test(md));
+});
+
+check("guia-redaccion.md: las cuatro reglas de la spec, pares mal → bien y la lista de chequeo", () => {
+  const md = readFileSync(join(DIR, "guia-redaccion.md"), "utf8");
+  for (const x of ["idea completa", "contexto", "La voz explica", "¿y?", "Lista de chequeo"]) assert.ok(md.includes(x), `falta ${x}`);
+  assert.ok((md.match(/Mal:/g) ?? []).length >= 6, "al menos 6 ejemplos Mal");
+  assert.ok((md.match(/Bien:/g) ?? []).length >= 6, "al menos 6 ejemplos Bien");
+  assert.ok(md.includes("2026-10-19"), "los ejemplos salen de la semana 2026-10-19");
+  assert.ok(!/TODO/.test(md));
+});
+
+check("ejemplo y esqueleto: el EJEMPLO pasa validarSemana; desde DESDE_CALIDAD llevan candidatos y juez", () => {
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-ejemplo-"));
+  try {
+    const dir = join(root, "_calendario", EJEMPLO.plan.semana);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+    writeFileSync(join(dir, `${EJEMPLO.plan.piezas[0].id}.json`), JSON.stringify(EJEMPLO.borrador));
+    crearOrigen(root, EJEMPLO.plan.piezas);
+    assertNone(validarSemana(dir, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }, { score: () => 90 }));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  const conJuez = (p: any) => Array.isArray(p.hook?.candidatos) && p.hook?.juez !== undefined;
+  for (const p of EJEMPLO.plan.piezas) if (p.dia >= DESDE_CALIDAD) assert.ok(conJuez(p), `${p.id}: falta candidatos y juez`);
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  const m = md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/);
+  const esqueleto = JSON.parse(m![1]);
+  assert.ok(esqueleto.semana >= DESDE_CALIDAD, "el esqueleto muestra una semana con las reglas nuevas");
+  for (const p of esqueleto.piezas) {
+    assert.ok(conJuez(p), `${p.id}: falta candidatos y juez`);
+    assertNone(erroresDeHookJuez(p));
+    if (p.formato === "reel") assert.ok(SERIES_CALIDAD.includes(p.serie), `${p.id}: serie ${p.serie}`);
+    else assert.ok(p.hook.candidatos.every((c: any) => c.resultado === undefined), `${p.id}: el carrusel no lleva resultado`);
+    assert.ok(!/gratis/i.test(p.hook.texto), `${p.id}: «gratis» no es gancho para este público`);
+  }
+});
+
+check("guías y esqueleto (revisión 1): ejemplos con el alcance de su dato y tope único del título de reel", () => {
+  const hooks = readFileSync(join(DIR, "guia-hooks.md"), "utf8");
+  const red = readFileSync(join(DIR, "guia-redaccion.md"), "utf8");
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const [nombre, t] of [["guia-hooks", hooks], ["guia-redaccion", red], ["INSTRUCCIONES", md]] as const) {
+    assert.ok(!t.includes("«Con IA, más errores: cuándo revisar»") && !t.includes('"Con IA, más errores: cuándo revisar"'), `${nombre}: generaliza una sola tarea`);
+    assert.ok(!t.includes("menos de un minuto"), `${nombre}: dato que no está en la referencia`);
+    assert.ok(!t.includes("De 117 correos a 2"), `${nombre}: el promedio de Microsoft no es la bandeja de la pantalla`);
+    assert.ok(!/mientras duermes/.test(t), `${nombre}: gancho viejo`);
+    assert.ok(!t.includes("(≤ 6 palabras)"), `${nombre}: el tope del título de reel es ≤ 7, mejor 6`);
+  }
+  assert.ok(hooks.includes("sesiones de programación"), "el 15 % / 28 % lleva su alcance");
+  assert.ok(red.includes("pantalla y voz juntas"), "la regla de idea completa juzga pantalla + voz");
+  const esqueleto = JSON.parse(md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/)![1]);
+  const mie = esqueleto.piezas.find((p: any) => p.serie === "criterio");
+  assert.equal(mie.hook.texto, "La IA no siempre ayuda: cuándo revisar");
+  assertNone(erroresDeHookJuez(mie));
+});
+
+check("score: piezas de calidad-contenido ≥ 75", () => {
+  // Borradores escritos con las guías (público nuevo, sin «gratis» en el hook): el Mac revalida score ≥ 75 antes de renderizar.
+  for (const [archivo, formato] of [["reel-hazlo", "reel"], ["reel-criterio", "reel"], ["carrusel-denso", "carrusel"]] as const) {
+    const pieza = JSON.parse(readFileSync(new URL(`./fixtures/calidad/${archivo}.json`, import.meta.url), "utf8"));
+    const r = scoreDraft(pieza, { format: formato });
+    assert.ok(r.total >= THRESHOLD, `${archivo}: ${r.total} < ${THRESHOLD} (${r.suggestions.join(" ")})`);
+    // Y son publicables: la puerta de la plantilla (tope de 35 s, textos, retención) no las rechaza.
+    assertNone(reglasDeTexto(pieza, CONFIG_PLANTILLA, formato));
+    if (formato === "reel") {
+      assert.ok(duracionReel(pieza) <= 35, `${archivo}: ${duracionReel(pieza)} s > 35 s`);
+      assertNone(erroresDeRetencion(pieza, { formato: "reel", parametros: { ritmoReel: "gancho" } }, CONFIG_PLANTILLA));
+    }
+  }
+});
+
+// --- revisión final del paquete calidad-contenido ---
+
+check("final-1: semana del paquete sin piezas acepta experimento null; con piezas lo exige", () => {
+  for (const semana of SEMANAS_PAQUETE) {
+    assertNone(sinExp(validarPlan(plan({ semana, experimento: null, piezas: [] }), config)));
+    assertHas(validarPlan(planPaquete(semana, null), config), /paquete calidad-contenido/);
+  }
+});
+
+check("final-2: ritmo en el paquete — sin parametros.ritmoReel el pace se compara con la puerta", () => {
+  const p = pieza({ dia: "2026-10-27", parametros: undefined });
+  delete p.parametros;
+  const gancho = { ...config, puerta: { ...config.puerta, ritmoReel: { valor: "gancho", respaldo: "base" } } };
+  const b = borrador();
+  delete b.pace;
+  assertHas(erroresDeRetencion(b, p, gancho), /ritmoReel "gancho"/);
+  b.pace = "gancho";
+  assert.ok(!has(erroresDeRetencion(b, p, gancho), /ritmoReel/));
+  // fuera del paquete sin parametros.ritmoReel no se compara
+  const fuera = pieza({ dia: "2026-10-21" });
+  delete fuera.parametros;
+  const b2 = borrador();
+  delete b2.pace;
+  assert.ok(!has(erroresDeRetencion(b2, fuera, gancho), /ritmoReel/));
+});
+
+check("final-3: hook.juez.respuestas debe ser el JSON del juez, coherente con elegido y nota", () => {
+  const con = (respuestas: string) => piezaJuez({}, { juez: { elegido: 3, nota: 9, respuestas } });
+  assertHas(erroresDeHookJuez(con("ok")), /respuestas.*JSON/);
+  assertHas(erroresDeHookJuez(con("{}")), /respuestas/);
+  assertHas(erroresDeHookJuez(con(respJuez(3, 8))), /respuestas.*nota/);
+  assertHas(erroresDeHookJuez(con(respJuez(4, 9))), /respuestas.*elegido/);
+  assertNone(erroresDeHookJuez(con(respJuez(3, 9))));
+});
+
+check("final-4: un NB de la P8 no puede citar «nada nuevo»", () => {
+  const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
+  assertHas(conNotas("NB: «Nada nuevo, ya sabía todo» → con prisa P8: no bloquea"), /P8.*nada nuevo/i);
+  assertHas(conNotas("NB: «nada   NUEVO» → completo P8: no bloquea"), /P8/);
+  assertNone(conNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea"));
+  assertNone(conNotas("NB: «nada nuevo» → completo P3: explicado"));
+});
+
+// --- revisión de la PR 56 ---
+
+const soloElegido = (errs: string[]) => errs.filter((e) => /candidato elegido/.test(e));
+/** Pieza del paquete con un Clip de portada (reel sin Hook): el candidato elegido (el 3) sin subtítulo. */
+function piezaJuezClip(): any {
+  const p = piezaJuez({ id: CLIP_FIXTURE.name, borrador: `${CLIP_FIXTURE.name}.json`, hora: "19:00", arquetipo: "demo" });
+  delete p.hook.candidatos[2].subtitle;
+  return p;
+}
+
+check("pr56-1: Clip de portada — su title debe ser el del candidato elegido", () => {
+  const p = piezaJuezClip();
+  const b = borradorClip();
+  b.slides[0].props.title = "Otro título de portada";
+  const e = soloElegido(vb(p, b, configClip));
+  assert.ok(e.some((x) => x.includes("Otro título de portada") && x.includes(p.hook.candidatos[2].title)), JSON.stringify(e));
+  b.slides[0].props.title = p.hook.candidatos[2].title;
+  assertNone(soloElegido(vb(p, b, configClip)));
+});
+
+check("pr56-1: Clip de portada — el candidato elegido no puede traer subtitle ni resultado (el Clip no los muestra)", () => {
+  const b = borradorClip();
+  const conSub = piezaJuezClip();
+  conSub.hook.candidatos[2].subtitle = "Subtítulo 3";
+  b.slides[0].props.title = conSub.hook.candidatos[2].title;
+  assertHas(soloElegido(vb(conSub, b, configClip)), /subtitle/);
+  const conRes = piezaJuezClip();
+  conRes.hook.candidatos[2].resultado = "Anuncio listo.";
+  assertHas(soloElegido(vb(conRes, b, configClip)), /resultado/);
+});
+
+const PAQUETE_CORRIDO = { desde: "2026-11-02", semanas: ["2026-11-02", "2026-11-09"], motivo: MOTIVO_PAQUETE };
+const configCorrida = { ...config, paquete: PAQUETE_CORRIDO };
+const { paquete: _paquete, ...configSinPaquete } = config as any;
+
+check("pr56-2: la plantilla de config.json trae el bloque paquete con las fechas vigentes", () => {
+  assert.deepEqual(CONFIG_PLANTILLA.paquete, { desde: "2026-10-26", semanas: ["2026-10-26", "2026-11-02"], motivo: "paquete calidad-contenido" });
+  assertNone(validarConfig(CONFIG_PLANTILLA));
+});
+
+check("pr56-2: config.paquete.desde corre el juez — 2026-10-27 no lo exige y 2026-11-03 sí", () => {
+  const hook = (dia: string) => soloHook(validarPieza(pieza({ dia }), configCorrida));
+  assertNone(hook("2026-10-27"));
+  assertHas(hook("2026-11-03"), /candidatos/);
+  // Las series nuevas también siguen a paquete.desde.
+  assertNone(validarPieza(pieza({ dia: "2026-10-28", serie: "gratis-vs-pago" }), configCorrida).filter((e) => /serie/.test(e)));
+  assertHas(validarPieza(pieza({ dia: "2026-11-04", serie: "gratis-vs-pago" }), configCorrida), /serie.*2026-11-02/);
+});
+
+check("pr56-2: config.paquete.semanas corre el experimento del paquete y los parámetros fuera del paquete", () => {
+  assertHas(validarPlan(planPaquete("2026-11-09", null), configCorrida), /paquete calidad-contenido/);
+  assertNone(sinExp(validarPlan(planPaquete("2026-11-09", { variable: null, motivo: MOTIVO_PAQUETE }), configCorrida)));
+  // 2026-10-26 ya no es del paquete: vuelve a exigir una variable.
+  assertHas(validarPlan(planPaquete("2026-10-26", { variable: null, motivo: MOTIVO_PAQUETE }), configCorrida), /experimento\.variable/);
+  // parametros.duracionMaxSegundos: se prohíbe en la semana nueva y vuelve a valer en la vieja.
+  const params = (dia: string) => validarPieza(pieza({ dia }), configCorrida).filter((e) => /parametros/.test(e));
+  assertHas(params("2026-11-10"), /no se fija.*2026-11-02, 2026-11-09/);
+  assertNone(params("2026-10-27"));
+});
+
+check("pr56-2: config sin bloque paquete → las fechas de siempre", () => {
+  assertNone(validarConfig(configSinPaquete));
+  assertHas(soloHook(validarPieza(pieza({ dia: "2026-10-26" }), configSinPaquete)), /candidatos/);
+  assertNone(soloHook(validarPieza(pieza({ dia: "2026-10-25" }), configSinPaquete)));
+  assertNone(sinExp(validarPlan(planPaquete("2026-11-02", { variable: null, motivo: MOTIVO_PAQUETE }), configSinPaquete)));
+  assertHas(validarPlan(planPaquete("2026-11-09", null), configSinPaquete), /plan: falta experimento/);
+});
+
+check("pr56-2: bloque paquete inválido → error en validarConfig", () => {
+  const con = (paquete: unknown) => validarConfig({ ...config, paquete });
+  assertHas(con("2026-10-26"), /paquete debe ser/);
+  assertHas(con({ ...PAQUETE_CORRIDO, desde: "2026-11-03" }), /paquete\.desde/);
+  assertHas(con({ ...PAQUETE_CORRIDO, desde: "ayer" }), /paquete\.desde/);
+  assertHas(con({ ...PAQUETE_CORRIDO, semanas: ["2026-11-02", "2026-11-10"] }), /paquete\.semanas/);
+  assertHas(con({ ...PAQUETE_CORRIDO, semanas: "2026-11-02" }), /paquete\.semanas/);
+  assertHas(con({ ...PAQUETE_CORRIDO, motivo: "" }), /paquete\.motivo/);
+  assertNone(con(PAQUETE_CORRIDO));
+});
+
+check("pr56-3: la P8 bloquea también «ya lo sabía» y «no aprendí nada» (no solo «nada nuevo»)", () => {
+  const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
+  assertHas(conNotas("NB: «Ya lo sabía todo» → con prisa P8: no bloquea"), /P8/);
+  assertHas(conNotas("NB: «No aprendí nada» → completo P8: no bloquea"), /P8/);
+  assertHas(conNotas("NB: «Nada de nuevo» → completo P8: no bloquea"), /P8/);
+  assertHas(conNotas("NB: «Nada que no supiera» → con prisa P8: no bloquea"), /P8/);
+  assertNone(conNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea"));
+  assertNone(conNotas("NB: «Ya sabía qué es, no cómo se usa en Excel» → completo P8: no bloquea"));
+});
+
+check("pr56-6: erroresDeHookBorrador compara solo el borrador con el elegido; vb no repite errores del juez", () => {
+  const p = piezaJuez({}, { score: 8 }); // score ≠ nota: error de pieza, no de borrador
+  const b = borrador();
+  b.slides[0].props = { title: "Otro título", subtitle: "Subtítulo 3", highlight: "título", app: "NotebookLM", resultado: "Listo.", modo: "aviso" };
+  const eb = erroresDeHookBorrador(p, b);
+  assert.equal(eb.length, 1, JSON.stringify(eb));
+  assert.match(eb[0], /candidato elegido.*Otro título/);
+  const todos = vb(p, b);
+  assert.equal(todos.filter((e) => /hook\.score debe ser la nota/.test(e)).length, 1, JSON.stringify(todos));
+  assert.equal(soloElegido(todos).length, 1, JSON.stringify(todos));
+  // erroresDeHookJuez con borrador = los de la pieza + los del borrador.
+  const ej = erroresDeHookJuez(p, b);
+  assert.ok(ej.some((e) => /hook\.score/.test(e)) && ej.some((e) => /candidato elegido/.test(e)), JSON.stringify(ej));
+  assertNone(erroresDeHookBorrador(pieza({ dia: "2026-10-27" }), b)); // sin candidatos no hay elegido con qué comparar
+});
+
+check("pr56-7: --juez con id inexistente o semana inválida da el mismo error claro que --lector", () => {
+  const { root, cal, env } = baseConEjemplo();
+  try {
+    for (const modo of ["--lector", "--juez"]) {
+      const err = (args: string[]) => {
+        try {
+          execFileSync("node", [join(cal, "validar.mjs"), modo, ...args], { stdio: "pipe", env });
+        } catch (e: any) {
+          assert.equal(e.status, 1, String(e.stderr));
+          return String(e.stderr);
+        }
+        assert.fail(`debió fallar: ${modo} ${args.join(" ")}`);
+      };
+      assert.match(err([EJEMPLO.plan.semana, "no-existe"]), /no hay ninguna pieza con id "no-existe".*lun-reel-pdfs-a-podcast/s);
+      assert.match(err(["x", "lun-reel-pdfs-a-podcast"]), new RegExp(`uso: node _calendario/validar.mjs ${modo} .*semana "x" inválida`));
+      assert.match(err([EJEMPLO.plan.semana, "ID MALO"]), /id "ID MALO" inválido/);
+      assert.match(err(["2026-10-19", "lun-reel-pdfs-a-podcast"]), /2026-10-19\/plan\.json/);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

@@ -96,6 +96,11 @@
       "valor": 30,
       "respaldo": "supuesto"
     },
+    "cuerpoMaxPalabrasCarrusel": {
+      "valor": 50,
+      "respaldo": "supuesto",
+      "nota": "2026-10-22: entrevistas, carruseles llevan la profundidad"
+    },
     "terminosTecnicosMax": {
       "valor": 1,
       "respaldo": "skill"
@@ -146,9 +151,9 @@
       "nota": "2026-10-14: los 7 reels medidos se abandonan antes del segundo 3 en ritmo enseñar (retención 4 a 24 %)."
     },
     "duracionMaxSegundos": {
-      "valor": 20,
+      "valor": 35,
       "respaldo": "base",
-      "nota": "2026-10-14: a los 20 s no queda audiencia en reels de 36 a 49 s (curva de retención de mie-reel-habitos-no-son-21-dias)."
+      "nota": "2026-10-22: entrevistas, más espacio para explicar; experimento de 2 semanas desde 2026-10-26. 2026-10-14: a los 20 s no queda audiencia en reels de 36 a 49 s (curva de retención de mie-reel-habitos-no-son-21-dias)."
     }
   },
   "terminosTecnicos": [
@@ -169,5 +174,14 @@
   "vozNota": "Voz de la narración de los reels (Kokoro, local): em_alex, em_santa o ef_dora; false = reels sin voz. La eligió el usuario el 2026-10-17.",
   "mixNota": "2026-10-17 (pivote): 4 reels narrados + 2 carruseles por semana, una pieza por día y domingo libre; el tiempo que sobra va a interacción real. Para el sprint de 2 reels al día, ver el git log de este archivo.",
   "pilaresNota": "2026-10-18: se agrega el pilar \"trabajo\" (cómo cambia el trabajo, el liderazgo y las decisiones cuando hay IA de por medio, siempre con un estudio o dato con fuente). Decisión del usuario: desde la semana 2026-10-19 lo llevan las 6 piezas, reels incluidos; el carrusel de opinión del viernes es la serie lo-que-dice-la-evidencia. Se evalúa el 2026-11-02. Detalle en INSTRUCCIONES.md, Paso 3.",
-  "clipsMaxSemana": 0
+  "clipsMaxSemana": 0,
+  "paquete": {
+    "desde": "2026-10-26",
+    "semanas": [
+      "2026-10-26",
+      "2026-11-02"
+    ],
+    "motivo": "paquete calidad-contenido"
+  },
+  "paqueteNota": "Fechas del paquete calidad-contenido: desde = primer día con hook de 8 a 10 candidatos y juez, y series nuevas; semanas = lunes de las semanas sin experimento propio y sin fijar ritmoReel ni duracionMaxSegundos. Para correr el paquete se cambian aquí (y los desde de reglas.json), no en validar.mjs."
 }

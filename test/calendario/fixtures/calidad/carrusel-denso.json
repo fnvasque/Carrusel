@@ -1,0 +1,74 @@
+{
+  "name": "mar-carrusel-que-revisar-del-informe-de-la-ia",
+  "angle": "de leer el informe de la IA por encima a revisar los cuatro puntos donde más falla",
+  "pillar": "herramienta",
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "4 cosas que revisar en lo que entrega la IA",
+        "highlight": "revisar",
+        "subtitle": "No es leerlo de nuevo: es saber dónde mirar y por qué"
+      }
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "Revisar no es releer: es buscar dónde la IA suele fallar sin avisar",
+        "highlight": "sin avisar"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Las cifras: pide de dónde sale cada una",
+        "body": "La IA escribe un 60 % con la misma seguridad que un dato real. Pregúntale la fuente de cada cifra; si no la da o no la puedes abrir, trátala como una hipótesis y no la pongas en el informe.",
+        "index": 3,
+        "total": 7
+      }
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "Claude",
+        "prompt": "Lista cada cifra de tu informe y dime de qué documento sale.",
+        "respuesta": "1. 60 % de la caída: no tengo fuente.\n2. Quiebre de stock en el sur: está en el anexo 2.",
+        "index": 4,
+        "total": 7
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Las tareas nuevas: revísalas enteras",
+        "body": "En un estudio con 758 consultores, con IA acertaron menos en una tarea fuera de lo que la IA hace bien. No avisa cuándo pasa. Si no la viste acertar en esa tarea, revisa el trabajo completo.",
+        "index": 5,
+        "total": 7
+      }
+    },
+    {
+      "template": "Stat",
+      "props": {
+        "value": "50 %",
+        "label": "dice que revisar la calidad es la habilidad clave",
+        "context": "Microsoft preguntó a 20.000 trabajadores que usan IA: control de calidad, 50 %; pensamiento crítico, 46 %.",
+        "source": "Fuente: Microsoft Work Trend Index",
+        "index": 6,
+        "total": 7
+      }
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Guárdalo y mándaselo a tu equipo",
+        "highlight": "Guárdalo",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
+        "index": 7,
+        "total": 7
+      }
+    }
+  ]
+}
