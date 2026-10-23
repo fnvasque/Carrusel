@@ -101,12 +101,13 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: sc.blockGap }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {step && (
-            <span data-anim="rise" style={{ fontFamily: theme.fonts.display, fontSize: sc.number, lineHeight: 0.9, color: lime, letterSpacing: "0.01em" }}>
+            <span data-anim="rise" data-paso="numero" data-junto="" style={{ fontFamily: theme.fonts.display, fontSize: sc.number, lineHeight: 0.9, color: lime, letterSpacing: "0.01em" }}>
               {step}
             </span>
           )}
           <h2
             data-anim="words"
+            data-paso="heading"
             style={{
               margin: 0,
               fontFamily: theme.fonts.display,

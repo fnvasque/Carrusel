@@ -12,7 +12,7 @@ import { displayLineHeight, ANTON_LH_ACENTO } from "../src/templates/fit.ts";
 import { FORMATS, type CarouselSpec } from "../src/templates/types.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 import { specTiming } from "../src/reel/timing.ts";
-import { revisarReel } from "../src/reel/revision.ts";
+import { revisarReel, serieReel, numerosSolos } from "../src/reel/revision.ts";
 import smoke from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
 import mentiras from "../carousels/mentiras-ia.ts";
@@ -150,6 +150,35 @@ try {
     const h = await reelDe(spec, specTiming(spec));
     assert.deepEqual([...tipos(h, "transicion"), ...tipos(h, "zona")], [], JSON.stringify(h));
   });
+  // El número de paso entra junto con su heading: ninguno se ve solo más de 0,15 s (el bloqueo es a 0,4 s).
+  const ritmos = ["ensenar", "rapido", "gancho"] as const;
+  const casosNumero: [string, () => CarouselSpec][] = [
+    ["narra-sin-tu-voz", () => borradorASpec(fixture("sab-reel-narra-sin-tu-voz"), { format: "reel" })],
+    ["kling-vs-seedance", () => borradorASpec(fixture("vie-pm-reel-kling-vs-seedance"), { format: "reel" })],
+    ["estudiar-3-ias", () => estudiar as CarouselSpec],
+  ];
+  for (const [nombre, armar] of casosNumero) {
+    for (const pace of ritmos) {
+      await caso(`número de paso: ${nombre} (${pace}) no se ve sin su heading más de 0,15 s`, async () => {
+        const spec = armar();
+        const offline = { ...spec, defaults: flat(spec.defaults as any), slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
+        const timing = specTiming(spec, { pace });
+        const p = await browser.newPage({ viewport: FORMATS.reel, deviceScaleFactor: 1 });
+        try {
+          await p.setContent(await buildReelPage(offline, timing), { waitUntil: "load" });
+          await p.waitForFunction(() => (window as any).__reelReady === true);
+          const fina = Array.from({ length: Math.floor(timing.total / 0.02) + 1 }, (_, k) => +(k * 0.02).toFixed(2));
+          const { serie, contexto } = await serieReel(p, timing, fina);
+          let solo = 0;
+          while (solo < 2 && numerosSolos(serie, contexto, solo).length) solo += 0.02;
+          console.log(`  ${nombre} (${pace}): número solo ≈ ${solo.toFixed(2)} s`);
+          assert.deepEqual(numerosSolos(serie, contexto, 0.15), [], JSON.stringify(numerosSolos(serie, contexto, 0.15)));
+        } finally {
+          await p.close();
+        }
+      });
+    }
+  }
   await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
     assert.equal(ANTON_LH_ACENTO, 1.14);
     assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);

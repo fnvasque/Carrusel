@@ -375,7 +375,8 @@ document.fonts.ready.then(function () {
         if (kind === "check" && el.parentElement.closest('[data-anim="stagger"]')) return;
         if (kind === "caret" && el.parentElement.closest('[data-anim="type"]')) return;
         const len = entrance(el, sub, cursor, ctx);
-        cursor += len * OVERLAP;
+        // data-junto: el siguiente entra en el mismo instante (número de paso + heading).
+        if (!el.hasAttribute("data-junto")) cursor += len * OVERLAP;
       });
       // El hook (escena 0) arranca en 0: su titular ya está completo en el cuadro 0.
       const offset = i === 0 ? 0 : s.start + T.transition / 2;

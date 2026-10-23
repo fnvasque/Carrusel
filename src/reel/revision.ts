@@ -125,13 +125,13 @@ export function numerosSolos(serie: Serie, contexto: (escena: number) => string,
 }
 
 /** Lo que devuelve `window.__revisarSerie`: un `InstanteDom` por instante pedido. */
-type InstanteSerie = InstanteDom & { t: number };
+export type InstanteSerie = InstanteDom & { t: number };
 
-/** Recorre la timeline con __reel.seek y junta todos los hallazgos (puntuación en cada instante; tilde y zona en los estados finales; encime y número solo con los agregadores). */
-export async function revisarReel(page: Page, timing: ReelTiming): Promise<Hallazgo[]> {
+/** Recorre la timeline con __reel.seek (en `instantes`, por defecto la grilla de la revisión) y devuelve la serie de textos de cada instante, con sus hallazgos directos y el contexto de cada escena. */
+export async function serieReel(page: Page, timing: ReelTiming, instantes?: number[]): Promise<{ serie: InstanteSerie[]; contexto: (i: number) => string }> {
   await inyectarRevision(page);
   const finales = new Set(instantesFinales(timing));
-  const pasos = instantesRevision(timing).map((t) => ({
+  const pasos = (instantes ?? instantesRevision(timing)).map((t) => ({
     t,
     comprobar: (finales.has(t) ? ["tilde", "puntuacion", "zona"] : ["puntuacion"]) as OpcionesDom["comprobar"],
   }));
@@ -145,6 +145,12 @@ export async function revisarReel(page: Page, timing: ReelTiming): Promise<Halla
     ({ pasos, opts }) => (window as any).__revisarSerie(pasos, opts) as InstanteSerie[],
     { pasos, opts },
   );
+  return { serie, contexto };
+}
+
+/** Junta todos los hallazgos (puntuación en cada instante; tilde y zona en los estados finales; encime y número solo con los agregadores). */
+export async function revisarReel(page: Page, timing: ReelTiming): Promise<Hallazgo[]> {
+  const { serie, contexto } = await serieReel(page, timing);
   const directos = serie.flatMap((s) => s.hallazgos.map((h) => ({ ...h, t: s.t })));
   return unicos([...directos, ...encimes(serie, contexto), ...numerosSolos(serie, contexto)]);
 }
