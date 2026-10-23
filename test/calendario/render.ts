@@ -829,6 +829,7 @@ await checkAsync("crearEscritorRender: escribirVisual + confirmar → visual.jso
       const fase1 = [{ tipo: "tilde" as const, motivo: "m1", en: "1" }];
       await esc.escribirVisual(SEMANA, "mar-a", { fase1 });
       await esc.escribirVisual(SEMANA, "_presupuesto", { imagenes: 3, usd: 0.1 });
+      assert.deepEqual(esc.visualPendiente(SEMANA, "_presupuesto"), { imagenes: 3, usd: 0.1 }, "lo anotado se lee antes de confirmar");
       await esc.escribirRender(SEMANA, "mar-a", { estado: "renderizado", en: "1" });
       await esc.confirmar(SEMANA);
       assert.deepEqual(avisos, []);
@@ -927,6 +928,9 @@ await checkAsync("procesar: ErrorVisual anota los motivos nuevos en visual.json 
           },
           escribirVisual: async (s, id, e) => {
             escritosVisual.push([s, id, e]);
+            // Persiste como lo haría confirmar: la corrida siguiente lo lee con leerVisual.
+            const ruta = join(semanaDir(SEMANA), "visual.json");
+            writeFileSync(ruta, JSON.stringify({ ...JSON.parse(readFileSync(ruta, "utf8")), [id]: e }));
           },
         });
         await procesar([pend("lun-visual")], out, ENV, mk().deps);
@@ -942,7 +946,7 @@ await checkAsync("procesar: ErrorVisual anota los motivos nuevos en visual.json 
         assert.ok(!e.fase1[1].motivo.includes(TOKEN), "sin token");
         assert.equal(e.fase1[1].en, AHORA.toISOString());
 
-        // Mismo motivo en la corrida siguiente: ya avisado → no se anota de nuevo.
+        // Mismo (tipo, motivo) en la corrida siguiente: ya está en fase1 → no se anota de nuevo.
         await procesar([pend("lun-visual")], out, ENV, mk().deps);
         assert.equal(escritosVisual.length, 1, "el motivo ya avisado no se repite en fase1");
         // Uno nuevo de otro tipo: se anota solo ese.
@@ -951,6 +955,44 @@ await checkAsync("procesar: ErrorVisual anota los motivos nuevos en visual.json 
         assert.equal(escritosVisual.length, 2);
         const nuevo = (escritosVisual[1][2] as { fase1: { tipo: string; motivo: string }[] }).fase1;
         assert.deepEqual(nuevo.slice(-1).map((x) => [x.tipo, x.motivo]), [["puntuacion", "espacio antes de «,»"]]);
+      } finally {
+        rmSync(kb, { recursive: true, force: true });
+      }
+    }),
+  ),
+);
+
+await checkAsync("procesar: fase1 se anota aunque Telegram no entregue el aviso; sin duplicar; un motivo nuevo se agrega", () =>
+  conEnvGit(() =>
+    conOut(async (out) => {
+      const kb = mkdtempSync(join(tmpdir(), "cal-kb-visual-tg-"));
+      try {
+        process.env.KB_DIR = kb;
+        // Escritor que persiste en disco (como confirmar) para que la corrida siguiente lo lea.
+        const ruta = join(semanaDir(SEMANA), "visual.json");
+        let err = new ErrorVisual([{ tipo: "tilde", motivo: "tilde pisa" }]);
+        let escrituras = 0;
+        const mk = () => falsos({
+          render: async () => {
+            throw err;
+          },
+          avisar: async () => false,
+          escribirVisual: async (_s, id, e) => {
+            escrituras++;
+            mkdirSync(semanaDir(SEMANA), { recursive: true });
+            const actual = existsSync(ruta) ? JSON.parse(readFileSync(ruta, "utf8")) : {};
+            writeFileSync(ruta, JSON.stringify({ ...actual, [id]: e }));
+          },
+        });
+        await procesar([pend("lun-visual")], out, ENV, mk().deps);
+        const leer = () => JSON.parse(readFileSync(ruta, "utf8"))["lun-visual"].fase1 as { tipo: string; motivo: string; en: string }[];
+        assert.deepEqual(leer(), [{ tipo: "tilde", motivo: "tilde pisa", en: AHORA.toISOString() }], "anotado sin entrega");
+        await procesar([pend("lun-visual")], out, ENV, mk().deps);
+        assert.equal(escrituras, 1, "mismo (tipo, motivo): no se escribe otra vez");
+        assert.equal(leer().length, 1);
+        err = new ErrorVisual([{ tipo: "tilde", motivo: "tilde pisa" }, { tipo: "zona", motivo: "fuera de zona" }]);
+        await procesar([pend("lun-visual")], out, ENV, mk().deps);
+        assert.deepEqual(leer().map((f) => [f.tipo, f.motivo]), [["tilde", "tilde pisa"], ["zona", "fuera de zona"]]);
       } finally {
         rmSync(kb, { recursive: true, force: true });
       }

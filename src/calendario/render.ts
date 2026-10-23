@@ -119,7 +119,11 @@ export interface Deps {
   escribirRender: (semana: string, id: string, e: RenderEntry) => Promise<void>;
   /** Avisa por Telegram. `false` = no se entregó (el aviso visual se repite en la próxima corrida). */
   avisar: (texto: string) => Promise<boolean | void>;
-  /** Anota la entrada de `visual.json` de una pieza (reemplazo por id; `_presupuesto` para el contador). Opcional. */
+  /**
+   * Anota la entrada de `visual.json` de una pieza (`_presupuesto` para el contador). Opcional.
+   * Reemplaza por id, también dentro de la corrida (el buffer no fusiona): pasa siempre el valor
+   * completo (p. ej. el contador `_presupuesto` acumulado en memoria, no un incremento).
+   */
   escribirVisual?: (semana: string, id: string, e: VisualPieza | PresupuestoSemana) => Promise<void>;
   /** Escribe de una vez lo acumulado de una semana (un commit por semana y corrida). */
   confirmar?: (semana: string) => Promise<void>;
@@ -285,6 +289,26 @@ export async function procesar(
           const motivos = [...new Set(e.hallazgos.map((h) => oculto(h.motivo)))];
           if (!motivos.length) motivos.push(oculto(e.message));
           log(`✗ ${etiqueta} no pasa la revisión visual: ${motivos.join("; ")}`);
+          // Registro común (visual.json), independiente de Telegram: cada (tipo, motivo) una
+          // sola vez por pieza, con la hora de detección. Una recurrencia no se re-anota.
+          if (deps.escribirVisual) {
+            try {
+              const detectado = en();
+              const previa: VisualPieza = (await leerVisual(p.semana))[id] ?? {};
+              const vistos = new Set((previa.fase1 ?? []).map((f) => JSON.stringify([f.tipo, f.motivo])));
+              const items: { tipo: TipoHallazgo; motivo: string; en: string }[] = [];
+              for (const h of e.hallazgos) {
+                const motivo = oculto(h.motivo);
+                const k = JSON.stringify([h.tipo, motivo]);
+                if (vistos.has(k)) continue;
+                vistos.add(k);
+                items.push({ tipo: h.tipo, motivo, en: detectado });
+              }
+              if (items.length) await deps.escribirVisual(p.semana, id, { ...previa, fase1: [...(previa.fase1 ?? []), ...items] });
+            } catch (err) {
+              log(`⚠️  No pude anotar la fase 1 en visual.json: ${oculto(razon(err))}`);
+            }
+          }
           // Se anotan solo si el aviso llegó: si Telegram falla, la próxima corrida vuelve a avisar.
           const nuevos = await avisosVisualesPendientes(outRoot, p.semana, id, motivos);
           if (nuevos.length) {
@@ -293,24 +317,6 @@ export async function procesar(
               await anotarAvisosVisuales(outRoot, p.semana, id, nuevos).catch((err) =>
                 log(`⚠️  No pude escribir el registro de avisos visuales: ${oculto(razon(err))}`),
               );
-              // Registro común (visual.json): los mismos motivos que se avisaron, acumulados.
-              if (deps.escribirVisual) {
-                try {
-                  const tipoPorMotivo = new Map<string, TipoHallazgo>();
-                  for (const h of e.hallazgos) if (!tipoPorMotivo.has(oculto(h.motivo))) tipoPorMotivo.set(oculto(h.motivo), h.tipo);
-                  const marca = en();
-                  const items = nuevos.flatMap((motivo) => {
-                    const tipo = tipoPorMotivo.get(motivo);
-                    return tipo ? [{ tipo, motivo, en: marca }] : [];
-                  });
-                  if (items.length) {
-                    const previa: VisualPieza = (await leerVisual(p.semana))[id] ?? {};
-                    await deps.escribirVisual(p.semana, id, { ...previa, fase1: [...(previa.fase1 ?? []), ...items] });
-                  }
-                } catch (err) {
-                  log(`⚠️  No pude anotar la fase 1 en visual.json: ${oculto(razon(err))}`);
-                }
-              }
             } else {
               log(`⚠️  El aviso visual de ${id} no se entregó: se repite en la próxima corrida.`);
             }
@@ -902,7 +908,7 @@ async function alinearConRemoto(root: string): Promise<string | undefined> {
     const asuntos = lineas((await gitEn(root, ["log", "--format=%s", "@{u}..HEAD"])).out);
     const archivos = lineas((await gitEn(root, ["diff", "--name-only", "@{u}...HEAD"])).out);
     if (!asuntos.every((s) => s.startsWith(ASUNTO_RENDER) || s.startsWith(ASUNTO_VISUAL)) || !archivos.every((f) => RENDER_REL_RE.test(f))) {
-      return "la base del Mac tiene commits sin subir que no son de render.json; no los toco (revísalos con git log @{u}..HEAD)";
+      return "la base del Mac tiene commits sin subir que no son de render.json ni visual.json; no los toco (revísalos con git log @{u}..HEAD)";
     }
   }
   // Los render.json y visual.json locales sin commit ya están capturados: se descartan para alinear.
@@ -981,16 +987,19 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
     if (Object.keys(resto).length) faltan.set(s, resto);
   }
   const errLocal = await escribirLocal(root, faltan);
-  return [error, errLocal].filter(Boolean).join("; ") || "no pude subir render.json";
+  return [error, errLocal].filter(Boolean).join("; ") || "no pude subir render.json/visual.json";
 }
 
 /**
- * Escritor de `render.json` (único archivo que escribe el Mac): acumula las entradas de
- * la corrida y, por semana, las sube con `subirRender` (un solo commit por semana).
+ * Escritor de `render.json` y `visual.json` (los únicos archivos que escribe el Mac): acumula
+ * las entradas de la corrida y, por semana, las sube con `subirRender` (un commit por semana y
+ * archivo). Dentro de la corrida reemplaza la entrada de cada id: hay que pasar el valor completo.
  */
 export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<boolean | void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
   confirmar: (semana: string) => Promise<void>;
   escribirVisual: (semana: string, id: string, e: VisualPieza | PresupuestoSemana) => Promise<void>;
+  /** Lo anotado con `escribirVisual` en esta corrida y aún sin confirmar (o `undefined`). */
+  visualPendiente: (semana: string, id: string) => unknown;
   /** ¿Alguna semana quedó sin subir? La corrida termina con código ≠ 0 (I4). */
   huboError: () => boolean;
 } {
@@ -1007,6 +1016,7 @@ export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<b
     huboError: () => fallo,
     escribirRender: async (semana, id, e) => anotar(semana, "render.json", id, e),
     escribirVisual: async (semana, id, e) => anotar(semana, "visual.json", id, e),
+    visualPendiente: (semana, id) => buffer.get(clave(semana, "visual.json"))?.[id],
     confirmar: async (semana) => {
       const nuevas = new Map<string, Entradas>();
       for (const nombre of ["render.json", "visual.json"] as const) {
