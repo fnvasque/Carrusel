@@ -81,3 +81,34 @@ check("reglas: antesDespues — n insuficiente no da veredicto; una regla de amb
   assert.equal(f.veredicto, "mejoró");
   assert.equal(f.antes.retencion, undefined);
 });
+
+// T5: una regla registrada pero sin encender (`pendiente: true`) no se mide ni cuenta como simultánea.
+check("reglas: una regla pendiente se lee (con pendiente) pero antesDespues la ignora, también como simultánea", () => {
+  const regla = { id: "r", desde: "2026-10-16", formato: "reel" as const, descripcion: "d" };
+  const pend = { id: "p", desde: "2026-10-19", formato: null, descripcion: "p", pendiente: true as const };
+  const leidas = leerReglas({ reglas: [regla, pend] });
+  assert.deepEqual(leidas.avisos, []);
+  assert.deepEqual(leidas.reglas.map((x) => [x.id, x.pendiente]), [["r", undefined], ["p", true]]);
+  assert.equal("pendiente" in leerReglas({ reglas: [{ ...pend, pendiente: false }] }).reglas[0]!, false, "pendiente: false = encendida");
+  const antes = dias(5, MIN_PIEZAS_REGLA).map((d) => reel(d, 5));
+  const despues = dias(19, MIN_PIEZAS_REGLA).map((d) => reel(d, 4));
+  const filas = antesDespues(leidas.reglas, [...antes, ...despues]);
+  assert.deepEqual(filas.map((f) => f.id), ["r"], "la pendiente no da filas");
+  assert.deepEqual(filas[0]!.simultaneas, [], "ni cuenta como simultánea");
+  // Encendida (sin pendiente), sí.
+  const { pendiente: _, ...encendida } = pend;
+  assert.deepEqual(antesDespues([regla, encendida], [...antes, ...despues])[0]!.simultaneas, ["p"]);
+});
+
+check("reglas: pendiente que no es booleano se avisa y la entrada se ignora", () => {
+  const r = leerReglas({ reglas: [{ id: "x", desde: "2026-10-16", formato: null, descripcion: "d", pendiente: "sí" }] });
+  assert.equal(r.reglas.length, 0);
+  assert.equal(r.avisos.length, 1);
+  assert.match(r.avisos[0]!, /pendiente/);
+});
+
+check("reglas: en la plantilla, revision-visual-fase3 va pendiente (fecha provisional) y es la única", () => {
+  const json = JSON.parse(readFileSync(join(import.meta.dirname, "../../kb-plantilla/_calendario/reglas.json"), "utf8"));
+  const r = leerReglas(json);
+  assert.deepEqual(r.reglas.filter((x) => x.pendiente).map((x) => x.id), ["revision-visual-fase3"]);
+});

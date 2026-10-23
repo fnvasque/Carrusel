@@ -315,7 +315,8 @@ usuario en `config.json`); los posts manuales y las pruebas no cuentan. Campos:
   sin esperar las semanas del experimento, y la variable queda libre para uno nuevo.
 - `reglas`: el antes/después de cada regla ya aplicada, según
   `_calendario/reglas.json` (registro del usuario: lo actualiza la PR que
-  aplica la regla; tú **no** lo editas). Una fila por regla y formato: `id`,
+  aplica la regla; tú **no** lo editas; una regla con `"pendiente": true` aún
+  no se enciende y no sale aquí). Una fila por regla y formato: `id`,
   `descripcion`, `desde` (primer día en que se publicaron piezas con la
   regla), `formato`, `metrica` (`visionadoMedioSegundos` en reels, que no
   depende de la duración; `indiceRelativo` en carruseles), `antes` y

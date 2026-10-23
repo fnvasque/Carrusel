@@ -14,6 +14,10 @@ import { addDays, localParts } from "./time.ts";
  * Carruseles: índice relativo de su señal (1 = la media de la cuenta). Con menos de
  * `MIN_PIEZAS_REGLA` piezas por lado no hay veredicto. Las reglas que entraron en la misma
  * ventana van en `simultaneas`: el efecto es del paquete, no de una sola.
+ *
+ * `pendiente: true` (opcional) marca una regla registrada pero aún no encendida (su `desde` es
+ * provisional): no se mide ni cuenta como simultánea hasta que se quite el campo y se ponga en
+ * `desde` el día en que se encendió.
  */
 
 export interface Regla {
@@ -22,6 +26,8 @@ export interface Regla {
   formato: "reel" | "carrusel" | null;
   descripcion: string;
   fuente?: string;
+  /** Registrada pero sin encender: el bucle la ignora (ni antes/después ni simultánea). */
+  pendiente?: true;
 }
 
 export const MIN_PIEZAS_REGLA = 6;
@@ -48,12 +54,16 @@ export function leerReglas(json: unknown): { reglas: Regla[]; avisos: string[] }
       out.avisos.push(`reglas.json: la entrada ${i + 1} necesita id, desde (AAAA-MM-DD) y formato (reel, carrusel o null); se ignora`);
       return;
     }
+    if (r.pendiente !== undefined && typeof r.pendiente !== "boolean") {
+      out.avisos.push(`reglas.json: la entrada ${i + 1} (${r.id}) tiene pendiente que no es true ni false; se ignora`);
+      return;
+    }
     if (ids.has(r.id)) {
       out.avisos.push(`reglas.json: id repetido ${r.id}; se ignora la segunda`);
       return;
     }
     ids.add(r.id);
-    out.reglas.push({ id: r.id, desde: r.desde, formato, descripcion: typeof r.descripcion === "string" ? r.descripcion : "", ...(typeof r.fuente === "string" ? { fuente: r.fuente } : {}) });
+    out.reglas.push({ id: r.id, desde: r.desde, formato, descripcion: typeof r.descripcion === "string" ? r.descripcion : "", ...(typeof r.fuente === "string" ? { fuente: r.fuente } : {}), ...(r.pendiente === true ? { pendiente: true as const } : {}) });
   });
   return out;
 }
@@ -90,10 +100,12 @@ const diaDe = (x: Medicion): string | undefined => {
 
 /**
  * Antes/después de cada regla, por formato (una regla `null` da una fila por formato). `idx`
- * son las mediciones con su índice relativo (`rel`, como en los pesos). Puro.
+ * son las mediciones con su índice relativo (`rel`, como en los pesos). Ignora las `pendiente`. Puro.
  */
-export function antesDespues(reglas: Regla[], idx: { m: Medicion; rel: number }[]): ComparacionRegla[] {
+export function antesDespues(todas: Regla[], idx: { m: Medicion; rel: number }[]): ComparacionRegla[] {
   const out: ComparacionRegla[] = [];
+  // Una regla pendiente (aún sin encender) no se mide ni cuenta como simultánea.
+  const reglas = todas.filter((r) => r.pendiente !== true);
   for (const r of reglas) {
     for (const formato of r.formato ? [r.formato] : (["reel", "carrusel"] as const)) {
       const inicio = addDays(r.desde, -DIAS_VENTANA);
