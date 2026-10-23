@@ -110,7 +110,7 @@ export function dirMediosValido(dir: string): boolean {
 
 export interface Deps {
   /** Renderiza la pieza en `tmp` (y corre el QA). Devuelve los nombres de archivo. Lanza si falla. */
-  render: (p: PiezaPendiente, tmp: string) => Promise<{ archivos: string[]; duracionMs?: number }>;
+  render: (p: PiezaPendiente, tmp: string) => Promise<{ archivos: string[]; duracionMs?: number; escenas?: { start: number; dur: number }[] }>;
   /** Sube `local/` a `remoto` (`host:dir/semana/id/`, o una ruta local). Lanza si falla. */
   rsync: (local: string, remoto: string) => Promise<void>;
   /** ¿El servidor sirve `url` con 200 y el Content-Type `tipo`? */
@@ -148,6 +148,8 @@ export const MANIFIESTO = ".manifiesto.json";
 interface Manifiesto {
   archivos: string[];
   duracionMs?: number;
+  /** Reel: inicio y duración (s) de cada escena, para elegir los cuadros de la revisión visual. */
+  escenas?: { start: number; dur: number }[];
 }
 
 const ARCHIVO_RE = /^[a-z0-9][a-z0-9._-]*\.(jpg|mp4)$/;
@@ -159,6 +161,11 @@ async function leerManifiesto(final: string): Promise<Manifiesto | undefined> {
     if (!Array.isArray(m.archivos) || !m.archivos.length) return undefined;
     if (!m.archivos.every((a) => typeof a === "string" && ARCHIVO_RE.test(a) && existsSync(join(final, a)))) return undefined;
     if (m.duracionMs !== undefined && typeof m.duracionMs !== "number") return undefined;
+    // `escenas` es opcional (manifiestos antiguos no lo traen); mal formado se ignora, no invalida la carpeta.
+    if (m.escenas !== undefined) {
+      const ok = Array.isArray(m.escenas) && m.escenas.every((e) => e && Number.isFinite(e.start) && Number.isFinite(e.dur));
+      if (!ok) delete m.escenas;
+    }
     return m;
   } catch {
     return undefined;
@@ -277,7 +284,7 @@ export async function procesar(
       await mkdir(tmp, { recursive: true });
       try {
         const r = await deps.render(p, tmp);
-        manifiesto = { archivos: r.archivos, ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}) };
+        manifiesto = { archivos: r.archivos, ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}), ...(r.escenas?.length ? { escenas: r.escenas } : {}) };
         await writeFile(join(tmp, MANIFIESTO), JSON.stringify(manifiesto), "utf8");
         await rename(tmp, final);
         await olvidarAvisosVisuales(outRoot, p.semana, id).catch((e) => log(`⚠️  No pude limpiar el registro de avisos visuales: ${oculto(razon(e))}`));
@@ -616,7 +623,7 @@ export async function renderPieza(
     /** Solo para el corpus de la revisión visual: salta la puerta de score (`scoreDraft`). Nunca en el render del calendario. */
     omitirScore?: boolean;
   },
-): Promise<{ archivos: string[]; duracionMs?: number }> {
+): Promise<{ archivos: string[]; duracionMs?: number; escenas?: { start: number; dur: number }[] }> {
   const texto = await leerBorradorSeguro(p.semana, p.pieza.borrador);
   let b: Borrador;
   try {
@@ -643,6 +650,7 @@ export async function renderPieza(
   const archivos: string[] = [];
   const motivos: string[] = [];
   let duracionMs: number | undefined;
+  let escenas: { start: number; dur: number }[] | undefined;
 
   if (p.pieza.formato === "carrusel") {
     const spec = borradorASpec(b);
@@ -695,6 +703,7 @@ export async function renderPieza(
     ffmpeg(["-ss", "0", "-i", join(tmp, "reel.mp4"), "-frames:v", "1", "-q:v", "2", join(tmp, "cover.jpg")]);
     archivos.push("reel.mp4", "cover.jpg");
     duracionMs = r.durationMs;
+    escenas = r.timing.scenes.map((e) => ({ start: e.start, dur: e.dur }));
     const qa = await qaReel(join(tmp, "reel.mp4"), join(tmp, "cover.jpg"), spec, opts.puerta, r.timing);
     motivos.push(...qa.motivos);
   }
@@ -709,7 +718,7 @@ export async function renderPieza(
 
   await rm(trabajo, { recursive: true, force: true });
   if (motivos.length) throw new ErrorContenido(motivos);
-  return { archivos, ...(duracionMs !== undefined ? { duracionMs } : {}) };
+  return { archivos, ...(duracionMs !== undefined ? { duracionMs } : {}), ...(escenas ? { escenas } : {}) };
 }
 
 
