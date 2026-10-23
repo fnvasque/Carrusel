@@ -2064,3 +2064,77 @@ check("calendario/validar: tope de 35 s de la plantilla — un reel de ~30 s no 
   delete p.parametros.duracionMaxSegundos;
   assert.deepEqual(erroresDeRetencion(b, p, CONFIG_PLANTILLA), []);
 });
+
+// --- guías de hooks y redacción, manual para el público nuevo (2026-10-22) ---
+
+check("manual: remite a las dos guías y al juez, tiene la serie criterio y ya no gratis-vs-pago", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  for (const x of ["guia-redaccion.md", "guia-hooks.md", "--juez", "criterio"]) assert.ok(md.includes(x), `falta ${x}`);
+  assert.ok(!md.includes("gratis-vs-pago"), "gratis-vs-pago sigue en el manual");
+  assert.ok(md.includes("node _calendario/validar.mjs --juez"), "falta el comando del juez");
+  assert.ok(md.includes(MOTIVO_PAQUETE), "falta la suspensión del experimento en las semanas del paquete");
+  assert.ok(md.includes("cuerpoMaxPalabrasCarrusel"), "falta el tope de cuerpo de carrusel");
+  assert.ok(md.includes("con prisa P8: no bloquea"), "falta la regla NB de la P8 del con prisa");
+});
+
+check("instalador y CLAUDE.md: copian y suben las dos guías", () => {
+  const sh = readFileSync("scripts/kb-calendario-install.sh", "utf8");
+  for (const g of ["guia-hooks.md", "guia-redaccion.md"]) {
+    assert.equal(sh.split(g).length - 1, 2, `${g} debe salir 2 veces (cp y ADD): ${sh.split(g).length - 1}`);
+    assert.ok(sh.includes(`_calendario/${g}`), `${g} en ADD`);
+    assert.ok(sh.includes(`"$SRC/${g}"`), `${g} en cp`);
+  }
+  const claude = readFileSync("kb-plantilla/CLAUDE.md", "utf8");
+  for (const g of ["guia-hooks.md", "guia-redaccion.md"]) assert.ok(claude.includes(g), `CLAUDE.md: falta ${g}`);
+});
+
+check("guia-hooks.md: un encabezado ## por patrón y la sección del juez al final", () => {
+  const md = readFileSync(join(DIR, "guia-hooks.md"), "utf8");
+  const encabezados = md.split("\n").filter((l) => l.startsWith("## "));
+  for (const p of PATRONES_HOOK) assert.ok(encabezados.some((l) => l.includes(p)), `falta ## ${p}`);
+  assert.ok(encabezados.includes("## Para el juez"));
+  assert.equal(encabezados[encabezados.length - 1], "## Para el juez", "Para el juez va al final (el código la copia hasta el siguiente ##)");
+  // Cada patrón trae su par malo/bueno.
+  for (const p of PATRONES_HOOK) {
+    const i = md.indexOf(encabezados.find((l) => l.includes(p))!);
+    const sec = md.slice(i, md.indexOf("\n## ", i + 3));
+    assert.ok(/Mal/.test(sec) && /Bien/.test(sec), `${p}: falta el par Mal/Bien`);
+  }
+  assert.ok(!/TODO/.test(md));
+});
+
+check("guia-redaccion.md: las cuatro reglas de la spec, pares mal → bien y la lista de chequeo", () => {
+  const md = readFileSync(join(DIR, "guia-redaccion.md"), "utf8");
+  for (const x of ["idea completa", "contexto", "La voz explica", "¿y?", "Lista de chequeo"]) assert.ok(md.includes(x), `falta ${x}`);
+  assert.ok((md.match(/Mal:/g) ?? []).length >= 6, "al menos 6 ejemplos Mal");
+  assert.ok((md.match(/Bien:/g) ?? []).length >= 6, "al menos 6 ejemplos Bien");
+  assert.ok(md.includes("2026-10-19"), "los ejemplos salen de la semana 2026-10-19");
+  assert.ok(!/TODO/.test(md));
+});
+
+check("ejemplo y esqueleto: el EJEMPLO pasa validarSemana; desde DESDE_CALIDAD llevan candidatos y juez", () => {
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-ejemplo-"));
+  try {
+    const dir = join(root, "_calendario", EJEMPLO.plan.semana);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+    writeFileSync(join(dir, `${EJEMPLO.plan.piezas[0].id}.json`), JSON.stringify(EJEMPLO.borrador));
+    crearOrigen(root, EJEMPLO.plan.piezas);
+    assertNone(validarSemana(dir, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }, { score: () => 90 }));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  const conJuez = (p: any) => Array.isArray(p.hook?.candidatos) && p.hook?.juez !== undefined;
+  for (const p of EJEMPLO.plan.piezas) if (p.dia >= DESDE_CALIDAD) assert.ok(conJuez(p), `${p.id}: falta candidatos y juez`);
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  const m = md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/);
+  const esqueleto = JSON.parse(m![1]);
+  assert.ok(esqueleto.semana >= DESDE_CALIDAD, "el esqueleto muestra una semana con las reglas nuevas");
+  for (const p of esqueleto.piezas) {
+    assert.ok(conJuez(p), `${p.id}: falta candidatos y juez`);
+    assertNone(erroresDeHookJuez(p));
+    if (p.formato === "reel") assert.ok(SERIES_CALIDAD.includes(p.serie), `${p.id}: serie ${p.serie}`);
+    else assert.ok(p.hook.candidatos.every((c: any) => c.resultado === undefined), `${p.id}: el carrusel no lleva resultado`);
+    assert.ok(!/gratis/i.test(p.hook.texto), `${p.id}: «gratis» no es gancho para este público`);
+  }
+});

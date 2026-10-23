@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instala (o actualiza) la plantilla del planificador del calendario en la base:
-# _calendario/INSTRUCCIONES.md, lector-frio.md, validar.mjs, validar.d.mts, reglas.json, config.json
-# y CLAUDE.md. Commitea y sube.
+# _calendario/INSTRUCCIONES.md, lector-frio.md, las guías de hooks y de redacción, validar.mjs,
+# validar.d.mts, reglas.json, config.json y CLAUDE.md. Commitea y sube.
 #
 #   scripts/kb-calendario-install.sh [ruta-de-la-base]    (default: $KB_DIR o ./knowledge)
 #
@@ -17,8 +17,8 @@ KB="${1:-${KB_DIR:-$HERE/knowledge}}"
 DEST="$KB/_calendario"
 mkdir -p "$DEST"
 # Se suben los archivos de la plantilla y, solo si se crean ahora, los del usuario y del agente.
-ADD=(CLAUDE.md _calendario/INSTRUCCIONES.md _calendario/lector-frio.md _calendario/validar.mjs _calendario/validar.d.mts _calendario/reglas.json)
-cp "$SRC/INSTRUCCIONES.md" "$SRC/lector-frio.md" "$SRC/validar.mjs" "$SRC/validar.d.mts" "$SRC/reglas.json" "$DEST/"
+ADD=(CLAUDE.md _calendario/INSTRUCCIONES.md _calendario/lector-frio.md _calendario/guia-hooks.md _calendario/guia-redaccion.md _calendario/validar.mjs _calendario/validar.d.mts _calendario/reglas.json)
+cp "$SRC/INSTRUCCIONES.md" "$SRC/lector-frio.md" "$SRC/guia-hooks.md" "$SRC/guia-redaccion.md" "$SRC/validar.mjs" "$SRC/validar.d.mts" "$SRC/reglas.json" "$DEST/"
 cp "$HERE/kb-plantilla/CLAUDE.md" "$KB/"
 
 if [ -f "$DEST/config.json" ]; then
