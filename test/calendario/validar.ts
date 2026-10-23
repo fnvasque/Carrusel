@@ -378,11 +378,12 @@ check("calendario/validar: pace inválido → error", () => {
 
 // --- palancas de retención (ritmoReel y duracionMaxSegundos; en la puerta desde el 2026-10-14) ---
 
-check("calendario/validar: config.json trae ritmoReel (gancho, base) y duracionMaxSegundos (20) con respaldo", () => {
+check("calendario/validar: config.json trae ritmoReel (gancho, base) y duracionMaxSegundos (35) con respaldo", () => {
   assertNone(validarConfig(CONFIG_PLANTILLA));
   assert.equal(CONFIG_PLANTILLA.puerta.ritmoReel.valor, "gancho");
   assert.equal(CONFIG_PLANTILLA.puerta.ritmoReel.respaldo, "base");
-  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 20);
+  // 2026-10-22: el usuario subió el tope a 35 s (spec calidad-contenido)
+  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 35);
   assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.respaldo, "base");
   assert.equal(DESDE_PALANCAS_RETENCION, "2026-10-19");
   // Un ritmo desconocido en la puerta es error de config; un tope no numérico también.
