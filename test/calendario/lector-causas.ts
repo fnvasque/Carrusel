@@ -98,3 +98,18 @@ check("lector-causas: «nada nuevo» en la P8 es la causa nada-nuevo (también e
   const hs = hallazgosDeNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea", 1);
   assert.deepEqual(hs.map((h) => [h.tipo, h.causa, h.lector]), [["duda", "nada-nuevo", "con prisa"]]);
 });
+
+check("pr56-4: nada-nuevo no calza con «ya sabía qué/cuál/cómo/dónde» de otras preguntas", () => {
+  assert.ok(!causasDeFallo("el lector completo dijo que ya sabía qué es ChatGPT pero no entendió “agente”").includes("nada-nuevo"));
+  assert.ok(!causasDeFallo("el con prisa ya sabía cómo abrirlo, no dónde pegar el prompt").includes("nada-nuevo"));
+  assert.ok(causasDeFallo("respondió ya lo sabía en P8").includes("nada-nuevo"));
+  assert.ok(causasDeFallo("el completo respondió no aprendí nada en P8").includes("nada-nuevo"));
+  assert.ok(causasDeFallo("el con prisa: nada que no supiera").includes("nada-nuevo"));
+  assert.ok(causasDeFallo("el con prisa dijo «nada de nuevo»").includes("nada-nuevo"));
+});
+
+check("pr56-8: sin-accion no calza con «nada de nuevo» ni «nada, nuevo» de la P8", () => {
+  assert.ok(!causasDeFallo("respondió “nada de nuevo” en P8").includes("sin-accion"));
+  assert.ok(!causasDeFallo("respondió nada nuevo en P8").includes("sin-accion"));
+  assert.deepEqual(causasDeFallo("el con prisa no haría nada"), ["sin-accion"]);
+});
