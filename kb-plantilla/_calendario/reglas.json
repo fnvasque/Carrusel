@@ -119,6 +119,13 @@
       "formato": null,
       "descripcion": "Revisor visual con IA en modo aviso (fondo que compite o ajeno), con botones Tenía razón/No y precisión en el bucle",
       "fuente": "PR de la fase 2 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
+    },
+    {
+      "id": "revision-visual-fase3",
+      "desde": "2026-11-09",
+      "formato": null,
+      "descripcion": "Corrección automática acotada: con precisión del revisor ≥ 0,8 y ≥ 30 respuestas, el Mac quita el fondo ai de la slide marcada y re-renderiza antes de la hora",
+      "fuente": "PR de la fase 3 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
     }
   ]
 }

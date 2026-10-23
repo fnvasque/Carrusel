@@ -125,6 +125,23 @@ publica y te avisa por Telegram.
 
 **Revisión visual de fondos.** El bot también atiende los botones `cal-visual` (Tenía razón / No) de las fotos que manda el Mac; se despliega con el procedimiento de siempre (`scripts/deploy-to-server.sh ubuntu@<ip> --update`).
 
+**Fase 3 de la revisión visual (corrección automática).** El Mac puede quitar solo el fondo ai que
+el revisor marcó y volver a subir la pieza antes de la hora. Se enciende con
+`"revisionVisual": { "corregir": true }` en `_calendario/config.json` de la base y se apaga con
+`false` (sin la clave, apagada). Además del interruptor hay una puerta: al menos 30 avisos
+respondidos y precisión ≥ 0,8 en `bucle.json → visual.total`; el Mac la comprueba en cada corrida
+y, si no se cumple, lo dice en el log y no corrige. Qué corrige: solo el fondo ai de las slides
+marcadas como «compite» o «ajeno» (en la práctica Hook y Cta, que son las que llevan fondo ai), con
+el fondo liso por defecto; nunca regenera la imagen, nunca toca una slide `Clip` ni una pieza con
+hook de video Kling (pedido en el borrador o ya aplicado). Solo actúa si faltan al menos 30 minutos
+para la hora de la pieza; si algo falla, queda el render original y avisa por Telegram. El registro
+queda en `visual.json → <id>.correccion` (aplicada, fallida u omitida, con las slides) y el conteo
+en `bucle.json → visual.correcciones` (por semana y total). Para encenderla basta un `git pull` en
+`Carrusel-render`; el bot no cambia. El día que la enciendas, ajusta el `desde` de la regla
+`revision-visual-fase3` en `kb-plantilla/_calendario/reglas.json` (y su fila en
+`test/calendario/reglas.ts`) y en el `_calendario/reglas.json` de la base, que es el que mide el
+bucle: hoy lleva 2026-11-09 como fecha provisional.
+
 **Probar sin publicar.** Pon `CALENDARIO_MODO=aviso` y aplica con `docker compose up -d`: el bot hace todo
 (previews, programación, avisos) menos los POST a Meta. Cuando se vea bien, cambia a `auto`.
 
