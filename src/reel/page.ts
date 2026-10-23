@@ -169,7 +169,7 @@ export async function buildReelPage(spec: CarouselSpec, timing: ReelTiming, opts
     .map((slide, i) => {
       const props = { ...spec.defaults, ...slide.props, format: "reel" as const };
       const markup = renderToStaticMarkup(createElement(slide.template, props));
-      return `<div data-scene="${i}" style="position:absolute;left:0;top:0;width:${width}px;height:${height}px;overflow:hidden;">${markup}${subtitulo(props.narracion, props.source, opts.voces?.[i])}</div>`;
+      return `<div data-scene="${i}" data-plantilla="${slide.template.name}" style="position:absolute;left:0;top:0;width:${width}px;height:${height}px;overflow:hidden;">${markup}${subtitulo(props.narracion, props.source, opts.voces?.[i])}</div>`;
     })
     .join("");
   const [gsap, split, runtime] = await Promise.all([

@@ -9,7 +9,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { parseBorrador, borradorASpec, storySpec } from "../src/calendario/draft.ts";
 import { Hook } from "../src/templates/index.ts";
 import { displayLineHeight, ANTON_LH_ACENTO } from "../src/templates/fit.ts";
-import type { CarouselSpec } from "../src/templates/types.ts";
+import { FORMATS, type CarouselSpec } from "../src/templates/types.ts";
+import { buildReelPage } from "../src/reel/page.ts";
+import { specTiming } from "../src/reel/timing.ts";
+import { revisarReel } from "../src/reel/revision.ts";
 import smoke from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
 import mentiras from "../carousels/mentiras-ia.ts";
@@ -95,6 +98,29 @@ try {
   const flat = (props: Record<string, any>) => (props.background && "ai" in props.background ? { ...props, background: { color: "#06060A" } } : props);
   const renderSlide = (spec: CarouselSpec, i: number, format: "post" | "reel") =>
     renderToStaticMarkup(createElement(spec.slides[i].template as any, { ...flat({ ...spec.defaults, ...spec.slides[i].props }), format }));
+  await caso("zona: trozo de subtítulo oculto (autoAlpha 0) no cuenta, ni su hijo", async () => {
+    const trozo = `<div data-scene="0"><span data-sub-trozo="" style="position:absolute;left:60px;top:1600px;font-family:Inter;font-size:48px;color:#fff;visibility:hidden;opacity:0;">Texto <b>tapado</b></span></div>`;
+    assert.deepEqual(await revisar(trozo, true), []);
+  });
+  await caso("reel kling-vs-seedance: la puntuación no se separa de la palabra clave en ningún instante", async () => {
+    const b = fixture("vie-pm-reel-kling-vs-seedance");
+    const spec = borradorASpec(b, { format: "reel" });
+    const offline = { ...spec, defaults: flat(spec.defaults as any), slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
+    const timing = specTiming(spec, { pace: b.pace });
+    const p = await browser.newPage({ viewport: FORMATS.reel, deviceScaleFactor: 1 });
+    try {
+      await p.setContent(await buildReelPage(offline, timing), { waitUntil: "load" });
+      await p.waitForFunction(() => (window as any).__reelReady === true);
+      const plantillas = await p.evaluate(() => Array.from(document.querySelectorAll("[data-scene]")).map((s) => s.getAttribute("data-plantilla")));
+      assert.deepEqual(plantillas, spec.slides.map((sl) => sl.template.name));
+      const t0 = performance.now();
+      const h = await revisarReel(p, timing);
+      console.log(`  revisarReel kling: ${Math.round(performance.now() - t0)} ms, ${h.length} hallazgos (${[...new Set(h.map((x) => x.tipo))].join(", ") || "ninguno"})`);
+      assert.deepEqual(tipos(h, "puntuacion"), [], JSON.stringify(tipos(h, "puntuacion")));
+    } finally {
+      await p.close();
+    }
+  });
   await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
     assert.equal(ANTON_LH_ACENTO, 1.14);
     assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);

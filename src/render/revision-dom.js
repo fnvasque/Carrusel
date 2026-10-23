@@ -7,7 +7,8 @@
  *   opts.altura:    alto del lienzo (por defecto innerHeight)
  *   opts.contexto:  texto para los motivos, o uno por escena (índice = escena)
  *
- * Devuelve { textos, hallazgos } del instante actual. Se mide lo que se pinta:
+ * Devuelve { textos, hallazgos } del instante actual. window.__revisarSerie
+ * (más abajo) recorre la timeline del reel con __reel.seek. Se mide lo que se pinta:
  * el carácter después de text-transform, su rect real (Range, incluye
  * transforms) y las métricas de la fuente computada (canvas measureText).
  */
@@ -105,10 +106,12 @@
       for (var i = 0; i < fuente.length && i < texto.length; i++) {
         var ch = texto[i];
         if (BLANCO.test(ch)) { lista.push({ ch: " ", blanco: true }); continue; }
+        // Oculto: ni se mide (el reel tiene todas las escenas en el DOM a la vez).
+        if (op <= 0) { lista.push({ ch: ch, oculto: true }); continue; }
         rango.setStart(nodo, i);
         rango.setEnd(nodo, i + 1);
         var r = rango.getBoundingClientRect();
-        if (op <= 0 || r.width <= 0 || r.height <= 0) { lista.push({ ch: ch, oculto: true }); continue; }
+        if (r.width <= 0 || r.height <= 0) { lista.push({ ch: ch, oculto: true }); continue; }
         lista.push({ ch: ch, fuente: fuente[i], rect: r, el: el, estilo: estilo, op: op, anton: anton });
       }
     }
@@ -176,7 +179,8 @@
           var a = lista[j];
           if (!mismaLinea(c, a)) return;
           var tam = parseFloat(c.estilo.fontSize);
-          if (c.rect.left - a.rect.right > 0.12 * tam) {
+          // Range incluye los márgenes laterales del glifo: texto corrido da 0 px; 0,06 em ya se ve.
+          if (c.rect.left - a.rect.right > 0.06 * tam) {
             hallazgos.push({ tipo: "puntuacion", escena: escena, motivo: "visual: espacio antes de «" + c.ch + "» tras «" + palabra(lista, j) + "» en " + contexto(escena) });
           }
         });
@@ -185,6 +189,7 @@
 
     // --- Textos: cada elemento con texto propio ---
     var textos = [];
+    var elementos = []; // elemento de cada texto (mismo índice)
     document.querySelectorAll("body *").forEach(function (el) {
       if (el.closest("script,style")) return;
       var propio = Array.prototype.some.call(el.childNodes, function (n) { return n.nodeType === 3 && n.textContent.trim(); });
@@ -203,18 +208,40 @@
       };
       if (paso === "numero" || paso === "heading") t.paso = paso;
       textos.push(t);
+      elementos.push(el);
     });
 
     if (comprobar.indexOf("zona") >= 0 && opts.zona) {
       var limiteAbajo = altura - opts.zona.abajo;
-      textos.forEach(function (t) {
+      var bloques = [];
+      textos.forEach(function (t, i) {
         if (t.marca || t.opacidad < 0.3 || t.rect.w <= 0 || t.rect.h <= 0) return;
         if (t.rect.y >= opts.zona.arriba - 1 && t.rect.y + t.rect.h <= limiteAbajo + 1) return;
-        var corto = t.texto.length > 40 ? t.texto.slice(0, 40) + "…" : t.texto;
+        // Un motivo por bloque animado: tras SplitText cada palabra es su propio texto.
+        var el = elementos[i];
+        var bloque = el.closest('[data-anim]:not([data-anim="pop"])') || el;
+        if (bloques.indexOf(bloque) >= 0) return;
+        bloques.push(bloque);
+        var texto = pintado((bloque.textContent || "").trim().replace(/\s+/g, " "), getComputedStyle(bloque));
+        var corto = texto.length > 40 ? texto.slice(0, 40) + "…" : texto;
         hallazgos.push({ tipo: "zona", escena: t.escena, motivo: "visual: texto «" + corto + "» sale de la zona segura en " + contexto(t.escena) });
       });
     }
 
     return { textos: textos, hallazgos: hallazgos };
+  };
+
+  /*
+   * Serie del reel: para cada paso { t, comprobar } hace window.__reel.seek(t)
+   * y __revisarVisual con las opciones comunes. Una sola ida y vuelta desde
+   * Playwright. Devuelve [{ t, textos, hallazgos }]; los textos ocultos
+   * (opacidad 0) no viajan.
+   */
+  window.__revisarSerie = function (pasos, opts) {
+    return pasos.map(function (p) {
+      window.__reel.seek(p.t);
+      var r = window.__revisarVisual(Object.assign({}, opts, { comprobar: p.comprobar }));
+      return { t: p.t, textos: r.textos.filter(function (x) { return x.opacidad > 0; }), hallazgos: r.hallazgos };
+    });
   };
 })();

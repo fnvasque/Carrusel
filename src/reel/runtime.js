@@ -245,7 +245,14 @@ document.fonts.ready.then(function () {
           sub.from(pop, { color: getComputedStyle(el).color, duration: 0.3, ease: "power2.out" }, at + 0.45);
           return 0.75;
         }
-        const words = split.words;
+        // Puntuación tras la palabra clave (pop/mark) va dentro de ella: si no, al escalarla queda un hueco antes de la coma.
+        const words = split.words.filter(function (w, i) {
+          const prev = split.words[i - 1];
+          if (!prev || !/^[,.;:!?…)»"'”]+$/.test(w.textContent) || !prev.closest('[data-anim="pop"],[data-mark]')) return true;
+          w.style.color = getComputedStyle(w).color;
+          prev.appendChild(w);
+          return false;
+        });
         if (words.length === 0) return 0;
         // El span de la palabra clave es inline (transform no aplica): se
         // escalan sus palabras, que SplitText deja como inline-block. La escala
