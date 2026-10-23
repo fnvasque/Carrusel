@@ -545,6 +545,8 @@ function depsCorr(m: Mundo, reg: { render: unknown[]; avisos: string[] }, o: Par
     },
     log: (t) => m.reg.logs.push(t),
     ahora: () => AHORA,
+    // Los fondos ai que el re-render conserva están en caché (I3 se prueba en correccion-fondos).
+    enCache: () => true,
     ...o,
   };
 }

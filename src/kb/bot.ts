@@ -24,7 +24,7 @@ import {
 } from "../calendario/scheduler.ts";
 import {
   argsPreview, avisoRenderPendiente, avisosPostPublicacion, callbackSaltar, ETAPAS_RENDER, leerCallbackVisual, textoRespuestaVisual, TELEGRAM_CAPTION_MAX, truncar, formatSemana, idDesdeArgumento, leerCallbackSaltar,
-  arranqueScheduler, mediosParaLimpiar, modoCalendario, previewsPendientes, recordatorioLunes, semanasConPlan, silencioCalendario, TEXTO_POST_PUBLICACION,
+  arranqueScheduler, mediosParaLimpiar, modoCalendario, previewEntregado, previewsPendientes, recordatorioLunes, semanasConPlan, silencioCalendario, TEXTO_POST_PUBLICACION,
   TEXTO_RECORDATORIO_LUNES,
 } from "../calendario/telegram.ts";
 import { anotarRespuestaVisual } from "../calendario/visual.ts";
@@ -1269,11 +1269,8 @@ async function revisarCalendario(): Promise<void> {
     const ahora = new Date();
     const { semanas } = await semanasActivas();
     // El preview guardado vale solo para ese render: si la pieza se volvió a renderizar después (`render.en` posterior), se avisa de nuevo.
-    const previewEntregado = (k: string, renderEn: string): boolean => {
-      const v = leerClaveDb(K_PREVIEW + k);
-      return Boolean(v) && !(typeof renderEn === "string" && renderEn > v!);
-    };
-    for (const x of previewsPendientes(semanas, ahora, previewEntregado)) {
+    const entregado = (k: string, renderEn: string): boolean => previewEntregado(renderEn, leerClaveDb(K_PREVIEW + k));
+    for (const x of previewsPendientes(semanas, ahora, entregado)) {
       const s = semanas.find((y) => y.semana === x.semana)!;
       if (x.nueva) {
         await programarPieza(x.semana, x.pieza.id);

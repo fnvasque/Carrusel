@@ -418,8 +418,8 @@ export async function avisarRevisadas(
 
 /**
  * Revisión + corrección (fase 3) + aviso, en ese orden (ver el reparto arriba). `corregirFondos`
- * corre siempre (recupera restos de una corrida cortada aunque la puerta esté inactiva, y loguea
- * «fase 3 inactiva» una sola vez). `semanas` debe traer el render.json de ESTA corrida (ver
+ * corre siempre (loguea «fase 3 inactiva» una sola vez); los restos de una corrida cortada ya los
+ * deshizo `recuperarCorreccionesCortadas` en `render-cli`, antes de `procesar`. `semanas` debe traer el render.json de ESTA corrida (ver
  * `releerSemanas`): `corregirFondos` solo toca piezas «renderizado» con medios. Nunca lanza.
  */
 export async function revisarYCorregir(

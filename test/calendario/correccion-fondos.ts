@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import {
-  MARGEN_CORRECCION_MS, UMBRAL_CORRECCION, corregirFondos, leerPuertaCorreccion, puertaCorreccion, slidesACorregir,
+  MARGEN_CORRECCION_MS, SIN_CACHE, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
   type DepsCorreccion, type PuertaCorreccion,
 } from "../../src/calendario/correccion-fondos.ts";
 import type { Borrador } from "../../src/calendario/draft.ts";
@@ -12,9 +12,11 @@ import { parsePlan, semanaDir, type RenderEntry, type SemanaLeida } from "../../
 import { ErrorContenido, MANIFIESTO, type EnvRender } from "../../src/calendario/render.ts";
 import { revisarRenderizadas, type DepsRevision } from "../../src/calendario/revision-fondos.ts";
 import { claveFila } from "../../src/calendario/scheduler.ts";
-import { previewsPendientes } from "../../src/calendario/telegram.ts";
+import { previewEntregado, previewsPendientes } from "../../src/calendario/telegram.ts";
 import { ErrorVisual } from "../../src/render/revision.ts";
 import { HECHO, RESPALDO } from "../../src/calendario/hook-video.ts";
+import { fondoEnCache, generateBackground, rutaCacheFondo } from "../../src/ai/openaiImage.ts";
+import { applyBrandStyle } from "../../src/render/background.ts";
 import { leerVisual, visualPath, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "../../src/calendario/visual.ts";
 
 check("correccion-fondos: con interruptor, 30 respondidos y precisión 0,8 la puerta está activa", () => {
@@ -277,6 +279,8 @@ async function conMundoC(
       },
       log: (t) => m.reg.logs.push(t),
       ahora: () => new Date(reloj.t),
+      // Los fondos ai que el re-render conserva están en caché (I3 tiene sus propios tests).
+      enCache: () => true,
       ...o,
     });
     await fn(m, deps);
@@ -323,14 +327,16 @@ await checkAsync("corregirFondos: pieza a 2 h → re-render sin la slide 0, sube
     assert.equal(m.reg.avisos.length, 0);
 
     // Review Focus 5: con el render.json reescrito, el preview vuelve a salir exactamente una vez.
-    const enviados = new Set<string>([`${claveFila(SEM, "lun-reel-dos")}|${EN_ORIGINAL}`]);
-    const enviado = (k: string, en: string): boolean => enviados.has(`${k}|${en}`);
+    // I2: con el criterio real del bot (`previewEntregado`: guarda la HORA de entrega y compara
+    // `renderEn > v`), no un `en` exacto. El original se entregó a las T0 − 1 h (después de su render).
+    const entregas = new Map<string, string>([[claveFila(SEM, "lun-reel-dos"), "2026-10-26T14:00:00.000Z"]]);
+    const enviado = (k: string, en: string): boolean => previewEntregado(en, entregas.get(k));
     assert.equal(previewsPendientes(m.semanas, T0, enviado).length, 0, "el original ya tenía preview");
     const tras: SemanaLeida[] = [{ ...m.semanas[0], render: { ...m.semanas[0].render, [id]: e } }];
     const p1 = previewsPendientes(tras, T0, enviado);
     assert.equal(p1.length, 1, "un preview nuevo");
     assert.equal(p1[0].pieza.id, "lun-reel-dos");
-    enviados.add(`${claveFila(SEM, "lun-reel-dos")}|${e.en}`);
+    entregas.set(claveFila(SEM, "lun-reel-dos"), new Date(new Date(e.en).getTime() + 60_000).toISOString());
     assert.equal(previewsPendientes(tras, T0, enviado).length, 0, "y solo uno");
   }),
 );
@@ -525,15 +531,18 @@ await checkAsync("corregirFondos: la correccion se fusiona sobre la entrada pend
   }),
 );
 
-await checkAsync("corregirFondos: una corrida cortada a mitad del swap (sin final, con .prev-) se recupera y el servidor queda con el original", () =>
+// I1: la recuperación salió de `corregirFondos` (corría después de la revisión) a
+// `recuperarCorreccionesCortadas`, que render-cli llama antes de `procesar`.
+await checkAsync("recuperarCorreccionesCortadas: una corrida cortada a mitad del swap (sin final, con .prev-) se recupera y el servidor queda con el original", () =>
   conMundoC([piezaPlan("lun-reel-corte", "14:00")], { "lun-reel-corte": { revisor: AVISO_PORTADA } }, async (m, deps) => {
     const final = join(m.out, SEM, "lun-reel-corte");
     renameSync(final, join(m.out, SEM, "lun-reel-corte.prev-99999"));
     mkdirSync(join(m.out, SEM, "lun-reel-corte.tmp-corr-99999"));
     writeFileSync(join(m.server, SEM, "lun-reel-corte", "cover.jpg"), "nuevo"); // la subida alcanzó a empezar
-    // Puerta inactiva: la recuperación corre igual (deshace lo de una corrida anterior), pero no corrige.
-    const r = await corregirFondos(m.semanas, [], m.out, ENV_C, { activa: false, motivo: "apagada en config.json", respondidos: 0 }, deps());
-    assert.deepEqual(r, { aplicadas: 0, fallidas: 0, omitidas: 0 });
+    // Corre siempre (sin puerta): deshace lo de una corrida anterior, pero no corrige.
+    const r = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
+    assert.deepEqual(r, { restauradas: 1 });
+    assert.equal(m.reg.render.length, 0);
     assert.equal(leer(join(final, "cover.jpg")), "viejo");
     assert.ok(existsSync(join(final, MANIFIESTO)));
     assert.deepEqual(restos(m.out, "lun-reel-corte"), []);
@@ -614,10 +623,10 @@ for (const caso of ["aplicada", "sin margen tras subir"] as const) {
       const final = join(m.out, SEM, "lun-reel-borra");
       assert.equal(leer(join(final, "cover.jpg")), "nuevo");
       assert.ok(!restos(m.out, "lun-reel-borra").some((f) => /\.prev-/.test(f)), "no queda una .prev- reconocible");
-      // Corrida siguiente (puerta inactiva: solo la recuperación): nada vuelve atrás.
+      // Corrida siguiente (la recuperación, que va antes de procesar): nada vuelve atrás.
       m.reloj.t = T0.getTime();
       const rsyncs = m.reg.rsync.length;
-      await corregirFondos(m.semanas, [], m.out, ENV_C, { activa: false, motivo: "apagada en config.json", respondidos: 0 }, deps());
+      await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
       assert.equal(leer(join(final, "cover.jpg")), "nuevo", "la final sigue corregida");
       assert.equal(leer(join(m.server, SEM, "lun-reel-borra", "cover.jpg")), "nuevo", "el servidor sigue corregido");
       assert.equal(m.reg.rsync.length, rsyncs, "sin re-subir el original");
@@ -625,3 +634,228 @@ for (const caso of ["aplicada", "sin margen tras subir"] as const) {
     }),
   );
 }
+
+// --- Arreglos de la revisión final ---
+
+// I1: escenario A. La corrida anterior se cortó durante el rsync de la corrección: la final ya es
+// la corregida, la .prev el original y el servidor tiene archivos nuevos; el veredicto y la
+// corrección (en el buffer) se perdieron. La corrida siguiente recupera ANTES de revisar: la
+// revisión mira el original (no cobra por la versión corregida) y la corrección vuelve a correr.
+await checkAsync("I1: corte durante la subida → la corrida siguiente restaura el original antes de revisar y la corrección vuelve a correr", () =>
+  conMundoC([piezaPlan("lun-reel-a", "14:00")], {}, async (m, deps) => {
+    const carpeta = join(m.out, SEM);
+    const final = join(carpeta, "lun-reel-a");
+    renameSync(final, join(carpeta, "lun-reel-a.prev-4242"));
+    mkdirSync(final);
+    for (const a of ARCH) writeFileSync(join(final, a), "nuevo");
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ARCH, duracionMs: 4900 }));
+    writeFileSync(join(m.server, SEM, "lun-reel-a", "cover.jpg"), "nuevo");
+    const orden: string[] = [];
+    // Corrida siguiente, en el orden de render-cli: recuperar → (procesar) → revisar → corregir.
+    const rec = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps({ rsync: async (l, r) => { orden.push("resubir"); await deps().rsync(l, r); } }));
+    assert.equal(rec.restauradas, 1);
+    orden.push(`revisar:${leer(join(final, "cover.jpg"))}`); // lo que vería extraerCuadros
+    assert.equal(leer(join(m.server, SEM, "lun-reel-a", "cover.jpg")), "viejo", "el servidor vuelve al original");
+    assert.deepEqual(restos(m.out, "lun-reel-a"), []);
+    m.visual.set(SEM, { "lun-reel-a": { revisor: AVISO_PORTADA } }); // la revisión de esta corrida marca la portada
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-a" }], m.out, ENV_C, PUERTA_ON, deps());
+    assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
+    assert.deepEqual(orden, ["resubir", "revisar:viejo"], "la revisión ve el original restaurado");
+    assert.equal(leer(join(m.server, SEM, "lun-reel-a", "cover.jpg")), "nuevo");
+    assert.equal(m.reg.avisos.filter((a) => /quedó a medias/.test(a)).length, 1);
+  }),
+);
+
+// I1: escenario B. Cortada y luego re-planificada: render.json ya no la tiene como renderizada,
+// así que procesar la renderizará fresca. La recuperación restaura en el Mac pero no re-sube la
+// .prev vieja (y como corre antes de procesar, nunca pisa el render fresco).
+await checkAsync("I1: corte + re-planificación → la recuperación no re-sube la .prev vieja", () =>
+  conMundoC([piezaPlan("lun-reel-b", "14:00")], {}, async (m, deps) => {
+    const carpeta = join(m.out, SEM);
+    renameSync(join(carpeta, "lun-reel-b"), join(carpeta, "lun-reel-b.prev-4242"));
+    delete m.semanas[0].render["lun-reel-b"];
+    const rec = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
+    assert.equal(rec.restauradas, 1);
+    assert.equal(m.reg.rsync.length, 0, "no re-sube contenido de un borrador anterior");
+    assert.match(m.reg.avisos.join(" "), /no la re-subo \(render.json no la tiene como renderizada/);
+  }),
+);
+
+check("I1: render-cli recupera después de tomar el candado y antes de procesar, y no con --dry-run", () => {
+  const src = readFileSync(join(import.meta.dirname, "../../src/calendario/render-cli.ts"), "utf8");
+  const candado = src.indexOf("await tomarCandado(");
+  const rec = src.indexOf("await recuperarCorreccionesCortadas(");
+  const proc = src.indexOf("await procesar(");
+  const revisar = src.indexOf("await revisarYCorregir(");
+  assert.ok(candado > 0 && rec > candado && proc > rec && revisar > proc, `${candado} < ${rec} < ${proc} < ${revisar}`);
+  assert.match(src.slice(src.lastIndexOf("\n", rec) - 40, rec), /if \(!dryRun\) \{\s*$/, "solo sin --dry-run");
+});
+
+await checkAsync("I1: corregirFondos ya no recupera, y no corrige una pieza que aún tiene una .prev-", () =>
+  conMundoC([piezaPlan("lun-reel-c", "14:00")], { "lun-reel-c": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    const carpeta = join(m.out, SEM);
+    mkdirSync(join(carpeta, "lun-reel-c.prev-4242"));
+    writeFileSync(join(carpeta, "lun-reel-c.prev-4242", MANIFIESTO), JSON.stringify({ archivos: ARCH }));
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-c" }], m.out, ENV_C, PUERTA_ON, deps());
+    assert.deepEqual(r, { aplicadas: 0, fallidas: 0, omitidas: 0 });
+    assert.equal(m.reg.render.length + m.reg.rsync.length, 0);
+    assert.ok(existsSync(join(carpeta, "lun-reel-c.prev-4242")), "la .prev no la toca corregirFondos");
+    assert.ok(m.reg.logs.some((l) => /\.prev- de una corrida anterior/.test(l)));
+  }),
+);
+
+// I2: el criterio del bot, extraído sin cambiar su comportamiento.
+check("I2: previewEntregado es el criterio del bot (hora de entrega v; un render posterior vuelve a avisar)", () => {
+  const bot = (renderEn: string, v: string | undefined): boolean => Boolean(v) && !(typeof renderEn === "string" && renderEn > v!);
+  const casos: [string, string | undefined][] = [
+    ["2026-10-26T13:00:00.000Z", undefined], ["2026-10-26T13:00:00.000Z", ""], ["2026-10-26T13:00:00.000Z", "2026-10-26T14:00:00.000Z"],
+    ["2026-10-26T15:00:00.000Z", "2026-10-26T14:00:00.000Z"], ["2026-10-26T14:00:00.000Z", "2026-10-26T14:00:00.000Z"], [undefined as unknown as string, "x"],
+  ];
+  for (const [en, v] of casos) assert.equal(previewEntregado(en, v), bot(en, v), `${en} / ${v}`);
+  assert.equal(previewEntregado("2026-10-26T15:00:00.000Z", "2026-10-26T14:00:00.000Z"), false);
+  const botSrc = readFileSync(join(import.meta.dirname, "../../src/kb/bot.ts"), "utf8");
+  assert.match(botSrc, /previewEntregado\(renderEn, leerClaveDb\(K_PREVIEW \+ k\)\)/, "bot.ts usa la función exportada");
+});
+
+// I2: la carrera. procesar subió el original; el bot entrega su preview mientras la corrección
+// re-renderiza y sube. La corrección fija `en` después y confirma su semana de inmediato (antes de
+// la pieza siguiente), así que el preview de la versión corregida sale, y una sola vez.
+await checkAsync("I2: el bot entrega el preview del original durante la corrección → la corregida igual tiene su preview (uno), y la semana se confirma enseguida", () =>
+  conMundoC([piezaPlan("lun-reel-p", "14:00"), piezaPlan("lun-reel-q", "15:00")],
+    { "lun-reel-p": { revisor: AVISO_PORTADA }, "lun-reel-q": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      const base = deps();
+      const eventos: string[] = [];
+      const entregas = new Map<string, string>();
+      const enviado = (k: string, en: string): boolean => previewEntregado(en, entregas.get(k));
+      const avanza = (min: number): void => void (m.reloj.t += min * 60_000);
+      const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-p" }, { semana: SEM, id: "lun-reel-q" }], m.out, ENV_C, PUERTA_ON, {
+        ...base,
+        render: async (p, tmp, q) => {
+          eventos.push(`render:${p.pieza.id}`);
+          avanza(2);
+          return base.render(p, tmp, q);
+        },
+        rsync: async (l, rem) => {
+          avanza(1);
+          // El bot entrega el preview del original (render.json aún sin la corrección) a esta hora.
+          if (rem.includes("lun-reel-p")) {
+            for (const x of previewsPendientes(m.semanas, new Date(m.reloj.t), enviado)) entregas.set(claveFila(x.semana, x.pieza.id), new Date(m.reloj.t).toISOString());
+          }
+          avanza(1);
+          await base.rsync(l, rem);
+        },
+        escribirRender: async (s2, id, e) => {
+          eventos.push(`render.json:${id}`);
+          await base.escribirRender(s2, id, e);
+        },
+        confirmar: async (s2) => void eventos.push(`confirmar:${s2}`),
+      });
+      assert.equal(r.aplicadas, 2);
+      assert.deepEqual(eventos, [
+        "render:lun-reel-p", `render.json:lun-reel-p`, `confirmar:${SEM}`,
+        "render:lun-reel-q", `render.json:lun-reel-q`, `confirmar:${SEM}`,
+      ], "cada corrección se confirma antes de la siguiente");
+      const [, , e] = m.reg.render_json[0];
+      const k = claveFila(SEM, "lun-reel-p");
+      assert.ok(entregas.has(k), "el bot entregó el preview del original durante la corrección");
+      assert.ok(e.en > entregas.get(k)!, "en de la corregida posterior a esa entrega");
+      const tras: SemanaLeida[] = [{ ...m.semanas[0], render: { ...m.semanas[0].render, "lun-reel-p": e } }];
+      const ahora = new Date(m.reloj.t);
+      assert.deepEqual(previewsPendientes(tras, ahora, enviado).filter((x) => x.pieza.id === "lun-reel-p").length, 1, "un preview de la corregida");
+      entregas.set(k, ahora.toISOString());
+      assert.equal(previewsPendientes(tras, ahora, enviado).filter((x) => x.pieza.id === "lun-reel-p").length, 0, "y solo uno");
+    }, {}, BOR_UNO),
+);
+
+await checkAsync("I2: tras confirmar, visual.json se relee del disco (la pieza siguiente no usa un caché viejo)", () =>
+  conMundoC([piezaPlan("lun-reel-r", "14:00"), piezaPlan("lun-reel-s", "15:00")], { "lun-reel-r": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    // La revisión de s solo llega al «disco» con el confirmar de la corrección de r.
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-r" }, { semana: SEM, id: "lun-reel-s" }], m.out, ENV_C, PUERTA_ON, deps({
+      confirmar: async () => void (m.visual.get(SEM)!["lun-reel-s"] = { revisor: AVISO_PORTADA }),
+    }));
+    assert.equal(r.aplicadas, 2);
+  }, {}, BOR_UNO),
+);
+
+// I3: el re-render nunca genera imágenes.
+await checkAsync("I3: un fondo ai que se conserva y no está en caché → fallida «fondo ai sin caché», sin re-render ni subida", () =>
+  conMundoC([piezaPlan("lun-reel-cache", "14:00")], { "lun-reel-cache": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    const pedidos: string[] = [];
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-cache" }], m.out, ENV_C, PUERTA_ON, deps({
+      enCache: (x) => {
+        pedidos.push(x);
+        return false;
+      },
+    }));
+    assert.deepEqual(r, { aplicadas: 0, fallidas: 1, omitidas: 0 });
+    assert.deepEqual(pedidos, [applyBrandStyle("escritorio")], "solo la Cta conservada, con el estilo de marca");
+    assert.equal(m.reg.render.length + m.reg.rsync.length + m.reg.render_json.length, 0);
+    const c = m.visual.get(SEM)!["lun-reel-cache"].correccion;
+    assert.equal(c?.estado, "fallida");
+    assert.ok(c?.motivo?.startsWith(SIN_CACHE), c?.motivo);
+    assert.equal(SIN_CACHE, "fondo ai sin caché: no se regenera");
+    assert.match(c?.motivo ?? "", /slide 2/);
+    assert.equal(m.reg.avisos.length, 1);
+    assert.equal(leer(join(m.out, SEM, "lun-reel-cache", "cover.jpg")), "viejo");
+    assert.deepEqual(restos(m.out, "lun-reel-cache"), []);
+  }),
+);
+
+check("I3: fondosAiConservados quita los del tope y los corregidos; sin fondos ai conservados no pide nada", () => {
+  const b = bor([{ template: "Hook", background: { ai: "a" } }, { template: "Step" }, { template: "Cta", background: { ai: "c" } }]);
+  assert.deepEqual(fondosAiConservados(b, [0], "reel").map((f) => f.prompt), [applyBrandStyle("c")]);
+  assert.deepEqual(fondosAiConservados(b, [0, 2], "carrusel"), []);
+  assert.equal(b.slides[0].background !== undefined, true, "no muta el borrador");
+});
+
+await checkAsync("I3: la comprobación por defecto usa la misma clave que generateBackground (CARRUSEL_AI_CACHE_DIR)", async () => {
+  const cache = mkdtempSync(join(tmpdir(), "corr-cache-"));
+  const prevDir = process.env.CARRUSEL_AI_CACHE_DIR;
+  const prevSolo = process.env.CARRUSEL_AI_SOLO_CACHE;
+  process.env.CARRUSEL_AI_CACHE_DIR = cache;
+  process.env.CARRUSEL_AI_SOLO_CACHE = "1";
+  try {
+    const prompt = applyBrandStyle("escritorio");
+    assert.equal(fondoEnCache(prompt), false);
+    await assert.rejects(generateBackground(prompt), /fuera de caché/);
+    writeFileSync(rutaCacheFondo(prompt), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    assert.equal(fondoEnCache(prompt), true);
+    assert.match(await generateBackground(prompt), /^data:image\/png;base64,/, "generateBackground lee ese mismo archivo");
+    // Y corregirFondos sin `enCache` inyectado usa esa comprobación: con el archivo, aplica.
+    await conMundoC([piezaPlan("lun-reel-real", "14:00")], { "lun-reel-real": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-real" }], m.out, ENV_C, PUERTA_ON, deps({ enCache: undefined }));
+      assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
+    });
+    rmSync(rutaCacheFondo(prompt));
+    await conMundoC([piezaPlan("lun-reel-real", "14:00")], { "lun-reel-real": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-real" }], m.out, ENV_C, PUERTA_ON, deps({ enCache: undefined }));
+      assert.deepEqual(r, { aplicadas: 0, fallidas: 1, omitidas: 0 });
+      assert.equal(m.reg.render.length, 0);
+    });
+  } finally {
+    if (prevDir === undefined) delete process.env.CARRUSEL_AI_CACHE_DIR;
+    else process.env.CARRUSEL_AI_CACHE_DIR = prevDir;
+    if (prevSolo === undefined) delete process.env.CARRUSEL_AI_SOLO_CACHE;
+    else process.env.CARRUSEL_AI_SOLO_CACHE = prevSolo;
+    rmSync(cache, { recursive: true, force: true });
+  }
+});
+
+// Minor: en los caminos de fallo, el original no se re-sube si la hora ya pasó.
+await checkAsync("Minor: la subida falla y la hora ya pasó → no re-sube el original, solo lo avisa", () =>
+  conMundoC([piezaPlan("lun-reel-tarde", "14:00")], { "lun-reel-tarde": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    let n = 0;
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-tarde" }], m.out, ENV_C, PUERTA_ON, deps({
+      rsync: async () => {
+        n++;
+        m.reloj.t = new Date("2026-10-26T17:01:00Z").getTime(); // 14:01 local: la hora pasó durante la subida
+        throw new Error("rsync terminó con código 30");
+      },
+    }));
+    assert.deepEqual(r, { aplicadas: 0, fallidas: 1, omitidas: 0 });
+    assert.equal(n, 1, "no hay segunda subida");
+    assert.equal(leer(join(m.out, SEM, "lun-reel-tarde", "cover.jpg")), "viejo", "el Mac vuelve al original");
+    assert.equal(m.reg.avisos.length, 1);
+    assert.match(m.reg.avisos[0], /no re-subí el original porque su hora ya pasó/);
+  }),
+);

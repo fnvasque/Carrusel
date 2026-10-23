@@ -137,10 +137,20 @@ hook de video Kling (pedido en el borrador o ya aplicado). Solo actúa si faltan
 para la hora de la pieza; si algo falla, queda el render original y avisa por Telegram. El registro
 queda en `visual.json → <id>.correccion` (aplicada, fallida u omitida, con las slides) y el conteo
 en `bucle.json → visual.correcciones` (por semana y total). Para encenderla basta un `git pull` en
-`Carrusel-render`; el bot no cambia. El día que la enciendas, ajusta el `desde` de la regla
-`revision-visual-fase3` en `kb-plantilla/_calendario/reglas.json` (y su fila en
-`test/calendario/reglas.ts`) y en el `_calendario/reglas.json` de la base, que es el que mide el
-bucle: hoy lleva 2026-11-09 como fecha provisional.
+`Carrusel-render`; el bot no cambia. La regla `revision-visual-fase3` ya está en
+`kb-plantilla/_calendario/reglas.json` con `"pendiente": true` y un `desde` provisional
+(2026-11-09): mientras siga pendiente, el bucle no la mide ni la cuenta como simultánea de otras.
+El día que la enciendas, en esa entrada quita `"pendiente": true` y pon en `desde` ese día
+(AAAA-MM-DD), en la plantilla, en su fila de `test/calendario/reglas.ts` y en el
+`_calendario/reglas.json` de la base, que es el que mide el bucle.
+
+Orden en cada corrida del Mac: tras tomar el candado y leer las semanas, primero se deshacen los
+restos de una corrección cortada (`<id>.prev-*`: se restaura el original y se re-sube si
+render.json lo referencia y queda margen), luego `procesar`, la revisión y la corrección. Cada
+corrección aplicada sube su render.json en el acto (el bot manda un preview nuevo de la versión
+corregida). Si un fondo ai que el re-render conserva no está en `.cache/ai/` (o en
+`CARRUSEL_AI_CACHE_DIR`), la corrección queda `fallida` («fondo ai sin caché: no se regenera»):
+el re-render nunca llama a gpt-image-1.
 
 **Probar sin publicar.** Pon `CALENDARIO_MODO=aviso` y aplica con `docker compose up -d`: el bot hace todo
 (previews, programación, avisos) menos los POST a Meta. Cuando se vea bien, cambia a `auto`.

@@ -2,7 +2,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { calendarioDir, estadoEfectivo, listarSemanas, ocultarToken, semanaDir, urlPublica, type Pieza, type SemanaLeida } from "./plan.ts";
-import { parseBorrador, type Borrador } from "./draft.ts";
+import { borradorASpec, parseBorrador, type Borrador } from "./draft.ts";
+import { fondoEnCache } from "../ai/openaiImage.ts";
+import { applyBrandStyle } from "../render/background.ts";
 import { HECHO, RESPALDO } from "./hook-video.ts";
 import {
   MANIFIESTO, armarMedios, destinoRemoto, fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, tipoDe,
@@ -108,7 +110,24 @@ export interface DepsCorreccion {
   leerVisual?: (semana: string) => Promise<VisualJson>;
   /** Borra una carpeta ya descartada (por defecto `rm -rf`); inyectable para probar un borrado que falla. */
   borrar?: (ruta: string) => Promise<void>;
+  /**
+   * Sube a la base lo anotado de la semana (en el real, `confirmar` del escritor). Tras una
+   * corrección aplicada se llama de inmediato, para que el render.json con el `en` nuevo llegue
+   * al bot cuanto antes (si el bot entrega el preview del original después de ese `en`, ya no
+   * mandaría el de la versión corregida).
+   */
+  confirmar?: (semana: string) => Promise<void>;
+  /**
+   * ¿Está en la caché el fondo ai de este prompt (ya con el estilo de marca)? Por defecto
+   * `fondoEnCache`, con la misma clave que `generateBackground`. El re-render nunca genera imágenes.
+   */
+  enCache?: (prompt: string) => boolean;
 }
+
+/** Lo que usa la recuperación de corridas cortadas. */
+export type DepsRecuperacion = Pick<DepsCorreccion, "rsync" | "avisar" | "log" | "ahora">;
+
+export const SIN_CACHE = "fondo ai sin caché: no se regenera";
 
 const SEMANA_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{3,80}$/;
@@ -128,37 +147,8 @@ function motivoRevisor(imagenes: VeredictoImagen[], slide: number): string {
 
 const mismosArchivos = (a: string[], b: string[]): boolean => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
-/**
- * Corrección automática de fondos (fase 3), después de `revisarRenderizadas` y con el
- * candado del render tomado. Para cada pieza de `piezas` con revisión «revisado» y
- * `slidesACorregir` no vacío: re-render en `<id>.tmp-corr-<pid>` sin esos fondos ai →
- * swap de la carpeta final (la actual pasa a `<id>.prev-<pid>`) → rsync → verificar →
- * `escribirRender(renderizado, en nuevo)` → `visual.correccion = aplicada` → se borra la
- * previa. La hora se mira al empezar, antes de rsync y antes de anotar render.json.
- * Si algo falla queda el original (Mac y servidor), render.json no cambia, `fallida` y
- * un aviso. Una pieza con `correccion` no se vuelve a tocar. Nunca lanza.
- *
- * Al empezar (aunque la puerta esté inactiva) deshace lo que dejó una corrida cortada:
- * una `<id>.prev-*` válida siempre es el original verificado que corresponde a render.json
- * (render.json se confirma después de que esta función borra la previa), así que se
- * restaura como final y, si queda margen, se re-sube para dejar el servidor igual. Por eso,
- * una vez que el render nuevo queda como definitivo, la previa primero se renombra a
- * `<id>.tmp-descartada-<pid>` (que la recuperación no restaura) y solo después se borra.
- *
- * Riesgo conocido, sin resolver en código: `/publicar` (`ordenes.forzar` en el scheduler del
- * bot) puede adelantar la publicación, y el Mac no ve esa orden. `conMargen` solo protege la
- * hora del plan. Una publicación forzada durante la subida de un carrusel podría mezclar
- * slides viejas y nuevas (rsync reemplaza archivo por archivo).
- */
-export async function corregirFondos(
-  semanas: SemanaLeida[],
-  piezas: { semana: string; id: string }[],
-  outRoot: string,
-  env: EnvRender,
-  puerta: PuertaCorreccion,
-  deps: DepsCorreccion,
-): Promise<{ aplicadas: number; fallidas: number; omitidas: number }> {
-  const res = { aplicadas: 0, fallidas: 0, omitidas: 0 };
+/** Log, aviso y hora comunes a la recuperación y a la corrección (todo con el token oculto; nada lanza). */
+function contexto(env: EnvRender, deps: DepsRecuperacion) {
   const oculto = (t: string): string => sinClaves(ocultarToken(t, env.token));
   const log = (t: string): void => {
     try {
@@ -176,33 +166,63 @@ export async function corregirFondos(
       log(`⚠️  No pude enviar el aviso de la corrección de fondos: ${razon(e)}`);
     }
   };
-  try {
-    const ahora = deps.ahora ?? (() => new Date());
-    const conMargen = (t: number): boolean => t - ahora().getTime() >= MARGEN_CORRECCION_MS;
-    const piezaDe = (semana: string, id: string): { s: SemanaLeida; pieza: Pieza } | undefined => {
-      const s = semanas.find((x) => x.semana === semana);
-      const pieza = s?.plan.piezas.find((p) => p.id === id);
-      return s && pieza ? { s, pieza } : undefined;
-    };
-    const horaSegura = (p: Pieza): number | undefined => {
-      try {
-        const t = horaDe(p);
-        return Number.isFinite(t) ? t : undefined;
-      } catch {
-        return undefined;
-      }
-    };
-    /** Sube `final` (el original restaurado) para que el servidor vuelva a coincidir con render.json. */
-    const resubir = async (semana: string, id: string, final: string): Promise<string> => {
-      try {
-        await deps.rsync(final, destinoRemoto(env, semana, id));
-        return "re-subí el original al servidor";
-      } catch (e) {
-        return `no pude re-subir el original (${razon(e)}): el servidor puede tener archivos corregidos mezclados con los originales`;
-      }
-    };
+  const ahora = deps.ahora ?? (() => new Date());
+  const conMargen = (t: number): boolean => t - ahora().getTime() >= MARGEN_CORRECCION_MS;
+  /**
+   * Sube `final` (el original restaurado) para que el servidor vuelva a coincidir con render.json.
+   * Si la hora de la pieza ya pasó no sube nada: el bot pudo estar publicando justo esos archivos.
+   */
+  const resubir = async (semana: string, id: string, final: string, t: number): Promise<string> => {
+    if (t <= ahora().getTime()) {
+      return "no re-subí el original porque su hora ya pasó: el servidor puede tener archivos corregidos mezclados con los originales";
+    }
+    try {
+      await deps.rsync(final, destinoRemoto(env, semana, id));
+      return "re-subí el original al servidor";
+    } catch (e) {
+      return `no pude re-subir el original (${razon(e)}): el servidor puede tener archivos corregidos mezclados con los originales`;
+    }
+  };
+  return { oculto, log, avisar, ahora, conMargen, resubir };
+}
 
-    // 1) Restos de una corrida cortada (el Mac se durmió a mitad del swap o de la subida).
+const piezaDe = (semanas: SemanaLeida[], semana: string, id: string): { s: SemanaLeida; pieza: Pieza } | undefined => {
+  const s = semanas.find((x) => x.semana === semana);
+  const pieza = s?.plan.piezas.find((p) => p.id === id);
+  return s && pieza ? { s, pieza } : undefined;
+};
+
+const horaSegura = (p: Pieza): number | undefined => {
+  try {
+    const t = horaDe(p);
+    return Number.isFinite(t) ? t : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Deshace lo que dejó una corrida de la fase 3 cortada (el Mac se durmió o launchd la mató a
+ * mitad del swap o de la subida). Corre en `render-cli` justo después de tomar el candado y
+ * ANTES de `procesar` y de la revisión: así la revisión nunca mira (ni cobra) una versión
+ * corregida a medias, y una `.prev` vieja nunca pisa un render fresco de `procesar`.
+ *
+ * Una `<id>.prev-*` válida siempre es el original verificado que corresponde a render.json
+ * (render.json se confirma después de que `corregirFondos` aparta la previa), así que se
+ * restaura como final y, si render.json la referencia y queda margen, se re-sube para dejar el
+ * servidor igual. Por eso, una vez que el render nuevo queda como definitivo, la previa
+ * primero se renombra a `<id>.tmp-descartada-<pid>` (que esto no restaura) y solo después se
+ * borra. También limpia los `.tmp-corr-` y `.tmp-descartada-`. Nunca lanza.
+ */
+export async function recuperarCorreccionesCortadas(
+  semanas: SemanaLeida[],
+  outRoot: string,
+  env: EnvRender,
+  deps: DepsRecuperacion,
+): Promise<{ restauradas: number }> {
+  const res = { restauradas: 0 };
+  const { log, avisar, conMargen, resubir } = contexto(env, deps);
+  try {
     for (const s of semanas) {
       if (!SEMANA_RE.test(s.semana)) continue;
       const carpeta = join(outRoot, s.semana);
@@ -224,11 +244,14 @@ export async function corregirFondos(
           }
           await rm(final, { recursive: true, force: true });
           await rename(prev, final);
-          const pz = piezaDe(s.semana, id);
+          res.restauradas++;
+          const pz = piezaDe(semanas, s.semana, id);
           const t = pz ? horaSegura(pz.pieza) : undefined;
           const ef = pz ? estadoEfectivo(pz.pieza, pz.s.render[id], pz.s.estado[id]) : undefined;
+          const rj = pz?.s.render[id];
           let subida = "no la re-subo (su hora pasó o ya no hay margen)";
-          if (t !== undefined && conMargen(t) && ef !== "publicado" && ef !== "saltado") subida = await resubir(s.semana, id, final);
+          if (rj?.estado !== "renderizado" || !rj.medios) subida = "no la re-subo (render.json no la tiene como renderizada: se vuelve a renderizar)";
+          else if (t !== undefined && conMargen(t) && ef !== "publicado" && ef !== "saltado") subida = await resubir(s.semana, id, final, t);
           await avisar(`Corrección de fondos: una corrida anterior quedó a medias en ${id} (${s.semana}); restauré el original en el Mac y ${subida}.`);
         } catch (e) {
           log(`⚠️  Corrección de fondos: no pude recuperar ${f} (${s.semana}): ${razon(e)}`);
@@ -238,7 +261,62 @@ export async function corregirFondos(
         if (TMP_CORR_RE.test(f)) await rm(join(carpeta, f), { recursive: true, force: true }).catch(() => {});
       }
     }
+  } catch (e) {
+    log(`⚠️  Corrección de fondos: error inesperado al recuperar: ${razon(e)}`);
+  }
+  return res;
+}
 
+/**
+ * Prompts (con el estilo de marca, la clave de la caché) de los fondos ai que el re-render
+ * conserva: los del borrador menos los de `quitadas` (tope semanal y corrección). Pasa por
+ * `borradorASpec`, el mismo camino que siguen los motores hasta `resolveBackground`.
+ */
+export function fondosAiConservados(b: Borrador, quitadas: number[], formato: Pieza["formato"]): { slide: number; prompt: string }[] {
+  const copia = structuredClone(b);
+  for (const i of quitadas) if (copia.slides[i]) delete copia.slides[i].background;
+  const spec = borradorASpec(copia, formato === "reel" ? { format: "reel" } : {});
+  const out: { slide: number; prompt: string }[] = [];
+  spec.slides.forEach((s, slide) => {
+    const bg = (s.props as Record<string, unknown>).background as Record<string, unknown> | undefined;
+    if (bg && typeof bg === "object" && typeof bg.ai === "string") {
+      out.push({ slide, prompt: applyBrandStyle(bg.ai, typeof bg.brandStyle === "boolean" ? bg.brandStyle : undefined) });
+    }
+  });
+  return out;
+}
+
+/**
+ * Corrección automática de fondos (fase 3), después de `revisarSinAvisar` y con el
+ * candado del render tomado. Para cada pieza de `piezas` con revisión «revisado» y
+ * `slidesACorregir` no vacío: comprueba que los fondos ai que se conservan estén en caché →
+ * re-render en `<id>.tmp-corr-<pid>` sin esos fondos ai → swap de la carpeta final (la actual
+ * pasa a `<id>.prev-<pid>`) → rsync → verificar → `escribirRender(renderizado, en nuevo)` →
+ * se aparta la previa → `visual.correccion = aplicada` → `confirmar(semana)` de inmediato.
+ * La hora se mira al empezar, antes de rsync y antes de anotar render.json.
+ * Si algo falla queda el original (Mac y servidor), render.json no cambia, `fallida` y
+ * un aviso. Una pieza con `correccion` no se vuelve a tocar. Nunca lanza.
+ *
+ * Los restos de una corrida cortada NO se recuperan aquí: lo hace
+ * `recuperarCorreccionesCortadas` antes de `procesar`. Una pieza que aún tenga una
+ * `<id>.prev-*` (la recuperación no pudo con ella) no se corrige.
+ *
+ * Riesgo conocido, sin resolver en código: `/publicar` (`ordenes.forzar` en el scheduler del
+ * bot) puede adelantar la publicación, y el Mac no ve esa orden. `conMargen` solo protege la
+ * hora del plan. Una publicación forzada durante la subida de un carrusel podría mezclar
+ * slides viejas y nuevas (rsync reemplaza archivo por archivo).
+ */
+export async function corregirFondos(
+  semanas: SemanaLeida[],
+  piezas: { semana: string; id: string }[],
+  outRoot: string,
+  env: EnvRender,
+  puerta: PuertaCorreccion,
+  deps: DepsCorreccion,
+): Promise<{ aplicadas: number; fallidas: number; omitidas: number }> {
+  const res = { aplicadas: 0, fallidas: 0, omitidas: 0 };
+  const { oculto, log, avisar, ahora, conMargen, resubir } = contexto(env, deps);
+  try {
     // 2) Puerta.
     if (!puerta.activa) {
       log(`🖼️  fase 3 inactiva: ${puerta.motivo}`);
@@ -263,6 +341,17 @@ export async function corregirFondos(
       return v[id] ?? {};
     };
 
+    /** Sube ya lo anotado de la semana (render.json y visual.json). Nunca lanza; después visual.json se relee del disco. */
+    const confirmar = async (semana: string): Promise<void> => {
+      if (!deps.confirmar) return;
+      try {
+        await deps.confirmar(semana);
+      } catch (e) {
+        log(`⚠️  Corrección de fondos: no pude subir lo anotado de ${semana}: ${razon(e)} (se reintenta al final de la corrida).`);
+      }
+      visuales.delete(semana);
+    };
+
     const vistos = new Set<string>();
     for (const { semana, id } of piezas) {
       if (!SEMANA_RE.test(semana) || !ID_RE.test(id)) continue;
@@ -271,7 +360,7 @@ export async function corregirFondos(
       vistos.add(k);
       try {
         // 3) Filtros previos, sin efectos.
-        const pz = piezaDe(semana, id);
+        const pz = piezaDe(semanas, semana, id);
         if (!pz) continue;
         const { s, pieza } = pz;
         const ef = estadoEfectivo(pieza, s.render[id], s.estado[id]);
@@ -285,6 +374,15 @@ export async function corregirFondos(
         const final = join(carpeta, id);
         const original = await leerManifiesto(final);
         if (!original) continue;
+        // Una previa que la recuperación no pudo restaurar: no se apila otra encima.
+        try {
+          if ((await readdir(carpeta)).some((f) => PREV_RE.exec(f)?.[1] === id)) {
+            log(`⚠️  ${id} (${semana}): quedó una carpeta .prev- de una corrida anterior; no corrijo sus fondos.`);
+            continue;
+          }
+        } catch {
+          continue;
+        }
         // Hook de video Kling (pagado): reemplazó reel.mp4 en la final y dejó HECHO y RESPALDO,
         // que el manifiesto no lista. Un re-render limpio borraría el clip y la tarea del hook
         // volvería a gastar créditos cerca de la hora: nunca se corrige.
@@ -332,6 +430,21 @@ export async function corregirFondos(
         // (a) Hora al empezar: sin render.
         if (!conMargen(t)) {
           await omitir(SIN_MARGEN);
+          continue;
+        }
+
+        // (a') El re-render nunca genera imágenes: todo fondo ai que se conserva debe estar en caché
+        // (si no, `resolveBackground` llamaría a gpt-image-1, o con solo-caché lo dejaría liso sin avisar).
+        let faltan: number[];
+        try {
+          const enCache = deps.enCache ?? ((x: string) => fondoEnCache(x));
+          faltan = fondosAiConservados(b, [...ya, ...slides], pieza.formato).filter((f) => !enCache(f.prompt)).map((f) => f.slide);
+        } catch (e) {
+          await fallar(`no pude comprobar la caché de fondos ai: ${razon(e)}`);
+          continue;
+        }
+        if (faltan.length) {
+          await fallar(`${SIN_CACHE} (${faltan.map((i) => `slide ${i + 1}`).join(", ")})`);
           continue;
         }
 
@@ -406,7 +519,7 @@ export async function corregirFondos(
             await deps.rsync(final, destinoRemoto(env, semana, id));
           } catch (e) {
             await restaurar();
-            const re = await resubir(semana, id, final);
+            const re = await resubir(semana, id, final, t);
             await fallar(`la subida falló: ${razon(e)}`, ` (${re})`);
             continue;
           }
@@ -423,7 +536,7 @@ export async function corregirFondos(
           }
           if (caidas.length) {
             await restaurar();
-            const re = await resubir(semana, id, final);
+            const re = await resubir(semana, id, final, t);
             await fallar(`el servidor no sirve ${caidas.join(", ")} tras la subida`, ` (${re})`);
             continue;
           }
@@ -437,6 +550,7 @@ export async function corregirFondos(
           if (!conMargen(t)) {
             await descartarPrevia();
             await anotar("aplicada", `subida sin reescribir render.json: ${SIN_MARGEN}`);
+            await confirmar(semana);
             res.aplicadas++;
             log(`🖼️  ${id} (${semana}): corrección subida sin reescribir render.json (${SIN_MARGEN}).`);
             await avisar(`Corrección de fondos de ${id} (${semana}): la subida terminó sin margen antes de la hora. El servidor ya tiene la versión sin el fondo ai de ${slides.map((i) => `slide ${i + 1}`).join(", ")} y es la que se publicará, pero no mando un preview nuevo (render.json sin cambios).`);
@@ -444,15 +558,19 @@ export async function corregirFondos(
           }
 
           try {
-            await deps.escribirRender(semana, id, { estado: "renderizado", medios: armarMedios(pieza.formato, nuevo), en: ahora().toISOString() });
+            // `en` se fija aquí, justo antes de anotar, y se confirma enseguida (abajo): el bot
+            // vuelve a mandar el preview solo si `en` es posterior a la entrega del original.
+            const medios = armarMedios(pieza.formato, nuevo);
+            await deps.escribirRender(semana, id, { estado: "renderizado", medios, en: ahora().toISOString() });
           } catch (e) {
             await restaurar();
-            const re = await resubir(semana, id, final);
+            const re = await resubir(semana, id, final, t);
             await fallar(`no pude anotar render.json: ${razon(e)}`, ` (${re})`);
             continue;
           }
           await descartarPrevia();
           await anotar("aplicada");
+          await confirmar(semana);
           res.aplicadas++;
           log(`🖼️  ✓ ${id} (${semana}): fondo ai quitado en ${slides.map((i) => `slide ${i + 1}`).join(", ")}, re-renderizada y subida.`);
         } catch (e) {
@@ -460,7 +578,7 @@ export async function corregirFondos(
           let extra = "";
           try {
             await restaurar();
-            if (subio) extra = ` (${await resubir(semana, id, final)})`;
+            if (subio) extra = ` (${await resubir(semana, id, final, t)})`;
           } catch (err) {
             extra = ` (no pude restaurar la carpeta original: ${razon(err)}; la próxima corrida lo reintenta)`;
           }

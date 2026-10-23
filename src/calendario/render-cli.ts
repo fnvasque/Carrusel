@@ -7,7 +7,7 @@ import {
   verificarReal,
   type EnvRender,
 } from "./render.ts";
-import { leerPuertaCorreccion } from "./correccion-fondos.ts";
+import { leerPuertaCorreccion, recuperarCorreccionesCortadas } from "./correccion-fondos.ts";
 import { extraerCuadros } from "./cuadros-visuales.ts";
 import { releerSemanas, revisarYCorregir } from "./revision-fondos.ts";
 import { llamarOpenAI, revisarFondos } from "./revisor-visual.ts";
@@ -146,6 +146,17 @@ try {
       console.warn(`⚠️  Semana ${s} ignorada: ${e instanceof Error ? e.message : e}`);
     }
   }
+  // Fase 3: restos de una corrección cortada (SIGTERM, sueño) se deshacen antes de procesar y de
+  // revisar, para que ni un render fresco quede pisado por una .prev vieja ni la revisión mire una
+  // versión corregida a medias. Con --dry-run no se toca nada.
+  if (!dryRun) {
+    await recuperarCorreccionesCortadas(semanas, outRoot, env, {
+      rsync: rsyncReal,
+      avisar,
+      log: (t) => console.log(ocultarToken(t, token)),
+    });
+  }
+
   const pend = pendientes(semanas, new Date());
   if (!pend.length) {
     if (dryRun) console.log("(dry-run) No hay piezas pendientes de render.");
@@ -207,6 +218,8 @@ try {
           escribirRender: escritor.escribirRender,
           escribirVisual: escritor.escribirVisual,
           visualPendiente: escritor.visualPendiente,
+          // Cada corrección aplicada sube su semana de inmediato (el preview nuevo sale cuanto antes).
+          confirmar: escritor.confirmar,
           avisar,
           log,
         },

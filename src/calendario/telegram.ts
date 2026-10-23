@@ -369,6 +369,15 @@ export function modoCalendario(v: string | undefined): "auto" | "aviso" | undefi
  * futura y sin la marca de preview entregado (`enviado(clave)`). `nueva` = aún sin
  * estado (el bot la pasa a `programado`). Un preview que no llegó se reintenta.
  */
+/**
+ * Criterio del bot (`revisarCalendario`): ¿ya se entregó el preview del render hecho en `renderEn`?
+ * `v` es la hora (reloj del servidor) en que el bot entregó el último preview de la pieza. Un
+ * render posterior a esa entrega (`renderEn > v`) vuelve a avisar. Pura.
+ */
+export function previewEntregado(renderEn: string, v: string | undefined): boolean {
+  return Boolean(v) && !(typeof renderEn === "string" && renderEn > v!);
+}
+
 export function previewsPendientes(
   semanas: SemanaLeida[],
   ahora: Date,
