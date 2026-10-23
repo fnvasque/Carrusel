@@ -1816,11 +1816,13 @@ const PAT = ["en-juego", "error-comun", "dato-contrario", "antes-despues"];
 function candidatos(n: number, patrones = PAT): any[] {
   return Array.from({ length: n }, (_, i) => ({ patron: patrones[i % patrones.length], title: `Candidato número ${i + 1} del hook`, subtitle: `Subtítulo ${i + 1}` }));
 }
+/** Respuesta del juez tal cual (JSON), coherente con elegido y nota. */
+const respJuez = (elegido: number, nota: number) => JSON.stringify({ elegido, nota, porCandidato: { "1": { pulgar: "no", importa: "sí", teLlevas: "algo" } } });
 function piezaJuez(over: Record<string, unknown> = {}, hookOver: Record<string, unknown> = {}): any {
   const cands = candidatos(8);
   return pieza({
     dia: "2026-10-27",
-    hook: { categoria: "en-juego", texto: cands[2].title, score: 9, candidatos: cands, juez: { elegido: 3, nota: 9, respuestas: "{}" }, ...hookOver },
+    hook: { categoria: "en-juego", texto: cands[2].title, score: 9, candidatos: cands, juez: { elegido: 3, nota: 9, respuestas: respJuez(3, 9) }, ...hookOver },
     ...over,
   });
 }
@@ -1859,7 +1861,7 @@ check("hook-juez: patrón fuera de PATRONES_HOOK → error con la lista", () => 
 });
 
 check("hook-juez: hook.score debe ser la nota del juez", () => {
-  const p = piezaJuez({}, { score: 8, juez: { elegido: 3, nota: 9, respuestas: "{}" } });
+  const p = piezaJuez({}, { score: 8, juez: { elegido: 3, nota: 9, respuestas: respJuez(3, 9) } });
   assertHas(validarPieza(p, config), /hook\.score debe ser la nota del juez/);
 });
 
@@ -1925,6 +1927,7 @@ check("hook-juez: elegido es 1-based (0 → error; N → ok; N+1 → error)", ()
   p.hook.juez.elegido = 0;
   assertHas(validarPieza(p, config), /elegido/);
   p.hook.juez.elegido = n;
+  p.hook.juez.respuestas = respJuez(n, 9);
   p.hook.texto = p.hook.candidatos[n - 1].title;
   assertNone(soloHook(validarPieza(p, config)));
   p.hook.juez.elegido = n + 1;
@@ -2173,4 +2176,47 @@ check("score: piezas de calidad-contenido ≥ 75", () => {
       assertNone(erroresDeRetencion(pieza, { formato: "reel", parametros: { ritmoReel: "gancho" } }, CONFIG_PLANTILLA));
     }
   }
+});
+
+// --- revisión final del paquete calidad-contenido ---
+
+check("final-1: semana del paquete sin piezas acepta experimento null; con piezas lo exige", () => {
+  for (const semana of SEMANAS_PAQUETE) {
+    assertNone(sinExp(validarPlan(plan({ semana, experimento: null, piezas: [] }), config)));
+    assertHas(validarPlan(planPaquete(semana, null), config), /paquete calidad-contenido/);
+  }
+});
+
+check("final-2: ritmo en el paquete — sin parametros.ritmoReel el pace se compara con la puerta", () => {
+  const p = pieza({ dia: "2026-10-27", parametros: undefined });
+  delete p.parametros;
+  const gancho = { ...config, puerta: { ...config.puerta, ritmoReel: { valor: "gancho", respaldo: "base" } } };
+  const b = borrador();
+  delete b.pace;
+  assertHas(erroresDeRetencion(b, p, gancho), /ritmoReel "gancho"/);
+  b.pace = "gancho";
+  assert.ok(!has(erroresDeRetencion(b, p, gancho), /ritmoReel/));
+  // fuera del paquete sin parametros.ritmoReel no se compara
+  const fuera = pieza({ dia: "2026-10-21" });
+  delete fuera.parametros;
+  const b2 = borrador();
+  delete b2.pace;
+  assert.ok(!has(erroresDeRetencion(b2, fuera, gancho), /ritmoReel/));
+});
+
+check("final-3: hook.juez.respuestas debe ser el JSON del juez, coherente con elegido y nota", () => {
+  const con = (respuestas: string) => piezaJuez({}, { juez: { elegido: 3, nota: 9, respuestas } });
+  assertHas(erroresDeHookJuez(con("ok")), /respuestas.*JSON/);
+  assertHas(erroresDeHookJuez(con("{}")), /respuestas/);
+  assertHas(erroresDeHookJuez(con(respJuez(3, 8))), /respuestas.*nota/);
+  assertHas(erroresDeHookJuez(con(respJuez(4, 9))), /respuestas.*elegido/);
+  assertNone(erroresDeHookJuez(con(respJuez(3, 9))));
+});
+
+check("final-4: un NB de la P8 no puede citar «nada nuevo»", () => {
+  const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
+  assertHas(conNotas("NB: «Nada nuevo, ya sabía todo» → con prisa P8: no bloquea"), /P8.*nada nuevo/i);
+  assertHas(conNotas("NB: «nada   NUEVO» → completo P8: no bloquea"), /P8/);
+  assertNone(conNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea"));
+  assertNone(conNotas("NB: «nada nuevo» → completo P3: explicado"));
 });

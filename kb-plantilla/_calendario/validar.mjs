@@ -704,6 +704,12 @@ export function erroresDeRetencion(borrador, pieza, config) {
     const pace = ritmoDelBorrador(borrador);
     if (typeof params.ritmoReel === "string" && PACES.includes(params.ritmoReel) && params.ritmoReel !== pace) {
       errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con parametros.ritmoReel ${q(params.ritmoReel)} (pon el mismo en los dos)`);
+    } else if (params.ritmoReel === undefined && enPaquete(pieza.dia)) {
+      // En el paquete parametros.ritmoReel no se fija: el pace se compara con la puerta.
+      const vigente = puerta(config, "ritmoReel");
+      if (typeof vigente === "string" && PACES.includes(vigente) && vigente !== pace) {
+        errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con puerta.ritmoReel ${q(vigente)} (en el ${MOTIVO_PAQUETE} el ritmo es el de la puerta)`);
+      }
     }
     const tope = typeof params.duracionMaxSegundos === "number" && params.duracionMaxSegundos > 0 ? params.duracionMaxSegundos : puerta(config, "duracionMaxSegundos");
     if (!Array.isArray(borrador.slides) || !borrador.slides.every((s) => esObj(s) && esObj(s.props))) return errs;
@@ -731,6 +737,12 @@ function erroresDeNotas(notas) {
   const total = (notas.match(/\bNB\b/g) ?? []).length;
   const bien = notas.match(NB_RE) ?? [];
   if (bien.length !== total) return [`lectorFrio.notas: hay ${total - bien.length} NB mal escrito(s); ${formato}`];
+  for (const nb of bien) {
+    const m = /^NB: «([^«»\n]+)» → (.*)$/s.exec(nb);
+    if (m && /^(?:con prisa|completo) p8\b/.test(normalizar(m[2]).trim()) && /nada\s+nuevo/.test(normalizar(m[1]))) {
+      return [`lectorFrio.notas: un NB de la P8 no puede citar «nada nuevo» (en la P8 eso bloquea, no es NB); si el lector nombra algo que la pieza no enseña, cítalo`];
+    }
+  }
   const fueraDeNB = notas.replace(NB_RE, "");
   if (/no bloque/i.test(normalizar(fueraDeNB))) return [`lectorFrio.notas declara algo no bloqueante sin el formato; ${formato}`];
   return [];
@@ -792,6 +804,15 @@ export function erroresDeHookJuez(p, borrador) {
     if (typeof j.nota !== "number" || !Number.isFinite(j.nota) || j.nota < 0 || j.nota > 10) errs.push(`hook.juez.nota ${q(j.nota)} inválida (0 a 10)`);
     else if (h.score !== j.nota) errs.push(`hook.score debe ser la nota del juez (score ${q(h.score)}, nota ${q(j.nota)})`);
     if (!esTexto(j.respuestas)) errs.push("hook.juez.respuestas falta: la respuesta JSON del juez, tal cual");
+    else {
+      let r;
+      try { r = JSON.parse(j.respuestas); } catch { r = undefined; }
+      if (!esObj(r)) errs.push("hook.juez.respuestas debe ser el JSON del juez pegado tal cual (con elegido, nota y porCandidato), no un resumen");
+      else {
+        if (r.elegido !== j.elegido) errs.push(`hook.juez.respuestas: el elegido del juez (${q(r.elegido)}) no coincide con hook.juez.elegido (${q(j.elegido)})`);
+        if (r.nota !== j.nota) errs.push(`hook.juez.respuestas: la nota del juez (${q(r.nota)}) no coincide con hook.juez.nota (${q(j.nota)})`);
+      }
+    }
   }
   const el = candidatoElegido(h);
   if (el && esTexto(el.title) && h.texto !== el.title) errs.push(`hook.texto ${q(h.texto)} debe ser el título del candidato elegido (${q(el.title)})`);
@@ -1532,7 +1553,9 @@ export function validarPlan(plan, config) {
       if (h < sep) errs.push(`${conHora[i].id}: está a ${h} h de ${conHora[i - 1].id} (mínimo ${sep} h, config.separacionMinHoras)`);
     }
     if (semanaOk && SEMANAS_PAQUETE.includes(semana)) {
-      if (!(esObj(exp) && exp.variable === null && exp.motivo === MOTIVO_PAQUETE)) {
+      if (plan.piezas.length === 0 && (exp === null || exp === undefined)) {
+        // sin piezas no hay nada que medir: experimento null, como fuera del paquete
+      } else if (!(esObj(exp) && exp.variable === null && exp.motivo === MOTIVO_PAQUETE)) {
         errs.push(`plan: la semana ${semana} es del ${MOTIVO_PAQUETE} y no lleva experimento: usa experimento { "variable": null, "motivo": "${MOTIVO_PAQUETE}" }`);
       }
     } else if (exp === null || exp === undefined) {

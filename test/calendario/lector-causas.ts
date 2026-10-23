@@ -95,6 +95,6 @@ check("lector-causas: «nada nuevo» en la P8 es la causa nada-nuevo (también e
   assert.ok(causasDeFallo("v1: el lector completo respondió nada nuevo en P8").includes("nada-nuevo"));
   assert.ok(causasDeFallo("el con prisa dijo que ya sabía lo que enseña").includes("nada-nuevo"));
   assert.equal(causaDeDuda(8, "Ya lo conocía, es lo básico"), "nada-nuevo");
-  const hs = hallazgosDeNotas("NB: «Nada nuevo, ya sabía todo» → con prisa P8: no bloquea", 1);
+  const hs = hallazgosDeNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea", 1);
   assert.deepEqual(hs.map((h) => [h.tipo, h.causa, h.lector]), [["duda", "nada-nuevo", "con prisa"]]);
 });
