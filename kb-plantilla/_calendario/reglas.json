@@ -108,14 +108,14 @@
     },
     {
       "id": "revision-visual-fase1",
-      "desde": "2026-10-24",
+      "desde": "2026-10-23",
       "formato": null,
       "descripcion": "Revisión visual exacta en el render del Mac (tilde, puntuación, transición, número solo, zona): bloquea y avisa una vez",
       "fuente": "PR de la fase 1 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
     },
     {
       "id": "revision-visual-fase2",
-      "desde": "2026-10-24",
+      "desde": "2026-10-23",
       "formato": null,
       "descripcion": "Revisor visual con IA en modo aviso (fondo que compite o ajeno), con botones Tenía razón/No y precisión en el bucle",
       "fuente": "PR de la fase 2 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
