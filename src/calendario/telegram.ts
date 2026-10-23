@@ -278,6 +278,41 @@ export function leerCallbackSaltar(data: string, semanas: SemanaLeida[]): { sema
   return s.plan.piezas.some((p) => p.id === ref) ? { semana, id: ref } : undefined;
 }
 
+const PREFIJO_VISUAL = "cal-visual";
+
+/** `callback_data` de los botones de la revisión visual: `cal-visual:<semana>:<id|~huella>:<n>:si|no`. */
+export function callbackVisual(semana: string, id: string, n: number, resp: "si" | "no"): string {
+  const cola = `:${n}:${resp}`;
+  const largo = `${PREFIJO_VISUAL}:${semana}:${id}${cola}`;
+  return Buffer.byteLength(largo) <= CALLBACK_MAX ? largo : `${PREFIJO_VISUAL}:${semana}:~${huella(id)}${cola}`;
+}
+
+/** Lee un `callback_data` de la revisión visual y lo resuelve contra las semanas cargadas (como Saltar). */
+export function leerCallbackVisual(
+  data: string,
+  semanas: SemanaLeida[],
+): { semana: string; id: string; n: number; respuesta: "si" | "no" } | undefined {
+  const [pref, semana, ref, ns, resp, ...resto] = data.split(":");
+  if (pref !== PREFIJO_VISUAL || resto.length || !semana || !ref || !SEMANA_RE.test(semana)) return undefined;
+  if (resp !== "si" && resp !== "no") return undefined;
+  if (!/^[0-9]{1,2}$/.test(ns ?? "")) return undefined;
+  const n = Number(ns);
+  if (n < 1 || n > 99) return undefined;
+  const s = semanas.find((x) => x.semana === semana);
+  if (!s) return undefined;
+  if (ref.startsWith("~")) {
+    if (!/^~[0-9a-f]{12}$/.test(ref)) return undefined;
+    const ids = s.plan.piezas.filter((p) => huella(p.id) === ref.slice(1));
+    return ids.length === 1 ? { semana, id: ids[0].id, n, respuesta: resp } : undefined;
+  }
+  return s.plan.piezas.some((p) => p.id === ref) ? { semana, id: ref, n, respuesta: resp } : undefined;
+}
+
+/** Caption del aviso de revisión visual (foto con botones). `tipo`: qué le pasa al fondo. */
+export function captionVisual(id: string, _semana: string, que: string, frase: string, tipo: string): string {
+  return truncar(`🖼️ Revisión visual (aviso, no bloquea): ${id} · ${que}\n${frase}\n(${tipo})\n¿Tenía razón?`, TELEGRAM_CAPTION_MAX);
+}
+
 /** Ventana del aviso post-publicación: desde 2 min después del publish hasta 1 h. */
 const POST_DESDE_MS = 2 * 60_000;
 const POST_HASTA_MS = 60 * 60_000;

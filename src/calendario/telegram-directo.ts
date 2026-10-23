@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { ocultarToken } from "./plan.ts";
 
 /**
@@ -9,7 +10,7 @@ import { ocultarToken } from "./plan.ts";
 const LIMITE = 4000; // Telegram corta en 4096 caracteres.
 
 /** Quita del texto el token del bot y el de medios (en claro o codificados). */
-function limpiar(s: string, env: NodeJS.ProcessEnv): string {
+export function limpiar(s: string, env: NodeJS.ProcessEnv): string {
   let out = s;
   for (const t of [env.TELEGRAM_BOT_TOKEN, env.MEDIA_PUBLIC_TOKEN]) if (t) out = ocultarToken(out, t);
   return out;
@@ -45,6 +46,57 @@ export async function avisarTelegram(
       else console.warn(`⚠️  Telegram respondió ${res.status} al avisar al chat ${chat_id}.`);
     } catch (e) {
       console.warn(`⚠️  No pude avisar por Telegram: ${limpiar(e instanceof Error ? e.message : String(e), env)}`);
+    }
+  }
+  return alguno;
+}
+
+/**
+ * `sendPhoto` multipart a cada chat permitido, con botones inline. true si llegó a alguno.
+ * Nunca lanza y nunca deja un token en logs.
+ */
+export async function enviarFotoTelegram(
+  ruta: string,
+  caption: string,
+  botones: { texto: string; data: string }[][],
+  opts: { env?: NodeJS.ProcessEnv; fetch?: typeof fetch } = {},
+): Promise<boolean> {
+  const env = opts.env ?? process.env;
+  const token = env.TELEGRAM_BOT_TOKEN?.trim();
+  const chats = (env.TELEGRAM_ALLOWED_CHAT_IDS ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n !== 0);
+  if (!token || !chats.length) return false;
+  const hacer = opts.fetch ?? fetch;
+  let bytes: Buffer;
+  try {
+    bytes = await readFile(ruta);
+  } catch (e) {
+    console.warn(`⚠️  No pude leer la foto para Telegram: ${limpiar(e instanceof Error ? e.message : String(e), env)}`);
+    return false;
+  }
+  const markup = JSON.stringify({
+    inline_keyboard: botones.map((fila) => fila.map((b) => ({ text: b.texto, callback_data: b.data }))),
+  });
+  const nombre = ruta.split("/").pop() || "foto.jpg";
+  let alguno = false;
+  for (const chat_id of chats) {
+    try {
+      const form = new FormData();
+      form.set("chat_id", String(chat_id));
+      form.set("caption", limpiar(caption, env).slice(0, 1024));
+      form.set("reply_markup", markup);
+      form.set("photo", new Blob([new Uint8Array(bytes)]), nombre);
+      const res = await hacer(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: "POST",
+        body: form,
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (res.ok) alguno = true;
+      else console.warn(`⚠️  Telegram respondió ${res.status} al mandar la foto al chat ${chat_id}.`);
+    } catch (e) {
+      console.warn(`⚠️  No pude mandar la foto por Telegram: ${limpiar(e instanceof Error ? e.message : String(e), env)}`);
     }
   }
   return alguno;
