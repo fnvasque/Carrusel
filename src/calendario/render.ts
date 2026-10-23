@@ -288,6 +288,19 @@ export async function procesar(
         await writeFile(join(tmp, MANIFIESTO), JSON.stringify(manifiesto), "utf8");
         await rename(tmp, final);
         await olvidarAvisosVisuales(outRoot, p.semana, id).catch((e) => log(`⚠️  No pude limpiar el registro de avisos visuales: ${oculto(razon(e))}`));
+        // Render nuevo: el veredicto del revisor (y sus intentos) era del render anterior; se
+        // borra para que la revisión de fondos mire este. fase1 se conserva.
+        if (deps.escribirVisual) {
+          try {
+            const previa: VisualPieza = (await leerVisual(p.semana))[id] ?? {};
+            if (previa.revisor !== undefined || previa.intentos !== undefined) {
+              const { revisor: _r, intentos: _i, ...resto } = previa;
+              await deps.escribirVisual(p.semana, id, resto);
+            }
+          } catch (err) {
+            log(`⚠️  No pude limpiar el revisor de ${id} en visual.json: ${oculto(razon(err))}`);
+          }
+        }
       } catch (e) {
         await rm(tmp, { recursive: true, force: true });
         // Revisión visual (antes que el error de entorno): no se sube, sigue planificada y

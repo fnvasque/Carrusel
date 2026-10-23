@@ -962,6 +962,32 @@ await checkAsync("procesar: ErrorVisual anota los motivos nuevos en visual.json 
   ),
 );
 
+await checkAsync("procesar: un render nuevo borra revisor e intentos de visual.json (conserva fase1); uno ya renderizado no", () =>
+  conEnvGit(() =>
+    conOut(async (out) => {
+      const kb = mkdtempSync(join(tmpdir(), "cal-kb-visual-rerender-"));
+      try {
+        process.env.KB_DIR = kb;
+        mkdirSync(semanaDir(SEMANA), { recursive: true });
+        const fase1 = [{ tipo: "zona", motivo: "previo", en: "0" }];
+        const revisor = { en: "0", modelo: "m", estado: "revisado", imagenes: [], usd: 0.01 };
+        writeFileSync(join(semanaDir(SEMANA), "visual.json"), JSON.stringify({ "lun-nuevo": { revisor, intentos: 2, fase1 }, "lun-sin": { fase1 } }));
+        const escritos: [string, string, unknown][] = [];
+        const mk = () => falsos({ escribirVisual: async (s, id, e) => void escritos.push([s, id, e]) });
+        const r = await procesar([pend("lun-nuevo"), pend("lun-sin")], out, ENV, mk().deps);
+        assert.equal(r.ok, 2);
+        assert.deepEqual(escritos, [[SEMANA, "lun-nuevo", { fase1 }]], "solo la que tenía revisor; sin revisor ni intentos");
+        // Segunda corrida: ya renderizada (hay manifiesto), no se vuelve a borrar nada.
+        escritos.length = 0;
+        await procesar([pend("lun-nuevo")], out, ENV, mk().deps);
+        assert.deepEqual(escritos, []);
+      } finally {
+        rmSync(kb, { recursive: true, force: true });
+      }
+    }),
+  ),
+);
+
 await checkAsync("procesar: fase1 se anota aunque Telegram no entregue el aviso; sin duplicar; un motivo nuevo se agrega", () =>
   conEnvGit(() =>
     conOut(async (out) => {
