@@ -262,3 +262,33 @@ limpia  2026-10-19/vie-pm-reel-kling-vs-seedance (reel) 37.5 s
 limpia  2026-10-19/sab-pm-reel-tu-idea-en-10-segundos (reel) 35.9 s
 Corpus: 26 pieza(s): 26 limpia(s), 0 con violación visual, 0 otra(s).
 exit=0
+
+## Corrida 3 (motor en 64870a3: arreglos de la revisión final; solo líneas de resultado)
+limpia  2026-10-05/mar-carrusel-3-ias-para-estudiar (carrusel) 1.3 s
+limpia  2026-10-05/mie-reel-la-ia-hace-fila-por-ti (reel) 76.8 s
+limpia  2026-10-05/jue-reel-prompt-producto-digital (reel) 49.7 s
+limpia  2026-10-05/vie-carrusel-mito-prompt-perfecto (carrusel) 1.0 s
+limpia  2026-10-05/sab-reel-gastos-del-mes-con-chatgpt (reel) 61.7 s
+limpia  2026-10-05/dom-reel-hora-para-preocuparte (reel) 51.6 s
+limpia  2026-10-12/lun-reel-pendientes-en-4-cajas (reel) 78.6 s
+limpia  2026-10-12/mar-carrusel-6-preguntas-mensaje (carrusel) 1.2 s
+limpia  2026-10-12/mie-reel-habitos-no-son-21-dias (reel) 71.4 s
+limpia  2026-10-12/jue-reel-mostrar-no-decir (reel) 21.2 s
+limpia  2026-10-12/jue-pm-reel-modo-estudio (reel) 19.2 s
+limpia  2026-10-12/vie-carrusel-4-mitos-estafas-con-ia (carrusel) 1.1 s
+limpia  2026-10-12/vie-pm-reel-chatgpt-te-avisa-tus-pagos (reel) 20.4 s
+limpia  2026-10-12/sab-reel-narra-sin-tu-voz (reel) 21.1 s
+limpia  2026-10-12/sab-pm-reel-apuntes-en-podcast (reel) 21.2 s
+limpia  2026-10-12/dom-reel-palabra-clave-contra-estafas (reel) 24.6 s
+limpia  2026-10-12/dom-pm-reel-video-ia-con-1-frase (reel) 25.2 s
+limpia  2026-10-19/lun-reel-pide-el-otro-punto-de-vista (reel) 26.8 s
+limpia  2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia (carrusel) 1.4 s
+limpia  2026-10-19/mie-reel-tu-correo-ordenado-gratis (reel) 24.4 s
+limpia  2026-10-19/jue-reel-cuando-la-ia-te-hace-fallar (reel) 24.7 s
+limpia  2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas (carrusel) 1.2 s
+limpia  2026-10-19/sab-reel-chatgpt-trabaja-mientras-duermes (reel) 23.5 s
+limpia  2026-10-19/jue-pm-reel-tu-producto-en-anuncio (reel) 43.8 s
+limpia  2026-10-19/vie-pm-reel-kling-vs-seedance (reel) 48.8 s
+limpia  2026-10-19/sab-pm-reel-tu-idea-en-10-segundos (reel) 49.0 s
+Corpus: 26 pieza(s): 26 limpia(s), 0 con violación visual, 0 otra(s).
+exit=0
