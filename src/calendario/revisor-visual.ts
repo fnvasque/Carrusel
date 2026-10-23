@@ -107,11 +107,15 @@ let cliente: OpenAI | null = null;
 export const llamarOpenAI: LlamarModelo = async ({ modelo, mensajes }) => {
   if (!process.env.OPENAI_API_KEY) throw new Error("falta OPENAI_API_KEY");
   cliente ??= new OpenAI();
-  const res = await cliente.chat.completions.create({
-    model: modelo,
-    response_format: { type: "json_object" },
-    messages: mensajes as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-  });
+  // Acotado: la revisión corre con el candado del render tomado.
+  const res = await cliente.chat.completions.create(
+    {
+      model: modelo,
+      response_format: { type: "json_object" },
+      messages: mensajes as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    },
+    { timeout: 60_000, maxRetries: 1 },
+  );
   return {
     contenido: res.choices[0]?.message?.content ?? "",
     usage: { prompt_tokens: res.usage?.prompt_tokens ?? 0, completion_tokens: res.usage?.completion_tokens ?? 0 },

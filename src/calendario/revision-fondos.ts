@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { cuadrosARevisar, extraerCuadros, transicionDe } from "./cuadros-visuales.ts";
 import { parseBorrador, type Borrador } from "./draft.ts";
-import type { Pieza, SemanaLeida } from "./plan.ts";
+import { estadoEfectivo, type Pieza, type SemanaLeida } from "./plan.ts";
 import { TEXT_KEYS } from "./qa.ts";
 import { fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto } from "./render.ts";
 import type { LlamarModelo, revisarFondos } from "./revisor-visual.ts";
@@ -31,7 +31,11 @@ export interface DepsRevision {
   leerVisual?: (semana: string) => Promise<VisualJson>;
   /** Para ver si hay `OPENAI_API_KEY` (por defecto `process.env`). */
   env?: NodeJS.ProcessEnv;
+  /** Plazo total de la revisión (ms, por defecto 5 min): corre con el candado del render tomado. */
+  plazoMs?: number;
 }
+
+export const PLAZO_REVISION_MS = 5 * 60_000;
 
 const SEMANA_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{3,80}$/;
@@ -79,6 +83,7 @@ export async function revisarRenderizadas(
       return res;
     }
     const ahora = deps.ahora ?? (() => new Date());
+    const limite = ahora().getTime() + (deps.plazoMs ?? PLAZO_REVISION_MS);
     const leer = deps.leerVisual ?? leerVisual;
 
     // Candidatas en orden de hora (todas las semanas cargadas).
@@ -87,6 +92,9 @@ export async function revisarRenderizadas(
       if (!SEMANA_RE.test(s.semana)) continue;
       for (const pieza of s.plan.piezas) {
         if (!ID_RE.test(pieza.id)) continue;
+        // Publicada o saltada (por el bot): ya no hay nada que avisar.
+        const ef = estadoEfectivo(pieza, s.render[pieza.id], s.estado[pieza.id]);
+        if (ef === "publicado" || ef === "saltado") continue;
         let t: number;
         try {
           t = horaDe(pieza);
@@ -153,7 +161,11 @@ export async function revisarRenderizadas(
       }
     };
 
-    for (const { semana, pieza, t } of cand) {
+    for (const [k, { semana, pieza, t }] of cand.entries()) {
+      if (ahora().getTime() >= limite) {
+        log(`🖼️  Revisión de fondos: se acabó el plazo de la corrida; quedan ${cand.length - k} pieza(s) candidatas para la próxima.`);
+        break;
+      }
       const { id } = pieza;
       const final = join(outRoot, semana, id);
       const destino = join(outRoot, ".revision", semana, id);
@@ -187,6 +199,13 @@ export async function revisarRenderizadas(
           // Un fallo al extraer o al revisar no se anota: la próxima corrida reintenta.
           rutas = await deps.extraer(final, destino, cuadros);
           revision = await deps.revisar(rutas, { id, formato: pieza.formato, textos: textosDe(b) }, { llamar: deps.llamar, ahora });
+          // Un fallo sin costo medido (error del API, red) no se anota: la próxima corrida reintenta.
+          // Ojo: un timeout del cliente cuando el servidor ya procesó la llamada puede cobrarse sin
+          // medirse aquí; los topes por pieza y semana acotan ese gasto no contado.
+          if (revision.estado !== "revisado" && !(revision.usd > 0)) {
+            log(`⚠️  Revisión de fondos: ${id} (${semana}) no se pudo revisar (${sinClaves(revision.motivo ?? "sin motivo")}); se reintenta en la próxima corrida.`);
+            continue;
+          }
           // Imágenes que llegaron al modelo: las de una respuesta (revisada o con costo medido).
           const enviadas = revision.estado === "revisado" || revision.usd > 0 ? rutas.length : 0;
           const usd = Number.isFinite(revision.usd) && revision.usd > 0 ? revision.usd : 0;
@@ -208,6 +227,11 @@ export async function revisarRenderizadas(
           continue;
         }
 
+        // La hora pudo pasar durante la llamada: el veredicto queda, pero ya no se avisa.
+        if (t <= ahora().getTime()) {
+          log(`🖼️  ${id} (${semana}): su hora pasó durante la revisión; no mando avisos.`);
+          continue;
+        }
         for (const v of revision.imagenes) {
           if (!v.compite && !v.ajeno) continue;
           const ruta = rutas.find((r) => r.n === v.n)?.ruta;

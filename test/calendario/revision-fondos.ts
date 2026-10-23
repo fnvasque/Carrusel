@@ -210,18 +210,82 @@ await checkAsync("revisarRenderizadas: el tope semanal vale entre piezas de la m
   ),
 );
 
-await checkAsync("revisarRenderizadas: si revisar devuelve «sin revisar», no se manda foto y la clave no queda en el motivo", () =>
+await checkAsync("revisarRenderizadas: «sin revisar» sin costo (error del API) no se anota y la próxima corrida reintenta", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    let llamadas = 0;
+    const fallo = deps({
+      revisar: async () => {
+        llamadas++;
+        return { en: "x", modelo: "gpt-4o", estado: "sin revisar", motivo: "falló la llamada al modelo: Incorrect API key provided: sk-proj-SECRETA123", imagenes: [], usd: 0 };
+      },
+    });
+    const r = await revisarRenderizadas(m.semanas, m.out, fallo);
+    assert.equal(m.reg.fotos.length, 0);
+    assert.equal(m.visual.get(SEMANA), undefined, "ni revisor ni _presupuesto");
+    assert.ok(!m.reg.logs.join("\n").includes("SECRETA"));
+    assert.deepEqual(r, { revisadas: 0, sinRevisar: 0, avisos: 0, usd: 0 });
+    await revisarRenderizadas(m.semanas, m.out, fallo);
+    assert.equal(llamadas, 2, "la segunda corrida vuelve a llamar");
+  }),
+);
+
+await checkAsync("revisarRenderizadas: «sin revisar» con costo se anota, cuenta el gasto y la clave no queda en el motivo", () =>
   conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
     const r = await revisarRenderizadas(m.semanas, m.out, deps({
-      revisar: async () => ({ en: "x", modelo: "gpt-4o", estado: "sin revisar", motivo: "falló la llamada al modelo: Incorrect API key provided: sk-proj-SECRETA123", imagenes: [], usd: 0 }),
+      revisar: async () => ({ en: "x", modelo: "gpt-4o", estado: "sin revisar", motivo: "respuesta rara sk-proj-SECRETA123", imagenes: [], usd: 0.03 }),
     }));
     assert.equal(m.reg.fotos.length, 0);
     const rev = m.visual.get(SEMANA)!["mar-reel-uno"].revisor!;
     assert.equal(rev.estado, "sin revisar");
     assert.ok(!rev.motivo!.includes("SECRETA"), rev.motivo);
     assert.ok(!m.reg.logs.join("\n").includes("SECRETA"));
-    assert.deepEqual(m.visual.get(SEMANA)!._presupuesto, { imagenes: 0, usd: 0 }, "sin costo no cuenta imágenes");
+    assert.deepEqual(m.visual.get(SEMANA)!._presupuesto, { imagenes: 5, usd: 0.03 });
     assert.equal(r.sinRevisar, 1);
+  }),
+);
+
+await checkAsync("revisarRenderizadas: pasado el plazo de la corrida no toma más piezas y no lanza", () =>
+  conMundo([MANANA("mar-reel-uno"), pieza("mie-reel-dos", "2026-10-28", "14:00")], async (m, deps) => {
+    let reloj = AHORA.getTime();
+    const base = deps();
+    const r = await revisarRenderizadas(m.semanas, m.out, deps({
+      ahora: () => new Date(reloj),
+      plazoMs: 60_000,
+      revisar: async (imagenes, ctx, d) => {
+        reloj += 120_000; // la primera pieza se come el plazo
+        return base.revisar(imagenes, ctx, d);
+      },
+    }));
+    assert.equal(m.reg.revisar.length, 1);
+    assert.equal(r.revisadas, 1);
+    assert.equal(m.visual.get(SEMANA)!["mie-reel-dos"], undefined);
+    assert.ok(m.reg.logs.some((l) => /plazo/.test(l) && /quedan 1/.test(l)), m.reg.logs.join("\n"));
+  }),
+);
+
+await checkAsync("revisarRenderizadas: si la hora pasa durante la revisión, se anota el veredicto pero no se avisa", () =>
+  conMundo([pieza("lun-pronto", "2026-10-26", "12:30")], async (m, deps) => {
+    let reloj = AHORA.getTime();
+    const base = deps();
+    await revisarRenderizadas(m.semanas, m.out, deps({
+      ahora: () => new Date(reloj),
+      revisar: async (imagenes, ctx, d) => {
+        reloj += 60 * 60_000;
+        return base.revisar(imagenes, ctx, d);
+      },
+    }));
+    assert.equal(m.reg.revisar.length, 1);
+    assert.equal(m.visual.get(SEMANA)!["lun-pronto"].revisor?.estado, "revisado");
+    assert.equal(m.reg.fotos.length, 0);
+  }),
+);
+
+await checkAsync("revisarRenderizadas: publicadas y saltadas se omiten", () =>
+  conMundo([MANANA("mar-publicada"), pieza("mie-saltada", "2026-10-28", "14:00"), pieza("jue-normal", "2026-10-29", "14:00")], async (m, deps) => {
+    const s = { ...m.semanas[0], estado: { "mar-publicada": { estado: "publicado" }, "mie-saltada": { estado: "saltado" } } } as SemanaLeida;
+    await revisarRenderizadas([s], m.out, deps());
+    assert.equal(m.reg.revisar.length, 1);
+    assert.deepEqual(Object.keys(m.visual.get(SEMANA)!).sort(), ["_presupuesto", "jue-normal"]);
   }),
 );
 

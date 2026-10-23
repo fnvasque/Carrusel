@@ -8,6 +8,7 @@ import { anotarRespuestaVisual, cupo, sinClaves, leerRespuestasVisuales, leerVis
 check("visual: sinClaves oculta fragmentos con forma de clave de API", () => {
   assert.equal(sinClaves("Incorrect API key provided: sk-proj-AbC_12-x9. Otra: sk-xyz"), "Incorrect API key provided: sk-…. Otra: sk-…");
   assert.equal(sinClaves("sin claves"), "sin claves");
+  assert.equal(sinClaves("risk-free y desk-top"), "risk-free y desk-top");
 });
 
 check("visual: cupo respeta los topes por pieza, por semana y de dinero", () => {

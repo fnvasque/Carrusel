@@ -41,7 +41,7 @@ const numOk = (x: unknown): x is number => typeof x === "number" && Number.isFin
 
 /** Oculta fragmentos con forma de clave de API (`sk-…`) antes de guardar o loguear un texto. */
 export function sinClaves(s: string): string {
-  return s.replace(/sk-[A-Za-z0-9_-]+/g, "sk-…");
+  return s.replace(/\bsk-[A-Za-z0-9_-]+/g, "sk-…");
 }
 
 /** Lee `visual.json` y descarta lo que no tiene la forma esperada; si falta o está corrupto devuelve `{}`. */
