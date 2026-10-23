@@ -7,14 +7,14 @@ import { TEXT_KEYS } from "./qa.ts";
 import { fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto } from "./render.ts";
 import type { LlamarModelo, revisarFondos } from "./revisor-visual.ts";
 import { callbackVisual, captionVisual } from "./telegram.ts";
-import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type PresupuestoSemana, type RevisionPieza, type VisualJson, type VisualPieza } from "./visual.ts";
+import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type PresupuestoSemana, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "./visual.ts";
 
 /**
  * Revisión de fondos con modelo de visión en el Mac, después de `procesar` (solo avisa,
  * nunca bloquea): por cada pieza renderizada cuya hora no pasó y que aún no tiene
  * `revisor` en visual.json, saca los cuadros, pregunta al modelo, anota el veredicto y
- * el gasto de la semana (`_presupuesto`) y manda una foto con botones por cada imagen
- * señalada. Corre cada hora sin supervisión y gasta dinero: respeta los topes y nunca lanza.
+ * el gasto de la semana (`_presupuesto`) y manda una foto con botones por imagen señalada
+ * (una por escena o slide, a lo más 3 por pieza). Corre cada hora sin supervisión y gasta dinero: respeta los topes y nunca lanza.
  */
 
 export interface DepsRevision {
@@ -60,6 +60,26 @@ function textosDe(b: Borrador): string[] {
 
 function sinRevisar(en: string, motivo: string): RevisionPieza {
   return { en, modelo: "", estado: "sin revisar", motivo, imagenes: [], usd: 0 };
+}
+
+/** Escena o slide de un cuadro según su `que` («escena 2 (Step) final» → «escena 2»); la portada es su propio grupo. */
+export function grupoDe(que: string): string {
+  return /^(escena \d+|slide \d+)/.exec(que)?.[1] ?? que;
+}
+
+/** Las imágenes señaladas que se avisan por foto: la primera de cada escena o slide, hasta `avisosPorPieza`. */
+export function avisosDe(imagenes: VeredictoImagen[]): VeredictoImagen[] {
+  const vistos = new Set<string>();
+  const out: VeredictoImagen[] = [];
+  for (const v of imagenes) {
+    if (!v.compite && !v.ajeno) continue;
+    const g = grupoDe(v.que);
+    if (vistos.has(g)) continue;
+    vistos.add(g);
+    out.push(v);
+    if (out.length >= TOPES_REVISOR.avisosPorPieza) break;
+  }
+  return out;
 }
 
 /** Revisa las piezas renderizadas en outRoot (carpeta final con manifiesto) cuya entrada en visual.json no tiene `revisor` y cuya hora no pasó. Respeta topes; nunca lanza. Devuelve un resumen. */
@@ -192,30 +212,49 @@ export async function revisarRenderizadas(
 
         let revision: RevisionPieza;
         let rutas: { n: number; ruta: string; que: string }[] = [];
+        let intentos: number | undefined;
         if (c.imagenes === 0) {
           revision = sinRevisar(en, c.motivo ?? "sin cupo");
         } else {
           const cuadros = cuadrosARevisar(pieza.formato, b, manifiesto.escenas, transicion, Math.min(c.imagenes, TOPES_REVISOR.imagenesPorPieza), quitados);
-          // Un fallo al extraer o al revisar no se anota: la próxima corrida reintenta.
+          // Un fallo al extraer no se anota: la próxima corrida reintenta.
           rutas = await deps.extraer(final, destino, cuadros);
-          revision = await deps.revisar(rutas, { id, formato: pieza.formato, textos: textosDe(b) }, { llamar: deps.llamar, ahora });
-          // Un fallo sin costo medido (error del API, red) no se anota: la próxima corrida reintenta.
-          // Ojo: un timeout del cliente cuando el servidor ya procesó la llamada puede cobrarse sin
-          // medirse aquí; los topes por pieza y semana acotan ese gasto no contado.
-          if (revision.estado !== "revisado" && !(revision.usd > 0)) {
-            log(`⚠️  Revisión de fondos: ${id} (${semana}) no se pudo revisar (${sinClaves(revision.motivo ?? "sin motivo")}); se reintenta en la próxima corrida.`);
-            continue;
+          // El plazo se mira también justo antes de llamar: así se pasa a lo más por una llamada.
+          if (ahora().getTime() >= limite) {
+            log(`🖼️  Revisión de fondos: se acabó el plazo antes de llamar al modelo por ${id}; quedan ${cand.length - k} pieza(s) candidatas para la próxima.`);
+            break;
           }
-          // Imágenes que llegaron al modelo: las de una respuesta (revisada o con costo medido).
-          const enviadas = revision.estado === "revisado" || revision.usd > 0 ? rutas.length : 0;
+          revision = await deps.revisar(rutas, { id, formato: pieza.formato, textos: textosDe(b) }, { llamar: deps.llamar, ahora });
           const usd = Number.isFinite(revision.usd) && revision.usd > 0 ? revision.usd : 0;
-          pres.imagenes += enviadas;
-          pres.usd += usd;
-          res.usd += usd;
+          // Fallo sin veredicto ni respuesta medida: sin costo (imagen ilegible) o con costo
+          // estimado (la llamada lanzó: timeout/red/5xx, pudo cobrarse). Se reintenta en la
+          // próxima corrida hasta `intentosPorPieza`; al último se anota «sin revisar».
+          if (revision.estado !== "revisado" && (revision.usdEstimado === true || usd === 0)) {
+            if (revision.usdEstimado === true && usd > 0) {
+              pres.imagenes += rutas.length;
+              pres.usd += usd;
+              res.usd += usd;
+            }
+            const previos = Number.isInteger(previa.intentos) && (previa.intentos as number) > 0 ? (previa.intentos as number) : 0;
+            intentos = previos + 1;
+            const motivo = sinClaves(revision.motivo ?? "sin motivo");
+            if (intentos < TOPES_REVISOR.intentosPorPieza) {
+              await escribir(semana, id, { ...previa, intentos });
+              if (usd > 0) await escribir(semana, "_presupuesto", { ...pres });
+              log(`⚠️  Revisión de fondos: ${id} (${semana}) no se pudo revisar (${motivo}${usd > 0 ? `, costo estimado US$${usd.toFixed(4)}` : ""}); intento ${intentos} de ${TOPES_REVISOR.intentosPorPieza}, se reintenta en la próxima corrida.`);
+              continue;
+            }
+            revision = { ...revision, motivo: `${motivo} (${intentos} intentos)` };
+          } else {
+            // Respuesta del modelo (revisada o con costo medido): sus imágenes y su costo cuentan.
+            pres.imagenes += rutas.length;
+            pres.usd += usd;
+            res.usd += usd;
+          }
         }
         revision = { ...revision, ...(revision.motivo !== undefined ? { motivo: sinClaves(revision.motivo) } : {}) };
 
-        await escribir(semana, id, { ...previa, revisor: revision });
+        await escribir(semana, id, { ...previa, ...(intentos !== undefined ? { intentos } : {}), revisor: revision });
         await escribir(semana, "_presupuesto", { ...pres });
 
         if (revision.estado === "revisado") {
@@ -232,8 +271,10 @@ export async function revisarRenderizadas(
           log(`🖼️  ${id} (${semana}): su hora pasó durante la revisión; no mando avisos.`);
           continue;
         }
-        for (const v of revision.imagenes) {
-          if (!v.compite && !v.ajeno) continue;
+        const aAvisar = avisosDe(revision.imagenes);
+        const resto = revision.imagenes.filter((v) => v.compite || v.ajeno).length - aAvisar.length;
+        if (resto > 0) log(`🖼️  ${id} (${semana}): ${resto} imagen(es) señalada(s) más quedan solo en visual.json (una foto por escena, ${TOPES_REVISOR.avisosPorPieza} por pieza).`);
+        for (const v of aAvisar) {
           const ruta = rutas.find((r) => r.n === v.n)?.ruta;
           if (!ruta) continue;
           const tipo = v.compite ? "fondo-compite" : "fondo-ajeno";

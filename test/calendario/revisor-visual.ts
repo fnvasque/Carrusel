@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkAsync, check } from "../_check.ts";
-import { PREGUNTAS_REVISOR, PRECIOS_USD_POR_MTOK, costoUsd, revisarFondos, type LlamarModelo } from "../../src/calendario/revisor-visual.ts";
+import { PREGUNTAS_REVISOR, PRECIOS_USD_POR_MTOK, costoEstimadoUsd, costoUsd, revisarFondos, type LlamarModelo } from "../../src/calendario/revisor-visual.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "revisor-"));
 const imgs = [1, 2].map((n) => {
@@ -54,11 +54,17 @@ await checkAsync("revisor: falta una imagen o JSON inválido da sin revisar con 
   }
 });
 
-await checkAsync("revisor: si llamar lanza, sin revisar con usd 0", async () => {
-  const r = await revisarFondos(imgs, ctx, { llamar: async () => { throw new Error("boom"); }, ahora });
+await checkAsync("revisor: si llamar lanza, sin revisar con el costo estimado (usdEstimado)", async () => {
+  const r = await revisarFondos(imgs, ctx, { llamar: async () => { throw new Error("boom"); }, modelo: "gpt-4o", ahora });
   assert.equal(r.estado, "sin revisar");
-  assert.equal(r.usd, 0);
+  assert.equal(r.usd, costoEstimadoUsd("gpt-4o", 2));
+  assert.equal(r.usdEstimado, true);
   assert.match(r.motivo ?? "", /boom/);
+});
+
+check("revisor: costoEstimadoUsd = 800·imágenes + 600 de entrada y 300 de salida", () => {
+  assert.equal(costoEstimadoUsd("gpt-4o", 5), costoUsd("gpt-4o", { prompt_tokens: 4600, completion_tokens: 300 }));
+  assert.equal(costoEstimadoUsd("gpt-4o", 0), costoUsd("gpt-4o", { prompt_tokens: 600, completion_tokens: 300 }));
 });
 
 await checkAsync("revisor: el mensaje lleva las dos preguntas, una image_url por imagen y los textos", async () => {

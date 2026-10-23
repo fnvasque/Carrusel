@@ -1,6 +1,7 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { semanaDir } from "./plan.ts";
+import { localParts } from "./time.ts";
 
 /**
  * Registro visual de la semana (`<semana>/visual.json`, lo escribe el Mac) y las
@@ -18,10 +19,17 @@ export interface RevisionPieza {
   motivo?: string;
   imagenes: VeredictoImagen[];
   usd: number;
+  /**
+   * `true` cuando `usd` no es un costo medido sino una estimación: la llamada al modelo lanzó
+   * (timeout, red, error del API) y pudo cobrarse sin devolver `usage`. Ver `costoEstimadoUsd`.
+   */
+  usdEstimado?: true;
 }
 
 export interface VisualPieza {
   revisor?: RevisionPieza;
+  /** Revisiones fallidas sin veredicto (sin costo o con costo estimado); al llegar al tope se anota «sin revisar». */
+  intentos?: number;
   fase1?: { tipo: TipoHallazgo; motivo: string; en: string }[];
 }
 
@@ -31,7 +39,11 @@ export type VisualJson = Record<string, VisualPieza> & { _presupuesto?: Presupue
 
 export interface RespuestaVisual { id: string; n: number; respuesta: "si" | "no"; en: string }
 
-export const TOPES_REVISOR = { imagenesPorPieza: 12, imagenesPorSemana: 120, usdPorSemana: 5 } as const;
+/**
+ * Topes del revisor: imágenes por pieza y semana, gasto semanal, revisiones fallidas por pieza
+ * antes de rendirse («sin revisar») y fotos de aviso por pieza (una por escena o slide).
+ */
+export const TOPES_REVISOR = { imagenesPorPieza: 12, imagenesPorSemana: 120, usdPorSemana: 5, intentosPorPieza: 3, avisosPorPieza: 3 } as const;
 
 export const visualPath = (semana: string): string => join(semanaDir(semana), "visual.json");
 export const respuestasVisualesPath = (semana: string): string => join(semanaDir(semana), "visual-respuestas.jsonl");
@@ -63,6 +75,7 @@ export async function leerVisual(semana: string): Promise<VisualJson> {
     const pieza: Record<string, unknown> = { ...v };
     if ("fase1" in pieza && !Array.isArray(pieza.fase1)) delete pieza.fase1;
     if ("revisor" in pieza && !(esObjeto(pieza.revisor) && Array.isArray(pieza.revisor.imagenes))) delete pieza.revisor;
+    if ("intentos" in pieza && !(Number.isInteger(pieza.intentos) && (pieza.intentos as number) >= 0)) delete pieza.intentos;
     out[k] = pieza;
   }
   return out as VisualJson;
@@ -119,6 +132,12 @@ export interface ResumenVisual {
   propuestas: string[];
 }
 
+/** Día de Chile (AAAA-MM-DD) de un instante ISO en UTC, como el `desde` de reglas.json; `undefined` si no es fecha. */
+function diaLocal(iso: string): string | undefined {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? undefined : localParts(d).dia;
+}
+
 const r2 = (x: number): number => Math.round(x * 100) / 100;
 const conPrecision = (avisos: number, respondidos: number, aciertos: number) => ({ avisos, respondidos, aciertos, ...(respondidos > 0 ? { precision: r2(aciertos / respondidos) } : {}) });
 
@@ -161,7 +180,7 @@ export function resumenVisual(semanas: { semana: string; visual: VisualJson; res
       for (const h of Array.isArray(p.fase1) ? p.fase1 : []) {
         if (!esObjeto(h) || typeof h.tipo !== "string" || typeof h.en !== "string") continue;
         sumar(h.tipo, semana);
-        if (desdeFase1 && h.en.slice(0, 10) >= desdeFase1) alertasPorTipo[h.tipo] = (alertasPorTipo[h.tipo] ?? 0) + 1;
+        if (desdeFase1 && (diaLocal(h.en) ?? "") >= desdeFase1) alertasPorTipo[h.tipo] = (alertasPorTipo[h.tipo] ?? 0) + 1;
       }
     }
     porSemana.push({ semana, ...conPrecision(avisos, respondidos, aciertos) });

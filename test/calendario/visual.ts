@@ -75,6 +75,15 @@ await checkAsync("visual: leerVisual devuelve {} si falta o está corrupto, y le
   });
 });
 
+await checkAsync("visual: leerVisual conserva intentos enteros ≥ 0 y descarta los demás", async () => {
+  await conKb(async (dir) => {
+    mkdirSync(join(dir, "_calendario", "2026-10-19"), { recursive: true });
+    writeFileSync(visualPath("2026-10-19"), JSON.stringify({ a: { intentos: 2 }, b: { intentos: -1 }, c: { intentos: 1.5 }, d: { intentos: "2" }, e: { intentos: 0 } }));
+    const v = await leerVisual("2026-10-19");
+    assert.deepEqual(v, { a: { intentos: 2 }, b: {}, c: {}, d: {}, e: { intentos: 0 } });
+  });
+});
+
 await checkAsync("visual: respuestas — una línea mala entre dos buenas se salta; anotar agrega una línea por llamada", async () => {
   await conKb(async (dir) => {
     mkdirSync(join(dir, "_calendario", "2026-10-19"), { recursive: true });
@@ -131,6 +140,13 @@ check("resumenVisual: zona de fase 1 posterior a desde alerta; anterior no", () 
   const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }], "2026-10-20");
   assert.deepEqual(r.alertas, ["el motor volvió a fallar en zona (1 casos desde 2026-10-20): revisar el código"]);
   assert.deepEqual(resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }]).alertas, []);
+});
+
+check("resumenVisual: la fecha de una alerta es la de Chile, no la UTC", () => {
+  // 02:00Z del 20 es el 19 a las 23:00 en Chile (UTC-3): antes de `desde`.
+  const visual: VisualJson = { p: { fase1: [{ tipo: "zona", motivo: "m", en: "2026-10-20T02:00:00Z" }, { tipo: "tilde", motivo: "m", en: "2026-10-20T04:00:00Z" }, { tipo: "puntuacion", motivo: "m", en: "no-es-fecha" }] } };
+  const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }], "2026-10-20");
+  assert.deepEqual(r.alertas, ["el motor volvió a fallar en tilde (1 casos desde 2026-10-20): revisar el código"]);
 });
 
 check("resumenVisual: elementos malformados se saltan sin lanzar y los válidos cuentan", () => {

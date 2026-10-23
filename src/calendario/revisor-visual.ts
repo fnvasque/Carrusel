@@ -16,13 +16,25 @@ export const PRECIOS_USD_POR_MTOK: Record<string, { entrada: number; salida: num
 
 type Usage = { prompt_tokens: number; completion_tokens: number };
 
-/** Costo medido de una llamada. Un modelo fuera de la tabla usa el precio más caro. */
+/** Costo medido de una llamada. Un modelo fuera de la tabla usa el precio más caro de la tabla (gpt-4o); puede quedar corto. */
 export function costoUsd(modelo: string, usage: Usage): number {
   let p = PRECIOS_USD_POR_MTOK[modelo];
   if (!p) {
     p = Object.values(PRECIOS_USD_POR_MTOK).reduce((a, b) => (b.entrada + b.salida > a.entrada + a.salida ? b : a));
   }
   return (usage.prompt_tokens * p.entrada + usage.completion_tokens * p.salida) / 1_000_000;
+}
+
+/** Tokens supuestos para estimar una llamada que lanzó: ~800 de entrada por imagen (detail high, 540 px) + 600 de texto, y 300 de salida. */
+export const TOKENS_ESTIMADOS = { porImagen: 800, base: 600, salida: 300 } as const;
+
+/**
+ * Costo estimado de una llamada con `imagenes` imágenes cuando no hay `usage` (la llamada lanzó:
+ * timeout, red, 5xx). Se cuenta igual en el presupuesto porque el servidor pudo cobrarla.
+ */
+export function costoEstimadoUsd(modelo: string, imagenes: number): number {
+  const n = Number.isFinite(imagenes) && imagenes > 0 ? imagenes : 0;
+  return costoUsd(modelo, { prompt_tokens: TOKENS_ESTIMADOS.porImagen * n + TOKENS_ESTIMADOS.base, completion_tokens: TOKENS_ESTIMADOS.salida });
 }
 
 export interface ContextoPieza { id: string; formato: string; textos: string[] }
@@ -43,7 +55,11 @@ function sinRevisar(modelo: string, en: string, motivo: string, usd: number): Re
   return { en, modelo, estado: "sin revisar", motivo, imagenes: [], usd };
 }
 
-/** Una llamada con todas las imágenes de la pieza (data URI JPEG, detail "high"). Nunca lanza. */
+/**
+ * Una llamada con todas las imágenes de la pieza (data URI JPEG, detail "high"). Nunca lanza.
+ * Si una imagen no se puede leer, no llama y `usd` es 0. Si la llamada lanza, `usd` es la
+ * estimación de `costoEstimadoUsd` con `usdEstimado: true` (pudo cobrarse sin medirse).
+ */
 export async function revisarFondos(
   imagenes: { n: number; ruta: string; que: string }[],
   ctx: ContextoPieza,
@@ -73,7 +89,7 @@ export async function revisarFondos(
     try {
       r = await deps.llamar({ modelo, mensajes });
     } catch (e) {
-      return sinRevisar(modelo, en, `falló la llamada al modelo: ${(e as Error).message}`, 0);
+      return { ...sinRevisar(modelo, en, `falló la llamada al modelo: ${(e as Error).message}`, costoEstimadoUsd(modelo, imagenes.length)), usdEstimado: true };
     }
     const usd = costoUsd(modelo, r.usage);
     let json: unknown;
@@ -107,14 +123,15 @@ let cliente: OpenAI | null = null;
 export const llamarOpenAI: LlamarModelo = async ({ modelo, mensajes }) => {
   if (!process.env.OPENAI_API_KEY) throw new Error("falta OPENAI_API_KEY");
   cliente ??= new OpenAI();
-  // Acotado: la revisión corre con el candado del render tomado.
+  // Acotado: la revisión corre con el candado del render tomado. Sin reintento del SDK: un
+  // timeout pudo cobrarse igual; el reintento lo decide revisarRenderizadas (con costo estimado).
   const res = await cliente.chat.completions.create(
     {
       model: modelo,
       response_format: { type: "json_object" },
       messages: mensajes as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
     },
-    { timeout: 60_000, maxRetries: 1 },
+    { timeout: 60_000, maxRetries: 0 },
   );
   return {
     contenido: res.choices[0]?.message?.content ?? "",

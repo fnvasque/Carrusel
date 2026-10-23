@@ -210,22 +210,114 @@ await checkAsync("revisarRenderizadas: el tope semanal vale entre piezas de la m
   ),
 );
 
-await checkAsync("revisarRenderizadas: «sin revisar» sin costo (error del API) no se anota y la próxima corrida reintenta", () =>
+await checkAsync("revisarRenderizadas: «sin revisar» sin costo no anota revisor ni gasto, cuenta el intento y la próxima corrida reintenta", () =>
   conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
     let llamadas = 0;
     const fallo = deps({
       revisar: async () => {
         llamadas++;
-        return { en: "x", modelo: "gpt-4o", estado: "sin revisar", motivo: "falló la llamada al modelo: Incorrect API key provided: sk-proj-SECRETA123", imagenes: [], usd: 0 };
+        return { en: "x", modelo: "gpt-4o", estado: "sin revisar", motivo: "no se pudo leer la imagen 1: sk-proj-SECRETA123", imagenes: [], usd: 0 };
       },
     });
     const r = await revisarRenderizadas(m.semanas, m.out, fallo);
     assert.equal(m.reg.fotos.length, 0);
-    assert.equal(m.visual.get(SEMANA), undefined, "ni revisor ni _presupuesto");
+    assert.deepEqual(m.visual.get(SEMANA), { "mar-reel-uno": { intentos: 1 } }, "ni revisor ni _presupuesto");
     assert.ok(!m.reg.logs.join("\n").includes("SECRETA"));
     assert.deepEqual(r, { revisadas: 0, sinRevisar: 0, avisos: 0, usd: 0 });
     await revisarRenderizadas(m.semanas, m.out, fallo);
     assert.equal(llamadas, 2, "la segunda corrida vuelve a llamar");
+    assert.deepEqual(m.visual.get(SEMANA), { "mar-reel-uno": { intentos: 2 } });
+  }),
+);
+
+// Lo que devuelve revisarFondos cuando la llamada lanza (timeout): costo estimado.
+const timeout = (usd: number): RevisionPieza => ({ en: "x", modelo: "gpt-4o", estado: "sin revisar", motivo: "falló la llamada al modelo: Request timed out.", imagenes: [], usd, usdEstimado: true });
+
+await checkAsync("revisarRenderizadas: un timeout cobra el costo estimado, cuenta las imágenes y el intento, sin revisor ni aviso", () =>
+  conMundo(
+    [MANANA("mar-reel-uno")],
+    async (m, deps) => {
+      const r = await revisarRenderizadas(m.semanas, m.out, deps({ revisar: async () => timeout(0.5) }));
+      const v = m.visual.get(SEMANA)!;
+      assert.deepEqual(v["mar-reel-uno"], { intentos: 1 });
+      assert.deepEqual(v._presupuesto, { imagenes: 15, usd: 1.5 });
+      assert.equal(m.reg.fotos.length, 0);
+      assert.deepEqual(r, { revisadas: 0, sinRevisar: 0, avisos: 0, usd: 0.5 });
+    },
+    { visual: { _presupuesto: { imagenes: 10, usd: 1 } } },
+  ),
+);
+
+await checkAsync("revisarRenderizadas: al 3.er intento fallido queda «sin revisar» con «(3 intentos)» y no se reintenta más", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    let llamadas = 0;
+    const d = deps({
+      revisar: async () => {
+        llamadas++;
+        return timeout(0.25);
+      },
+    });
+    for (let i = 0; i < 4; i++) await revisarRenderizadas(m.semanas, m.out, d);
+    assert.equal(llamadas, 3, "la 4.ª corrida ya no llama");
+    const e = m.visual.get(SEMANA)!["mar-reel-uno"];
+    assert.equal(e.intentos, 3);
+    assert.equal(e.revisor?.estado, "sin revisar");
+    assert.equal(e.revisor?.motivo, "falló la llamada al modelo: Request timed out. (3 intentos)");
+    assert.deepEqual(m.visual.get(SEMANA)!._presupuesto, { imagenes: 15, usd: 0.75 });
+  }),
+);
+
+await checkAsync("revisarRenderizadas: con el revisor real, una imagen ilegible no cobra nada (solo cuenta el intento)", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const { revisarFondos } = await import("../../src/calendario/revisor-visual.ts");
+    let llamado = false;
+    await revisarRenderizadas(m.semanas, m.out, deps({
+      revisar: revisarFondos,
+      llamar: async () => {
+        llamado = true;
+        throw new Error("no debe llamarse");
+      },
+      extraer: async (_f, destino, cuadros) => cuadros.map((c) => ({ n: c.n, ruta: join(destino, "no-existe.jpg"), que: c.que })),
+    }));
+    assert.equal(llamado, false);
+    assert.deepEqual(m.visual.get(SEMANA), { "mar-reel-uno": { intentos: 1 } }, "sin _presupuesto");
+  }),
+);
+
+await checkAsync("revisarRenderizadas: con el revisor real, un timeout de llamar cobra la estimación (costoEstimadoUsd)", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const { revisarFondos, costoEstimadoUsd } = await import("../../src/calendario/revisor-visual.ts");
+    const r = await revisarRenderizadas(m.semanas, m.out, deps({
+      revisar: (imgs, ctx, d) => revisarFondos(imgs, ctx, { ...d, modelo: "gpt-4o" }),
+      llamar: async () => {
+        throw new Error("Request timed out.");
+      },
+    }));
+    const est = costoEstimadoUsd("gpt-4o", 5);
+    assert.ok(est > 0);
+    assert.deepEqual(m.visual.get(SEMANA)!._presupuesto, { imagenes: 5, usd: est });
+    assert.equal(m.visual.get(SEMANA)!["mar-reel-uno"].intentos, 1);
+    assert.equal(m.visual.get(SEMANA)!["mar-reel-uno"].revisor, undefined);
+    assert.equal(r.usd, est);
+  }),
+);
+
+await checkAsync("revisarRenderizadas: si el plazo se acaba entre extraer y llamar, no llama, no cobra ni anota", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    let reloj = AHORA.getTime();
+    const base = deps();
+    await revisarRenderizadas(m.semanas, m.out, deps({
+      ahora: () => new Date(reloj),
+      plazoMs: 60_000,
+      extraer: async (final, destino, cuadros) => {
+        reloj += 120_000; // ffmpeg se come el plazo
+        return base.extraer(final, destino, cuadros);
+      },
+    }));
+    assert.equal(m.reg.revisar.length, 0);
+    assert.equal(m.visual.get(SEMANA), undefined);
+    assert.ok(m.reg.logs.some((l) => /plazo antes de llamar/.test(l)), m.reg.logs.join("\n"));
+    assert.ok(!existsSync(join(m.out, ".revision", SEMANA, "mar-reel-uno")), "los cuadros se borran");
   }),
 );
 
@@ -367,5 +459,40 @@ await checkAsync("revisarRenderizadas: nada lanza aunque fallen escribirVisual, 
       },
     }));
     assert.equal(r2.revisadas, 0);
+  }),
+);
+
+// Escenas para los avisos: 4 escenas Hook (ai) de 4 s; los `que` siguen a cuadrosARevisar.
+const veredictosPor = (ques: string[], señaladas: number[]) => async (imagenes: { n: number; que: string }[]): Promise<RevisionPieza> => ({
+  en: "x", modelo: "gpt-4o", estado: "revisado", usd: 0.01,
+  imagenes: imagenes.map((i) => ({ n: i.n, que: ques[i.n - 1] ?? i.que, compite: señaladas.includes(i.n), ajeno: false, frase: "f" })),
+});
+const extraerN = (ques: string[]): DepsRevision["extraer"] => async (_f, destino, _cuadros) => {
+  mkdirSync(destino, { recursive: true });
+  return ques.map((que, k) => {
+    const ruta = join(destino, `${k + 1}.jpg`);
+    writeFileSync(ruta, "jpg");
+    return { n: k + 1, ruta, que };
+  });
+};
+
+await checkAsync("revisarRenderizadas: 6 imágenes señaladas en 2 escenas → 2 fotos (la primera de cada escena)", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const ques = ["escena 2 (Step) a 0 s", "escena 2 (Step) a 1 s", "escena 2 (Step) final", "escena 3 (Step) a 0 s", "escena 3 (Step) a 1 s", "escena 3 (Step) final"];
+    const r = await revisarRenderizadas(m.semanas, m.out, deps({ extraer: extraerN(ques), revisar: veredictosPor(ques, [1, 2, 3, 4, 5, 6]) }));
+    assert.equal(m.reg.fotos.length, 2);
+    assert.deepEqual(m.reg.fotos.map((f) => f.botones[0][0].data), [`cal-visual:${SEMANA}:mar-reel-uno:1:si`, `cal-visual:${SEMANA}:mar-reel-uno:4:si`]);
+    assert.equal(r.avisos, 2);
+    assert.equal(m.visual.get(SEMANA)!["mar-reel-uno"].revisor?.imagenes.filter((i) => i.compite).length, 6, "todas quedan en visual.json");
+  }),
+);
+
+await checkAsync("revisarRenderizadas: 5 escenas señaladas → 3 fotos (tope por pieza)", () =>
+  conMundo([MANANA("mar-reel-uno")], async (m, deps) => {
+    const ques = ["portada", "escena 1 (Hook) a 1 s", "escena 2 (Step) final", "escena 3 (Step) final", "escena 4 (Cta) final"];
+    await revisarRenderizadas(m.semanas, m.out, deps({ extraer: extraerN(ques), revisar: veredictosPor(ques, [1, 2, 3, 4, 5]) }));
+    assert.equal(m.reg.fotos.length, 3);
+    assert.deepEqual(m.reg.fotos.map((f) => f.ruta.split("/").pop()), ["1.jpg", "2.jpg", "3.jpg"]);
+    assert.ok(m.reg.logs.some((l) => /2 imagen\(es\) señalada\(s\) más quedan solo en visual\.json/.test(l)), m.reg.logs.join("\n"));
   }),
 );
