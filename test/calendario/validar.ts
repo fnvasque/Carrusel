@@ -575,7 +575,8 @@ check("calendario/validar: entradas hostiles → errores, nunca excepción", () 
     ["fondo gradient", () => { const b = borrador(); b.slides[0].background = { gradient: "red" }; return vb(pieza(), b); }],
     ["fondo ai vacío", () => { const b = borrador(); b.slides[0].background = { ai: "" }; return vb(pieza(), b); }],
     ["hook no es la primera slide", () => { const b = borrador(); b.slides.reverse(); return vb(pieza(), b); }],
-    ["hook score bajo el umbral", () => vb(pieza({ hook: { categoria: "x", texto: "y", score: 7 } }))],
+    // 2026-10-23: el umbral de la plantilla bajó a 7 (decisión del usuario tras el backtest); 6 sigue bajo el umbral.
+    ["hook score bajo el umbral", () => vb(pieza({ hook: { categoria: "x", texto: "y", score: 6 } }))],
     ["senal fuera de la lista", () => vb(pieza({ senal: "likes" }))],
     ["pilar distinto en el borrador", () => { const b = borrador(); b.pillar = "noticia"; return vb(pieza(), b); }],
     ["sin source", () => { const b = borrador(); delete b.slides[3].props.source; return vb(pieza(), b); }],
@@ -2038,7 +2039,9 @@ check("calendario/validar: lector-frio.md — público profesional y pregunta 8 
   assert.ok(seccion.includes("8. ¿Qué aprendiste que no sabías"));
   assert.ok(!seccion.includes("no técnico, viendo esto"));
   assert.ok(seccion.includes('"8"'));
-  assert.ok(md.includes("la 1, la 2, la 5, la 7 y la 8"));
+  // 2026-10-23: la 8 del con prisa dejó de contar (decisión del usuario tras el backtest).
+  assert.ok(md.includes("cuentan solo la 1, la 2, la 5 y la 7"));
+  assert.ok(md.includes("Sus respuestas 3, 4, 6 y 8"));
   assert.ok(md.includes("con prisa P8: no bloquea"));
 });
 
@@ -2235,7 +2238,9 @@ check("final-3: hook.juez.respuestas debe ser el JSON del juez, coherente con el
 
 check("final-4: un NB de la P8 no puede citar «nada nuevo»", () => {
   const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
-  assertHas(conNotas("NB: «Nada nuevo, ya sabía todo» → con prisa P8: no bloquea"), /P8.*nada nuevo/i);
+  // 2026-10-23 (decisión del usuario tras el backtest): en el con prisa la P8 no bloquea; en el completo sí.
+  assertNone(conNotas("NB: «Nada nuevo, ya sabía todo» → con prisa P8: no bloquea"));
+  assertHas(conNotas("NB: «Nada nuevo, ya sabía todo» → completo P8: no bloquea"), /P8.*nada nuevo/i);
   assertHas(conNotas("NB: «nada   NUEVO» → completo P8: no bloquea"), /P8/);
   assertNone(conNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea"));
   assertNone(conNotas("NB: «nada nuevo» → completo P3: explicado"));
@@ -2322,10 +2327,13 @@ check("pr56-2: bloque paquete inválido → error en validarConfig", () => {
 
 check("pr56-3: la P8 bloquea también «ya lo sabía» y «no aprendí nada» (no solo «nada nuevo»)", () => {
   const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
-  assertHas(conNotas("NB: «Ya lo sabía todo» → con prisa P8: no bloquea"), /P8/);
+  // 2026-10-23: el con prisa ya no bloquea por novedad; las mismas frases siguen bloqueando en el completo.
+  assertHas(conNotas("NB: «Ya lo sabía todo» → completo P8: no bloquea"), /P8/);
+  assertNone(conNotas("NB: «Ya lo sabía todo» → con prisa P8: no bloquea"));
   assertHas(conNotas("NB: «No aprendí nada» → completo P8: no bloquea"), /P8/);
   assertHas(conNotas("NB: «Nada de nuevo» → completo P8: no bloquea"), /P8/);
-  assertHas(conNotas("NB: «Nada que no supiera» → con prisa P8: no bloquea"), /P8/);
+  assertHas(conNotas("NB: «Nada que no supiera» → completo P8: no bloquea"), /P8/);
+  assertNone(conNotas("NB: «Nada que no supiera» → con prisa P8: no bloquea"));
   assertNone(conNotas("NB: «Aprendí que hay que revisar, pero no cómo» → con prisa P8: no bloquea"));
   assertNone(conNotas("NB: «Ya sabía qué es, no cómo se usa en Excel» → completo P8: no bloquea"));
 });
@@ -2399,4 +2407,11 @@ check("chicos-3: «ya sabía quién…» no es nada nuevo (ni en las notas ni en
   assert.ok(!NADA_NUEVO_RE.some((r: RegExp) => r.test("ya sabia quienes lo midieron")));
   const conNotas = (notas: string) => validarPieza(pieza({ lectorFrio: { intentos: 2, resultado: "ok", notas } }), config).filter((e: string) => /notas/.test(e));
   assertNone(conNotas("NB: «Ya sabía quién es Mollick pero no lo de las 18 tareas» → con prisa P8: no bloquea"));
+});
+
+check("backtest 2026-10-23: la plantilla pide hookUmbral 7 y una nota 7 pasa", () => {
+  const cfg = JSON.parse(readFileSync("kb-plantilla/_calendario/config.json", "utf8"));
+  assert.equal(cfg.puerta.hookUmbral.valor, 7);
+  const errs = validarPieza(pieza({ hook: { categoria: "x", texto: "y", score: 7 } }), cfg).filter((e: string) => /umbral/.test(e));
+  assert.deepEqual(errs, []);
 });

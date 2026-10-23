@@ -747,8 +747,9 @@ function erroresDeNotas(notas) {
   if (bien.length !== total) return [`lectorFrio.notas: hay ${total - bien.length} NB mal escrito(s); ${formato}`];
   for (const nb of bien) {
     const m = /^NB: «([^«»\n]+)» → (.*)$/s.exec(nb);
-    if (m && /^(?:con prisa|completo) p8\b/.test(normalizar(m[2]).trim()) && NADA_NUEVO_RE.some((r) => r.test(normalizar(m[1])))) {
-      return [`lectorFrio.notas: un NB de la P8 no puede citar «nada nuevo» ni «ya lo sabía» (en la P8 eso bloquea, no es NB); si el lector nombra algo que la pieza no enseña, cítalo`];
+    // Solo el lector completo bloquea por «nada nuevo»; en el con prisa la P8 es NB (desde 2026-10-23, backtest).
+    if (m && /^completo p8\b/.test(normalizar(m[2]).trim()) && NADA_NUEVO_RE.some((r) => r.test(normalizar(m[1])))) {
+      return [`lectorFrio.notas: un NB de la P8 del lector completo no puede citar «nada nuevo» ni «ya lo sabía» (en el completo eso bloquea, no es NB); si el lector nombra algo que la pieza no enseña, cítalo`];
     }
   }
   const fueraDeNB = notas.replace(NB_RE, "");
@@ -1936,7 +1937,7 @@ export const EJEMPLO = {
           terminosTecnicosMax: 1,
           siglasPermitidas: ["GPT", "PDF", "IA", "DM"],
           relleno: ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"],
-          hookUmbral: 8,
+          hookUmbral: 7,
           lecturaPalabrasPorSegundo: 2.5,
           lecturaMinSegundos: 1.5,
           reescriturasMax: 3,

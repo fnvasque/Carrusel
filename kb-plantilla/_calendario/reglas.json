@@ -91,6 +91,20 @@
       "formato": "reel",
       "descripcion": "Series de reels reenfocadas al público nuevo: hazlo-con-ia, criterio (nueva) y lo-probe-por-ti; gratis-vs-pago deja de ser válida",
       "fuente": "PR claude/calidad-contenido; spec 2026-10-22-calidad-contenido-design.md"
+    },
+    {
+      "id": "hook-umbral-7",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "puerta.hookUmbral baja de 8 a 7: la nota del juez de hooks debe ser ≥ 7",
+      "fuente": "Backtest 2026-10-23 (informes/backtest-filtro-calidad-2026-10-23.md): con 8, el juez aprobaba 1 de 6 hooks del esqueleto; PR claude/pendientes-chicos"
+    },
+    {
+      "id": "lector-prisa-p8-nb",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "La pregunta 8 (novedad) del lector con prisa deja de bloquear; solo bloquea la del lector completo",
+      "fuente": "Backtest 2026-10-23: el con prisa marcaba «nada nuevo» en 9 de 20 piezas propias viendo solo títulos; PR claude/pendientes-chicos"
     }
   ]
 }

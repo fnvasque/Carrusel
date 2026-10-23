@@ -676,7 +676,7 @@ Desde el 2026-10-26 no te pones nota a ti mismo: el que escribe no evalúa.
    `hook.texto` = el `title` del candidato `n`, y el `Hook` del borrador lleva
    **exactamente** el `title`, el `subtitle` y (en reels) el `resultado` de ese
    candidato. El validador compara las tres cosas.
-5. Si la nota es menor que `puerta.hookUmbral` (8): **una ronda más** de 8 a 10
+5. Si la nota es menor que `puerta.hookUmbral` (7): **una ronda más** de 8 a 10
    candidatos nuevos, usando lo que respondió el juez. Cuenta como una vuelta
    de `reescriturasMax`. Si tampoco pasa, quita la pieza (y anótala en
    `caidas` con `vN: el juez no aprobó ningún hook (nota x); se …`).
@@ -1162,7 +1162,7 @@ la plantilla, los carruseles van a las 13:00):
       "caption": "Liderazgo con IA: ChatGPT critica tu propuesta desde el área que te falta, antes que tu jefe.\n\nGuárdalo para tu próxima presentación.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "lun-reel-critica-antes-que-tu-jefe.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
     },
     {
       "id": "mar-carrusel-que-pasarle-a-la-ia",
@@ -1197,7 +1197,7 @@ la plantilla, los carruseles van a las 13:00):
       "caption": "Automatización con IA: 3 tareas para pasarle a la IA y las 2 habilidades que siguen siendo tuyas.\n\nGuárdalo para tu próxima reunión de equipo.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "mar-carrusel-que-pasarle-a-la-ia.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
     },
     {
       "id": "mie-reel-cuando-revisar-a-la-ia",
@@ -1226,13 +1226,13 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["sorpresa", "alivio"],
       "entregable": "la regla para decidir cuándo revisar lo que entrega la IA: si no la viste acertar en esa tarea, se revisa entera, porque en el estudio de Harvard y BCG acertó menos en una tarea que parecía igual de difícil",
       "fraseAmigo": "en un experimento con 758 consultores la IA los hizo más rápidos en 18 tareas y en otra igual de difícil les bajó los aciertos; si no la viste acertar en esa tarea, revísala entera",
-      "lectorFrio": {"intentos": 2, "resultado": "ok", "notas": "v1: el con prisa respondió «nada nuevo» a la 8 (el título solo pedía revisar a la IA); se hizo otra ronda del juez con el dato del estudio en los candidatos."},
+      "lectorFrio": {"intentos": 2, "resultado": "ok", "notas": "v1: el lector completo respondió «nada nuevo» a la 8 (la pieza solo pedía revisar a la IA); se agregó el dato del estudio y otra ronda del juez.\nNB: «Nada nuevo» → con prisa P8: no bloquea"},
       "origen": {"fichas": [], "referencias": ["referencias/estudio-de-la-frontera-irregular.md"]},
       "derivadoDe": null,
       "caption": "Productividad con IA: en una tarea que parecía igual de difícil, con IA acertaron menos. Cuándo revisar.\n\nMándaselo a quien firma lo que le entrega la IA sin revisarlo.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "mie-reel-cuando-revisar-a-la-ia.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
     },
     {
       "id": "jue-reel-conviene-delegar-esta-tarea",
@@ -1267,7 +1267,7 @@ la plantilla, los carruseles van a las 13:00):
       "caption": "Modelos mentales para delegar en la IA: la cuenta para saber si te conviene o si es mejor hacerlo tú.\n\nMíralo hasta el final para ver la cuenta completa.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "jue-reel-conviene-delegar-esta-tarea.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
     },
     {
       "id": "vie-carrusel-el-reloj-y-la-sensacion",
@@ -1302,7 +1302,7 @@ la plantilla, los carruseles van a las 13:00):
       "caption": "Decisiones con IA: creían ir más rápido y el cronómetro dijo otra cosa. 3 estudios y cómo medir lo tuyo.\n\n¿Cuánto crees que te ahorra a ti? Cuéntalo en los comentarios.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "vie-carrusel-el-reloj-y-la-sensacion.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
     },
     {
       "id": "sab-reel-tu-area-cada-manana",
@@ -1337,7 +1337,7 @@ la plantilla, los carruseles van a las 13:00):
       "caption": "Avances de ChatGPT: lo probé por ti, un resumen de las noticias de tu área cada mañana, sin pedirlo.\n\n¿Qué tema te harías resumir tú? Cuéntamelo en los comentarios.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "sab-reel-tu-area-cada-manana.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 8, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
     }
   ]
 }
@@ -1419,7 +1419,7 @@ cuadro, `Screen`). Una entrada de `plan.json → piezas`:
       "la verdad",
       "muy"
     ],
-    "hookUmbral": 8,
+    "hookUmbral": 7,
     "lecturaPalabrasPorSegundo": 2.5,
     "lecturaMinSegundos": 1.5,
     "reescriturasMax": 3,
@@ -1551,7 +1551,7 @@ Criterio (detalle en `lector-frio.md`):
   pieza no cumple o que no pudo seguir los pasos para obtener el entregable.
   Las demás dudas son mejoras opcionales. La **5** pide una acción concreta (guardar, enviar o comentar; "nada" bloquea); si no es la de la señal, va como `NB` (`P5: acción distinta a la señal`) y no bloquea. La 1, 2 y 4, igual que siempre.
 - **Lector con prisa:** cuentan solo (1) tema, (2) entregable, (5) una acción
-  concreta (si no es la de la señal, `NB`), (7) y (8); la 8 bloquea solo con «nada nuevo» (si nombra algo que la pieza no enseña, va como `NB` con la regla `con prisa P8: no bloquea`). Sus respuestas 3, 4 y 6 no bloquean; si te sirven,
+  concreta (si no es la de la señal, `NB`), y (7). Su 8 no bloquea desde 2026-10-23 (backtest: con solo títulos marcaba «nada nuevo» en 9 de 20 piezas): anótala como `NB` con `con prisa P8: no bloquea`. Sus respuestas 3, 4, 6 y 8 no bloquean; si te sirven,
   úsalas para afinar un título, pero no reescribas la pieza ni cuentes una
   vuelta por ellas.
 
