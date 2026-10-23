@@ -145,8 +145,9 @@ export function resumenVisual(semanas: { semana: string; visual: VisualJson; res
     for (const [id, pieza] of Object.entries(visual)) {
       if (id === "_presupuesto" || !pieza || typeof pieza !== "object") continue;
       const p = pieza as VisualPieza;
-      if (p.revisor?.estado === "revisado") {
+      if (p.revisor?.estado === "revisado" && Array.isArray(p.revisor.imagenes)) {
         for (const img of p.revisor.imagenes) {
+          if (!esObjeto(img) || typeof img.compite !== "boolean" || typeof img.ajeno !== "boolean" || !Number.isInteger(img.n)) continue;
           if (!img.compite && !img.ajeno) continue;
           avisos++;
           sumar(img.compite ? "fondo-compite" : "fondo-ajeno", semana);
@@ -157,7 +158,8 @@ export function resumenVisual(semanas: { semana: string; visual: VisualJson; res
           }
         }
       }
-      for (const h of p.fase1 ?? []) {
+      for (const h of Array.isArray(p.fase1) ? p.fase1 : []) {
+        if (!esObjeto(h) || typeof h.tipo !== "string" || typeof h.en !== "string") continue;
         sumar(h.tipo, semana);
         if (desdeFase1 && h.en.slice(0, 10) >= desdeFase1) alertasPorTipo[h.tipo] = (alertasPorTipo[h.tipo] ?? 0) + 1;
       }

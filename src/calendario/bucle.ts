@@ -874,6 +874,15 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     });
   }
 
+  let visualResumen: ResumenVisual | undefined;
+  if (e.visual && e.visual.length > 0) {
+    try {
+      visualResumen = resumenVisual(e.visual, reglasLeidas.reglas.find((r) => r.id === "revision-visual-fase1")?.desde);
+    } catch (err) {
+      avisos.push(`registro visual ilegible, se omite: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   return {
     generado: e.ahora.toISOString(),
     semana,
@@ -897,7 +906,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     experimentos,
     reglas: antesDespues(reglasLeidas.reglas, idx),
     lectorFrio: resumirLectorFrio(semanas.map((s) => s.plan)),
-    ...(e.visual && e.visual.length > 0 ? { visual: resumenVisual(e.visual, reglasLeidas.reglas.find((r) => r.id === "revision-visual-fase1")?.desde) } : {}),
+    ...(visualResumen ? { visual: visualResumen } : {}),
     avisos,
   };
 }
@@ -965,7 +974,7 @@ async function leerBase(rutaAnterior: string, ahora: Date = new Date()): Promise
   // Registro visual de las últimas 4 semanas (≤ la que se planifica); archivos ausentes → vacío.
   const visual: NonNullable<EntradasBucle["visual"]> = [];
   const hasta = semanaAPlanificar(ahora);
-  for (const s of semanas.filter((x) => x.semana <= hasta).slice(-4)) {
+  for (const s of semanas.filter((x) => x.semana <= hasta).sort((a, b) => a.semana.localeCompare(b.semana)).slice(-4)) {
     const [v, respuestas] = await Promise.all([leerVisual(s.semana), leerRespuestasVisuales(s.semana)]);
     if (Object.keys(v).length > 0 || respuestas.length > 0) visual.push({ semana: s.semana, visual: v, respuestas });
   }

@@ -3,7 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
-import { resumenVisual, type RespuestaVisual, type VeredictoImagen, type VisualJson, type VisualPieza, anotarRespuestaVisual, cupo, sinClaves, leerRespuestasVisuales, leerVisual, respuestasVisualesPath, visualPath } from "../../src/calendario/visual.ts";
+import {
+  anotarRespuestaVisual, cupo, leerRespuestasVisuales, leerVisual, respuestasVisualesPath, resumenVisual, sinClaves, visualPath,
+  type RespuestaVisual, type VeredictoImagen, type VisualJson, type VisualPieza,
+} from "../../src/calendario/visual.ts";
 
 check("visual: sinClaves oculta fragmentos con forma de clave de API", () => {
   assert.equal(sinClaves("Incorrect API key provided: sk-proj-AbC_12-x9. Otra: sk-xyz"), "Incorrect API key provided: sk-…. Otra: sk-…");
@@ -128,4 +131,17 @@ check("resumenVisual: zona de fase 1 posterior a desde alerta; anterior no", () 
   const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }], "2026-10-20");
   assert.deepEqual(r.alertas, ["el motor volvió a fallar en zona (1 casos desde 2026-10-20): revisar el código"]);
   assert.deepEqual(resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }]).alertas, []);
+});
+
+check("resumenVisual: elementos malformados se saltan sin lanzar y los válidos cuentan", () => {
+  const visual = { p: { revisor: { en: "x", modelo: "m", estado: "revisado", usd: 0, imagenes: [null, imgV(1, { compite: true })] }, fase1: [null, { tipo: 5 }] } } as unknown as VisualJson;
+  const r = resumenVisual([{ semana: "2026-10-19", visual, respuestas: [] }], "2026-10-01");
+  assert.equal(r.total.avisos, 1);
+  assert.deepEqual(r.alertas, []);
+});
+
+check("resumenVisual: dos piezas con n=1 y respuestas distintas se cuentan por separado", () => {
+  const visual: VisualJson = { a: revV([imgV(1, { compite: true })]), b: revV([imgV(1, { compite: true })]) };
+  const respuestas: RespuestaVisual[] = [{ id: "a", n: 1, respuesta: "si", en: "2026-10-20T10:00:00Z" }, { id: "b", n: 1, respuesta: "no", en: "2026-10-20T10:01:00Z" }];
+  assert.deepEqual(resumenVisual([{ semana: "2026-10-19", visual, respuestas }]).total, { avisos: 2, respondidos: 2, aciertos: 1, precision: 0.5 });
 });
