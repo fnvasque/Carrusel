@@ -121,6 +121,35 @@ try {
       await p.close();
     }
   });
+  const reelDe = async (offline: CarouselSpec, timing: ReturnType<typeof specTiming>) => {
+    const p = await browser.newPage({ viewport: FORMATS.reel, deviceScaleFactor: 1 });
+    try {
+      await p.setContent(await buildReelPage(offline, timing), { waitUntil: "load" });
+      await p.waitForFunction(() => (window as any).__reelReady === true);
+      return await revisarReel(p, timing);
+    } finally {
+      await p.close();
+    }
+  };
+  await caso("transición: kling-vs-seedance no da hallazgos de transicion", async () => {
+    const b = fixture("vie-pm-reel-kling-vs-seedance");
+    const spec = borradorASpec(b, { format: "reel" });
+    const offline = { ...spec, defaults: flat(spec.defaults as any), slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
+    const h = await reelDe(offline, specTiming(spec, { pace: b.pace }));
+    assert.deepEqual(tipos(h, "transicion"), [], JSON.stringify(tipos(h, "transicion")));
+  });
+  await caso("transición: reel de 2 escenas con strike y subtítulos no da transicion ni zona", async () => {
+    const [myth, screen] = [smoke.slides.find((x) => x.template.name === "MythReality")!, smoke.slides.find((x) => x.template.name === "Screen")!];
+    const spec = {
+      ...smoke,
+      slides: [
+        { ...myth, props: { ...myth.props, narracion: "La IA no piensa sola, hace lo que tú le pides." } },
+        { ...screen, props: { ...screen.props, narracion: "Le escribes esto una vez y te lo recuerda todos los meses." } },
+      ],
+    } as CarouselSpec;
+    const h = await reelDe(spec, specTiming(spec));
+    assert.deepEqual([...tipos(h, "transicion"), ...tipos(h, "zona")], [], JSON.stringify(h));
+  });
   await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
     assert.equal(ANTON_LH_ACENTO, 1.14);
     assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);
