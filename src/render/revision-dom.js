@@ -22,9 +22,14 @@
   var lienzo = document.createElement("canvas").getContext("2d");
   var cacheMetricas = {};
 
-  /** Métricas de `ch` con la fuente computada de `estilo` (en px de font-size). */
+  /**
+   * Métricas de `ch` con la fuente computada de `estilo` (en px de font-size). Anton
+   * solo tiene peso 400: se mide siempre a 400, porque con el peso computado (un h2
+   * sin fontWeight es 700) el canvas sintetiza negrita y la tinta sale más alta.
+   */
   function metricas(estilo, ch) {
-    var fuente = estilo.fontStyle + " " + estilo.fontWeight + " " + estilo.fontSize + " " + estilo.fontFamily;
+    var peso = /anton/i.test(estilo.fontFamily) ? "400" : estilo.fontWeight;
+    var fuente = estilo.fontStyle + " " + peso + " " + estilo.fontSize + " " + estilo.fontFamily;
     var k = fuente + "\u0000" + ch;
     if (cacheMetricas[k]) return cacheMetricas[k];
     lienzo.font = fuente;
@@ -112,7 +117,7 @@
         rango.setEnd(nodo, i + 1);
         var r = rango.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) { lista.push({ ch: ch, oculto: true }); continue; }
-        lista.push({ ch: ch, fuente: fuente[i], rect: r, el: el, estilo: estilo, op: op, anton: anton });
+        lista.push({ ch: ch, fuente: fuente[i], rect: r, el: el, estilo: estilo, op: op, anton: anton, mark: el.closest("[data-mark]") });
       }
     }
 
@@ -179,8 +184,11 @@
           var a = lista[j];
           if (!mismaLinea(c, a)) return;
           var tam = parseFloat(c.estilo.fontSize);
+          // Tras un mark (y fuera de él), el hueco hasta la letra incluye el padding de su
+          // caja (0,1 em), que no es un espacio suelto: se mide desde el borde de la caja.
+          var derecha = a.mark && a.mark !== c.mark ? a.mark.getBoundingClientRect().right : a.rect.right;
           // Range incluye los márgenes laterales del glifo: texto corrido da 0 px; 0,06 em ya se ve.
-          if (c.rect.left - a.rect.right > 0.06 * tam) {
+          if (c.rect.left - derecha > 0.06 * tam) {
             hallazgos.push({ tipo: "puntuacion", escena: escena, motivo: "visual: espacio antes de «" + c.ch + "» tras «" + palabra(lista, j) + "» en " + contexto(escena) });
           }
         });

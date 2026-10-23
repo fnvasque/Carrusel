@@ -221,6 +221,21 @@ try {
     // El punto y coma de Anton no baja de la línea base.
     assert.equal(displayLineHeight("YA; TÚ", 0.98), 1.14);
   });
+  // La caja del mark tiene 0,1 em de padding a la derecha: la coma que va después (fuera de la caja)
+  // no es un espacio suelto.
+  const mark = (w: string) => `<span data-mark="" style="display:inline-block;line-height:0.9;padding:0.07em 0.1em 0.01em;background:#ff3d9a;color:#000;white-space:nowrap">${w}</span>`;
+  await caso("puntuación: coma tras un mark no da hallazgo", async () => {
+    assert.deepEqual(await revisar(h2(`ES <span style="white-space:nowrap">${mark("GRATIS")},</span> YA`)), []);
+  });
+  await caso("puntuación: coma con un espacio tras un mark sí da hallazgo", async () => {
+    const h = await revisar(h2(`ES ${mark("GRATIS")} , YA`));
+    assert.equal(tipos(h, "puntuacion").length, 1, JSON.stringify(h));
+  });
+  // Anton solo tiene peso 400: un h2 sin fontWeight (700) no debe medirse con negrita sintética.
+  await caso("tilde: h2 sin fontWeight 400 se mide a 400 («Q» sobre «Ú» a 1.2 no pisa)", async () => {
+    const h = await revisar(titulo("Q<br>ÚA", 1.2));
+    assert.deepEqual(h, [], JSON.stringify(h));
+  });
   await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
     assert.equal(ANTON_LH_ACENTO, 1.14);
     assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);
