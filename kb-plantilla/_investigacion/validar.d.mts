@@ -11,7 +11,9 @@ export declare function parseNameStatus(out: string): { status: string; path: st
 export declare function zoneErrors(changes: { status: string; path: string }[]): string[];
 export declare const DESDE_AUDIENCIA: string;
 export declare const ROTULOS_AUDIENCIA: string[];
+export declare const DESDE_NOVEDAD: string;
+export declare const ROTULO_NOVEDAD: string;
 export declare function seccion(body: string, titulo: string): string | undefined;
-export declare function validateAudiencia(body: string): string[];
+export declare function validateAudiencia(body: string, revisado?: string): string[];
 export declare function validateAlcance(text: string): string[];
 export declare function claveTema(t: string): string;

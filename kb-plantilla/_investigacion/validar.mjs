@@ -20,6 +20,9 @@ const MAX_RESUMEN = 1000;
 export const DESDE_AUDIENCIA = "2026-10-05";
 /** Rótulos obligatorios de `## Para la audiencia` cuando la referencia aplica a la cuenta. */
 export const ROTULOS_AUDIENCIA = ["Por qué importa", "Qué se puede hacer", "Para quién", "Límites"];
+/** Desde este `revisado`, `## Para la audiencia` suma el rótulo «Lo que no sabe un usuario frecuente» (el público ya usa IA a diario: sofisticación = criterio, no funciones). */
+export const DESDE_NOVEDAD = "2026-10-25";
+export const ROTULO_NOVEDAD = "Lo que no sabe un usuario frecuente";
 const NO_APLICA_RE = /^No aplica a la cuenta\b/m;
 
 const unquote = (s) => s.trim().replace(/^(['"])(.*)\1$/, "$2");
@@ -93,7 +96,7 @@ export function validateReferencia(text) {
   const cited = [...body.matchAll(/(?<!\[)\[(\d+)\](?![\](])/g)].map((x) => Number(x[1]));
   if (!cited.length) errs.push("ninguna afirmación cita una fuente [n]");
   for (const n of new Set(cited)) if (n < 1 || n > fuentes.length) errs.push(`la cita [${n}] no tiene fuente (hay ${fuentes.length})`);
-  if (validDate(data.revisado) && data.revisado >= DESDE_AUDIENCIA) errs.push(...validateAudiencia(body));
+  if (validDate(data.revisado) && data.revisado >= DESDE_AUDIENCIA) errs.push(...validateAudiencia(body, data.revisado));
   return errs;
 }
 
@@ -109,14 +112,18 @@ export function seccion(body, titulo) {
 /**
  * Errores de `## Para la audiencia`: o dice "No aplica a la cuenta: <motivo>", o
  * lleva los cuatro rótulos (`- **Por qué importa:** …`) y al menos una cita [n].
+ * Con `revisado >= DESDE_NOVEDAD` exige además `- **Lo que no sabe un usuario frecuente:** …`.
  */
-export function validateAudiencia(body) {
+export function validateAudiencia(body, revisado) {
   const s = seccion(body, "Para la audiencia");
   if (s === undefined) return ['falta la sección "## Para la audiencia" (obligatoria desde revisado ' + DESDE_AUDIENCIA + ")"];
   if (NO_APLICA_RE.test(s)) return [];
   const errs = [];
   for (const r of ROTULOS_AUDIENCIA) {
     if (!new RegExp(`^- \\*\\*${r}:\\*\\*\\s*\\S`, "m").test(s)) errs.push(`"## Para la audiencia" sin "- **${r}:** …" (o escribe "No aplica a la cuenta: <motivo>")`);
+  }
+  if (revisado !== undefined && revisado >= DESDE_NOVEDAD && !new RegExp(`^- \\*\\*${ROTULO_NOVEDAD}:\\*\\*\\s*\\S`, "m").test(s)) {
+    errs.push(`"## Para la audiencia" sin "- **${ROTULO_NOVEDAD}:** …" (obligatorio desde revisado ${DESDE_NOVEDAD}; o escribe "No aplica a la cuenta: <motivo>")`);
   }
   if (!/(?<!\[)\[\d+\](?![\](])/.test(s)) errs.push('"## Para la audiencia" no cita ninguna fuente [n]: lo que se puede hacer debe estar verificado');
   return errs;

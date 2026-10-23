@@ -99,9 +99,16 @@ lo demás de este manual sigue igual (zonas, citas, validar, registro, resumen).
    son centrales para el tema (una herramienta, un producto, un libro, un
    método, una persona, un lugar, un concepto). Ignora lo anecdótico y las fichas
    sin contenido concreto (p. ej. "comenta X y te envío el link"). En temas
-   `dentro` y `despues`, prefiere lo que una persona no técnica puede **usar**
-   (una herramienta, un método con pasos, una capacidad concreta de una IA) sobre
-   lo que solo se explica.
+   `dentro` y `despues`, piensa en el público de la cuenta: un profesional con
+   cargo medio (jefe de área, coordinador, gerente de primera línea), no
+   programador, que ya paga Claude o ChatGPT y los usa en el trabajo. Le preocupa
+   quedarse atrás frente a colegas que usan mejor la IA, o que coordinar y
+   revisar pierda valor, y le interesa el liderazgo en la era de la IA. Prefiere
+   lo que puede **usar o decidir** (un método con pasos, una capacidad concreta,
+   un dato sobre su rol) sobre lo que solo se explica. Lo que ya sabe un usuario
+   frecuente (qué es un prompt, que existe un plan gratis) no es hallazgo: busca
+   lo que no sabría. Lo del susto se trata con datos y algo que hacer, nunca con
+   alarmismo.
    Para el `tipo`: `metodo` es algo que se aplica con pasos (una técnica, una
    receta, un proceso); `concepto` es una idea o arquitectura que se explica.
 3. Para cada referencia, busca si ya existe en `referencias/` (compara `nombre`
@@ -147,9 +154,13 @@ Plataforma de automatización de flujos, open source y self-hosteable [1].
 
 ## Para la audiencia
 - **Por qué importa:** para quién hace una diferencia y cuál, en una frase [1]
-- **Qué se puede hacer:** 1 a 3 usos concretos que una persona no técnica puede
-  repetir hoy, cada uno con lo que la herramienta hace de verdad [1][2]
-- **Para quién:** estudiante, emprendedor, quien trabaja en oficina…
+- **Qué se puede hacer:** 1 a 3 usos concretos que un profesional no técnico
+  puede repetir hoy en su trabajo, cada uno con lo que la herramienta hace de verdad [1][2]
+- **Lo que no sabe un usuario frecuente:** lo que alguien que ya usa Claude o
+  ChatGPT a diario probablemente ignora (una capacidad, un límite, un dato) [1]
+  (obligatorio con `revisado` desde 2026-10-25)
+- **Para quién:** un rol de trabajo: jefe de área, coordinador, gerente de primera
+  línea, analista, consultor…
 - **Límites:** lo que no hace, lo que cuesta, lo que exige (cuenta, idioma, país) [1]
 
 ## Mis notas
