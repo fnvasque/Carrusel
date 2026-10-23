@@ -25,6 +25,9 @@ function wordWidth(word: string, size: number, tight = false): number {
   return em * size * (tight ? 0.95 : 1.04);
 }
 
+/** Ancho medido (em) del espacio de Anton en el titular, para la estimación ajustada del reel. */
+export const ANTON_ESPACIO_EM = 0.24;
+
 /** Separador interno de una frase que no se corta (cuenta como un espacio). */
 const GLUE = "\u0001";
 
@@ -53,7 +56,9 @@ function words(text: string, keep?: (string | undefined)[]): string[] {
 export function estimateLines(text: string, size: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
   const ws = words(text, tight ? keep : undefined);
   if (ws.length === 0) return 0;
-  const space = wordWidth(" ", size, tight);
+  // El espacio de Anton mide 0,239 em en Chromium (con el letter-spacing del titular): con «tight»
+  // (−5 %) quedaba en 0,19 y una línea que no cabía parecía caber (corpus 2026-10-23, «POR QUÉ LOS»).
+  const space = tight ? ANTON_ESPACIO_EM * size : wordWidth(" ", size);
   let lines = 1;
   let x = 0;
   for (const w of ws) {

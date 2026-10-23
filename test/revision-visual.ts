@@ -150,6 +150,15 @@ try {
     const h = await reelDe(spec, specTiming(spec));
     assert.deepEqual([...tipos(h, "transicion"), ...tipos(h, "zona")], [], JSON.stringify(h));
   });
+  // Corpus 2026-10-23: el estimador «tight» del reel tomaba el espacio de Anton como 0,19 em (mide 0,239):
+  // «POR QUÉ LOS» cabía en la estimación y no en Chromium, el titular salía con una línea más y empujaba el subtítulo bajo la zona segura.
+  await caso("zona: Hook de habitos-no-son-21-dias (reel) no saca el subtítulo de la zona segura", async () => {
+    const b = fixture("mie-reel-habitos-no-son-21-dias");
+    const spec = borradorASpec(b, { format: "reel" });
+    const offline = { ...spec, defaults: flat(spec.defaults as any), slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
+    const h = await reelDe(offline, specTiming(spec, { pace: b.pace }));
+    assert.deepEqual(h, [], JSON.stringify(h));
+  });
   // El número de paso entra junto con su heading: ninguno se ve solo más de 0,15 s (el bloqueo es a 0,4 s).
   const ritmos = ["ensenar", "rapido", "gancho"] as const;
   const casosNumero: [string, () => CarouselSpec][] = [

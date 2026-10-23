@@ -1,0 +1,77 @@
+{
+  "name": "mie-reel-habitos-no-son-21-dias",
+  "angle": "el mito de los 21 días contra lo que midieron los estudios, para quien ya se rindió",
+  "pillar": "curiosidad",
+  "pace": "ensenar",
+  "audio": "better-times-are-coming.mp3",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "Por qué los hábitos no tardan 21 días",
+        "highlight": "21 días",
+        "subtitle": "Si ya te rendiste"
+      },
+      "background": {
+        "ai": "calendario de pared con muchos días tachados y una taza de café al lado"
+      }
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "Los 21 días vienen de un libro, no de un estudio.",
+        "highlight": "no de un estudio"
+      }
+    },
+    {
+      "template": "Stat",
+      "props": {
+        "value": "66 días",
+        "label": "la mitad formó su hábito antes; la otra, después",
+        "context": "Estudio con 96 personas, 2010."
+      }
+    },
+    {
+      "template": "Stat",
+      "props": {
+        "value": "4 a 335 días",
+        "label": "varía de una persona a otra"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Fallar un día no te devuelve a cero",
+        "body": "Retoma al día siguiente."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Prueba atarlo a un momento fijo",
+        "body": "Mejor en la mañana y elegido por ti."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "3",
+        "heading": "Marca cada día en una planilla",
+        "body": "O usa una app de hábitos."
+      }
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Mándaselo a quien dejó su propósito a las 2 semanas",
+        "highlight": "Mándaselo",
+        "handle": "ia.punto.es",
+        "cta": "Envíaselo a alguien",
+        "source": "Fuente: Lally y otros, 2010; revisión en Healthcare, 2024"
+      }
+    }
+  ]
+}
