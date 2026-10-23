@@ -96,6 +96,11 @@
       "valor": 30,
       "respaldo": "supuesto"
     },
+    "cuerpoMaxPalabrasCarrusel": {
+      "valor": 50,
+      "respaldo": "supuesto",
+      "nota": "2026-10-22: entrevistas, carruseles llevan la profundidad"
+    },
     "terminosTecnicosMax": {
       "valor": 1,
       "respaldo": "skill"
@@ -146,9 +151,9 @@
       "nota": "2026-10-14: los 7 reels medidos se abandonan antes del segundo 3 en ritmo enseñar (retención 4 a 24 %)."
     },
     "duracionMaxSegundos": {
-      "valor": 20,
+      "valor": 35,
       "respaldo": "base",
-      "nota": "2026-10-14: a los 20 s no queda audiencia en reels de 36 a 49 s (curva de retención de mie-reel-habitos-no-son-21-dias)."
+      "nota": "2026-10-22: entrevistas, más espacio para explicar; experimento de 2 semanas desde 2026-10-26. 2026-10-14: a los 20 s no queda audiencia en reels de 36 a 49 s (curva de retención de mie-reel-habitos-no-son-21-dias)."
     }
   },
   "terminosTecnicos": [

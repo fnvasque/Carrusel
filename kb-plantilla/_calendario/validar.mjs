@@ -129,6 +129,12 @@ const PUERTA_DEFECTO = {
   duracionMaxSegundos: 60,
 };
 /**
+ * Claves de la puerta opcionales: si la config no las trae, se usa el respaldo
+ * (`cuerpoMaxPalabrasCarrusel` cae en `cuerpoMaxPalabras`) y las piezas no tienen
+ * que repetirlas en `parametros`. Si vienen, se validan como números > 0.
+ */
+const PUERTA_OPCIONAL = ["cuerpoMaxPalabrasCarrusel"];
+/**
  * Desde esta semana `parametros` debe traer también `ritmoReel` y
  * `duracionMaxSegundos` (palancas de retención); las semanas anteriores no las
  * conocían y siguen válidas sin ellas.
@@ -466,7 +472,11 @@ export function reglasDeTexto(borrador, config, formato) {
     const errs = [];
     const tituloMax = puerta(config, "tituloMaxPalabras");
     const bulletMax = puerta(config, "bulletMaxPalabras");
-    const cuerpoMax = puerta(config, "cuerpoMaxPalabras");
+    // Carrusel: tope propio (la profundidad va en los carruseles); si falta, el del cuerpo general.
+    const cuerpoMaxCarrusel = puerta(config, "cuerpoMaxPalabrasCarrusel");
+    const esCarrusel = formato === "carrusel" && typeof cuerpoMaxCarrusel === "number" && Number.isFinite(cuerpoMaxCarrusel) && cuerpoMaxCarrusel > 0;
+    const cuerpoMax = esCarrusel ? cuerpoMaxCarrusel : puerta(config, "cuerpoMaxPalabras");
+    const claveCuerpo = esCarrusel ? "cuerpoMaxPalabrasCarrusel" : "cuerpoMaxPalabras";
     const permitidas = new Set(lista(puerta(config, "siglasPermitidas")));
     const relleno = lista(puerta(config, "relleno"));
     const terminos = new Set();
@@ -493,7 +503,7 @@ export function reglasDeTexto(borrador, config, formato) {
       for (const k of CAMPOS_CUERPO) {
         if (typeof p[k] !== "string") continue;
         const n = palabras(p[k]).length;
-        if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.cuerpoMaxPalabras)`);
+        if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.${claveCuerpo})`);
       }
       for (const [k, texto] of textosDeLenguaje(p)) {
         for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta"))) {
@@ -651,6 +661,7 @@ function erroresDeParametros(parametros, config, dia) {
   for (const k of claves) {
     const ref = puerta(config, k);
     if (!Object.hasOwn(parametros, k)) {
+      if (PUERTA_OPCIONAL.includes(k)) continue;
       // Palancas nuevas: solo se exigen desde su semana (las anteriores no las conocían).
       if (PARAMETROS_DESDE[k] && typeof dia === "string" && dia < PARAMETROS_DESDE[k]) continue;
       // Semanas del paquete: esas palancas no se fijan, así que tampoco se exigen.
@@ -1689,6 +1700,15 @@ export function validarConfig(config) {
             : typeof p.valor === typeof d;
         if (!ok) errs.push(`puerta.${k}.valor tiene un tipo inválido`);
         else if (k === "ritmoReel" && !PACES.includes(p.valor)) errs.push(`puerta.ritmoReel.valor ${q(p.valor)} inválido (usa: ${PACES.join(", ")})`);
+      }
+      for (const k of PUERTA_OPCIONAL) {
+        const p = config.puerta[k];
+        if (p === undefined) continue;
+        if (!esObj(p)) errs.push(`puerta.${k} debe ser { valor, respaldo }`);
+        else {
+          if (!RESPALDOS.includes(p.respaldo)) errs.push(`puerta.${k}.respaldo debe ser ${RESPALDOS.join(" | ")}`);
+          if (!(typeof p.valor === "number" && Number.isFinite(p.valor) && p.valor > 0)) errs.push(`puerta.${k}.valor tiene un tipo inválido (número mayor que 0)`);
+        }
       }
     }
     return errs;

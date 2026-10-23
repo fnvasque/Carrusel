@@ -2015,3 +2015,51 @@ check("calendario/validar: lector-frio.md — público profesional y pregunta 8 
   assert.ok(md.includes("la 1, la 2, la 5, la 7 y la 8"));
   assert.ok(md.includes("con prisa P8: no bloquea"));
 });
+
+// --- carruseles densos y reels de 35 s (2026-10-22) ---
+
+check("calendario/validar: cuerpoMaxPalabrasCarrusel — body de 45 palabras pasa en carrusel y falla en reel; 51 falla en carrusel", () => {
+  const cfg = CONFIG_PLANTILLA;
+  assert.equal(cfg.puerta.cuerpoMaxPalabrasCarrusel.valor, 50);
+  assert.equal(cfg.puerta.cuerpoMaxPalabrasCarrusel.respaldo, "supuesto");
+  assert.equal(cfg.puerta.cuerpoMaxPalabras.valor, 30);
+  const texto = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`).join(" ");
+  const b = borrador();
+  b.slides[1].props.body = texto(45);
+  assert.ok(!has(reglasDeTexto(b, cfg, "carrusel"), /puerta\.cuerpoMaxPalabras\b/), "carrusel: 45 palabras caben");
+  assert.deepEqual(reglasDeTexto(b, cfg, "carrusel").filter((e) => /cuerpoMaxPalabras/.test(e)), []);
+  assertHas(reglasDeTexto(b, cfg, "reel"), /puerta\.cuerpoMaxPalabras\)/);
+  b.slides[1].props.body = texto(51);
+  assertHas(reglasDeTexto(b, cfg, "carrusel"), /cuerpoMaxPalabrasCarrusel/);
+  // Sin la clave nueva (config vieja) el carrusel usa cuerpoMaxPalabras.
+  const vieja = clone(cfg);
+  delete vieja.puerta.cuerpoMaxPalabrasCarrusel;
+  assertNone(validarConfig(vieja));
+  b.slides[1].props.body = texto(31);
+  assertHas(reglasDeTexto(b, vieja, "carrusel"), /puerta\.cuerpoMaxPalabras\)/);
+});
+
+check("calendario/validar: validarConfig de la plantilla pasa y cuerpoMaxPalabrasCarrusel inválido es error", () => {
+  assertNone(validarConfig(CONFIG_PLANTILLA));
+  for (const valor of [0, -1, "50"]) {
+    const c = clone(CONFIG_PLANTILLA);
+    c.puerta.cuerpoMaxPalabrasCarrusel = { valor, respaldo: "supuesto" };
+    assertHas(validarConfig(c), /cuerpoMaxPalabrasCarrusel/);
+  }
+  // Las piezas no tienen que repetir la clave opcional en parametros.
+  const p = pieza();
+  delete p.parametros.cuerpoMaxPalabrasCarrusel;
+  assert.ok(!has(validarPieza(p, { ...config, puerta: CONFIG_PLANTILLA.puerta }), /cuerpoMaxPalabrasCarrusel/));
+});
+
+check("calendario/validar: tope de 35 s de la plantilla — un reel de ~30 s no tiene errores de retención", () => {
+  assert.equal(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.valor, 35);
+  assert.match(CONFIG_PLANTILLA.puerta.duracionMaxSegundos.nota, /^2026-10-22: entrevistas, más espacio para explicar; experimento de 2 semanas desde 2026-10-26\. 2026-10-14:/);
+  const b = borrador();
+  b.slides.splice(2, 0, ...Array.from({ length: 1 }, (_, i) => ({ template: "Step", props: { step: String(i + 3), heading: "Sube tus PDFs a NotebookLM", body: "Crea un cuaderno y arrastra los archivos." } })));
+  const total = duracionReel(b);
+  assert.ok(total >= 25 && total <= 35, `duración del reel de prueba: ${total}`);
+  const p = pieza();
+  delete p.parametros.duracionMaxSegundos;
+  assert.deepEqual(erroresDeRetencion(b, p, CONFIG_PLANTILLA), []);
+});
