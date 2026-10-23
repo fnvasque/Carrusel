@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { fitDisplaySize, estimateLines, CONTENT_WIDTH } from "./fit.ts";
+import { fitDisplaySize, estimateLines, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
@@ -51,9 +51,9 @@ function valueFit(value: string, max: number): { size: number; wrap: boolean } {
 
 function statHeight(sc: StatScale, p: { value: string; label: string; context?: string; percent: boolean }, tight: boolean): number {
   const v = valueFit(p.value, sc.valueMax);
-  let h = estimateLines(p.value, v.size) * v.size * 0.86;
+  let h = estimateLines(p.value, v.size) * v.size * displayLineHeight(p.value, 0.86);
   if (p.percent) h += sc.gap + 20;
-  h += sc.gap + antonHeight(p.label, fitDisplaySize(p.label, sc.labelMax, { maxLines: 3, tight }), 1.02, undefined, tight);
+  h += sc.gap + antonHeight(p.label, fitDisplaySize(p.label, sc.labelMax, { maxLines: 3, tight }), displayLineHeight(p.label, 1.02), undefined, tight);
   if (p.context) h += sc.gap + 34 + interHeight(p.context, sc.body, CONTENT_WIDTH, 1.4);
   return h;
 }
@@ -81,7 +81,7 @@ export function Stat({ value: rawValue, label, context, accent, format = "post",
           style={{
             fontFamily: theme.fonts.display,
             fontSize: v.size,
-            lineHeight: 0.86,
+            lineHeight: displayLineHeight(value, 0.86),
             color: lime,
             letterSpacing: "-0.01em",
             textTransform: "uppercase",
@@ -103,7 +103,7 @@ export function Stat({ value: rawValue, label, context, accent, format = "post",
             fontFamily: theme.fonts.display,
             fontWeight: 400,
             fontSize: fitDisplaySize(label, sc.labelMax, { maxLines: 3, tight: reel }),
-            lineHeight: 1.02,
+            lineHeight: displayLineHeight(label, 1.02),
             textTransform: "uppercase",
             textWrap: "balance",
           }}

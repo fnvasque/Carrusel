@@ -1,0 +1,60 @@
+{
+  "name": "sab-reel-narra-sin-tu-voz",
+  "angle": "de no querer grabarte a un video narrado por una IA gratis",
+  "pillar": "herramienta",
+  "pace": "gancho",
+  "audio": "digital-clouds.mp3",
+  "logoEnCuadro0": true,
+  "hookVideo": {
+    "prompt": "Cinematic slow dolly-in on a small bedroom in Santiago, Chile, in the evening. A young Chilean man in his twenties, mestizo features, sits on his bed holding his phone up to record himself, starts to speak, stops, covers his face with one hand in embarrassment and lowers the phone. Action in the lower half of the frame.",
+    "segundos": 3
+  },
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "Narra videos sin tu voz",
+        "highlight": "sin tu voz",
+        "subtitle": "IA gratuita"
+      }
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "Para quien odia grabarse.",
+        "highlight": "odia grabarse"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Kokoro: IA gratis que lee en español"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Entra a huggingface.co y busca Kokoro"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "3",
+        "heading": "Pega tu guion, elige voz y descarga"
+      }
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Guárdalo para tu próximo video",
+        "highlight": "Guárdalo",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
+        "source": "Fuente: huggingface.co/hexgrad/Kokoro-82M"
+      }
+    }
+  ]
+}

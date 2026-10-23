@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
-import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
+import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, pickFill, CHAR_EM } from "./layout.ts";
 import { MonoLabel } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
@@ -68,7 +68,7 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
             (conResultado ? [150, 140, 130, 120, 110, 100] : [220, 208, 196, 184, 172, 160, 148, 136]),
             (m) => {
               const s = reelTitle(m);
-              let h = antonHeight(title, s, 0.98, undefined, true, [highlight, mark]) + cardH;
+              let h = antonHeight(title, s, displayLineHeight(title, 0.98), undefined, true, [highlight, mark]) + cardH;
               if (eyebrow) h += 34 + 36;
               if (subtitle) h += 36 + interHeight(subtitle, subSize, 820, 1.3);
               return h;
@@ -124,7 +124,7 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
             fontFamily: theme.fonts.display,
             fontWeight: 400,
             fontSize: titleFont,
-            lineHeight: 0.98,
+            lineHeight: displayLineHeight(title, 0.98),
             textTransform: "uppercase",
             letterSpacing: "0.005em",
             textWrap: "balance",

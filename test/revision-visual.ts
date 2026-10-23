@@ -3,6 +3,19 @@ import { chromium } from "playwright";
 import { htmlShell } from "../src/render/htmlShell.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
 import { revisarPagina, type Hallazgo } from "../src/render/revision.ts";
+import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { parseBorrador, borradorASpec, storySpec } from "../src/calendario/draft.ts";
+import { Hook } from "../src/templates/index.ts";
+import { displayLineHeight, ANTON_LH_ACENTO } from "../src/templates/fit.ts";
+import type { CarouselSpec } from "../src/templates/types.ts";
+import smoke from "../carousels/_smoke-plantillas.ts";
+import estudiar from "../carousels/estudiar-3-ias.ts";
+import mentiras from "../carousels/mentiras-ia.ts";
+import video3 from "../carousels/video-3-segundos.ts";
+import escalera from "../carousels/escalera-dopamina.ts";
+import voz from "../carousels/voz-subtitulos-gratis.ts";
 
 /**
  * Núcleo de la revisión visual en Chromium real: tilde que pisa la línea de
@@ -78,6 +91,60 @@ try {
   await caso("zona: en post (no reel) no se revisa", async () => {
     assert.deepEqual(await revisar(abajo(""), false), []);
   });
+  const fixture = (n: string) => parseBorrador(readFileSync(new URL(`./fixtures/revision-visual/${n}.json`, import.meta.url), "utf8"));
+  const flat = (props: Record<string, any>) => (props.background && "ai" in props.background ? { ...props, background: { color: "#06060A" } } : props);
+  const renderSlide = (spec: CarouselSpec, i: number, format: "post" | "reel") =>
+    renderToStaticMarkup(createElement(spec.slides[i].template as any, { ...flat({ ...spec.defaults, ...spec.slides[i].props }), format }));
+  await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
+    assert.equal(ANTON_LH_ACENTO, 1.14);
+    assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);
+    assert.equal(displayLineHeight("año", 0.98), 1.14);
+    assert.equal(displayLineHeight("PROXIMO", 0.98), 0.98);
+    assert.equal(displayLineHeight("ÑU", 1.2), 1.2);
+    assert.equal(displayLineHeight("QUE TÚ", 0.98), 1.2);
+    assert.equal(displayLineHeight("QUE TU", 0.98), 0.98);
+  });
+  for (const format of ["reel", "post"] as const) {
+    const reel = format === "reel";
+    await caso(`tildes: Cta «Guárdalo para tu próximo video» (${format}) sin hallazgos`, async () => {
+      const spec = borradorASpec(fixture("sab-reel-narra-sin-tu-voz"), { format });
+      const cta = spec.slides.length - 1;
+      assert.equal(spec.slides[cta].props.title, "Guárdalo para tu próximo video");
+      const h = await revisar(renderSlide(spec, cta, format), reel);
+      assert.deepEqual(tipos(h, "tilde"), [], JSON.stringify(h));
+    });
+    await caso(`tildes: Hook de narra-sin-tu-voz (${format})`, async () => {
+      const spec = borradorASpec(fixture("sab-reel-narra-sin-tu-voz"), { format });
+      const h = await revisar(renderSlide(spec, 0, format), reel);
+      assert.deepEqual(tipos(h, "tilde"), [], JSON.stringify(h));
+    });
+    await caso(`tildes: Hook con tilde en dos líneas (${format})`, async () => {
+      const h = await revisar(renderToStaticMarkup(createElement(Hook as any, { title: "Cómo narrar tu próximo video sin grabarte", highlight: "próximo", format })), reel);
+      assert.deepEqual(tipos(h, "tilde"), [], JSON.stringify(h));
+    });
+    await caso(`tildes: kling-vs-seedance (${format}) sin hallazgos`, async () => {
+      const spec = borradorASpec(fixture("vie-pm-reel-kling-vs-seedance"), { format });
+      for (let i = 0; i < spec.slides.length; i++) {
+        const h = await revisar(renderSlide(spec, i, format), reel);
+        assert.deepEqual(tipos(h, "tilde"), [], `slide ${i + 1}: ${JSON.stringify(h)}`);
+      }
+    });
+    await caso(`tildes: StoryCover (${format})`, async () => {
+      const spec = storySpec(fixture("sab-reel-narra-sin-tu-voz"));
+      const h = await revisar(renderSlide(spec, 0, "reel"), true);
+      assert.deepEqual(tipos(h, "tilde"), [], JSON.stringify(h));
+    });
+    await caso(`tildes: carruseles de carousels/ (${format}) sin hallazgos`, async () => {
+      const malos: string[] = [];
+      for (const spec of [smoke, estudiar, mentiras, video3, escalera, voz] as CarouselSpec[]) {
+        for (let i = 0; i < spec.slides.length; i++) {
+          const h = tipos(await revisar(renderSlide(spec, i, format), reel), "tilde");
+          for (const x of h) malos.push(`${spec.name} #${i + 1}: ${x.motivo}`);
+        }
+      }
+      assert.deepEqual(malos, []);
+    });
+  }
 } finally {
   await browser.close();
 }

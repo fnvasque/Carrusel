@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
-import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
+import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { Card, CheckCircle } from "./ui.tsx";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps, Format } from "./types.ts";
@@ -68,7 +68,7 @@ function scales(format: Format): StepScale[] {
 /** Alto estimado del bloque completo a una escala. */
 function stepHeight(sc: StepScale, p: { step?: string; heading: string; highlight?: string; body?: string; bullets?: string[] }, tight: boolean): number {
   const headingSize = fitDisplaySize(p.heading, sc.headingMax, { maxLines: 2, tight, keep: [p.highlight] });
-  let h = antonHeight(p.heading, headingSize, 1.0, undefined, tight, [p.highlight]);
+  let h = antonHeight(p.heading, headingSize, displayLineHeight(p.heading, 1.0), undefined, tight, [p.highlight]);
   if (p.step) h += sc.number * 0.9 + 12;
   const bullets = p.bullets ?? [];
   if (!p.body && bullets.length === 0) return h;
@@ -112,7 +112,7 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
               fontFamily: theme.fonts.display,
               fontWeight: 400,
               fontSize: headingSize,
-              lineHeight: 1.0,
+              lineHeight: displayLineHeight(heading, 1.0),
               textTransform: "uppercase",
               textWrap: "balance",
             }}

@@ -91,3 +91,27 @@ export function fitDisplaySize(
   }
   return min;
 }
+
+/**
+ * Interlineado mínimo de un titular Anton con tildes (Á É Í Ó Ú Ü Ñ). Medido en
+ * Chromium: la tilde sube 1,101 em sobre la línea base; con 0,04 em de aire
+ * no pisa la línea de arriba.
+ */
+export const ANTON_LH_ACENTO = 1.14;
+
+/**
+ * Con una Q en el texto, su cola baja ~0,09 em bajo la línea base y puede tocar
+ * la tilde de la línea siguiente («QUE TÚ…»). Medido: a 1,18 aún se tocan, a
+ * 1,19 no; 1,20 deja 0,01 em de aire.
+ */
+export const ANTON_LH_ACENTO_Q = 1.2;
+
+/**
+ * Interlineado de un texto Anton: `base`, o `ANTON_LH_ACENTO` si el texto
+ * lleva tilde/diéresis/Ñ (`ANTON_LH_ACENTO_Q` si además lleva Q). Estilo y
+ * estimador de alto deben usar el mismo valor.
+ */
+export function displayLineHeight(text: string, base: number): number {
+  if (!/[ÁÉÍÓÚÜÑáéíóúüñ]/.test(text)) return base;
+  return Math.max(base, /q/i.test(text) ? ANTON_LH_ACENTO_Q : ANTON_LH_ACENTO);
+}

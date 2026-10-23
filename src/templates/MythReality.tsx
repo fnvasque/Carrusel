@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { Card } from "./ui.tsx";
-import { CONTENT_WIDTH } from "./fit.ts";
+import { CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme, monoText } from "../theme.ts";
@@ -35,7 +35,7 @@ export function MythReality({
   // Mayor tamaño (con tope) que deja las dos tarjetas dentro del área útil.
   const max = reel ? 104 : 76;
   const textW = CONTENT_WIDTH - 104 - 6;
-  const cardH = (t: string, size: number) => 44 + 52 + 6 + 44 + 24 + antonHeight(t, size, 1.08, textW, reel);
+  const cardH = (t: string, size: number) => 44 + 52 + 6 + 44 + 24 + antonHeight(t, size, displayLineHeight(t, 1.08), textW, reel);
   const size = pickFill(
     [104, 96, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44].filter((s) => s <= max),
     (s) => cardH(myth, s) + cardH(reality, s) + 28,
@@ -62,7 +62,7 @@ function Panel({ kind, label, text, size, reel, lime }: { kind: "myth" | "realit
         fontFamily: theme.fonts.display,
         fontWeight: 400,
         fontSize: size,
-        lineHeight: 1.08,
+        lineHeight: displayLineHeight(text, 1.08),
         textTransform: "uppercase",
         color: myth ? theme.colors.textMuted : theme.colors.text,
         // Post: tachado rosa estático (sigue cada línea). En el reel lo dibuja el runtime.

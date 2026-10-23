@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
+import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, wrapLines, pickFill, CHAR_EM, REEL_FILL } from "./layout.ts";
 import { Card } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
@@ -42,7 +42,7 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
   const codeLines = (code: number) => wrapLines(prompt, code * CHAR_EM.mono, codeW);
   const height = (c: (typeof candidates)[number]) => {
     const hs = fitDisplaySize(heading, c.headingMax, { maxLines: 2, tight: reel });
-    let h = antonHeight(heading, hs, 1.0, undefined, reel) + c.gap + 86 + 92 + Math.max(codeLines(c.code), c.minLines) * c.code * 1.5;
+    let h = antonHeight(heading, hs, displayLineHeight(heading, 1.0), undefined, reel) + c.gap + 86 + 92 + Math.max(codeLines(c.code), c.minLines) * c.code * 1.5;
     if (note) h += c.gap + interHeight(note, 40, CONTENT_WIDTH - 48, 1.35);
     return h;
   };
@@ -64,7 +64,7 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
             fontFamily: theme.fonts.display,
             fontWeight: 400,
             fontSize: fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: reel }),
-            lineHeight: 1.0,
+            lineHeight: displayLineHeight(heading, 1.0),
             textTransform: "uppercase",
             textWrap: "balance",
           }}
