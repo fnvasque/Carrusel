@@ -311,14 +311,24 @@ bot.callbackQuery(/^cal-saltar:/, async (ctx) => {
 // Respuesta a la revisión visual (botones de la foto que manda el Mac). Registrado antes del
 // genérico de callback_query:data. Anotar no publica nada, así que vale aunque el calendario esté apagado.
 bot.callbackQuery(/^cal-visual:/, async (ctx) => {
-  await ctx.answerCallbackQuery({ text: "Anotado" }).catch(() => {});
-  const chatId = ctx.chat?.id;
-  if (chatId === undefined) return;
-  const msg = ctx.callbackQuery.message;
-  const previo = msg && "caption" in msg ? msg.caption ?? "" : "";
-  await botonVisual(chatId, ctx.callbackQuery.data, async (linea) => {
-    await ctx.editMessageCaption({ caption: truncar(`${previo}\n${linea}`, TELEGRAM_CAPTION_MAX), reply_markup: undefined });
-  });
+  // Se responde siempre una sola vez, después de validar: «Anotado» solo si quedó anotado.
+  let respondido = false;
+  const responder = async (text?: string): Promise<void> => {
+    if (respondido) return;
+    respondido = true;
+    await ctx.answerCallbackQuery(text ? { text } : undefined).catch(() => {});
+  };
+  try {
+    const chatId = ctx.chat?.id;
+    if (chatId === undefined) return;
+    const msg = ctx.callbackQuery.message;
+    const previo = msg && "caption" in msg ? msg.caption ?? "" : "";
+    await botonVisual(chatId, ctx.callbackQuery.data, async (linea) => {
+      await ctx.editMessageCaption({ caption: truncar(`${previo}\n${linea}`, TELEGRAM_CAPTION_MAX), reply_markup: undefined });
+    }, responder);
+  } finally {
+    await responder();
+  }
 });
 
 // --- links y preguntas ---
@@ -1183,20 +1193,30 @@ async function botonSaltar(chatId: number, data: string, quitarBoton: () => Prom
 }
 
 /** Botón de la revisión visual: anota la respuesta (una línea más por toque; gana la última) y la sube a la base. */
-async function botonVisual(chatId: number, data: string, marcar: (linea: string) => Promise<unknown>): Promise<void> {
+async function botonVisual(
+  chatId: number,
+  data: string,
+  marcar: (linea: string) => Promise<unknown>,
+  responder: (texto?: string) => Promise<void> = async () => {},
+): Promise<void> {
   try {
     const { semanas } = await semanasActivas();
     const ref = leerCallbackVisual(data, semanas);
     if (!ref) {
-      await bot.api.sendMessage(chatId, "Ese botón ya no vale (la pieza ya no está en esta semana ni en la siguiente). No anoté nada.");
+      const texto = "Ese botón ya no vale (la pieza ya no está en esta semana ni en la siguiente). No anoté nada.";
+      await responder(texto);
+      await bot.api.sendMessage(chatId, texto);
       return;
     }
     await serial(async () => {
       const ruta = await anotarRespuestaVisual(ref.semana, { id: ref.id, n: ref.n, respuesta: ref.respuesta, en: new Date().toISOString() });
+      // Ya quedó anotado en disco: se responde antes del commit (que puede tardar por el push).
+      await responder("Anotado");
       await commitPaths([ruta], `calendario: respuesta visual ${ref.semana}/${ref.id} #${ref.n}`);
     });
     await marcar(textoRespuestaVisual(ref.respuesta)).catch(() => {});
   } catch (err) {
+    await responder("No pude anotar la respuesta");
     await bot.api.sendMessage(chatId, `❌ Respuesta visual: ${sinToken(errText(err))}`).catch(() => {});
   }
 }
