@@ -878,6 +878,8 @@ export function construirBucle(e: EntradasBucle): BucleJson {
   if (e.visual && e.visual.length > 0) {
     try {
       visualResumen = resumenVisual(e.visual, reglasLeidas.reglas.find((r) => r.id === "revision-visual-fase1")?.desde);
+      // Las alertas (el motor de la fase 1 volvió a fallar) también van en `avisos`, que se leen siempre.
+      for (const a of visualResumen.alertas) avisos.push(`revisión visual: ${a}`);
     } catch (err) {
       avisos.push(`registro visual ilegible, se omite: ${err instanceof Error ? err.message : String(err)}`);
     }
