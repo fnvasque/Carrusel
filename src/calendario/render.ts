@@ -11,7 +11,7 @@ import { THRESHOLD } from "../score/virality.ts";
 import { refreshCalibration } from "../score/calibration.ts";
 import { renderCarousel } from "../render/renderCarousel.ts";
 import { Renderer } from "../render/renderSlide.ts";
-import { ErrorVisual, aplicarModo } from "../render/revision.ts";
+import { ErrorRevisionFallida, ErrorVisual, aplicarModo, revisarSegun } from "../render/revision.ts";
 import { resolveBackground } from "../render/background.ts";
 import { renderReelResult } from "../reel/renderReel.ts";
 import { maxSecondsError, specTiming } from "../reel/timing.ts";
@@ -198,6 +198,8 @@ function razon(e: unknown): string {
  * - Revisión visual (`ErrorVisual`) → no se sube ni se escribe; sigue planificada y se
  *   reintenta cada hora; avisa una vez por (pieza, motivo) (`avisosVisualesNuevos`).
  * - Error del entorno en el render (Chromium, ffmpeg, disco) → avisa y sigue planificada.
+ * - La revisión visual se cayó (`ErrorRevisionFallida`, no un hallazgo) → igual que el
+ *   entorno, pero el aviso dice «la revisión visual falló: …» y no «problema del Mac».
  * - rsync o verificación fallan → no escribe nada (sigue planificada), avisa y deja
  *   la carpeta final: la próxima corrida solo reintenta la subida.
  * - La hora pasó (antes de subir o durante la subida) → no se anota (el bot la marca saltada).
@@ -296,7 +298,9 @@ export async function procesar(
           continue;
         }
         if (!(e instanceof ErrorContenido)) {
-          await avisar(`No pude renderizar ${id} (${p.semana}) por un problema del Mac: ${razon(e)}. Sigue planificada; la próxima corrida reintenta.`);
+          // La revisión visual que se cae (no un hallazgo) falla cerrado, pero no es «del Mac».
+          const causa = e instanceof ErrorRevisionFallida ? `: ${razon(e)}` : ` por un problema del Mac: ${razon(e)}`;
+          await avisar(`No pude renderizar ${id} (${p.semana})${causa}. Sigue planificada; la próxima corrida reintenta.`);
           res.pendientes++;
           continue;
         }
@@ -511,7 +515,7 @@ async function renderStory(b: ReturnType<typeof parseBorrador>, png: string): Pr
   try {
     const img = await r.render(createElement(slide.template, props));
     // Revisión visual (bloquea): la story es 9:16, se mira con la zona segura del reel.
-    aplicarModo(await r.revisar("story (StoryCover)", { reel: true, altura: FORMATS.reel.height }), "bloquear");
+    aplicarModo(await revisarSegun("bloquear", () => r.revisar("story (StoryCover)", { reel: true, altura: FORMATS.reel.height })), "bloquear");
     await writeFile(png, img);
   } finally {
     await r.close();

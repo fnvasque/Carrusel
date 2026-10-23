@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { check, done } from "./_check.ts";
-import { unicos, aplicarModo, ErrorVisual, type Hallazgo, type TextoDom } from "../src/render/revision.ts";
+import { check, checkAsync, done } from "./_check.ts";
+import { unicos, aplicarModo, revisarSegun, ErrorRevisionFallida, ErrorVisual, type Hallazgo, type TextoDom } from "../src/render/revision.ts";
 import { instantesRevision, instantesFinales, encimes, numerosSolos } from "../src/reel/revision.ts";
 import { reelTiming } from "../src/reel/timing.ts";
 
@@ -25,6 +25,26 @@ check("aplicarModo avisar y no: no lanzan", () => {
   aplicarModo([h], "avisar", (t) => log.push(t));
   assert.ok(log.some((t) => /SEEDANCE/.test(t)));
   aplicarModo([h], "no");
+});
+
+const caida = async (): Promise<Hallazgo[]> => {
+  throw new Error("Target page, context or browser has been closed");
+};
+await checkAsync("revisarSegun avisar: si la revisión se cae, advierte y sigue sin hallazgos", async () => {
+  const log: string[] = [];
+  assert.deepEqual(await revisarSegun("avisar", caida, (t) => log.push(t)), []);
+  assert.equal(log.length, 1);
+  assert.match(log[0], /^la revisión visual falló: Target page/);
+});
+await checkAsync("revisarSegun bloquear: si la revisión se cae, lanza ErrorRevisionFallida («la revisión visual falló: …»)", async () => {
+  await assert.rejects(revisarSegun("bloquear", caida), (e: unknown) =>
+    e instanceof ErrorRevisionFallida && !(e instanceof ErrorVisual) && /^la revisión visual falló: Target page/.test((e as Error).message));
+});
+await checkAsync("revisarSegun: devuelve los hallazgos; con no ni la corre", async () => {
+  assert.deepEqual(await revisarSegun("bloquear", async () => [h]), [h]);
+  let corrida = false;
+  assert.deepEqual(await revisarSegun("no", async () => { corrida = true; return [h]; }), []);
+  assert.equal(corrida, false);
 });
 
 // --- Revisión del reel en el tiempo (agregadores puros) ---

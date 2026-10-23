@@ -11,7 +11,7 @@ import {
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
 import { avisarTelegram } from "../../src/calendario/telegram-directo.ts";
-import { ErrorVisual } from "../../src/render/revision.ts";
+import { ErrorRevisionFallida, ErrorVisual } from "../../src/render/revision.ts";
 
 /**
  * Render en el Mac (`npm run calendario:render`) sin Chromium ni red: `pendientes`,
@@ -202,6 +202,22 @@ await checkAsync("procesar (R31): error del entorno (Chromium, ffmpeg, disco) �
     const r2 = await procesar([pend("lun-chromium")], out, ENV, segunda.deps);
     assert.deepEqual(r2, { ok: 1, fallidas: 0, pendientes: 0 });
     assert.deepEqual(segunda.reg.render, ["lun-chromium"], "la próxima corrida la renderiza");
+  }),
+);
+
+await checkAsync("procesar: la revisión visual que se cae avisa «la revisión visual falló» (no «problema del Mac») y sigue planificada", () =>
+  conOut(async (out) => {
+    const { deps, reg } = falsos({
+      render: async () => {
+        throw new ErrorRevisionFallida(new Error("page.evaluate: Execution context was destroyed"));
+      },
+    });
+    const r = await procesar([pend("lun-revision-caida")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 1 });
+    assert.deepEqual(reg.escritos, []);
+    assert.equal(reg.avisos.length, 1);
+    assert.match(reg.avisos[0], /^No pude renderizar lun-revision-caida \(2026-10-12\): la revisión visual falló: page\.evaluate/);
+    assert.ok(!reg.avisos[0].includes("problema del Mac"), reg.avisos[0]);
   }),
 );
 

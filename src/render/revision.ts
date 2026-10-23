@@ -103,6 +103,35 @@ export function unicos(h: Hallazgo[]): Hallazgo[] {
   return out;
 }
 
+/**
+ * La revisión misma se cayó (no es un hallazgo): Chromium, el script del DOM, un seek.
+ * El mensaje empieza con «la revisión visual falló: …» para que el aviso del Mac no lo
+ * confunda con un problema del entorno.
+ */
+export class ErrorRevisionFallida extends Error {
+  constructor(causa: unknown) {
+    super(`la revisión visual falló: ${causa instanceof Error ? causa.message : String(causa)}`, { cause: causa });
+    this.name = "ErrorRevisionFallida";
+  }
+}
+
+/**
+ * Corre la revisión (`revisar`) según el modo: `no` → no la corre; si se cae, en
+ * `avisar` (CLI) solo advierte y sigue sin hallazgos, y en `bloquear` (calendario)
+ * falla cerrado con `ErrorRevisionFallida`.
+ */
+export async function revisarSegun(modo: ModoRevision, revisar: () => Promise<Hallazgo[]>, log: (t: string) => void = console.warn): Promise<Hallazgo[]> {
+  if (modo === "no") return [];
+  try {
+    return await revisar();
+  } catch (e) {
+    const err = new ErrorRevisionFallida(e);
+    if (modo === "bloquear") throw err;
+    log(`${err.message} (sigo sin revisar)`);
+    return [];
+  }
+}
+
 /** `bloquear` → lanza `ErrorVisual` si hay hallazgos; `avisar` → los registra; `no` → nada. */
 export function aplicarModo(h: Hallazgo[], modo: ModoRevision, log: (t: string) => void = console.warn): void {
   if (modo === "no" || h.length === 0) return;

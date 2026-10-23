@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Renderer } from "./renderSlide.ts";
-import { aplicarModo, type Hallazgo, type ModoRevision } from "./revision.ts";
+import { aplicarModo, revisarSegun, type Hallazgo, type ModoRevision } from "./revision.ts";
 import { resolveBackground } from "./background.ts";
 import { scoreCarousel, THRESHOLD } from "../score/virality.ts";
 import { printReport } from "../score/cli.ts";
@@ -54,7 +54,8 @@ export async function renderCarousel(spec: CarouselSpec, opts: RenderCarouselOpt
       props.background = await resolveBackground(props.background);
 
       const png = await renderer.render(createElement(slide.template, props));
-      if (modo !== "no") hallazgos.push(...(await renderer.revisar(`slide ${i} (${slide.template.name})`)));
+      const contexto = `slide ${i} (${slide.template.name})`;
+      hallazgos.push(...(await revisarSegun(modo, () => renderer.revisar(contexto), (t) => console.warn(`⚠️  Revisión visual de ${contexto}: ${t}`))));
       const outPath = join(outDir, `slide-${String(i).padStart(2, "0")}.png`);
       await writeFile(outPath, png);
       written.push(outPath);

@@ -5,7 +5,7 @@ import { chromium, type Page } from "playwright";
 import { findChromium } from "../render/renderSlide.ts";
 import { FORMATS } from "../templates/types.ts";
 import type { ReelTiming } from "./timing.ts";
-import { aplicarModo, type ModoRevision } from "../render/revision.ts";
+import { aplicarModo, revisarSegun, type ModoRevision } from "../render/revision.ts";
 import { revisarReel } from "./revision.ts";
 
 /** Falla con un mensaje claro si ffmpeg no está en el PATH. */
@@ -147,9 +147,10 @@ export async function captureReel(
   const { browser, page } = await openReel(html, timing);
   const modo = opts.revision ?? "avisar";
   if (modo !== "no") {
+    const log = (t: string): void => console.warn(`  ⚠️  Revisión visual: ${t}`);
     try {
       // revisarReel deja la página en otro instante; shot() hace seek en cada cuadro.
-      aplicarModo(await revisarReel(page, timing), modo, (t) => console.warn(`  ⚠️  Revisión visual: ${t}`));
+      aplicarModo(await revisarSegun(modo, () => revisarReel(page, timing), log), modo, log);
     } catch (e) {
       await browser.close();
       throw e;
