@@ -123,6 +123,8 @@ token) con los permisos que ya usas más `instagram_content_publish`; no vence. 
 (córrelo como `CALENDARIO_MODO=aviso npm run meta:check`, sin dejar la variable en el `.env` del Mac) exige `instagram_content_publish` y muestra el vencimiento. Si el token es inválido o le falta el permiso, el scheduler no
 publica y te avisa por Telegram.
 
+**Revisión visual de fondos.** El bot también atiende los botones `cal-visual` (Tenía razón / No) de las fotos que manda el Mac; se despliega con el procedimiento de siempre (`scripts/deploy-to-server.sh ubuntu@<ip> --update`).
+
 **Probar sin publicar.** Pon `CALENDARIO_MODO=aviso` y aplica con `docker compose up -d`: el bot hace todo
 (previews, programación, avisos) menos los POST a Meta. Cuando se vea bien, cambia a `auto`.
 
