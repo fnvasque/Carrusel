@@ -34,6 +34,8 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
   assert.deepEqual(r.reglas.map((x) => [x.id, x.desde]), [
     ["ritmo-gancho-20s", "2026-10-15"], ["regla-6-ia-se-ve", "2026-10-16"], ["regla-7-gesto-antes-5s", "2026-10-16"],
     ["regla-8-hook-resultado", "2026-10-16"], ["regla-9-narracion", "2026-10-19"], ["regla-10-screen", "2026-10-19"],
+    ["publico-profesional-ia", "2026-10-26"], ["lector-novedad-p8", "2026-10-26"], ["hook-juez", "2026-10-26"], ["guia-redaccion", "2026-10-26"],
+    ["reel-35s", "2026-10-26"], ["carrusel-denso", "2026-10-26"], ["series-publico-profesional", "2026-10-26"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));
 });
