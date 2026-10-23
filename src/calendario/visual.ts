@@ -39,6 +39,11 @@ export const respuestasVisualesPath = (semana: string): string => join(semanaDir
 const esObjeto = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
 const numOk = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x) && x >= 0;
 
+/** Oculta fragmentos con forma de clave de API (`sk-…`) antes de guardar o loguear un texto. */
+export function sinClaves(s: string): string {
+  return s.replace(/sk-[A-Za-z0-9_-]+/g, "sk-…");
+}
+
 /** Lee `visual.json` y descarta lo que no tiene la forma esperada; si falta o está corrupto devuelve `{}`. */
 export async function leerVisual(semana: string): Promise<VisualJson> {
   let raw: unknown;

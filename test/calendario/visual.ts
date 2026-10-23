@@ -3,7 +3,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
-import { anotarRespuestaVisual, cupo, leerRespuestasVisuales, leerVisual, respuestasVisualesPath, visualPath } from "../../src/calendario/visual.ts";
+import { anotarRespuestaVisual, cupo, sinClaves, leerRespuestasVisuales, leerVisual, respuestasVisualesPath, visualPath } from "../../src/calendario/visual.ts";
+
+check("visual: sinClaves oculta fragmentos con forma de clave de API", () => {
+  assert.equal(sinClaves("Incorrect API key provided: sk-proj-AbC_12-x9. Otra: sk-xyz"), "Incorrect API key provided: sk-…. Otra: sk-…");
+  assert.equal(sinClaves("sin claves"), "sin claves");
+});
 
 check("visual: cupo respeta los topes por pieza, por semana y de dinero", () => {
   assert.deepEqual(cupo(undefined, 15), { imagenes: 12 });

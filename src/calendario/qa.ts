@@ -66,7 +66,7 @@ export function hayTextoEnZona(gray: Uint8Array, width: number, height: number, 
 }
 
 /** Props cuyo texto hay que leer (las mismas que alargan la escena en el motor). */
-const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
+export const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
 
 function palabras(props: Record<string, unknown>): number {
   let n = 0;

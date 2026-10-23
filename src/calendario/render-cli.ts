@@ -7,7 +7,10 @@ import {
   verificarReal,
   type EnvRender,
 } from "./render.ts";
-import { avisarTelegram } from "./telegram-directo.ts";
+import { extraerCuadros } from "./cuadros-visuales.ts";
+import { revisarRenderizadas } from "./revision-fondos.ts";
+import { llamarOpenAI, revisarFondos } from "./revisor-visual.ts";
+import { avisarTelegram, enviarFotoTelegram } from "./telegram-directo.ts";
 
 /**
  * `npm run calendario:render [-- --dry-run]` — lo lanza launchd cada hora en el Mac
@@ -151,23 +154,46 @@ try {
       console.log(`  ${p.semana}/${p.pieza.id} (${p.pieza.formato}, ${p.pieza.dia} ${p.pieza.hora}) ← ${p.borradorPath}`);
       console.log(`    rsync → ${destinoRemoto(env, p.semana, p.pieza.id)}`);
     }
-  } else {
-    console.log(`🎬 ${pend.length} pieza(s) por renderizar (${new Date().toISOString()}).`);
-    const puerta = await leerPuerta();
-    const voz = await leerVoz(avisar);
+  }
+  if (!dryRun) {
     const escritor = crearEscritorRender({ avisar });
-    const r = await procesar(pend, outRoot, env, {
-      render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, avisar, clipsDir }),
-      rsync: rsyncReal,
-      verificar: verificarReal,
-      escribirRender: escritor.escribirRender,
-      escribirVisual: escritor.escribirVisual,
-      confirmar: escritor.confirmar,
-      avisar,
-      log: (t) => console.log(ocultarToken(t, token)),
-    });
-    console.log(`Listo: ${r.ok} renderizada(s), ${r.fallidas} fallida(s), ${r.pendientes} pendiente(s).`);
-    // render.json sin subir (I4): ya avisado; la corrida no es buena y la próxima reintenta solo la subida.
+    if (pend.length) {
+      console.log(`🎬 ${pend.length} pieza(s) por renderizar (${new Date().toISOString()}).`);
+      const puerta = await leerPuerta();
+      const voz = await leerVoz(avisar);
+      const r = await procesar(pend, outRoot, env, {
+        render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, avisar, clipsDir }),
+        rsync: rsyncReal,
+        verificar: verificarReal,
+        escribirRender: escritor.escribirRender,
+        escribirVisual: escritor.escribirVisual,
+        confirmar: escritor.confirmar,
+        avisar,
+        log: (t) => console.log(ocultarToken(t, token)),
+      });
+      console.log(`Listo: ${r.ok} renderizada(s), ${r.fallidas} fallida(s), ${r.pendientes} pendiente(s).`);
+    }
+    // Revisión de fondos con modelo de visión (solo avisa, nunca bloquea ni lanza): también
+    // las piezas renderizadas en corridas anteriores que aún no tienen veredicto.
+    try {
+      const rv = await revisarRenderizadas(semanas, outRoot, {
+        revisar: revisarFondos,
+        llamar: llamarOpenAI,
+        extraer: extraerCuadros,
+        enviarFoto: enviarFotoTelegram,
+        escribirVisual: escritor.escribirVisual,
+        visualPendiente: escritor.visualPendiente,
+        log: (t) => console.log(ocultarToken(t, token)),
+      });
+      if (rv.revisadas || rv.sinRevisar) {
+        console.log(`🖼️  Revisión de fondos: ${rv.revisadas} revisada(s), ${rv.sinRevisar} sin revisar, ${rv.avisos} aviso(s), US$${rv.usd.toFixed(4)}.`);
+      }
+      // procesar ya confirmó lo suyo: aquí se sube lo que anotó la revisión (no-op si no hay nada).
+      for (const s of semanas) await escritor.confirmar(s.semana);
+    } catch (e) {
+      console.warn(`⚠️  Revisión de fondos: ${ocultarToken(e instanceof Error ? e.message : String(e), token)}`);
+    }
+    // render.json o visual.json sin subir (I4): ya avisado; la corrida no es buena y la próxima reintenta solo la subida.
     if (escritor.huboError()) codigo = 1;
   }
 } catch (e) {

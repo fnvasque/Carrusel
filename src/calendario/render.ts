@@ -43,7 +43,7 @@ export interface PiezaPendiente {
 }
 
 /** Instante de publicación de una pieza (hora local de Chile). */
-function horaDe(p: Pieza): number {
+export function horaDe(p: Pieza): number {
   return zonedToUtc(p.dia, p.hora).getTime();
 }
 
@@ -145,7 +145,7 @@ export interface EnvRender {
 /** Manifiesto de una carpeta final: qué archivos tiene y la duración del reel. No se sube. */
 export const MANIFIESTO = ".manifiesto.json";
 
-interface Manifiesto {
+export interface Manifiesto {
   archivos: string[];
   duracionMs?: number;
   /** Reel: inicio y duración (s) de cada escena, para elegir los cuadros de la revisión visual. */
@@ -155,7 +155,7 @@ interface Manifiesto {
 const ARCHIVO_RE = /^[a-z0-9][a-z0-9._-]*\.(jpg|mp4)$/;
 
 /** Manifiesto válido y con todos sus archivos presentes, o undefined (carpeta incompleta o ajena). */
-async function leerManifiesto(final: string): Promise<Manifiesto | undefined> {
+export async function leerManifiesto(final: string): Promise<Manifiesto | undefined> {
   try {
     const m = JSON.parse(await readFile(join(final, MANIFIESTO), "utf8")) as Manifiesto;
     if (!Array.isArray(m.archivos) || !m.archivos.length) return undefined;

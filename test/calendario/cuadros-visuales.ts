@@ -95,6 +95,9 @@ await checkAsync("extraerCuadros: destino dentro de la carpeta final → error; 
   const final = join(raiz, "final");
   await assert.rejects(extraerCuadros(final, join(final, "rev"), []), /fuera de la carpeta final/);
   await assert.rejects(extraerCuadros(final, final, []), /fuera de la carpeta final/);
+  // Un destino que contiene la carpeta final la borraría entera (rm -rf).
+  await assert.rejects(extraerCuadros(final, raiz, []), /no puede contener la carpeta final/);
+  await assert.rejects(extraerCuadros(join(raiz, "a", "b"), join(raiz, "a"), []), /no puede contener la carpeta final/);
   const dest = join(raiz, ".revision", "s", "id");
   await extraerCuadros(final, dest, []);
   assert.deepEqual(readdirSync(dest), []);

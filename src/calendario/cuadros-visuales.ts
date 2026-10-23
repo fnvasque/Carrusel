@@ -115,6 +115,9 @@ export function cuadrosARevisar(
 export async function extraerCuadros(final: string, destino: string, cuadros: Cuadro[]): Promise<{ n: number; ruta: string; que: string }[]> {
   const rel = relative(final, destino);
   if (!rel.startsWith("..") || isAbsolute(rel)) throw new Error(`El destino de los cuadros (${destino}) debe estar fuera de la carpeta final (${final}): se subiría al servidor.`);
+  // `destino` se borra entero: nunca puede ser la carpeta final ni contenerla.
+  const inv = relative(destino, final);
+  if (!inv.startsWith("..") && !isAbsolute(inv)) throw new Error(`El destino de los cuadros (${destino}) no puede contener la carpeta final (${final}): se borraría.`);
   // Sin restos de una corrida anterior.
   await rm(destino, { recursive: true, force: true });
   await mkdir(destino, { recursive: true });
