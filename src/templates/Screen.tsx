@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { fitDisplaySize, CONTENT_WIDTH } from "./fit.ts";
+import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, pickFill, CHAR_EM, REEL_FILL } from "./layout.ts";
 import { Card } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
@@ -46,7 +46,7 @@ export function Screen({ app, prompt, respuesta, heading, nota, accent, format =
     const label = 30 + 12;
     h += c.pad * 2 + label + interHeight(prompt, c.text, bubbleW - 2 * c.pad, 1.32);
     h += c.gap + label + interHeight(respuesta, c.text, bubbleW - 2 * c.pad, 1.32) + c.pad * 2;
-    if (heading) h += antonHeight(heading, fitDisplaySize(heading, c.headingMax, { maxLines: 2, tight: reel }), 1.0, undefined, reel) + c.gap;
+    if (heading) h += antonHeight(heading, fitDisplaySize(heading, c.headingMax, { maxLines: 2, tight: reel }), displayLineHeight(heading, 1.0), undefined, reel) + c.gap;
     if (nota) h += c.gap + interHeight(nota, 32, CONTENT_WIDTH - 48, 1.35);
     return h;
   };
@@ -72,7 +72,7 @@ export function Screen({ app, prompt, respuesta, heading, nota, accent, format =
               fontFamily: theme.fonts.display,
               fontWeight: 400,
               fontSize: fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: reel }),
-              lineHeight: 1.0,
+              lineHeight: displayLineHeight(heading, 1.0),
               textTransform: "uppercase",
               textWrap: "balance",
             }}

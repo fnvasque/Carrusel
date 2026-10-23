@@ -6,11 +6,12 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorClipFaltante, ErrorContenido, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
-  sincronizarPendiente, tomarCandado,
+  ErrorClipFaltante, ErrorContenido, avisosVisualesNuevos, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
+  olvidarAvisosVisuales, sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
 import { avisarTelegram } from "../../src/calendario/telegram-directo.ts";
+import { ErrorRevisionFallida, ErrorVisual } from "../../src/render/revision.ts";
 
 /**
  * Render en el Mac (`npm run calendario:render`) sin Chromium ni red: `pendientes`,
@@ -204,6 +205,22 @@ await checkAsync("procesar (R31): error del entorno (Chromium, ffmpeg, disco) �
   }),
 );
 
+await checkAsync("procesar: la revisión visual que se cae avisa «la revisión visual falló» (no «problema del Mac») y sigue planificada", () =>
+  conOut(async (out) => {
+    const { deps, reg } = falsos({
+      render: async () => {
+        throw new ErrorRevisionFallida(new Error("page.evaluate: Execution context was destroyed"));
+      },
+    });
+    const r = await procesar([pend("lun-revision-caida")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 1 });
+    assert.deepEqual(reg.escritos, []);
+    assert.equal(reg.avisos.length, 1);
+    assert.match(reg.avisos[0], /^No pude renderizar lun-revision-caida \(2026-10-12\): la revisión visual falló: page\.evaluate/);
+    assert.ok(!reg.avisos[0].includes("problema del Mac"), reg.avisos[0]);
+  }),
+);
+
 await checkAsync("procesar: clip faltante es error de entorno (sigue planificada, avisa con la ruta)", () =>
   conOut(async (out) => {
     const { deps, reg } = falsos({
@@ -217,6 +234,117 @@ await checkAsync("procesar: clip faltante es error de entorno (sigue planificada
     assert.equal(reg.avisos.length, 1);
     assert.match(reg.avisos[0], /Falta el clip \/x\/2026-10-12\/lun-clip\/a\.mp4/);
     assert.ok(!(new ErrorClipFaltante("x") instanceof ErrorContenido));
+  }),
+);
+
+const visual = (...motivos: string[]): ErrorVisual => new ErrorVisual(motivos.map((motivo) => ({ tipo: "tilde" as const, motivo })));
+
+await checkAsync("procesar: ErrorVisual → sigue planificada, sin escribir, un aviso por pieza y motivo (sin token)", () =>
+  conOut(async (out) => {
+    const tilde = `escena 1 (Hook): la tilde de «Í» pisa la línea anterior (${TOKEN})`;
+    const coma = "escena 3 (Step): espacio antes de «,»";
+    let errores: ErrorVisual[] = [visual(tilde)];
+    const conFalla = () => falsos({
+      render: async () => {
+        throw errores[0];
+      },
+    });
+    // 1.ª corrida: pendiente, sin render.json ni carpetas, un aviso con id y motivo.
+    let { deps, reg } = conFalla();
+    let r = await procesar([pend("lun-visual")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 1 });
+    assert.deepEqual(reg.escritos, [], "no escribe render.json");
+    assert.deepEqual(readdirSync(join(out, SEMANA)), [], "sin temporales ni carpeta final");
+    assert.deepEqual(reg.rsync, []);
+    assert.equal(reg.avisos.length, 1, reg.avisos.join("\n"));
+    assert.match(reg.avisos[0], /^Revisión visual: lun-visual \(2026-10-12\) no se sube: /);
+    assert.match(reg.avisos[0], /escena 1 \(Hook\): la tilde/);
+    assert.match(reg.avisos[0], /Sigue planificada; se reintenta cada hora hasta su hora\.$/);
+    assert.ok(!reg.avisos.join(" ").includes(TOKEN), "aviso sin token");
+    assert.ok(!reg.logs.join(" ").includes(TOKEN), "log sin token");
+    assert.ok(!readFileSync(join(out, ".avisos-visuales.json"), "utf8").includes(TOKEN), "registro sin token");
+
+    // 2.ª corrida, mismo motivo: no avisa.
+    ({ deps, reg } = conFalla());
+    r = await procesar([pend("lun-visual")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 0, pendientes: 1 });
+    assert.deepEqual(reg.avisos, [], "el mismo motivo no se vuelve a avisar");
+
+    // 3.ª corrida, otro motivo (y el viejo): avisa solo el nuevo.
+    errores = [visual(tilde, coma)];
+    ({ deps, reg } = conFalla());
+    r = await procesar([pend("lun-visual")], out, ENV, deps);
+    assert.equal(reg.avisos.length, 1);
+    assert.match(reg.avisos[0], /espacio antes de «,»/);
+    assert.ok(!reg.avisos[0].includes("tilde"), "no repite el motivo ya avisado");
+
+    // Sale bien: se borra su entrada (y queda renderizada).
+    const bien = falsos();
+    r = await procesar([pend("lun-visual")], out, ENV, bien.deps);
+    assert.deepEqual(r, { ok: 1, fallidas: 0, pendientes: 0 });
+    const registro = JSON.parse(readFileSync(join(out, ".avisos-visuales.json"), "utf8")) as Record<string, unknown>;
+    assert.equal(registro[`${SEMANA}/lun-visual`], undefined, "entrada borrada al renderizar bien");
+
+    // Una falla posterior vuelve a avisar (sin la carpeta final, para que se renderice de nuevo).
+    rmSync(join(out, SEMANA, "lun-visual"), { recursive: true, force: true });
+    errores = [visual(tilde)];
+    ({ deps, reg } = conFalla());
+    await procesar([pend("lun-visual")], out, ENV, deps);
+    assert.equal(reg.avisos.length, 1, "vuelve a avisar tras un render bueno");
+  }),
+);
+
+await checkAsync("procesar: aviso visual no entregado (false o lanza) → la próxima corrida vuelve a avisar", () =>
+  conOut(async (out) => {
+    const falla = { render: async (): Promise<never> => { throw visual("escena 2 (Step): tilde de «CÓMO» pisa la línea anterior"); } };
+    // 1.ª corrida: Telegram no lo recibe (avisarTelegram devuelve false).
+    let intentos = 0;
+    let { deps, reg } = falsos({ ...falla, avisar: async () => { intentos++; return false; } });
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.equal(intentos, 1);
+    assert.ok(reg.logs.some((l) => /no se entregó/.test(l)), reg.logs.join("\n"));
+    // 2.ª corrida: el aviso lanza.
+    ({ deps, reg } = falsos({ ...falla, avisar: async () => { intentos++; throw new Error("sin red"); } }));
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.equal(intentos, 2, "se reintenta el aviso");
+    // 3.ª corrida: llega; 4.ª: ya no se repite.
+    ({ deps, reg } = falsos(falla));
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.equal(reg.avisos.length, 1, "avisa en cuanto se puede entregar");
+    assert.match(reg.avisos[0], /lun-sin-aviso/);
+    ({ deps, reg } = falsos(falla));
+    await procesar([pend("lun-sin-aviso")], out, ENV, deps);
+    assert.deepEqual(reg.avisos, [], "entregado una vez, no se repite");
+  }),
+);
+
+await checkAsync("avisosVisualesNuevos: registro ausente o corrupto cuenta como vacío; olvidar borra la entrada", () =>
+  conOut(async (out) => {
+    assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-a", ["m1", "m2", "m1"]), ["m1", "m2"]);
+    assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-a", ["m2", "m3"]), ["m3"]);
+    assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-b", ["m1"]), ["m1"], "por pieza");
+    await olvidarAvisosVisuales(out, SEMANA, "lun-a");
+    assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-a", ["m1"]), ["m1"]);
+    assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-b", ["m1"]), [], "olvidar no toca otras piezas");
+    writeFileSync(join(out, ".avisos-visuales.json"), "{ roto");
+    assert.deepEqual(await avisosVisualesNuevos(out, SEMANA, "lun-b", ["m1"]), ["m1"], "corrupto = vacío");
+    await olvidarAvisosVisuales(join(out, "no-existe"), SEMANA, "lun-b");
+    assert.deepEqual(readdirSync(out).filter((f) => f.includes(".tmp")), [], "sin temporales");
+  }),
+);
+
+await checkAsync("procesar: ErrorContenido sigue como antes con el registro visual (fallido, sin aviso)", () =>
+  conOut(async (out) => {
+    const { deps, reg } = falsos({
+      render: async () => {
+        throw new ErrorContenido(["Score 60 < 75."]);
+      },
+    });
+    const r = await procesar([pend("lun-cont")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 0, fallidas: 1, pendientes: 0 });
+    assert.equal(reg.escritos[0][2].estado, "fallido");
+    assert.deepEqual(reg.avisos, []);
+    assert.ok(!existsSync(join(out, ".avisos-visuales.json")));
   }),
 );
 

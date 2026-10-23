@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Renderer } from "./renderSlide.ts";
+import { aplicarModo, revisarSegun, type Hallazgo, type ModoRevision } from "./revision.ts";
 import { resolveBackground } from "./background.ts";
 import { scoreCarousel, THRESHOLD } from "../score/virality.ts";
 import { printReport } from "../score/cli.ts";
@@ -10,6 +11,12 @@ import type { CarouselSpec } from "../templates/types.ts";
 export interface RenderCarouselOptions {
   /** Carpeta base de salida (por defecto "output"). El carrusel va en <outDir>/<name>/. */
   outDir?: string;
+  /**
+   * Revisión visual de cada slide (tilde, puntuación): `avisar` (por defecto, CLI)
+   * solo escribe en consola; `bloquear` (calendario) lanza `ErrorVisual` con todos los
+   * hallazgos al final; `no` no revisa.
+   */
+  revision?: ModoRevision;
 }
 
 /**
@@ -34,6 +41,8 @@ export async function renderCarousel(spec: CarouselSpec, opts: RenderCarouselOpt
   await mkdir(outDir, { recursive: true });
 
   const written: string[] = [];
+  const modo = opts.revision ?? "avisar";
+  const hallazgos: Hallazgo[] = [];
   const renderer = new Renderer();
   await renderer.init();
   try {
@@ -45,6 +54,8 @@ export async function renderCarousel(spec: CarouselSpec, opts: RenderCarouselOpt
       props.background = await resolveBackground(props.background);
 
       const png = await renderer.render(createElement(slide.template, props));
+      const contexto = `slide ${i} (${slide.template.name})`;
+      hallazgos.push(...(await revisarSegun(modo, () => renderer.revisar(contexto), (t) => console.warn(`⚠️  Revisión visual de ${contexto}: ${t}`))));
       const outPath = join(outDir, `slide-${String(i).padStart(2, "0")}.png`);
       await writeFile(outPath, png);
       written.push(outPath);
@@ -53,6 +64,8 @@ export async function renderCarousel(spec: CarouselSpec, opts: RenderCarouselOpt
   } finally {
     await renderer.close();
   }
+  // Al final, con todos los hallazgos del carrusel: un solo ErrorVisual (bloquear) o avisos.
+  aplicarModo(hallazgos, modo, (t) => console.warn(`⚠️  Revisión visual: ${t}`));
 
   console.log(`\n✓ Carrusel "${spec.name}" generado en ${opts.outDir ?? "output"}/${spec.name}/`);
   return written;

@@ -1,0 +1,67 @@
+{
+  "name": "vie-pm-reel-kling-vs-seedance",
+  "angle": "el mismo prompt en dos IAs de video para ver cuál conviene según lo que quieres",
+  "pillar": "herramienta",
+  "pace": "gancho",
+  "audio": "digital-clouds.mp3",
+  "logoEnCuadro0": false,
+  "slides": [
+    {
+      "template": "Clip",
+      "props": {
+        "title": "Mismo prompt, 2 IAs: ¿cuál gana?",
+        "highlight": "¿cuál gana?",
+        "label": "Kling · $400",
+        "archivo": "kling.mp4"
+      },
+      "narracion": "Si haces videos, mira: mismo texto, dos IAs."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Copia: «vendedor de sopaipillas, lluvia, Santiago»"
+      },
+      "narracion": "Un solo prompt para las dos."
+    },
+    {
+      "template": "Clip",
+      "props": {
+        "title": "Seedance, mismo prompt",
+        "highlight": "Seedance",
+        "label": "Seedance · $1.100",
+        "archivo": "seedance.mp4"
+      },
+      "narracion": "Esta es Seedance, con el mismo texto."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Gana Kling: real y casi 3 veces más barato",
+        "highlight": "Gana Kling",
+        "source": "Fuente: Higgsfield, Kling 3.0 y Seedance 2.0"
+      },
+      "narracion": "Gana Kling: más real y más barato."
+    },
+    {
+      "template": "Stat",
+      "props": {
+        "value": "$400 vs $1.100",
+        "label": "por clip: Kling vs Seedance"
+      },
+      "narracion": "Cuatrocientos contra mil cien pesos por clip."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "Guárdalo para tu video",
+        "highlight": "Guárdalo",
+        "handle": "ia.punto.es",
+        "cta": "Guárdalo",
+        "source": "Fuente: Higgsfield (higgsfield.ai)"
+      },
+      "narracion": "Mándaselo a quien hace videos."
+    }
+  ]
+}

@@ -5,6 +5,8 @@ import { chromium, type Page } from "playwright";
 import { findChromium } from "../render/renderSlide.ts";
 import { FORMATS } from "../templates/types.ts";
 import type { ReelTiming } from "./timing.ts";
+import { aplicarModo, revisarSegun, type ModoRevision } from "../render/revision.ts";
+import { revisarReel } from "./revision.ts";
 
 /** Falla con un mensaje claro si ffmpeg no está en el PATH. */
 export function assertFfmpeg(): void {
@@ -131,10 +133,29 @@ export function ffmpegArgs(timing: ReelTiming, outPath: string, audio?: string, 
 /**
  * Captura el reel cuadro a cuadro y lo codifica con ffmpeg (PNG por stdin →
  * h264/yuv420p 30 fps, +faststart). Si ffmpeg falla, borra el mp4 parcial.
+ * Antes de capturar revisa el reel en el tiempo (`revisarReel`): con `revision`
+ * `bloquear` y hallazgos lanza `ErrorVisual` sin arrancar ffmpeg; `avisar` (por
+ * defecto) los escribe en consola; `no` no revisa.
  */
-export async function captureReel(html: string, timing: ReelTiming, outPath: string, opts: { audio?: string; voces?: VozEnReel[] } = {}): Promise<void> {
+export async function captureReel(
+  html: string,
+  timing: ReelTiming,
+  outPath: string,
+  opts: { audio?: string; voces?: VozEnReel[]; revision?: ModoRevision } = {},
+): Promise<void> {
   assertFfmpeg();
   const { browser, page } = await openReel(html, timing);
+  const modo = opts.revision ?? "avisar";
+  if (modo !== "no") {
+    const log = (t: string): void => console.warn(`  ⚠️  Revisión visual: ${t}`);
+    try {
+      // revisarReel deja la página en otro instante; shot() hace seek en cada cuadro.
+      aplicarModo(await revisarSegun(modo, () => revisarReel(page, timing), log), modo, log);
+    } catch (e) {
+      await browser.close();
+      throw e;
+    }
+  }
   const args = ffmpegArgs(timing, outPath, opts.audio, opts.voces);
   const ff = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
   let stderr = "";

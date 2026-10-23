@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { specDurations, specTiming, type ReelTiming } from "../reel/timing.ts";
 import type { CarouselSpec } from "../templates/types.ts";
+import { franjaSegura } from "../templates/layout.ts";
 
 /**
  * QA del archivo final (en el Mac, tras el render, sin juicio humano): que el
@@ -193,17 +194,12 @@ function razon(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** Franja vertical de texto: 15-75 % en 9:16 (reel, story); 10-90 % en portadas 4:5 (R18). */
-function franja(w: number, h: number): [number, number] {
-  return h / w > 1.5 ? [0.15, 0.75] : [0.1, 0.9];
-}
-
 /** Motivos de un cuadro: pantalla negra y falta de texto en la franja segura. */
 function motivosDeCuadro(gray: Uint8Array, w: number, h: number, que: string): string[] {
   const m: string[] = [];
   if (esPantallaNegra(gray)) m.push(`${que} es una pantalla negra.`);
-  const [d, hasta] = franja(w, h);
-  if (!hayTextoEnZona(gray, w, h, d, hasta)) m.push(`No se detecta texto en la zona segura (${Math.round(d * 100)}-${Math.round(hasta * 100)} % vertical) de ${que}.`);
+  const [d, hasta] = franjaSegura(w, h);
+  if (!hayTextoEnZona(gray, w, h, d, hasta)) m.push(`No se detecta texto en la zona segura (${(d * 100).toFixed(1)}-${(hasta * 100).toFixed(1)} % vertical) de ${que}.`);
   return m;
 }
 

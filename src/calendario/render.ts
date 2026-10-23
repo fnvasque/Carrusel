@@ -11,6 +11,7 @@ import { THRESHOLD } from "../score/virality.ts";
 import { refreshCalibration } from "../score/calibration.ts";
 import { renderCarousel } from "../render/renderCarousel.ts";
 import { Renderer } from "../render/renderSlide.ts";
+import { ErrorRevisionFallida, ErrorVisual, aplicarModo, revisarSegun } from "../render/revision.ts";
 import { resolveBackground } from "../render/background.ts";
 import { renderReelResult } from "../reel/renderReel.ts";
 import { maxSecondsError, specTiming } from "../reel/timing.ts";
@@ -115,7 +116,8 @@ export interface Deps {
   verificar: (url: string, tipo: string) => Promise<boolean>;
   /** Anota la entrada de una pieza (puede acumular y escribir en `confirmar`). */
   escribirRender: (semana: string, id: string, e: RenderEntry) => Promise<void>;
-  avisar: (texto: string) => Promise<void>;
+  /** Avisa por Telegram. `false` = no se entregó (el aviso visual se repite en la próxima corrida). */
+  avisar: (texto: string) => Promise<boolean | void>;
   /** Escribe de una vez lo acumulado de una semana (un commit por semana y corrida). */
   confirmar?: (semana: string) => Promise<void>;
   ahora?: () => Date;
@@ -193,7 +195,11 @@ function razon(e: unknown): string {
 /**
  * Procesa las piezas pendientes en orden. Una pieza que falla no corta las demás.
  * - Error de contenido (`ErrorContenido`: QA, score, borrador, audio) → `fallido` con el motivo.
+ * - Revisión visual (`ErrorVisual`) → no se sube ni se escribe; sigue planificada y se
+ *   reintenta cada hora; avisa una vez por (pieza, motivo) (`avisosVisualesNuevos`).
  * - Error del entorno en el render (Chromium, ffmpeg, disco) → avisa y sigue planificada.
+ * - La revisión visual se cayó (`ErrorRevisionFallida`, no un hallazgo) → igual que el
+ *   entorno, pero el aviso dice «la revisión visual falló: …» y no «problema del Mac».
  * - rsync o verificación fallan → no escribe nada (sigue planificada), avisa y deja
  *   la carpeta final: la próxima corrida solo reintenta la subida.
  * - La hora pasó (antes de subir o durante la subida) → no se anota (el bot la marca saltada).
@@ -209,13 +215,15 @@ export async function procesar(
   const ahora = deps.ahora ?? (() => new Date());
   const log = deps.log ?? ((t: string) => console.log(t));
   const oculto = (s: string): string => ocultarToken(s, env.token);
-  const avisar = async (texto: string): Promise<void> => {
+  /** Devuelve si el aviso se entregó: `deps.avisar` no lanzó ni devolvió `false`. */
+  const avisar = async (texto: string): Promise<boolean> => {
     const t = oculto(texto);
     log(`⚠️  ${t}`);
     try {
-      await deps.avisar(t);
+      return (await deps.avisar(t)) !== false;
     } catch (e) {
       log(`⚠️  No pude enviar el aviso: ${oculto(razon(e))}`);
+      return false;
     }
   };
   const confirmar = async (semana: string): Promise<void> => {
@@ -265,10 +273,34 @@ export async function procesar(
         manifiesto = { archivos: r.archivos, ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}) };
         await writeFile(join(tmp, MANIFIESTO), JSON.stringify(manifiesto), "utf8");
         await rename(tmp, final);
+        await olvidarAvisosVisuales(outRoot, p.semana, id).catch((e) => log(`⚠️  No pude limpiar el registro de avisos visuales: ${oculto(razon(e))}`));
       } catch (e) {
         await rm(tmp, { recursive: true, force: true });
+        // Revisión visual (antes que el error de entorno): no se sube, sigue planificada y
+        // se reintenta cada hora; un solo aviso por (pieza, motivo).
+        if (e instanceof ErrorVisual) {
+          const motivos = [...new Set(e.hallazgos.map((h) => oculto(h.motivo)))];
+          if (!motivos.length) motivos.push(oculto(e.message));
+          log(`✗ ${etiqueta} no pasa la revisión visual: ${motivos.join("; ")}`);
+          // Se anotan solo si el aviso llegó: si Telegram falla, la próxima corrida vuelve a avisar.
+          const nuevos = await avisosVisualesPendientes(outRoot, p.semana, id, motivos);
+          if (nuevos.length) {
+            const entregado = await avisar(`Revisión visual: ${id} (${p.semana}) no se sube: ${nuevos.join("; ")}. Sigue planificada; se reintenta cada hora hasta su hora.`);
+            if (entregado) {
+              await anotarAvisosVisuales(outRoot, p.semana, id, nuevos).catch((err) =>
+                log(`⚠️  No pude escribir el registro de avisos visuales: ${oculto(razon(err))}`),
+              );
+            } else {
+              log(`⚠️  El aviso visual de ${id} no se entregó: se repite en la próxima corrida.`);
+            }
+          }
+          res.pendientes++;
+          continue;
+        }
         if (!(e instanceof ErrorContenido)) {
-          await avisar(`No pude renderizar ${id} (${p.semana}) por un problema del Mac: ${razon(e)}. Sigue planificada; la próxima corrida reintenta.`);
+          // La revisión visual que se cae (no un hallazgo) falla cerrado, pero no es «del Mac».
+          const causa = e instanceof ErrorRevisionFallida ? `: ${razon(e)}` : ` por un problema del Mac: ${razon(e)}`;
+          await avisar(`No pude renderizar ${id} (${p.semana})${causa}. Sigue planificada; la próxima corrida reintenta.`);
           res.pendientes++;
           continue;
         }
@@ -327,6 +359,75 @@ export async function procesar(
   return res;
 }
 
+/** Registro de avisos visuales ya enviados, en `outRoot`: `{ "<semana>/<id>": motivos[] }`. */
+export const AVISOS_VISUALES = ".avisos-visuales.json";
+
+type RegistroVisual = Record<string, string[]>;
+
+/** Lee el registro; ausente o corrupto cuenta como vacío. */
+async function leerAvisosVisuales(outRoot: string): Promise<RegistroVisual> {
+  try {
+    const x = JSON.parse(await readFile(join(outRoot, AVISOS_VISUALES), "utf8")) as unknown;
+    if (!x || typeof x !== "object" || Array.isArray(x)) return {};
+    const out: RegistroVisual = {};
+    for (const [k, v] of Object.entries(x)) {
+      if (Array.isArray(v)) out[k] = v.filter((m): m is string => typeof m === "string");
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Escribe el registro de una vez (tmp + rename). */
+async function escribirAvisosVisuales(outRoot: string, r: RegistroVisual): Promise<void> {
+  await mkdir(outRoot, { recursive: true });
+  const archivo = join(outRoot, AVISOS_VISUALES);
+  const tmp = `${archivo}.tmp-${process.pid}`;
+  await writeFile(tmp, `${JSON.stringify(r, null, 2)}\n`, "utf8");
+  await rename(tmp, archivo);
+}
+
+/**
+ * Motivos de la pieza aún no avisados (sin repetir), según <outRoot>/.avisos-visuales.json.
+ * No escribe: se anotan con `anotarAvisosVisuales` cuando el aviso se entregó.
+ */
+export async function avisosVisualesPendientes(outRoot: string, semana: string, id: string, motivos: string[]): Promise<string[]> {
+  const ya = new Set((await leerAvisosVisuales(outRoot))[`${semana}/${id}`] ?? []);
+  return [...new Set(motivos)].filter((m) => !ya.has(m));
+}
+
+/** Anota `motivos` como ya avisados para la pieza (sin repetir). */
+export async function anotarAvisosVisuales(outRoot: string, semana: string, id: string, motivos: string[]): Promise<void> {
+  const r = await leerAvisosVisuales(outRoot);
+  const clave = `${semana}/${id}`;
+  const ya = r[clave] ?? [];
+  const nuevos = [...new Set(motivos)].filter((m) => !ya.includes(m));
+  if (!nuevos.length) return;
+  r[clave] = [...ya, ...nuevos];
+  await escribirAvisosVisuales(outRoot, r);
+}
+
+/**
+ * Registro de avisos visuales ya enviados: <outRoot>/.avisos-visuales.json =
+ * { "<semana>/<id>": string[] }. Devuelve los motivos aún no avisados (sin repetir)
+ * y los anota.
+ */
+export async function avisosVisualesNuevos(outRoot: string, semana: string, id: string, motivos: string[]): Promise<string[]> {
+  const nuevos = await avisosVisualesPendientes(outRoot, semana, id, motivos);
+  await anotarAvisosVisuales(outRoot, semana, id, nuevos);
+  return nuevos;
+}
+
+/** Borra la entrada de la pieza (al renderizarse bien): una falla posterior vuelve a avisar. */
+export async function olvidarAvisosVisuales(outRoot: string, semana: string, id: string): Promise<void> {
+  const r = await leerAvisosVisuales(outRoot);
+  const clave = `${semana}/${id}`;
+  if (!(clave in r)) return;
+  delete r[clave];
+  await escribirAvisosVisuales(outRoot, r);
+}
+
 // --- Efectos reales (los usa render-cli.ts) ---
 
 const BORRADOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
@@ -375,7 +476,7 @@ export async function leerPuerta(): Promise<Puerta> {
  * VOZ_DEFECTO; `false` apaga la narración). Una voz desconocida se avisa y cae
  * a la de defecto: el reel sale igual.
  */
-export async function leerVoz(avisar?: (texto: string) => Promise<void>): Promise<Voz | false> {
+export async function leerVoz(avisar?: (texto: string) => Promise<boolean | void>): Promise<Voz | false> {
   try {
     const cfg = JSON.parse(await readFile(join(calendarioDir(), "config.json"), "utf8"));
     if (cfg?.voz === false) return false;
@@ -412,7 +513,10 @@ async function renderStory(b: ReturnType<typeof parseBorrador>, png: string): Pr
   const r = new Renderer();
   await r.init(FORMATS.reel);
   try {
-    await writeFile(png, await r.render(createElement(slide.template, props)));
+    const img = await r.render(createElement(slide.template, props));
+    // Revisión visual (bloquea): la story es 9:16, se mira con la zona segura del reel.
+    aplicarModo(await revisarSegun("bloquear", () => r.revisar("story (StoryCover)", { reel: true, altura: FORMATS.reel.height })), "bloquear");
+    await writeFile(png, img);
   } finally {
     await r.close();
   }
@@ -470,11 +574,21 @@ export async function fondosIaQuitados(semana: string): Promise<Map<string, { sl
  * clips de la caché mezclados en sus escenas `Clip`, cover del cuadro 0 ya mezclado) →
  * story 1080×1920 → QA. Todo problema editorial lanza `ErrorContenido`; los del
  * entorno (Chromium, ffmpeg, disco, clip ausente: `ErrorClipFaltante`) lanzan Error normal.
+ * La revisión visual (carrusel, reel y story, en modo `bloquear`) lanza `ErrorVisual`
+ * sin envolver: `procesar` la deja planificada y avisa una vez por motivo.
  */
 export async function renderPieza(
   p: PiezaPendiente,
   tmp: string,
-  opts: { audioDir: string; puerta: Puerta; voz?: Voz | false; avisar?: (texto: string) => Promise<void>; clipsDir?: string },
+  opts: {
+    audioDir: string;
+    puerta: Puerta;
+    voz?: Voz | false;
+    avisar?: (texto: string) => Promise<boolean | void>;
+    clipsDir?: string;
+    /** Solo para el corpus de la revisión visual: salta la puerta de score (`scoreDraft`). Nunca en el render del calendario. */
+    omitirScore?: boolean;
+  },
 ): Promise<{ archivos: string[]; duracionMs?: number }> {
   const texto = await leerBorradorSeguro(p.semana, p.pieza.borrador);
   let b: Borrador;
@@ -491,8 +605,10 @@ export async function renderPieza(
     if (opts.avisar) await opts.avisar(texto).catch(() => {});
     else console.warn(`⚠️  ${texto}`);
   }
-  const score = scoreDraft(b, { format: p.pieza.formato === "reel" ? "reel" : "carrusel" });
-  if (score.total < THRESHOLD) throw new ErrorContenido([`Score ${score.total} < ${THRESHOLD}.`, ...score.suggestions]);
+  if (!opts.omitirScore) {
+    const score = scoreDraft(b, { format: p.pieza.formato === "reel" ? "reel" : "carrusel" });
+    if (score.total < THRESHOLD) throw new ErrorContenido([`Score ${score.total} < ${THRESHOLD}.`, ...score.suggestions]);
+  }
 
   // Los motores escriben en <cwd>/<outDir>/<name>/: se les da una ruta relativa dentro de tmp.
   const trabajo = join(tmp, ".trabajo");
@@ -504,7 +620,8 @@ export async function renderPieza(
   if (p.pieza.formato === "carrusel") {
     const spec = borradorASpec(b);
     if (spec.slides.length > 10) throw new ErrorContenido([`El carrusel tiene ${spec.slides.length} slides; el máximo es 10.`]);
-    const pngs = await renderCarousel(spec, { outDir });
+    // Revisión visual en modo bloquear: un ErrorVisual sube tal cual hasta `procesar` (no es ErrorContenido).
+    const pngs = await renderCarousel(spec, { outDir, revision: "bloquear" });
     pngs.forEach((png, i) => {
       const jpg = `${String(i + 1).padStart(2, "0")}.jpg`;
       ffmpeg(["-i", png, "-q:v", "2", join(tmp, jpg)]);
@@ -530,7 +647,7 @@ export async function renderPieza(
     if (exceso) throw new ErrorContenido([exceso]);
     let r: Awaited<ReturnType<typeof renderReelResult>>;
     try {
-      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz });
+      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz, revision: "bloquear" });
     } catch (e) {
       // Con narración las escenas se alargan: pasarse del tope es un problema del borrador, no del Mac.
       if (e instanceof Error && /duracionMaxSegundos/.test(e.message)) throw new ErrorContenido([e.message]);
@@ -836,7 +953,7 @@ async function subirRender(nuevas: Map<string, Entradas>): Promise<string | unde
  * Escritor de `render.json` (único archivo que escribe el Mac): acumula las entradas de
  * la corrida y, por semana, las sube con `subirRender` (un solo commit por semana).
  */
-export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
+export function crearEscritorRender(opts: { avisar: (texto: string) => Promise<boolean | void> }): Pick<Deps, "escribirRender" | "confirmar"> & {
   confirmar: (semana: string) => Promise<void>;
   /** ¿Alguna semana quedó sin subir? La corrida termina con código ≠ 0 (I4). */
   huboError: () => boolean;

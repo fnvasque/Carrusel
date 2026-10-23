@@ -6,6 +6,7 @@ import { buildReelPage } from "./page.ts";
 import { captureReel, captureStills, assertFfmpeg, type VozEnReel } from "./capture.ts";
 import { maxSecondsError, specTiming, type ReelTiming } from "./timing.ts";
 import { narrarEscenas, VOZ_DEFECTO, type Voz } from "./voz.ts";
+import type { ModoRevision } from "../render/revision.ts";
 
 export interface RenderReelOptions {
   /** Carpeta base de salida (por defecto "output"). El reel va en <outDir>/<name>/. */
@@ -37,6 +38,12 @@ export interface RenderReelOptions {
    * renderizan igual, sin voz ni subtítulo alargado).
    */
   voz?: Voz | false;
+  /**
+   * Revisión visual del reel antes de capturar: `avisar` (por defecto, CLI) solo
+   * escribe en consola; `bloquear` (calendario) lanza `ErrorVisual` sin componer el
+   * video; `no` no revisa. No aplica a `framesOnly`.
+   */
+  revision?: ModoRevision;
 }
 
 /** Resultado del render: ruta del MP4 (o del directorio de escenas) y duración del reel. */
@@ -122,7 +129,7 @@ export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptio
   const mp4 = join(base, "reel.mp4");
   const vozTxt = voces.length ? `, ${voces.length} escenas narradas (${opts.voz ?? VOZ_DEFECTO})` : "";
   console.log(`⏳ Animando "${spec.name}" (${timing.scenes.length} escenas, ${timing.total}s, ${timing.frames} cuadros, ritmo ${timing.pace}${vozTxt})…`);
-  await captureReel(html, timing, mp4, { audio: opts.audio, voces });
+  await captureReel(html, timing, mp4, { audio: opts.audio, voces, revision: opts.revision });
   console.log(`✓ Reel "${spec.name}" → ${mp4}  (${timing.total}s, 1080×1920${opts.audio || voces.length ? "" : ", sin audio"})`);
   if (!opts.audio && !voces.length) console.log("  Súbelo y añádele un audio en tendencia dentro de la app.");
   return { path: mp4, durationMs, timing, voces };

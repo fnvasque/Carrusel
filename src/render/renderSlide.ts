@@ -5,6 +5,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { htmlShell } from "./htmlShell.ts";
 import { FORMATS } from "../templates/types.ts";
+import { revisarPagina, type Hallazgo } from "./revision.ts";
 
 /**
  * Localiza un Chromium preinstalado para no depender de que la versión de
@@ -42,7 +43,10 @@ export class Renderer {
   private browser: Browser | null = null;
   private page: Page | null = null;
 
+  private dim: { width: number; height: number } = FORMATS.post;
+
   async init(dim: { width: number; height: number } = FORMATS.post): Promise<void> {
+    this.dim = dim;
     this.browser = await chromium.launch({ executablePath: findChromium() });
     this.page = await this.browser.newPage({
       viewport: { width: dim.width, height: dim.height },
@@ -58,6 +62,17 @@ export class Renderer {
     // el texto nunca salga con la fuente de fallback.
     await this.page.evaluate(() => document.fonts.ready);
     return this.page.screenshot({ type: "png" });
+  }
+
+  /**
+   * Revisión visual de la página actual (la del último `render`). `contexto` va en
+   * cada motivo (p. ej. «slide 2 (Step)»). Por defecto, zona segura del reel solo si
+   * el viewport es 9:16 (1080×1920).
+   */
+  async revisar(contexto: string, opts?: { reel: boolean; altura: number }): Promise<Hallazgo[]> {
+    if (!this.page) throw new Error("Renderer no inicializado: llama a init() primero.");
+    const reel = this.dim.width === FORMATS.reel.width && this.dim.height === FORMATS.reel.height;
+    return revisarPagina(this.page, contexto, opts ?? { reel, altura: this.dim.height });
   }
 
   async close(): Promise<void> {

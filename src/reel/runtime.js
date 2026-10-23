@@ -245,13 +245,20 @@ document.fonts.ready.then(function () {
           sub.from(pop, { color: getComputedStyle(el).color, duration: 0.3, ease: "power2.out" }, at + 0.45);
           return 0.75;
         }
-        const words = split.words;
+        // Puntuación tras la palabra clave (pop/mark) va dentro de ella: si no, al escalarla queda un hueco antes de la coma.
+        const words = split.words.filter(function (w, i) {
+          const prev = split.words[i - 1];
+          if (!prev || !/^[,.;:!?…)»"'”]+$/.test(w.textContent) || !prev.closest('[data-anim="pop"],[data-mark]')) return true;
+          w.style.color = getComputedStyle(w).color;
+          prev.appendChild(w);
+          return false;
+        });
         if (words.length === 0) return 0;
         // El span de la palabra clave es inline (transform no aplica): se
         // escalan sus palabras, que SplitText deja como inline-block. La escala
         // reducida se fija ANTES de crear la entrada de las palabras: así la
         // entrada la conserva (0.9 durante todo el titular) y el pop solo crece.
-        const popWords = pop ? Array.from(pop.querySelectorAll(".reel-word")) : [];
+        const popWords = pop ? Array.from(pop.querySelectorAll(".reel-word")).filter(function (w) { return !w.parentElement.closest(".reel-word"); }) : [];
         if (popWords.length) gsap.set(popWords, { scale: 0.9, transformOrigin: "50% 60%" });
         sub.from(words, { yPercent: 60, autoAlpha: 0, duration: 0.45, ease: "power4.out", stagger: 0.06 }, at);
         let len = 0.45 + 0.06 * (words.length - 1);
@@ -336,15 +343,18 @@ document.fonts.ready.then(function () {
     scenes.forEach(function (scene, i) {
       const s = T.scenes[i];
       const last = i === scenes.length - 1;
-      // Visibilidad y transición de entrada/salida (empuje vertical).
+      // Visibilidad y transición de entrada/salida (empuje vertical). Secuencial:
+      // la que sale se apaga en la primera mitad del solape y la que entra
+      // aparece en la segunda, así nunca hay dos escenas visibles a la vez
+      // (sin textos ni subtítulos encimados). El solape total sigue siendo T.transition.
       if (i === 0) {
         gsap.set(scene, { autoAlpha: 1 });
       } else {
         gsap.set(scene, { autoAlpha: 0 });
-        master.fromTo(scene, { yPercent: 6, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: T.transition, ease: "power2.out", immediateRender: false }, s.start);
+        master.fromTo(scene, { yPercent: 6, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: T.transition / 2, ease: "power2.out", immediateRender: false }, s.start + T.transition / 2);
       }
       if (!last) {
-        master.to(scene, { yPercent: -6, autoAlpha: 0, duration: T.transition, ease: "power2.in" }, s.start + s.dur - T.transition);
+        master.to(scene, { yPercent: -6, autoAlpha: 0, duration: T.transition / 2, ease: "power2.in" }, s.start + s.dur - T.transition);
       }
       // Fondo: zoom lento durante toda la escena.
       const bg = scene.querySelector('[data-anim="bg"]');
@@ -365,7 +375,8 @@ document.fonts.ready.then(function () {
         if (kind === "check" && el.parentElement.closest('[data-anim="stagger"]')) return;
         if (kind === "caret" && el.parentElement.closest('[data-anim="type"]')) return;
         const len = entrance(el, sub, cursor, ctx);
-        cursor += len * OVERLAP;
+        // data-junto: el siguiente entra en el mismo instante (número de paso + heading).
+        if (!el.hasAttribute("data-junto")) cursor += len * OVERLAP;
       });
       // El hook (escena 0) arranca en 0: su titular ya está completo en el cuadro 0.
       const offset = i === 0 ? 0 : s.start + T.transition / 2;

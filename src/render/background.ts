@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Background } from "../templates/types.ts";
-import { generateBackground } from "../ai/openaiImage.ts";
+import { ErrorSinCacheIa, generateBackground } from "../ai/openaiImage.ts";
 
 /**
  * Estilo visual de marca (look lima, spec 2026-10-05) que se anexa a cada
@@ -32,8 +32,15 @@ export async function resolveBackground(bg?: Background): Promise<Background | u
   const overlay = "overlay" in bg ? bg.overlay : undefined;
 
   if ("ai" in bg) {
-    const image = await generateBackground(applyBrandStyle(bg.ai, bg.brandStyle));
-    return { image, overlay };
+    try {
+      const image = await generateBackground(applyBrandStyle(bg.ai, bg.brandStyle));
+      return { image, overlay };
+    } catch (e) {
+      // Solo-caché (corpus visual): sin fondo en caché va el fondo por defecto, sin gastar API.
+      if (!(e instanceof ErrorSinCacheIa)) throw e;
+      console.warn(`⚠️  ${e.message} Va con el fondo por defecto.`);
+      return undefined;
+    }
   }
   if ("image" in bg) {
     if (bg.image.startsWith("data:")) return bg;

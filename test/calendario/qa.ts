@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { check } from "../_check.ts";
 import { luminanciaMedia, hayTextoEnZona, tiemposDeLectura, esPantallaNegra } from "../../src/calendario/qa.ts";
+import { franjaSegura } from "../../src/templates/layout.ts";
 import { Hook } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
 
@@ -73,4 +74,21 @@ check("R16: negro puro y #06060A liso son pantalla negra; pieza lima con texto c
   assert.equal(esPantallaNegra(g), false);
   const tenue = new Uint8Array(1000).fill(40); // media 15 % pero sin píxeles claros
   assert.equal(esPantallaNegra(tenue), true);
+});
+
+check("franjaSegura: sale de las constantes de layout, bajo la cabecera, en fracciones de cualquier escala", () => {
+  const reel: [number, number] = [(150 + 44 + 40) / 1920, 1480 / 1920];
+  const post: [number, number] = [(72 + 44 + 40) / 1350, 1 - 72 / 1350];
+  assert.deepEqual(franjaSegura(540, 960), reel);
+  assert.deepEqual(franjaSegura(1080, 1920), reel);
+  assert.deepEqual(franjaSegura(1080, 1350), post);
+});
+
+check("franjaSegura: una cabecera sola no cuenta como texto; con texto en el medio sí", () => {
+  const w = 540, h = 960;
+  const g = new Uint8Array(w * h).fill(6);
+  for (let y = 75; y < 97; y++) for (let x = 30; x < 250; x++) g[y * w + x] = 255; // cabecera
+  assert.equal(hayTextoEnZona(g, w, h, ...franjaSegura(w, h)), false);
+  for (let y = 400; y < 480; y++) for (let x = 40; x < 500; x += 3) g[y * w + x] = 255; // texto
+  assert.equal(hayTextoEnZona(g, w, h, ...franjaSegura(w, h)), true);
 });

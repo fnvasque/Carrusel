@@ -1,0 +1,294 @@
+# Corpus de la revisión visual, fase 1 (2026-10-23)
+# npm run calendario:corpus-visual -- --kb knowledge (semanas 2026-10-05, 2026-10-12, 2026-10-19)
+
+## Corrida 1 (motor en 4166145)
+limpia  2026-10-05/mar-carrusel-3-ias-para-estudiar (carrusel) 1.2 s
+limpia  2026-10-05/mie-reel-la-ia-hace-fila-por-ti (reel) 79.5 s
+limpia  2026-10-05/jue-reel-prompt-producto-digital (reel) 49.9 s
+limpia  2026-10-05/vie-carrusel-mito-prompt-perfecto (carrusel) 1.1 s
+limpia  2026-10-05/sab-reel-gastos-del-mes-con-chatgpt (reel) 62.8 s
+limpia  2026-10-05/dom-reel-hora-para-preocuparte (reel) 53.0 s
+limpia  2026-10-12/lun-reel-pendientes-en-4-cajas (reel) 79.2 s
+limpia  2026-10-12/mar-carrusel-6-preguntas-mensaje (carrusel) 1.2 s
+visual  2026-10-12/mie-reel-habitos-no-son-21-dias (reel) 0.8 s — visual: texto «Si ya te rendiste» sale de la zona segura en escena 1 (Hook)
+limpia  2026-10-12/jue-reel-mostrar-no-decir (reel) 22.1 s
+limpia  2026-10-12/jue-pm-reel-modo-estudio (reel) 19.7 s
+limpia  2026-10-12/vie-carrusel-4-mitos-estafas-con-ia (carrusel) 1.2 s
+limpia  2026-10-12/vie-pm-reel-chatgpt-te-avisa-tus-pagos (reel) 21.1 s
+limpia  2026-10-12/sab-reel-narra-sin-tu-voz (reel) 21.1 s
+limpia  2026-10-12/sab-pm-reel-apuntes-en-podcast (reel) 21.9 s
+limpia  2026-10-12/dom-reel-palabra-clave-contra-estafas (reel) 22.0 s
+limpia  2026-10-12/dom-pm-reel-video-ia-con-1-frase (reel) 22.3 s
+limpia  2026-10-19/lun-reel-pide-el-otro-punto-de-vista (reel) 51.5 s
+limpia  2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia (carrusel) 1.4 s
+limpia  2026-10-19/mie-reel-tu-correo-ordenado-gratis (reel) 50.4 s
+limpia  2026-10-19/jue-reel-cuando-la-ia-te-hace-fallar (reel) 51.0 s
+limpia  2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas (carrusel) 1.2 s
+limpia  2026-10-19/sab-reel-chatgpt-trabaja-mientras-duermes (reel) 49.5 s
+limpia  2026-10-19/jue-pm-reel-tu-producto-en-anuncio (reel) 58.6 s
+limpia  2026-10-19/vie-pm-reel-kling-vs-seedance (reel) 60.6 s
+limpia  2026-10-19/sab-pm-reel-tu-idea-en-10-segundos (reel) 60.2 s
+Corpus: 26 pieza(s): 25 limpia(s), 1 con violación visual, 0 otra(s).
+  VISUAL 2026-10-12/mie-reel-habitos-no-son-21-dias: visual: texto «Si ya te rendiste» sale de la zona segura en escena 1 (Hook)
+exit=1
+
+## Corrida 2 (con el arreglo del espacio en fit.ts) — salida completa sin el progreso de cuadros
+
+mar-carrusel-3-ias-para-estudiar  →  75/100  (B)  ✅ listo
+
+  Hook        ██████░░░░ 19/30  · sin bucle abierto · largo del titular fuera de rango (58)
+  Estructura  █████░░░░░  7/15  · 5 slides (ideal 6-8) · sin reframe del dolor
+  Accionable  ███████░░░ 14/20  · 2 slides con acción usable
+  Retención   ██████████ 15/15
+  CTA         ██████████ 10/10
+  Marca       ██████████ 10/10
+
+  Para mejorar:
+   • Abre un bucle de curiosidad (#3, 'todavía', 'por qué').
+   • Súbelo a 6-8 slides: da más valor guardable.
+   • Añade un slide de reframe (Lead/MythReality): dispara el compartir.
+   • Da un mini-prompt o acción usable en cada slide de desarrollo.
+
+✓ slide 1/5 → <tmp>/2026-10-05/mar-carrusel-3-ias-para-estudiar/.trabajo/mar-carrusel-3-ias-para-estudiar/slide-01.png
+✓ slide 2/5 → <tmp>/2026-10-05/mar-carrusel-3-ias-para-estudiar/.trabajo/mar-carrusel-3-ias-para-estudiar/slide-02.png
+✓ slide 3/5 → <tmp>/2026-10-05/mar-carrusel-3-ias-para-estudiar/.trabajo/mar-carrusel-3-ias-para-estudiar/slide-03.png
+✓ slide 4/5 → <tmp>/2026-10-05/mar-carrusel-3-ias-para-estudiar/.trabajo/mar-carrusel-3-ias-para-estudiar/slide-04.png
+✓ slide 5/5 → <tmp>/2026-10-05/mar-carrusel-3-ias-para-estudiar/.trabajo/mar-carrusel-3-ias-para-estudiar/slide-05.png
+
+✓ Carrusel "mar-carrusel-3-ias-para-estudiar" generado en ../../../../../../../..<tmp>/2026-10-05/mar-carrusel-3-ias-para-estudiar/.trabajo/mar-carrusel-3-ias-para-estudiar/
+limpia  2026-10-05/mar-carrusel-3-ias-para-estudiar (carrusel) 1.3 s
+⏳ Animando "mie-reel-la-ia-hace-fila-por-ti" (7 escenas, 45.14s, 1354 cuadros, ritmo ensenar)…
+  cuadro 0/1354  cuadro 30/1354  cuadro 60/1354  cuadro 90/1354  cuadro 120/1354  cuadro 150/1354  cuadro 180/1354  cuadro 210/1354  cuadro 240/1354  cuadro 270/1354  cuadro 300/1354  cuadro 330/1354  cuadro 360/1354  cuadro 390/1354  cuadro 420/1354  cuadro 450/1354  cuadro 480/1354  cuadro 510/1354  cuadro 540/1354  cuadro 570/1354  cuadro 600/1354  cuadro 630/1354  cuadro 660/1354  cuadro 690/1354  cuadro 720/1354  cuadro 750/1354  cuadro 780/1354  cuadro 810/1354  cuadro 840/1354  cuadro 870/1354  cuadro 900/1354  cuadro 930/1354  cuadro 960/1354  cuadro 990/1354  cuadro 1020/1354  cuadro 1050/1354  cuadro 1080/1354  cuadro 1110/1354  cuadro 1140/1354  cuadro 1170/1354  cuadro 1200/1354  cuadro 1230/1354  cuadro 1260/1354  cuadro 1290/1354  cuadro 1320/1354  cuadro 1350/1354
+✓ Reel "mie-reel-la-ia-hace-fila-por-ti" → <tmp>/2026-10-05/mie-reel-la-ia-hace-fila-por-ti/.trabajo/mie-reel-la-ia-hace-fila-por-ti/reel.mp4  (45.14s, 1080×1920)
+limpia  2026-10-05/mie-reel-la-ia-hace-fila-por-ti (reel) 77.3 s
+⏳ Animando "jue-reel-prompt-producto-digital" (7 escenas, 44.05s, 1322 cuadros, ritmo ensenar)…
+  cuadro 0/1322  cuadro 30/1322  cuadro 60/1322  cuadro 90/1322  cuadro 120/1322  cuadro 150/1322  cuadro 180/1322  cuadro 210/1322  cuadro 240/1322  cuadro 270/1322  cuadro 300/1322  cuadro 330/1322  cuadro 360/1322  cuadro 390/1322  cuadro 420/1322  cuadro 450/1322  cuadro 480/1322  cuadro 510/1322  cuadro 540/1322  cuadro 570/1322  cuadro 600/1322  cuadro 630/1322  cuadro 660/1322  cuadro 690/1322  cuadro 720/1322  cuadro 750/1322  cuadro 780/1322  cuadro 810/1322  cuadro 840/1322  cuadro 870/1322  cuadro 900/1322  cuadro 930/1322  cuadro 960/1322  cuadro 990/1322  cuadro 1020/1322  cuadro 1050/1322  cuadro 1080/1322  cuadro 1110/1322  cuadro 1140/1322  cuadro 1170/1322  cuadro 1200/1322  cuadro 1230/1322  cuadro 1260/1322  cuadro 1290/1322  cuadro 1320/1322
+✓ Reel "jue-reel-prompt-producto-digital" → <tmp>/2026-10-05/jue-reel-prompt-producto-digital/.trabajo/jue-reel-prompt-producto-digital/reel.mp4  (44.05s, 1080×1920)
+limpia  2026-10-05/jue-reel-prompt-producto-digital (reel) 50.8 s
+
+vie-carrusel-mito-prompt-perfecto  →  85/100  (A-)  ✅ listo
+
+  Hook        ██████████ 30/30
+  Estructura  ██████████ 15/15
+  Accionable  ██████░░░░ 11/20  · 1 slides con acción usable
+  Retención   ██████████ 15/15
+  CTA         ████░░░░░░  4/10  · CTA sin verbo de guardar/compartir
+  Marca       ██████████ 10/10
+
+  Para mejorar:
+   • Da un mini-prompt o acción usable en cada slide de desarrollo.
+   • El CTA primario debe pedir guardar o compartir (tu métrica).
+
+✓ slide 1/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-01.png
+✓ slide 2/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-02.png
+✓ slide 3/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-03.png
+✓ slide 4/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-04.png
+✓ slide 5/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-05.png
+✓ slide 6/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-06.png
+✓ slide 7/7 → <tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/slide-07.png
+
+✓ Carrusel "vie-carrusel-mito-prompt-perfecto" generado en ../../../../../../../..<tmp>/2026-10-05/vie-carrusel-mito-prompt-perfecto/.trabajo/vie-carrusel-mito-prompt-perfecto/
+limpia  2026-10-05/vie-carrusel-mito-prompt-perfecto (carrusel) 1.1 s
+⏳ Animando "sab-reel-gastos-del-mes-con-chatgpt" (6 escenas, 35.67s, 1070 cuadros, ritmo ensenar)…
+  cuadro 0/1070  cuadro 30/1070  cuadro 60/1070  cuadro 90/1070  cuadro 120/1070  cuadro 150/1070  cuadro 180/1070  cuadro 210/1070  cuadro 240/1070  cuadro 270/1070  cuadro 300/1070  cuadro 330/1070  cuadro 360/1070  cuadro 390/1070  cuadro 420/1070  cuadro 450/1070  cuadro 480/1070  cuadro 510/1070  cuadro 540/1070  cuadro 570/1070  cuadro 600/1070  cuadro 630/1070  cuadro 660/1070  cuadro 690/1070  cuadro 720/1070  cuadro 750/1070  cuadro 780/1070  cuadro 810/1070  cuadro 840/1070  cuadro 870/1070  cuadro 900/1070  cuadro 930/1070  cuadro 960/1070  cuadro 990/1070  cuadro 1020/1070  cuadro 1050/1070
+✓ Reel "sab-reel-gastos-del-mes-con-chatgpt" → <tmp>/2026-10-05/sab-reel-gastos-del-mes-con-chatgpt/.trabajo/sab-reel-gastos-del-mes-con-chatgpt/reel.mp4  (35.67s, 1080×1920)
+limpia  2026-10-05/sab-reel-gastos-del-mes-con-chatgpt (reel) 62.3 s
+⏳ Animando "dom-reel-hora-para-preocuparte" (8 escenas, 46.19s, 1386 cuadros, ritmo ensenar)…
+  cuadro 0/1386  cuadro 30/1386  cuadro 60/1386  cuadro 90/1386  cuadro 120/1386  cuadro 150/1386  cuadro 180/1386  cuadro 210/1386  cuadro 240/1386  cuadro 270/1386  cuadro 300/1386  cuadro 330/1386  cuadro 360/1386  cuadro 390/1386  cuadro 420/1386  cuadro 450/1386  cuadro 480/1386  cuadro 510/1386  cuadro 540/1386  cuadro 570/1386  cuadro 600/1386  cuadro 630/1386  cuadro 660/1386  cuadro 690/1386  cuadro 720/1386  cuadro 750/1386  cuadro 780/1386  cuadro 810/1386  cuadro 840/1386  cuadro 870/1386  cuadro 900/1386  cuadro 930/1386  cuadro 960/1386  cuadro 990/1386  cuadro 1020/1386  cuadro 1050/1386  cuadro 1080/1386  cuadro 1110/1386  cuadro 1140/1386  cuadro 1170/1386  cuadro 1200/1386  cuadro 1230/1386  cuadro 1260/1386  cuadro 1290/1386  cuadro 1320/1386  cuadro 1350/1386  cuadro 1380/1386
+✓ Reel "dom-reel-hora-para-preocuparte" → <tmp>/2026-10-05/dom-reel-hora-para-preocuparte/.trabajo/dom-reel-hora-para-preocuparte/reel.mp4  (46.19s, 1080×1920)
+limpia  2026-10-05/dom-reel-hora-para-preocuparte (reel) 53.4 s
+⏳ Animando "lun-reel-pendientes-en-4-cajas" (8 escenas, 48.84s, 1465 cuadros, ritmo ensenar)…
+  cuadro 0/1465  cuadro 30/1465  cuadro 60/1465  cuadro 90/1465  cuadro 120/1465  cuadro 150/1465  cuadro 180/1465  cuadro 210/1465  cuadro 240/1465  cuadro 270/1465  cuadro 300/1465  cuadro 330/1465  cuadro 360/1465  cuadro 390/1465  cuadro 420/1465  cuadro 450/1465  cuadro 480/1465  cuadro 510/1465  cuadro 540/1465  cuadro 570/1465  cuadro 600/1465  cuadro 630/1465  cuadro 660/1465  cuadro 690/1465  cuadro 720/1465  cuadro 750/1465  cuadro 780/1465  cuadro 810/1465  cuadro 840/1465  cuadro 870/1465  cuadro 900/1465  cuadro 930/1465  cuadro 960/1465  cuadro 990/1465  cuadro 1020/1465  cuadro 1050/1465  cuadro 1080/1465  cuadro 1110/1465  cuadro 1140/1465  cuadro 1170/1465  cuadro 1200/1465  cuadro 1230/1465  cuadro 1260/1465  cuadro 1290/1465  cuadro 1320/1465  cuadro 1350/1465  cuadro 1380/1465  cuadro 1410/1465  cuadro 1440/1465
+✓ Reel "lun-reel-pendientes-en-4-cajas" → <tmp>/2026-10-12/lun-reel-pendientes-en-4-cajas/.trabajo/lun-reel-pendientes-en-4-cajas/reel.mp4  (48.84s, 1080×1920)
+limpia  2026-10-12/lun-reel-pendientes-en-4-cajas (reel) 79.7 s
+
+mar-carrusel-6-preguntas-mensaje  →  96/100  (A)  ✅ listo
+
+  Hook        ██████████ 30/30
+  Estructura  ██████████ 15/15
+  Accionable  ████████░░ 16/20
+  Retención   ██████████ 15/15
+  CTA         ██████████ 10/10
+  Marca       ██████████ 10/10
+
+✓ slide 1/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-01.png
+✓ slide 2/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-02.png
+✓ slide 3/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-03.png
+✓ slide 4/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-04.png
+✓ slide 5/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-05.png
+✓ slide 6/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-06.png
+✓ slide 7/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-07.png
+✓ slide 8/8 → <tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/slide-08.png
+
+✓ Carrusel "mar-carrusel-6-preguntas-mensaje" generado en ../../../../../../../..<tmp>/2026-10-12/mar-carrusel-6-preguntas-mensaje/.trabajo/mar-carrusel-6-preguntas-mensaje/
+limpia  2026-10-12/mar-carrusel-6-preguntas-mensaje (carrusel) 1.2 s
+⏳ Animando "mie-reel-habitos-no-son-21-dias" (8 escenas, 44.62s, 1339 cuadros, ritmo ensenar)…
+  cuadro 0/1339  cuadro 30/1339  cuadro 60/1339  cuadro 90/1339  cuadro 120/1339  cuadro 150/1339  cuadro 180/1339  cuadro 210/1339  cuadro 240/1339  cuadro 270/1339  cuadro 300/1339  cuadro 330/1339  cuadro 360/1339  cuadro 390/1339  cuadro 420/1339  cuadro 450/1339  cuadro 480/1339  cuadro 510/1339  cuadro 540/1339  cuadro 570/1339  cuadro 600/1339  cuadro 630/1339  cuadro 660/1339  cuadro 690/1339  cuadro 720/1339  cuadro 750/1339  cuadro 780/1339  cuadro 810/1339  cuadro 840/1339  cuadro 870/1339  cuadro 900/1339  cuadro 930/1339  cuadro 960/1339  cuadro 990/1339  cuadro 1020/1339  cuadro 1050/1339  cuadro 1080/1339  cuadro 1110/1339  cuadro 1140/1339  cuadro 1170/1339  cuadro 1200/1339  cuadro 1230/1339  cuadro 1260/1339  cuadro 1290/1339  cuadro 1320/1339
+✓ Reel "mie-reel-habitos-no-son-21-dias" → <tmp>/2026-10-12/mie-reel-habitos-no-son-21-dias/.trabajo/mie-reel-habitos-no-son-21-dias/reel.mp4  (44.62s, 1080×1920)
+limpia  2026-10-12/mie-reel-habitos-no-son-21-dias (reel) 73.1 s
+⏳ Animando "jue-reel-mostrar-no-decir" (6 escenas, 18.58s, 557 cuadros, ritmo gancho)…
+  cuadro 0/557  cuadro 30/557  cuadro 60/557  cuadro 90/557  cuadro 120/557  cuadro 150/557  cuadro 180/557  cuadro 210/557  cuadro 240/557  cuadro 270/557  cuadro 300/557  cuadro 330/557  cuadro 360/557  cuadro 390/557  cuadro 420/557  cuadro 450/557  cuadro 480/557  cuadro 510/557  cuadro 540/557
+✓ Reel "jue-reel-mostrar-no-decir" → <tmp>/2026-10-12/jue-reel-mostrar-no-decir/.trabajo/jue-reel-mostrar-no-decir/reel.mp4  (18.58s, 1080×1920)
+limpia  2026-10-12/jue-reel-mostrar-no-decir (reel) 22.2 s
+⏳ Animando "jue-pm-reel-modo-estudio" (6 escenas, 16.58s, 497 cuadros, ritmo gancho)…
+  cuadro 0/497  cuadro 30/497  cuadro 60/497  cuadro 90/497  cuadro 120/497  cuadro 150/497  cuadro 180/497  cuadro 210/497  cuadro 240/497  cuadro 270/497  cuadro 300/497  cuadro 330/497  cuadro 360/497  cuadro 390/497  cuadro 420/497  cuadro 450/497  cuadro 480/497
+✓ Reel "jue-pm-reel-modo-estudio" → <tmp>/2026-10-12/jue-pm-reel-modo-estudio/.trabajo/jue-pm-reel-modo-estudio/reel.mp4  (16.58s, 1080×1920)
+limpia  2026-10-12/jue-pm-reel-modo-estudio (reel) 19.7 s
+
+vie-carrusel-4-mitos-estafas-con-ia  →  79/100  (B)  ✅ listo
+
+  Hook        ████████░░ 24/30  · sin bucle abierto
+  Estructura  ██████████ 15/15
+  Accionable  ██████░░░░ 11/20  · 1 slides con acción usable
+  Retención   ██████████ 15/15
+  CTA         ████░░░░░░  4/10  · CTA sin verbo de guardar/compartir
+  Marca       ██████████ 10/10
+
+  Para mejorar:
+   • Abre un bucle de curiosidad (#3, 'todavía', 'por qué').
+   • Da un mini-prompt o acción usable en cada slide de desarrollo.
+   • El CTA primario debe pedir guardar o compartir (tu métrica).
+
+✓ slide 1/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-01.png
+✓ slide 2/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-02.png
+✓ slide 3/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-03.png
+✓ slide 4/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-04.png
+✓ slide 5/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-05.png
+✓ slide 6/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-06.png
+✓ slide 7/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-07.png
+✓ slide 8/8 → <tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/slide-08.png
+
+✓ Carrusel "vie-carrusel-4-mitos-estafas-con-ia" generado en ../../../../../../../..<tmp>/2026-10-12/vie-carrusel-4-mitos-estafas-con-ia/.trabajo/vie-carrusel-4-mitos-estafas-con-ia/
+limpia  2026-10-12/vie-carrusel-4-mitos-estafas-con-ia (carrusel) 1.1 s
+⏳ Animando "vie-pm-reel-chatgpt-te-avisa-tus-pagos" (6 escenas, 17.64s, 529 cuadros, ritmo gancho)…
+  cuadro 0/529  cuadro 30/529  cuadro 60/529  cuadro 90/529  cuadro 120/529  cuadro 150/529  cuadro 180/529  cuadro 210/529  cuadro 240/529  cuadro 270/529  cuadro 300/529  cuadro 330/529  cuadro 360/529  cuadro 390/529  cuadro 420/529  cuadro 450/529  cuadro 480/529  cuadro 510/529
+✓ Reel "vie-pm-reel-chatgpt-te-avisa-tus-pagos" → <tmp>/2026-10-12/vie-pm-reel-chatgpt-te-avisa-tus-pagos/.trabajo/vie-pm-reel-chatgpt-te-avisa-tus-pagos/reel.mp4  (17.64s, 1080×1920)
+limpia  2026-10-12/vie-pm-reel-chatgpt-te-avisa-tus-pagos (reel) 21.1 s
+⏳ Animando "sab-reel-narra-sin-tu-voz" (6 escenas, 17.82s, 535 cuadros, ritmo gancho)…
+  cuadro 0/535  cuadro 30/535  cuadro 60/535  cuadro 90/535  cuadro 120/535  cuadro 150/535  cuadro 180/535  cuadro 210/535  cuadro 240/535  cuadro 270/535  cuadro 300/535  cuadro 330/535  cuadro 360/535  cuadro 390/535  cuadro 420/535  cuadro 450/535  cuadro 480/535  cuadro 510/535
+✓ Reel "sab-reel-narra-sin-tu-voz" → <tmp>/2026-10-12/sab-reel-narra-sin-tu-voz/.trabajo/sab-reel-narra-sin-tu-voz/reel.mp4  (17.82s, 1080×1920)
+limpia  2026-10-12/sab-reel-narra-sin-tu-voz (reel) 21.1 s
+⏳ Animando "sab-pm-reel-apuntes-en-podcast" (6 escenas, 17.88s, 536 cuadros, ritmo gancho)…
+  cuadro 0/536  cuadro 30/536  cuadro 60/536  cuadro 90/536  cuadro 120/536  cuadro 150/536  cuadro 180/536  cuadro 210/536  cuadro 240/536  cuadro 270/536  cuadro 300/536  cuadro 330/536  cuadro 360/536  cuadro 390/536  cuadro 420/536  cuadro 450/536  cuadro 480/536  cuadro 510/536
+✓ Reel "sab-pm-reel-apuntes-en-podcast" → <tmp>/2026-10-12/sab-pm-reel-apuntes-en-podcast/.trabajo/sab-pm-reel-apuntes-en-podcast/reel.mp4  (17.88s, 1080×1920)
+limpia  2026-10-12/sab-pm-reel-apuntes-en-podcast (reel) 21.2 s
+⏳ Animando "dom-reel-palabra-clave-contra-estafas" (6 escenas, 18.25s, 548 cuadros, ritmo gancho)…
+  cuadro 0/548  cuadro 30/548  cuadro 60/548  cuadro 90/548  cuadro 120/548  cuadro 150/548  cuadro 180/548  cuadro 210/548  cuadro 240/548  cuadro 270/548  cuadro 300/548  cuadro 330/548  cuadro 360/548  cuadro 390/548  cuadro 420/548  cuadro 450/548  cuadro 480/548  cuadro 510/548  cuadro 540/548
+✓ Reel "dom-reel-palabra-clave-contra-estafas" → <tmp>/2026-10-12/dom-reel-palabra-clave-contra-estafas/.trabajo/dom-reel-palabra-clave-contra-estafas/reel.mp4  (18.25s, 1080×1920)
+limpia  2026-10-12/dom-reel-palabra-clave-contra-estafas (reel) 21.9 s
+⏳ Animando "dom-pm-reel-video-ia-con-1-frase" (6 escenas, 18.86s, 566 cuadros, ritmo gancho)…
+  cuadro 0/566  cuadro 30/566  cuadro 60/566  cuadro 90/566  cuadro 120/566  cuadro 150/566  cuadro 180/566  cuadro 210/566  cuadro 240/566  cuadro 270/566  cuadro 300/566  cuadro 330/566  cuadro 360/566  cuadro 390/566  cuadro 420/566  cuadro 450/566  cuadro 480/566  cuadro 510/566  cuadro 540/566
+✓ Reel "dom-pm-reel-video-ia-con-1-frase" → <tmp>/2026-10-12/dom-pm-reel-video-ia-con-1-frase/.trabajo/dom-pm-reel-video-ia-con-1-frase/reel.mp4  (18.86s, 1080×1920)
+limpia  2026-10-12/dom-pm-reel-video-ia-con-1-frase (reel) 22.5 s
+⏳ Animando "lun-reel-pide-el-otro-punto-de-vista" (6 escenas, 19.3s, 579 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/579  cuadro 30/579  cuadro 60/579  cuadro 90/579  cuadro 120/579  cuadro 150/579  cuadro 180/579  cuadro 210/579  cuadro 240/579  cuadro 270/579  cuadro 300/579  cuadro 330/579  cuadro 360/579  cuadro 390/579  cuadro 420/579  cuadro 450/579  cuadro 480/579  cuadro 510/579  cuadro 540/579  cuadro 570/579
+✓ Reel "lun-reel-pide-el-otro-punto-de-vista" → <tmp>/2026-10-19/lun-reel-pide-el-otro-punto-de-vista/.trabajo/lun-reel-pide-el-otro-punto-de-vista/reel.mp4  (19.3s, 1080×1920)
+limpia  2026-10-19/lun-reel-pide-el-otro-punto-de-vista (reel) 24.5 s
+
+mar-carrusel-6-preguntas-para-delegar-en-ia  →  77/100  (B)  ✅ listo
+
+  Hook        █████░░░░░ 16/30  · sin enemigo/tensión · sin bucle abierto
+  Estructura  ███████░░░ 11/15  · sin reframe del dolor
+  Accionable  ████████░░ 15/20  · 1 slides con acción usable
+  Retención   ██████████ 15/15
+  CTA         ██████████ 10/10
+  Marca       ██████████ 10/10
+
+  Para mejorar:
+   • Pon un enemigo o tensión al frente del hook (no/deja de/mentira/gratis…).
+   • Abre un bucle de curiosidad (#3, 'todavía', 'por qué').
+   • Añade un slide de reframe (Lead/MythReality): dispara el compartir.
+   • Da un mini-prompt o acción usable en cada slide de desarrollo.
+
+✓ slide 1/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-01.png
+✓ slide 2/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-02.png
+✓ slide 3/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-03.png
+✓ slide 4/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-04.png
+✓ slide 5/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-05.png
+✓ slide 6/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-06.png
+✓ slide 7/7 → <tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/slide-07.png
+
+✓ Carrusel "mar-carrusel-6-preguntas-para-delegar-en-ia" generado en ../../../../../../../..<tmp>/2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia/.trabajo/mar-carrusel-6-preguntas-para-delegar-en-ia/
+limpia  2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia (carrusel) 1.4 s
+⏳ Animando "mie-reel-tu-correo-ordenado-gratis" (6 escenas, 19.41s, 582 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/582  cuadro 30/582  cuadro 60/582  cuadro 90/582  cuadro 120/582  cuadro 150/582  cuadro 180/582  cuadro 210/582  cuadro 240/582  cuadro 270/582  cuadro 300/582  cuadro 330/582  cuadro 360/582  cuadro 390/582  cuadro 420/582  cuadro 450/582  cuadro 480/582  cuadro 510/582  cuadro 540/582  cuadro 570/582
+✓ Reel "mie-reel-tu-correo-ordenado-gratis" → <tmp>/2026-10-19/mie-reel-tu-correo-ordenado-gratis/.trabajo/mie-reel-tu-correo-ordenado-gratis/reel.mp4  (19.41s, 1080×1920)
+limpia  2026-10-19/mie-reel-tu-correo-ordenado-gratis (reel) 24.7 s
+⏳ Animando "jue-reel-cuando-la-ia-te-hace-fallar" (6 escenas, 19.73s, 592 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/592  cuadro 30/592  cuadro 60/592  cuadro 90/592  cuadro 120/592  cuadro 150/592  cuadro 180/592  cuadro 210/592  cuadro 240/592  cuadro 270/592  cuadro 300/592  cuadro 330/592  cuadro 360/592  cuadro 390/592  cuadro 420/592  cuadro 450/592  cuadro 480/592  cuadro 510/592  cuadro 540/592  cuadro 570/592
+✓ Reel "jue-reel-cuando-la-ia-te-hace-fallar" → <tmp>/2026-10-19/jue-reel-cuando-la-ia-te-hace-fallar/.trabajo/jue-reel-cuando-la-ia-te-hace-fallar/reel.mp4  (19.73s, 1080×1920)
+limpia  2026-10-19/jue-reel-cuando-la-ia-te-hace-fallar (reel) 25.1 s
+
+vie-carrusel-la-ia-no-te-ahorra-horas  →  86/100  (A-)  ✅ listo
+
+  Hook        ████████░░ 24/30  · sin bucle abierto
+  Estructura  ██████████ 15/15
+  Accionable  █████████░ 18/20  · 2 slides con acción usable
+  Retención   ██████████ 15/15
+  CTA         ████░░░░░░  4/10  · CTA sin verbo de guardar/compartir
+  Marca       ██████████ 10/10
+
+  Para mejorar:
+   • Abre un bucle de curiosidad (#3, 'todavía', 'por qué').
+   • Da un mini-prompt o acción usable en cada slide de desarrollo.
+   • El CTA primario debe pedir guardar o compartir (tu métrica).
+
+✓ slide 1/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-01.png
+✓ slide 2/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-02.png
+✓ slide 3/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-03.png
+✓ slide 4/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-04.png
+✓ slide 5/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-05.png
+✓ slide 6/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-06.png
+✓ slide 7/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-07.png
+✓ slide 8/8 → <tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/slide-08.png
+
+✓ Carrusel "vie-carrusel-la-ia-no-te-ahorra-horas" generado en ../../../../../../../..<tmp>/2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas/.trabajo/vie-carrusel-la-ia-no-te-ahorra-horas/
+limpia  2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas (carrusel) 1.2 s
+⏳ Animando "sab-reel-chatgpt-trabaja-mientras-duermes" (6 escenas, 18.5s, 555 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/555  cuadro 30/555  cuadro 60/555  cuadro 90/555  cuadro 120/555  cuadro 150/555  cuadro 180/555  cuadro 210/555  cuadro 240/555  cuadro 270/555  cuadro 300/555  cuadro 330/555  cuadro 360/555  cuadro 390/555  cuadro 420/555  cuadro 450/555  cuadro 480/555  cuadro 510/555  cuadro 540/555
+✓ Reel "sab-reel-chatgpt-trabaja-mientras-duermes" → <tmp>/2026-10-19/sab-reel-chatgpt-trabaja-mientras-duermes/.trabajo/sab-reel-chatgpt-trabaja-mientras-duermes/reel.mp4  (18.5s, 1080×1920)
+limpia  2026-10-19/sab-reel-chatgpt-trabaja-mientras-duermes (reel) 23.7 s
+⏳ Animando "jue-pm-reel-tu-producto-en-anuncio" (6 escenas, 19.4s, 582 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/582  cuadro 30/582  cuadro 60/582  cuadro 90/582  cuadro 120/582  cuadro 150/582  cuadro 180/582  cuadro 210/582  cuadro 240/582  cuadro 270/582  cuadro 300/582  cuadro 330/582  cuadro 360/582  cuadro 390/582  cuadro 420/582  cuadro 450/582  cuadro 480/582  cuadro 510/582  cuadro 540/582  cuadro 570/582
+✓ Reel "jue-pm-reel-tu-producto-en-anuncio" → <tmp>/2026-10-19/jue-pm-reel-tu-producto-en-anuncio/.trabajo/jue-pm-reel-tu-producto-en-anuncio/reel.mp4  (19.4s, 1080×1920)
+limpia  2026-10-19/jue-pm-reel-tu-producto-en-anuncio (reel) 33.7 s
+⏳ Animando "vie-pm-reel-kling-vs-seedance" (6 escenas, 19.72s, 592 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/592  cuadro 30/592  cuadro 60/592  cuadro 90/592  cuadro 120/592  cuadro 150/592  cuadro 180/592  cuadro 210/592  cuadro 240/592  cuadro 270/592  cuadro 300/592  cuadro 330/592  cuadro 360/592  cuadro 390/592  cuadro 420/592  cuadro 450/592  cuadro 480/592  cuadro 510/592  cuadro 540/592  cuadro 570/592
+✓ Reel "vie-pm-reel-kling-vs-seedance" → <tmp>/2026-10-19/vie-pm-reel-kling-vs-seedance/.trabajo/vie-pm-reel-kling-vs-seedance/reel.mp4  (19.72s, 1080×1920)
+limpia  2026-10-19/vie-pm-reel-kling-vs-seedance (reel) 37.5 s
+⏳ Animando "sab-pm-reel-tu-idea-en-10-segundos" (6 escenas, 19.58s, 587 cuadros, ritmo gancho, 6 escenas narradas (em_alex))…
+  cuadro 0/587  cuadro 30/587  cuadro 60/587  cuadro 90/587  cuadro 120/587  cuadro 150/587  cuadro 180/587  cuadro 210/587  cuadro 240/587  cuadro 270/587  cuadro 300/587  cuadro 330/587  cuadro 360/587  cuadro 390/587  cuadro 420/587  cuadro 450/587  cuadro 480/587  cuadro 510/587  cuadro 540/587  cuadro 570/587
+✓ Reel "sab-pm-reel-tu-idea-en-10-segundos" → <tmp>/2026-10-19/sab-pm-reel-tu-idea-en-10-segundos/.trabajo/sab-pm-reel-tu-idea-en-10-segundos/reel.mp4  (19.58s, 1080×1920)
+limpia  2026-10-19/sab-pm-reel-tu-idea-en-10-segundos (reel) 35.9 s
+Corpus: 26 pieza(s): 26 limpia(s), 0 con violación visual, 0 otra(s).
+exit=0
+
+## Corrida 3 (motor en 64870a3: arreglos de la revisión final; solo líneas de resultado)
+limpia  2026-10-05/mar-carrusel-3-ias-para-estudiar (carrusel) 1.3 s
+limpia  2026-10-05/mie-reel-la-ia-hace-fila-por-ti (reel) 76.8 s
+limpia  2026-10-05/jue-reel-prompt-producto-digital (reel) 49.7 s
+limpia  2026-10-05/vie-carrusel-mito-prompt-perfecto (carrusel) 1.0 s
+limpia  2026-10-05/sab-reel-gastos-del-mes-con-chatgpt (reel) 61.7 s
+limpia  2026-10-05/dom-reel-hora-para-preocuparte (reel) 51.6 s
+limpia  2026-10-12/lun-reel-pendientes-en-4-cajas (reel) 78.6 s
+limpia  2026-10-12/mar-carrusel-6-preguntas-mensaje (carrusel) 1.2 s
+limpia  2026-10-12/mie-reel-habitos-no-son-21-dias (reel) 71.4 s
+limpia  2026-10-12/jue-reel-mostrar-no-decir (reel) 21.2 s
+limpia  2026-10-12/jue-pm-reel-modo-estudio (reel) 19.2 s
+limpia  2026-10-12/vie-carrusel-4-mitos-estafas-con-ia (carrusel) 1.1 s
+limpia  2026-10-12/vie-pm-reel-chatgpt-te-avisa-tus-pagos (reel) 20.4 s
+limpia  2026-10-12/sab-reel-narra-sin-tu-voz (reel) 21.1 s
+limpia  2026-10-12/sab-pm-reel-apuntes-en-podcast (reel) 21.2 s
+limpia  2026-10-12/dom-reel-palabra-clave-contra-estafas (reel) 24.6 s
+limpia  2026-10-12/dom-pm-reel-video-ia-con-1-frase (reel) 25.2 s
+limpia  2026-10-19/lun-reel-pide-el-otro-punto-de-vista (reel) 26.8 s
+limpia  2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia (carrusel) 1.4 s
+limpia  2026-10-19/mie-reel-tu-correo-ordenado-gratis (reel) 24.4 s
+limpia  2026-10-19/jue-reel-cuando-la-ia-te-hace-fallar (reel) 24.7 s
+limpia  2026-10-19/vie-carrusel-la-ia-no-te-ahorra-horas (carrusel) 1.2 s
+limpia  2026-10-19/sab-reel-chatgpt-trabaja-mientras-duermes (reel) 23.5 s
+limpia  2026-10-19/jue-pm-reel-tu-producto-en-anuncio (reel) 43.8 s
+limpia  2026-10-19/vie-pm-reel-kling-vs-seedance (reel) 48.8 s
+limpia  2026-10-19/sab-pm-reel-tu-idea-en-10-segundos (reel) 49.0 s
+Corpus: 26 pieza(s): 26 limpia(s), 0 con violación visual, 0 otra(s).
+exit=0

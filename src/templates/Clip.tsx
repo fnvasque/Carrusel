@@ -1,7 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
 import { MonoLabel } from "./ui.tsx";
-import { fitDisplaySize } from "./fit.ts";
+import { fitDisplaySize, displayLineHeight } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -42,7 +42,7 @@ export function Clip({ title, highlight, label, archivo, accent, format, ...base
             fontFamily: theme.fonts.display,
             fontWeight: 400,
             fontSize: size,
-            lineHeight: 0.98,
+            lineHeight: displayLineHeight(title, 0.98),
             textTransform: "uppercase",
             letterSpacing: "0.005em",
             textWrap: "balance",

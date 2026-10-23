@@ -18,12 +18,17 @@ function antonEm(ch: string): number {
  * Ancho estimado (px) de `word` en Anton a `size` px, con 4 % de holgura. Con
  * `tight` (lo usa el reel) se estima más ajustado (−5 %), más cerca del ancho
  * medido: en el 9:16 sobra alto y la holgura del post dejaba bloques chicos.
+ * Excepción: entre palabras, `estimateLines` con `tight` no usa este −5 % para el
+ * espacio sino su ancho medido, `ANTON_ESPACIO_EM`.
  */
 function wordWidth(word: string, size: number, tight = false): number {
   let em = 0;
   for (const ch of word.toUpperCase()) em += antonEm(ch);
   return em * size * (tight ? 0.95 : 1.04);
 }
+
+/** Ancho medido (em) del espacio de Anton en el titular, para la estimación ajustada del reel. */
+export const ANTON_ESPACIO_EM = 0.24;
 
 /** Separador interno de una frase que no se corta (cuenta como un espacio). */
 const GLUE = "\u0001";
@@ -53,7 +58,9 @@ function words(text: string, keep?: (string | undefined)[]): string[] {
 export function estimateLines(text: string, size: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
   const ws = words(text, tight ? keep : undefined);
   if (ws.length === 0) return 0;
-  const space = wordWidth(" ", size, tight);
+  // El espacio de Anton mide 0,239 em en Chromium (con el letter-spacing del titular): con «tight»
+  // (−5 %) quedaba en 0,19 y una línea que no cabía parecía caber (corpus 2026-10-23, «POR QUÉ LOS»).
+  const space = tight ? ANTON_ESPACIO_EM * size : wordWidth(" ", size);
   let lines = 1;
   let x = 0;
   for (const w of ws) {
@@ -90,4 +97,44 @@ export function fitDisplaySize(
     if (longest <= width && estimateLines(text, size, width, opts.tight, opts.keep) <= maxLines) return size;
   }
   return min;
+}
+
+/**
+ * Interlineado mínimo de un titular Anton con tildes (Á É Í Ó Ú Ü Ñ). Medido en
+ * Chromium: la tilde sube 1,101 em sobre la línea base; con 0,04 em de aire
+ * no pisa la línea de arriba.
+ */
+export const ANTON_LH_ACENTO = 1.14;
+
+/**
+ * Con una Q en el texto, su cola baja ~0,09 em bajo la línea base y puede tocar
+ * la tilde de la línea siguiente («QUE TÚ…»). Medido: a 1,18 aún se tocan, a
+ * 1,19 no; 1,20 deja 0,01 em de aire.
+ */
+export const ANTON_LH_ACENTO_Q = 1.2;
+
+/**
+ * Puntuación que baja de la línea base en Anton (medido en Chromium, en em): la coma
+ * 0,115, los paréntesis 0,092 y la @ 0,077. El punto y coma no baja (0), así que no
+ * cuenta. Una coma justo encima de una tilde la toca hasta 1,21 (1,101 + 0,115 =
+ * 1,216); `ANTON_LH_ACENTO_COLA` deja ~0,02 em de aire con el peor caso, la coma.
+ */
+export const ANTON_COLA_PUNTUACION = /[,()@]/;
+export const ANTON_LH_ACENTO_COLA = 1.24;
+
+/** ¿Lleva `text` tilde, diéresis o Ñ (lo que sube sobre la caja de la línea en Anton)? */
+export function tieneAcento(text: string): boolean {
+  return /[ÁÉÍÓÚÜÑáéíóúüñ]/.test(text);
+}
+
+/**
+ * Interlineado de un texto Anton: `base`, o `ANTON_LH_ACENTO` si el texto lleva
+ * tilde/diéresis/Ñ. Si además lleva algo que baja de la línea base y puede caer
+ * justo encima de la tilde, sube más: `ANTON_LH_ACENTO_COLA` con coma, paréntesis
+ * o @; `ANTON_LH_ACENTO_Q` con Q. Estilo y estimador de alto deben usar el mismo valor.
+ */
+export function displayLineHeight(text: string, base: number): number {
+  if (!tieneAcento(text)) return base;
+  if (ANTON_COLA_PUNTUACION.test(text)) return Math.max(base, ANTON_LH_ACENTO_COLA);
+  return Math.max(base, /q/i.test(text) ? ANTON_LH_ACENTO_Q : ANTON_LH_ACENTO);
 }

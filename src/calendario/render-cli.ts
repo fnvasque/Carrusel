@@ -60,11 +60,11 @@ const outRoot = join(process.cwd(), "output", "calendario");
 const audioDir = process.env.CALENDARIO_AUDIO_DIR?.trim() || join(process.cwd(), "promo", "audio");
 const clipsDir = process.env.CLIPS_DIR?.trim() || undefined;
 
-/** Aviso en la terminal y por Telegram, siempre con el token de medios oculto. */
-async function avisar(texto: string): Promise<void> {
+/** Aviso en la terminal y por Telegram, siempre con el token de medios oculto. Devuelve si Telegram lo recibió. */
+async function avisar(texto: string): Promise<boolean> {
   const t = ocultarToken(texto, token);
   console.warn(`⚠️  ${t}`);
-  await avisarTelegram(`🖥️ Render del calendario (Mac): ${t}`);
+  return avisarTelegram(`🖥️ Render del calendario (Mac): ${t}`);
 }
 
 const soltar = await tomarCandado(join(outRoot, ".lock"));
