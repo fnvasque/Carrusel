@@ -23,14 +23,14 @@
         "text": "Sin contexto, Claude te da un guion genérico",
         "highlight": "contexto"
       },
-      "narracion": "Sin contexto recibes frases de manual. Todo cambia con lo que cuentas antes de pedir."
+      "narracion": "Sin contexto recibes frases de manual. Todo cambia con lo que cuentas antes."
     },
     {
       "template": "Screen",
       "props": {
         "app": "Claude",
-        "prompt": "Soy jefa de operaciones. Prepara un 1:1 de 15 minutos con Marta, que entregó tarde dos informes. Es muy buena con clientes.",
-        "respuesta": "1. Abre con el trato a clientes.\n2. Nombra los dos informes, con fechas.\n3. Pregúntale qué se lo impidió.\n4. Acuerden una fecha realista."
+        "prompt": "Prepara un 1:1 con Marta: dos informes tarde.",
+        "respuesta": "1. Abre con clientes.\n2. Nombra hechos."
       },
       "narracion": "Le dices tu rol, el hecho y qué valoras de ella. Claude ordena la charla."
     },
@@ -41,7 +41,7 @@
         "heading": "Dale el hecho, no tu opinión",
         "body": "Fechas y entregas, no 'es desordenada'."
       },
-      "narracion": "Un hecho se conversa; una opinión se discute. Pídele fechas y entregas, no adjetivos."
+      "narracion": "Un hecho se conversa; una opinión se discute. Pídele fechas, no adjetivos."
     },
     {
       "template": "Step",
@@ -50,7 +50,7 @@
         "heading": "Revisa el tono antes de usarlo",
         "body": "Léelo en voz alta: ¿lo dirías así?"
       },
-      "narracion": "Claude no conoce a Marta. Léelo en voz alta y cambia lo que tú no dirías."
+      "narracion": "Claude no conoce a Marta. Léelo en voz alta y cambia lo que no dirías."
     },
     {
       "template": "Cta",
@@ -61,7 +61,7 @@
         "cta": "Guárdalo",
         "source": "Fuente: guía de redacción de prompts de Anthropic (contexto y rol)"
       },
-      "narracion": "Guárdalo para tu próxima charla difícil, y mándaselo a otro jefe que también la postergue."
+      "narracion": "Guárdalo para tu próxima charla difícil, y mándaselo a otro jefe que la postergue."
     }
   ]
 }

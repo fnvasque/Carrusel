@@ -30,10 +30,10 @@
       "template": "Screen",
       "props": {
         "app": "ChatGPT",
-        "prompt": "Resume las causas de la caída de ventas del trimestre para el directorio.",
-        "respuesta": "Tres causas: precio, quiebre de stock en el sur y menor visibilidad en tienda. La primera explica el 60 % de la caída."
+        "prompt": "Por qué cayeron las ventas?",
+        "respuesta": "Precio, stock y tienda.\nPrecio explica el 60 %."
       },
-      "narracion": "La respuesta suena segura. Ahí está el riesgo: ese 60 % puede no salir de ningún dato tuyo."
+      "narracion": "La respuesta suena segura. Ese 60 % puede no salir de ningún dato tuyo."
     },
     {
       "template": "Step",
@@ -51,7 +51,7 @@
         "heading": "La regla: ¿ya la viste acertar en esto?",
         "body": "Si no, revísala entera."
       },
-      "narracion": "No hay lista de tareas seguras: si no la viste acertar en esa, revisa todo su trabajo."
+      "narracion": "No hay lista de tareas seguras: si no la viste acertar, revisa todo."
     },
     {
       "template": "Cta",

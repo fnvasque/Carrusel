@@ -2166,5 +2166,11 @@ check("score: piezas de calidad-contenido ≥ 75", () => {
     const pieza = JSON.parse(readFileSync(new URL(`./fixtures/calidad/${archivo}.json`, import.meta.url), "utf8"));
     const r = scoreDraft(pieza, { format: formato });
     assert.ok(r.total >= THRESHOLD, `${archivo}: ${r.total} < ${THRESHOLD} (${r.suggestions.join(" ")})`);
+    // Y son publicables: la puerta de la plantilla (tope de 35 s, textos, retención) no las rechaza.
+    assertNone(reglasDeTexto(pieza, CONFIG_PLANTILLA, formato));
+    if (formato === "reel") {
+      assert.ok(duracionReel(pieza) <= 35, `${archivo}: ${duracionReel(pieza)} s > 35 s`);
+      assertNone(erroresDeRetencion(pieza, { formato: "reel", parametros: { ritmoReel: "gancho" } }, CONFIG_PLANTILLA));
+    }
   }
 });
