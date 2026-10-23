@@ -23,7 +23,7 @@ export interface Pieza {
   senal: Senal;
   tema: string;
   pilar: string;
-  hook: { categoria: string; texto: string; score: number };
+  hook: { categoria: string; texto: string; score: number; candidatos?: unknown[]; juez?: Record<string, unknown> };
   emocion: string | string[];
   entregable: string;
   fraseAmigo: string;
@@ -40,7 +40,11 @@ export interface Pieza {
 export interface Plan {
   semana: string;
   zona: string;
-  experimento: { variable: string; hipotesis: string; piezas: string[]; confusores?: string[] } | null;
+  experimento:
+    | { variable: string; hipotesis: string; piezas: string[]; confusores?: string[] }
+    /** Semanas del paquete calidad-contenido: sin variable, solo el motivo. */
+    | { variable: null; motivo: string }
+    | null;
   piezas: Pieza[];
   motivo?: string;
   /** Piezas que no pasaron el lector frío y se quitaron del plan, con sus notas (las lee el bucle para agrupar fallos por causa). */
@@ -104,7 +108,8 @@ const PiezaSchema = z.object({
   senal: z.enum(["guardados", "envios", "comentarios", "retencion"]),
   tema: z.string(),
   pilar: z.string(),
-  hook: z.object({ categoria: z.string(), texto: z.string(), score: z.number() }),
+  // candidatos y juez (desde 2026-10-26) los valida validar.mjs; aquí se conservan tal cual.
+  hook: z.object({ categoria: z.string(), texto: z.string(), score: z.number(), candidatos: z.array(z.unknown()).optional(), juez: z.record(z.unknown()).optional() }).passthrough(),
   // R46: la spec deja encadenar emociones ("curiosidad", "alivio"); validar.mjs acepta ambas formas.
   emocion: z.union([z.string(), z.array(z.string()).min(1)]),
   entregable: z.string(),
@@ -113,7 +118,7 @@ const PiezaSchema = z.object({
   origen: z.object({ fichas: z.array(z.string()), referencias: z.array(z.string()) }),
   // Opcionales en validar.mjs: sin derivadoDe la pieza no deriva de nadie; sin estado, está planificada.
   derivadoDe: z.string().nullable().default(null),
-  /** Serie fija del reel (pivote 2026-10-17): hazlo-con-ia, gratis-vs-pago, lo-probe-por-ti. */
+  /** Serie fija del reel (pivote 2026-10-17): hazlo-con-ia, criterio, lo-probe-por-ti desde 2026-10-26 (antes también gratis-vs-pago); validar.mjs decide cuáles valen. */
   serie: z.string().nullable().optional(),
   caption: z.string(),
   borrador: z.string(),
@@ -126,7 +131,13 @@ export const PlanSchema: z.ZodType<Plan, z.ZodTypeDef, unknown> = z
     semana: dia,
     zona: z.string(),
     // El latido (`piezas: []`) puede omitir el experimento (validar.mjs solo lo exige con piezas).
-    experimento: z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()), confusores: z.array(z.string()).optional() }).nullable().default(null),
+    experimento: z
+      .union([
+        z.object({ variable: z.string(), hipotesis: z.string(), piezas: z.array(z.string()), confusores: z.array(z.string()).optional() }),
+        z.object({ variable: z.null(), motivo: z.string() }),
+      ])
+      .nullable()
+      .default(null),
     piezas: z.array(PiezaSchema),
     motivo: z.string().optional(),
     caidas: z.array(z.object({ id: z.string(), intentos: z.number().int().optional(), notas: z.string().optional() })).optional(),

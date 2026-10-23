@@ -42,6 +42,22 @@ check("parsePlan acepta el ejemplo de la spec", () => {
   assert.equal(p.piezas[0].hook.score, 9);
   assert.equal(p.experimento?.variable, "hora");
 });
+check("parsePlan acepta el experimento del paquete { variable: null, motivo } y lo conserva", () => {
+  const p = parsePlan(plan([pieza()], { semana: "2026-10-26", experimento: { variable: null, motivo: "paquete calidad-contenido" } }));
+  assert.deepEqual(p.experimento, { variable: null, motivo: "paquete calidad-contenido" });
+  assert.throws(() => parsePlan(plan([pieza()], { experimento: { variable: null } })), /experimento/);
+});
+check("parsePlan acepta hook.candidatos, hook.juez y serie \"criterio\", y los conserva", () => {
+  const hook = {
+    categoria: "curiosidad", texto: "t", score: 9,
+    candidatos: [{ title: "a", patron: "en-juego" }, { title: "b", patron: "resultado" }],
+    juez: { elegido: 2, notas: "x" },
+  };
+  const p = parsePlan(plan([pieza({ hook, serie: "criterio" })]));
+  assert.equal(p.piezas[0].serie, "criterio");
+  assert.equal(p.piezas[0].hook.candidatos?.length, 2);
+  assert.equal(p.piezas[0].hook.juez?.elegido, 2);
+});
 // R46: plan.ts acepta todo plan que validar.mjs acepta.
 check("parsePlan (R46): emocion texto o lista; sin estado → planificado; sin derivadoDe → null; latido sin experimento → null", () => {
   const lista = parsePlan(plan([pieza({ emocion: ["curiosidad", "alivio"] })]));
