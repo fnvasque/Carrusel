@@ -18,6 +18,8 @@ function antonEm(ch: string): number {
  * Ancho estimado (px) de `word` en Anton a `size` px, con 4 % de holgura. Con
  * `tight` (lo usa el reel) se estima más ajustado (−5 %), más cerca del ancho
  * medido: en el 9:16 sobra alto y la holgura del post dejaba bloques chicos.
+ * Excepción: entre palabras, `estimateLines` con `tight` no usa este −5 % para el
+ * espacio sino su ancho medido, `ANTON_ESPACIO_EM`.
  */
 function wordWidth(word: string, size: number, tight = false): number {
   let em = 0;
@@ -112,11 +114,27 @@ export const ANTON_LH_ACENTO = 1.14;
 export const ANTON_LH_ACENTO_Q = 1.2;
 
 /**
- * Interlineado de un texto Anton: `base`, o `ANTON_LH_ACENTO` si el texto
- * lleva tilde/diéresis/Ñ (`ANTON_LH_ACENTO_Q` si además lleva Q). Estilo y
- * estimador de alto deben usar el mismo valor.
+ * Puntuación que baja de la línea base en Anton (medido en Chromium, en em): la coma
+ * 0,115, los paréntesis 0,092 y la @ 0,077. El punto y coma no baja (0), así que no
+ * cuenta. Una coma justo encima de una tilde la toca hasta 1,21 (1,101 + 0,115 =
+ * 1,216); `ANTON_LH_ACENTO_COLA` deja ~0,02 em de aire con el peor caso, la coma.
+ */
+export const ANTON_COLA_PUNTUACION = /[,()@]/;
+export const ANTON_LH_ACENTO_COLA = 1.24;
+
+/** ¿Lleva `text` tilde, diéresis o Ñ (lo que sube sobre la caja de la línea en Anton)? */
+export function tieneAcento(text: string): boolean {
+  return /[ÁÉÍÓÚÜÑáéíóúüñ]/.test(text);
+}
+
+/**
+ * Interlineado de un texto Anton: `base`, o `ANTON_LH_ACENTO` si el texto lleva
+ * tilde/diéresis/Ñ. Si además lleva algo que baja de la línea base y puede caer
+ * justo encima de la tilde, sube más: `ANTON_LH_ACENTO_COLA` con coma, paréntesis
+ * o @; `ANTON_LH_ACENTO_Q` con Q. Estilo y estimador de alto deben usar el mismo valor.
  */
 export function displayLineHeight(text: string, base: number): number {
-  if (!/[ÁÉÍÓÚÜÑáéíóúüñ]/.test(text)) return base;
+  if (!tieneAcento(text)) return base;
+  if (ANTON_COLA_PUNTUACION.test(text)) return Math.max(base, ANTON_LH_ACENTO_COLA);
   return Math.max(base, /q/i.test(text) ? ANTON_LH_ACENTO_Q : ANTON_LH_ACENTO);
 }

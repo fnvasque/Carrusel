@@ -7,8 +7,8 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parseBorrador, borradorASpec, storySpec } from "../src/calendario/draft.ts";
-import { Hook } from "../src/templates/index.ts";
-import { displayLineHeight, ANTON_LH_ACENTO } from "../src/templates/fit.ts";
+import { Hook, Step } from "../src/templates/index.ts";
+import { displayLineHeight, ANTON_LH_ACENTO, ANTON_LH_ACENTO_COLA } from "../src/templates/fit.ts";
 import { FORMATS, type CarouselSpec } from "../src/templates/types.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 import { specTiming } from "../src/reel/timing.ts";
@@ -188,6 +188,39 @@ try {
       });
     }
   }
+  // Revisión final de la fase 1: en el reel, a la escala mayor de Step (poco cuerpo), la tilde del
+  // heading tocaba la tinta del número de arriba con el gap fijo de 12 px.
+  for (const step of ["3", "5"]) {
+    for (const heading of ["Pídele un resumen", "Úsalo cada lunes", "Pégalo en ChatGPT", "Déjalo correr", "Cómo pedirlo bien", "Sé específico"]) {
+      await caso(`tildes: Step reel «${step}» + «${heading}» con poco cuerpo no pisa el número`, async () => {
+        const h = await revisar(renderToStaticMarkup(createElement(Step as any, { step, heading, body: "Corto.", format: "reel" })), true);
+        assert.deepEqual(h, [], JSON.stringify(h));
+      });
+    }
+  }
+  // Coma justo encima de una tilde: la coma de Anton baja 0,115 em (paréntesis 0,092, @ 0,077).
+  const anton400 = (html: string, lh: number) =>
+    `<h2 style="font-family:Anton;font-weight:400;font-size:124px;width:640px;line-height:${lh};color:#fff;margin:200px 60px;">${html}</h2>`;
+  await caso("tilde: coma justo encima de «Á» con 1.14 pisa (el detector la ve)", async () => {
+    const h = await revisar(anton400(",<br>ÁA", 1.14));
+    assert.equal(tipos(h, "tilde").length, 1, JSON.stringify(h));
+  });
+  for (const texto of [",<br>ÁA", "(<br>ÓA", ")<br>ÓA", "@<br>ÉA", "Q<br>ÚA"]) {
+    await caso(`tilde: «${texto.replace("<br>", " / ")}» con displayLineHeight no pisa`, async () => {
+      const h = await revisar(anton400(texto, displayLineHeight(texto, 0.98)));
+      assert.deepEqual(h, [], JSON.stringify(h));
+    });
+  }
+  await caso("displayLineHeight: coma, paréntesis o @ con tilde suben a ANTON_LH_ACENTO_COLA", async () => {
+    assert.equal(ANTON_LH_ACENTO_COLA, 1.24);
+    assert.equal(displayLineHeight("HOLA, TÚ", 0.98), 1.24);
+    assert.equal(displayLineHeight("GRATIS (SÍ)", 0.98), 1.24);
+    assert.equal(displayLineHeight("@IA.PUNTO.ES TÚ", 0.98), 1.24);
+    assert.equal(displayLineHeight("QUÉ, CÓMO", 0.98), 1.24);
+    assert.equal(displayLineHeight("HOLA, TU", 0.98), 0.98);
+    // El punto y coma de Anton no baja de la línea base.
+    assert.equal(displayLineHeight("YA; TÚ", 0.98), 1.14);
+  });
   await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
     assert.equal(ANTON_LH_ACENTO, 1.14);
     assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);

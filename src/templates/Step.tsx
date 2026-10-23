@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
-import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
+import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight, tieneAcento } from "./fit.ts";
 import { Card, CheckCircle } from "./ui.tsx";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps, Format } from "./types.ts";
@@ -65,11 +65,23 @@ function scales(format: Format): StepScale[] {
   return out;
 }
 
+/**
+ * Separación (px) entre el número de paso y el heading. Con tilde en el heading, la
+ * tilde sube sobre la caja de la línea: en el reel a la escala mayor (número 269 px,
+ * heading 174 px) tocaba la tinta del número con 12 px («5» sobre «PÍDELE»: −1,7 px;
+ * la panza de 0 3 5 6 8 9 baja bajo la línea base). Medido en Chromium: con 12 px +
+ * 0,08 em del heading quedan ≥ 0,07 em de aire con cualquier dígito.
+ */
+export const STEP_GAP_ACENTO_EM = 0.08;
+function gapNumero(heading: string, headingSize: number): number {
+  return tieneAcento(heading) ? Math.round(12 + STEP_GAP_ACENTO_EM * headingSize) : 12;
+}
+
 /** Alto estimado del bloque completo a una escala. */
 function stepHeight(sc: StepScale, p: { step?: string; heading: string; highlight?: string; body?: string; bullets?: string[] }, tight: boolean): number {
   const headingSize = fitDisplaySize(p.heading, sc.headingMax, { maxLines: 2, tight, keep: [p.highlight] });
   let h = antonHeight(p.heading, headingSize, displayLineHeight(p.heading, 1.0), undefined, tight, [p.highlight]);
-  if (p.step) h += sc.number * 0.9 + 12;
+  if (p.step) h += sc.number * 0.9 + gapNumero(p.heading, headingSize);
   const bullets = p.bullets ?? [];
   if (!p.body && bullets.length === 0) return h;
   const inner = CONTENT_WIDTH - 2 * sc.padX - 4;
@@ -99,7 +111,7 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: sc.blockGap }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: step ? gapNumero(heading, headingSize) : 12 }}>
           {step && (
             <span data-anim="rise" data-paso="numero" data-junto="" style={{ fontFamily: theme.fonts.display, fontSize: sc.number, lineHeight: 0.9, color: lime, letterSpacing: "0.01em" }}>
               {step}
