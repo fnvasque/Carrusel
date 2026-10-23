@@ -76,8 +76,19 @@ check("R16: negro puro y #06060A liso son pantalla negra; pieza lima con texto c
   assert.equal(esPantallaNegra(tenue), true);
 });
 
-check("franjaSegura: sale de las constantes de layout, en fracciones de cualquier escala", () => {
-  assert.deepEqual(franjaSegura(540, 960), [150 / 1920, 1480 / 1920]);
-  assert.deepEqual(franjaSegura(1080, 1920), [150 / 1920, 1480 / 1920]);
-  assert.deepEqual(franjaSegura(1080, 1350), [72 / 1350, 1 - 72 / 1350]);
+check("franjaSegura: sale de las constantes de layout, bajo la cabecera, en fracciones de cualquier escala", () => {
+  const reel: [number, number] = [(150 + 44 + 40) / 1920, 1480 / 1920];
+  const post: [number, number] = [(72 + 44 + 40) / 1350, 1 - 72 / 1350];
+  assert.deepEqual(franjaSegura(540, 960), reel);
+  assert.deepEqual(franjaSegura(1080, 1920), reel);
+  assert.deepEqual(franjaSegura(1080, 1350), post);
+});
+
+check("franjaSegura: una cabecera sola no cuenta como texto; con texto en el medio sí", () => {
+  const w = 540, h = 960;
+  const g = new Uint8Array(w * h).fill(6);
+  for (let y = 75; y < 97; y++) for (let x = 30; x < 250; x++) g[y * w + x] = 255; // cabecera
+  assert.equal(hayTextoEnZona(g, w, h, ...franjaSegura(w, h)), false);
+  for (let y = 400; y < 480; y++) for (let x = 40; x < 500; x += 3) g[y * w + x] = 255; // texto
+  assert.equal(hayTextoEnZona(g, w, h, ...franjaSegura(w, h)), true);
 });

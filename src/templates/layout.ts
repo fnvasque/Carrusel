@@ -15,18 +15,25 @@ export const REEL_SAFE_BOTTOM = 440;
 export const REEL_SAFE_TOP = 150;
 /** Margen vertical del post (arriba y abajo). */
 export const POST_PAD_Y = theme.padding - 24;
-/**
- * Franja vertical segura del texto, en fracciones del alto (valen a cualquier
- * escala): 9:16 deja fuera la UI de IG; 4:5 solo el margen del post.
- */
-export function franjaSegura(w: number, h: number): [number, number] {
-  if (h / w > 1.5) return [REEL_SAFE_TOP / 1920, (1920 - REEL_SAFE_BOTTOM) / 1920];
-  return [POST_PAD_Y / 1350, 1 - POST_PAD_Y / 1350];
-}
 /** Alto de la cabecera de marca (etiqueta + wordmark). */
 export const HEADER_HEIGHT = 44;
 /** Aire entre la cabecera y el contenido. */
 export const CONTENT_GAP_TOP = 40;
+
+/**
+ * Franja vertical del texto del contenido, en fracciones del alto (valen a
+ * cualquier escala). Empieza bajo la cabecera de marca, para que una etiqueta
+ * sola no cuente como texto; termina donde empieza la UI de IG (reel) o el
+ * margen del post (4:5).
+ */
+export function franjaSegura(w: number, h: number): [number, number] {
+  if (h / w > 1.5) {
+    const H = FORMATS.reel.height;
+    return [(REEL_SAFE_TOP + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, (H - REEL_SAFE_BOTTOM) / H];
+  }
+  const H = FORMATS.post.height;
+  return [(POST_PAD_Y + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, 1 - POST_PAD_Y / H];
+}
 /** Fuente al pie: mono 24 px, interlineado 1.35. */
 export const SOURCE_SIZE = 24;
 const SOURCE_LINE = Math.round(SOURCE_SIZE * 1.35);
