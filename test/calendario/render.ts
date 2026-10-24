@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorClipFaltante, ErrorContenido, avisosVisualesNuevos, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
+  ErrorClipFaltante, ErrorContenido, MANIFIESTO, avisosVisualesNuevos, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
   olvidarAvisosVisuales, sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
@@ -469,6 +469,39 @@ await checkAsync("procesar: carpeta final sin manifiesto (corrupta) → se borra
     const { deps, reg } = falsos();
     await procesar([pend("lun-rara")], out, ENV, deps);
     assert.deepEqual(reg.render, ["lun-rara"]);
+  }),
+);
+
+// Pendiente 2 de la fase 3: una carpeta que quedó con la versión corregida (`cover-c1.jpg`).
+await checkAsync("procesar: carpeta corregida (-c1) con manifiesto válido → reintenta la subida y anota sus nombres", () =>
+  conOut(async (out) => {
+    const final = join(out, SEMANA, "lun-corregida");
+    mkdirSync(final, { recursive: true });
+    const c1 = ["reel-c1.mp4", "cover-c1.jpg", "story-c1.jpg"];
+    for (const a of c1) writeFileSync(join(final, a), "c1");
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: c1, duracionMs: 9000 }));
+    const { deps, reg } = falsos();
+    const r = await procesar([pend("lun-corregida")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 1, fallidas: 0, pendientes: 0 });
+    assert.deepEqual(reg.render, [], "no re-renderiza");
+    assert.deepEqual(reg.escritos[0][2].medios, { archivos: ["reel-c1.mp4"], cover: "cover-c1.jpg", story: "story-c1.jpg", duracionMs: 9000 });
+    assert.deepEqual(reg.verificar.map((u) => u.slice(u.lastIndexOf("/") + 1)).sort(), [...c1].sort());
+  }),
+);
+
+await checkAsync("procesar: render fresco sobre una carpeta con archivos -c1 (manifiesto inválido) → vuelve a los nombres estándar, sin restos", () =>
+  conOut(async (out) => {
+    const final = join(out, SEMANA, "lun-refresco");
+    mkdirSync(final, { recursive: true });
+    for (const a of ["reel-c1.mp4", "cover-c1.jpg", "story.jpg"]) writeFileSync(join(final, a), "c1");
+    // El manifiesto nombra un archivo que falta: carpeta incompleta.
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ["reel-c1.mp4", "cover-c1.jpg", "story-c1.jpg"] }));
+    const { deps, reg } = falsos();
+    const r = await procesar([pend("lun-refresco")], out, ENV, deps);
+    assert.deepEqual(r, { ok: 1, fallidas: 0, pendientes: 0 });
+    assert.deepEqual(reg.render, ["lun-refresco"]);
+    assert.deepEqual(reg.escritos[0][2].medios, { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg", duracionMs: 42_000 });
+    assert.deepEqual(readdirSync(final).sort(), [MANIFIESTO, "cover.jpg", "reel.mp4", "story.jpg"], "sin archivos -c1 en la carpeta nueva");
   }),
 );
 

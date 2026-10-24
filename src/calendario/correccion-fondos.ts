@@ -8,7 +8,7 @@ import { applyBrandStyle } from "../render/background.ts";
 import { enCacheVoz, textosNarracion, VOZ_DEFECTO, type Voz } from "../reel/voz.ts";
 import { HECHO, RESPALDO } from "./hook-video.ts";
 import {
-  MANIFIESTO, armarMedios, destinoRemoto, fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, tipoDe,
+  MANIFIESTO, armarMedios, baseArchivo, conVersion, destinoRemoto, fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, tipoDe, versionArchivo,
   type Deps, type EnvRender, type Manifiesto, type PiezaPendiente,
 } from "./render.ts";
 import {
@@ -93,6 +93,8 @@ export function slidesACorregir(b: Borrador, imagenes: VeredictoImagen[], yaQuit
 /** Solo se corrige si faltan al menos 30 min para la hora de la pieza (se mira al empezar, antes de subir y antes de anotar). */
 export const MARGEN_CORRECCION_MS = 30 * 60_000;
 export const SIN_MARGEN = "sin margen antes de la hora";
+/** Caso (c): la versión corregida alcanzó a subir, pero render.json no se reescribe; se publica el original. */
+export const SIN_MARGEN_TRAS_SUBIR = "subida sin margen para reescribir render.json: se publica el original";
 
 export interface DepsCorreccion {
   /** Re-render en `tmp` con los fondos `quitar` (en el real, `renderPieza` con `quitarFondos`; fase 1 en modo bloquear). Lanza si falla. */
@@ -136,7 +138,7 @@ export interface DepsCorreccion {
 }
 
 /** Lo que usa la recuperación de corridas cortadas. */
-export type DepsRecuperacion = Pick<DepsCorreccion, "rsync" | "avisar" | "log" | "ahora">;
+export type DepsRecuperacion = Pick<DepsCorreccion, "avisar" | "log" | "ahora">;
 
 export const SIN_CACHE = "fondo ai sin caché: no se regenera";
 export const SIN_CACHE_VOZ = "voz sin caché: no se regenera";
@@ -157,7 +159,21 @@ function motivoRevisor(imagenes: VeredictoImagen[], slide: number): string {
   return `el revisor visual lo marcó (${tipos.join(" y ") || "compite/ajeno"})`;
 }
 
-const mismosArchivos = (a: string[], b: string[]): boolean => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+/**
+ * Nombres de la versión corregida: cada archivo del re-render (nombres estándar, `01.jpg`) pasa a
+ * la versión siguiente a la del original (`01.jpg` → `01-c1.jpg`; `01-c1.jpg` → `01-c2.jpg`).
+ * Devuelve pares [nombre del render, nombre nuevo]. Lanza si el re-render no da exactamente los
+ * mismos archivos que el original (por su nombre base): la correspondencia viejo → nuevo debe ser
+ * uno a uno, o render.json quedaría con otros medios que los que el bot ya conoce.
+ */
+export function nombresCorregidos(render: string[], original: string[]): [string, string][] {
+  const bases = (xs: string[]): string => JSON.stringify(xs.map(baseArchivo).sort());
+  if (new Set(render.map(baseArchivo)).size !== render.length || bases(render) !== bases(original)) {
+    throw new Error(`el re-render cambió los archivos (${render.join(", ")} en vez de ${original.join(", ")})`);
+  }
+  const version = Math.max(0, ...original.map(versionArchivo)) + 1;
+  return render.map((a) => [a, conVersion(a, version)]);
+}
 
 /** Log, aviso y hora comunes a la recuperación y a la corrección (todo con el token oculto; nada lanza). */
 function contexto(env: EnvRender, deps: DepsRecuperacion) {
@@ -180,22 +196,7 @@ function contexto(env: EnvRender, deps: DepsRecuperacion) {
   };
   const ahora = deps.ahora ?? (() => new Date());
   const conMargen = (t: number): boolean => t - ahora().getTime() >= MARGEN_CORRECCION_MS;
-  /**
-   * Sube `final` (el original restaurado) para que el servidor vuelva a coincidir con render.json.
-   * Si la hora de la pieza ya pasó no sube nada: el bot pudo estar publicando justo esos archivos.
-   */
-  const resubir = async (semana: string, id: string, final: string, t: number): Promise<string> => {
-    if (t <= ahora().getTime()) {
-      return "no re-subí el original porque su hora ya pasó: el servidor puede tener archivos corregidos mezclados con los originales";
-    }
-    try {
-      await deps.rsync(final, destinoRemoto(env, semana, id));
-      return "re-subí el original al servidor";
-    } catch (e) {
-      return `no pude re-subir el original (${razon(e)}): el servidor puede tener archivos corregidos mezclados con los originales`;
-    }
-  };
-  return { oculto, log, avisar, ahora, conMargen, resubir };
+  return { oculto, log, avisar, ahora, conMargen };
 }
 
 const piezaDe = (semanas: SemanaLeida[], semana: string, id: string): { s: SemanaLeida; pieza: Pieza } | undefined => {
@@ -221,10 +222,11 @@ const horaSegura = (p: Pieza): number | undefined => {
  *
  * Una `<id>.prev-*` válida siempre es el original verificado que corresponde a render.json
  * (render.json se confirma después de que `corregirFondos` aparta la previa), así que se
- * restaura como final y, si render.json la referencia y queda margen, se re-sube para dejar el
- * servidor igual. Por eso, una vez que el render nuevo queda como definitivo, la previa
- * primero se renombra a `<id>.tmp-descartada-<pid>` (que esto no restaura) y solo después se
- * borra. También limpia los `.tmp-corr-` y `.tmp-descartada-`. Nunca lanza.
+ * restaura como final. No se sube nada: la versión corregida va al servidor con nombres nuevos
+ * (`cover-c1.jpg`), así que los archivos originales que nombra render.json nunca se pisaron.
+ * Por eso, una vez que el render nuevo queda como definitivo, la previa primero se renombra a
+ * `<id>.tmp-descartada-<pid>` (que esto no restaura) y solo después se borra. También limpia
+ * los `.tmp-corr-` y `.tmp-descartada-`. Nunca lanza.
  */
 export async function recuperarCorreccionesCortadas(
   semanas: SemanaLeida[],
@@ -233,7 +235,7 @@ export async function recuperarCorreccionesCortadas(
   deps: DepsRecuperacion,
 ): Promise<{ restauradas: number }> {
   const res = { restauradas: 0 };
-  const { log, avisar, conMargen, resubir } = contexto(env, deps);
+  const { log, avisar } = contexto(env, deps);
   try {
     for (const s of semanas) {
       if (!SEMANA_RE.test(s.semana)) continue;
@@ -257,14 +259,11 @@ export async function recuperarCorreccionesCortadas(
           await rm(final, { recursive: true, force: true });
           await rename(prev, final);
           res.restauradas++;
-          const pz = piezaDe(semanas, s.semana, id);
-          const t = pz ? horaSegura(pz.pieza) : undefined;
-          const ef = pz ? estadoEfectivo(pz.pieza, pz.s.render[id], pz.s.estado[id]) : undefined;
-          const rj = pz?.s.render[id];
-          let subida = "no la re-subo (su hora pasó o ya no hay margen)";
-          if (rj?.estado !== "renderizado" || !rj.medios) subida = "no la re-subo (render.json no la tiene como renderizada: se vuelve a renderizar)";
-          else if (t !== undefined && conMargen(t) && ef !== "publicado" && ef !== "saltado") subida = await resubir(s.semana, id, final, t);
-          await avisar(`Corrección de fondos: una corrida anterior quedó a medias en ${id} (${s.semana}); restauré el original en el Mac y ${subida}.`);
+          const rj = piezaDe(semanas, s.semana, id)?.s.render[id];
+          const servidor = rj?.estado !== "renderizado" || !rj.medios
+            ? "render.json no la tiene como renderizada: se vuelve a renderizar"
+            : "el servidor conserva los archivos originales y render.json sigue apuntando a ellos";
+          await avisar(`Corrección de fondos: una corrida anterior quedó a medias en ${id} (${s.semana}); restauré el original en el Mac (${servidor}).`);
         } catch (e) {
           log(`⚠️  Corrección de fondos: no pude recuperar ${f} (${s.semana}): ${razon(e)}`);
         }
@@ -320,18 +319,28 @@ export function narracionesDelReel(b: Borrador, formato: Pieza["formato"]): { sl
  * re-render en `<id>.tmp-corr-<pid>` sin esos fondos ai → swap de la carpeta final (la actual
  * pasa a `<id>.prev-<pid>`) → rsync → verificar → `escribirRender(renderizado, en nuevo)` →
  * se aparta la previa → `visual.correccion = aplicada` → `confirmar(semana)` de inmediato.
+ * La versión corregida lleva NOMBRES NUEVOS (`nombresCorregidos`: `01.jpg` → `01-c1.jpg`,
+ * `reel.mp4` → `reel-c1.mp4`) en la misma carpeta remota, y render.json se reescribe con
+ * ellos solo después de verificar la subida.
  * La hora se mira al empezar, antes de rsync y antes de anotar render.json.
- * Si algo falla queda el original (Mac y servidor), render.json no cambia, `fallida` y
- * un aviso. Una pieza con `correccion` no se vuelve a tocar. Nunca lanza.
+ * Si algo falla queda el original en el Mac, render.json no cambia, `fallida` y un aviso; en
+ * el servidor no hay nada que deshacer (los originales nunca se pisaron). Una pieza con
+ * `correccion` no se vuelve a tocar. Nunca lanza.
  *
  * Los restos de una corrida cortada NO se recuperan aquí: lo hace
  * `recuperarCorreccionesCortadas` antes de `procesar`. Una pieza que aún tenga una
  * `<id>.prev-*` (la recuperación no pudo con ella) no se corrige.
  *
- * Riesgo conocido, sin resolver en código: `/publicar` (`ordenes.forzar` en el scheduler del
- * bot) puede adelantar la publicación, y el Mac no ve esa orden. `conMargen` solo protege la
- * hora del plan. Una publicación forzada durante la subida de un carrusel podría mezclar
- * slides viejas y nuevas (rsync reemplaza archivo por archivo).
+ * Carrera con el bot: `/publicar` (`ordenes.forzar` en el scheduler) puede adelantar la
+ * publicación y el Mac no ve esa orden; `conMargen` solo protege la hora del plan. Por eso la
+ * subida nunca pisa archivos: rsync (sin --delete) deja los originales intactos junto a los
+ * corregidos, y el bot publica los nombres de render.json. Una publicación que leyó el
+ * render.json viejo usa archivos viejos coherentes; una que lea el nuevo, archivos nuevos ya
+ * verificados. Sin mezcla dentro de una publicación. Riesgo residual (no se resuelve sin tocar
+ * el bot): el bot vuelve a armar las URLs desde render.json en cada tick, así que un carrusel
+ * cuya creación de hijos se corta y se reintenta en un tick posterior, justo cuando llega el
+ * render.json nuevo, podría continuar con hijos de la versión nueva; y la story (que sale
+ * después del post) usa la versión que diga render.json en ese momento.
  */
 export async function corregirFondos(
   semanas: SemanaLeida[],
@@ -342,7 +351,7 @@ export async function corregirFondos(
   deps: DepsCorreccion,
 ): Promise<{ aplicadas: number; fallidas: number; omitidas: number }> {
   const res = { aplicadas: 0, fallidas: 0, omitidas: 0 };
-  const { oculto, log, avisar, ahora, conMargen, resubir } = contexto(env, deps);
+  const { oculto, log, avisar, ahora, conMargen } = contexto(env, deps);
   try {
     // 2) Puerta.
     if (!puerta.activa) {
@@ -520,13 +529,15 @@ export async function corregirFondos(
             log(`⚠️  No pude borrar ${aBorrar}: ${razon(e)} (ya no se restaura; la próxima corrida la limpia).`);
           }
         };
+        /** Vuelve el original a la final del Mac (la del servidor nunca se tocó: otros nombres). */
         const restaurar = async (): Promise<void> => {
           if (!movido) return;
           await rm(final, { recursive: true, force: true });
           await rename(prev, final);
           movido = false;
         };
-        let subio = false; // ¿se intentó subir el render nuevo?
+        // Los archivos originales del servidor nunca se pisan: la versión corregida va con nombres nuevos.
+        const intactos = " (los archivos originales del servidor siguen intactos)";
         try {
           await rm(tmp, { recursive: true, force: true });
           await mkdir(tmp, { recursive: true });
@@ -535,12 +546,11 @@ export async function corregirFondos(
           let nuevo: Manifiesto;
           try {
             const r = await deps.render(pend, tmp, quitar);
-            // Los nombres de archivo no pueden cambiar: el bot publica los de render.json, y
-            // la subida (sin --delete) pisa archivo por archivo.
-            if (!mismosArchivos(r.archivos, original.archivos)) {
-              throw new Error(`el re-render cambió los archivos (${r.archivos.join(", ")} en vez de ${original.archivos.join(", ")})`);
-            }
-            nuevo = { archivos: r.archivos, ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}), ...(r.escenas?.length ? { escenas: r.escenas } : {}) };
+            // Nombres nuevos (versión siguiente a la del original): el bot publica lo que diga
+            // render.json, así que nunca ve archivos viejos y nuevos mezclados.
+            const nombres = nombresCorregidos(r.archivos, original.archivos);
+            for (const [de, a] of nombres) if (de !== a) await rename(join(tmp, de), join(tmp, a));
+            nuevo = { archivos: nombres.map(([, a]) => a), ...(r.duracionMs !== undefined ? { duracionMs: r.duracionMs } : {}), ...(r.escenas?.length ? { escenas: r.escenas } : {}) };
             await writeFile(join(tmp, MANIFIESTO), JSON.stringify(nuevo), "utf8");
           } catch (e) {
             // ErrorVisual (fase 1 en bloquear), ErrorContenido o del entorno: se queda el original.
@@ -560,13 +570,12 @@ export async function corregirFondos(
             continue;
           }
 
-          subio = true;
+          // Sin --delete: los archivos originales quedan en el servidor junto a los corregidos.
           try {
             await deps.rsync(final, destinoRemoto(env, semana, id));
           } catch (e) {
             await restaurar();
-            const re = await resubir(semana, id, final, t);
-            await fallar(`la subida falló: ${razon(e)}`, ` (${re})`);
+            await fallar(`la subida falló: ${razon(e)}`, intactos);
             continue;
           }
           const url = (a: string): string => urlPublica(env.base, env.token, semana, id, a);
@@ -582,24 +591,18 @@ export async function corregirFondos(
           }
           if (caidas.length) {
             await restaurar();
-            const re = await resubir(semana, id, final, t);
-            await fallar(`el servidor no sirve ${caidas.join(", ")} tras la subida`, ` (${re})`);
+            await fallar(`el servidor no sirve ${caidas.join(", ")} tras la subida`, intactos);
             continue;
           }
 
-          // (c) Hora antes de anotar. Los archivos corregidos ya están en el servidor con los
-          // mismos nombres, así que el bot publicará esos igual. Lo seguro es NO re-subir el
-          // original (otra subida aún más cerca de la hora es justo la carrera que se evita)
-          // ni reescribir render.json (mandaría un preview nuevo ya sin margen). La final del
-          // Mac queda con el render nuevo para coincidir con el servidor; la previa se borra.
-          // Se anota «aplicada» (con motivo): los archivos corregidos son los que se publicarán.
+          // (c) Hora antes de anotar. Sin margen no se reescribe render.json (mandaría un preview
+          // nuevo ya sin margen): sigue apuntando a los archivos originales, que siguen en el
+          // servidor, así que se publica el original y la corrección queda «omitida». La final
+          // del Mac vuelve al original para coincidir con render.json; los corregidos quedan en
+          // el servidor sin uso (la limpieza de medios borra la carpeta entera 7 días después).
           if (!conMargen(t)) {
-            await descartarPrevia();
-            await anotar("aplicada", `subida sin reescribir render.json: ${SIN_MARGEN}`);
-            await confirmar(semana);
-            res.aplicadas++;
-            log(`🖼️  ${id} (${semana}): corrección subida sin reescribir render.json (${SIN_MARGEN}).`);
-            await avisar(`Corrección de fondos de ${id} (${semana}): la subida terminó sin margen antes de la hora. El servidor ya tiene la versión sin el fondo ai de ${slides.map((i) => `slide ${i + 1}`).join(", ")} y es la que se publicará, pero no mando un preview nuevo (render.json sin cambios).`);
+            await restaurar();
+            await omitir(SIN_MARGEN_TRAS_SUBIR);
             continue;
           }
 
@@ -610,23 +613,21 @@ export async function corregirFondos(
             await deps.escribirRender(semana, id, { estado: "renderizado", medios, en: ahora().toISOString() });
           } catch (e) {
             await restaurar();
-            const re = await resubir(semana, id, final, t);
-            await fallar(`no pude anotar render.json: ${razon(e)}`, ` (${re})`);
+            await fallar(`no pude anotar render.json: ${razon(e)}`, intactos);
             continue;
           }
           await descartarPrevia();
           await anotar("aplicada");
           await confirmar(semana);
           res.aplicadas++;
-          log(`🖼️  ✓ ${id} (${semana}): fondo ai quitado en ${slides.map((i) => `slide ${i + 1}`).join(", ")}, re-renderizada y subida.`);
+          log(`🖼️  ✓ ${id} (${semana}): fondo ai quitado en ${slides.map((i) => `slide ${i + 1}`).join(", ")}, re-renderizada y subida como ${nuevo.archivos.join(", ")}.`);
         } catch (e) {
           // Inesperado (rename, disco): se deja el original como se pueda.
-          let extra = "";
+          let extra = intactos;
           try {
             await restaurar();
-            if (subio) extra = ` (${await resubir(semana, id, final, t)})`;
           } catch (err) {
-            extra = ` (no pude restaurar la carpeta original: ${razon(err)}; la próxima corrida lo reintenta)`;
+            extra = ` (no pude restaurar la carpeta original en el Mac: ${razon(err)}; la próxima corrida lo reintenta)`;
           }
           await fallar(`error inesperado: ${razon(e)}`, extra);
         } finally {

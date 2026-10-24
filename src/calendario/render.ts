@@ -183,17 +183,46 @@ export function tipoDe(archivo: string): string {
  * arma las URLs con `mediosPublicos` al publicar.
  */
 export function armarMedios(formato: Pieza["formato"], m: Manifiesto): MediosRender {
-  const story = m.archivos.includes("story.jpg") ? "story.jpg" : undefined;
+  // Los nombres pueden traer el sufijo de versión de la fase 3 (`cover-c1.jpg`): se reconocen por su base.
+  const deBase = (b: string): string | undefined => m.archivos.find((a) => baseArchivo(a) === b);
+  const story = deBase("story.jpg");
   if (formato === "reel") {
+    const cover = deBase("cover.jpg");
     return {
       archivos: m.archivos.filter((a) => a.endsWith(".mp4")),
-      ...(m.archivos.includes("cover.jpg") ? { cover: "cover.jpg" } : {}),
+      ...(cover ? { cover } : {}),
       ...(story ? { story } : {}),
       ...(m.duracionMs !== undefined ? { duracionMs: m.duracionMs } : {}),
     };
   }
-  const archivos = m.archivos.filter((a) => /^\d{2}\.jpg$/.test(a)).sort();
+  const archivos = m.archivos.filter((a) => /^\d{2}\.jpg$/.test(baseArchivo(a))).sort((x, y) => baseArchivo(x).localeCompare(baseArchivo(y)));
   return { archivos, ...(archivos[0] ? { cover: archivos[0] } : {}), ...(story ? { story } : {}) };
+}
+
+/**
+ * Versión de un archivo de medios (fase 3): la corrección sube la versión corregida con
+ * NOMBRES NUEVOS (`01.jpg` → `01-c1.jpg`, `reel.mp4` → `reel-c1.mp4`) en la misma carpeta
+ * remota, para que el bot nunca mezcle archivos viejos y nuevos. Sin sufijo = versión 0.
+ */
+const VERSION_RE = /^(.+?)(?:-c([1-9]\d{0,3}))?\.(jpg|mp4)$/;
+
+/** Nombre sin el sufijo de versión: `cover-c2.jpg` → `cover.jpg`; `01.jpg` → `01.jpg`. */
+export function baseArchivo(a: string): string {
+  const m = VERSION_RE.exec(a);
+  return m ? `${m[1]}.${m[3]}` : a;
+}
+
+/** Número de versión del nombre (0 sin sufijo). */
+export function versionArchivo(a: string): number {
+  const m = VERSION_RE.exec(a);
+  return m?.[2] ? Number(m[2]) : 0;
+}
+
+/** El nombre con la versión `n` (≥ 1): `reel.mp4`, 1 → `reel-c1.mp4`; un sufijo previo se reemplaza. */
+export function conVersion(a: string, n: number): string {
+  const b = baseArchivo(a);
+  const i = b.lastIndexOf(".");
+  return `${b.slice(0, i)}-c${n}${b.slice(i)}`;
 }
 
 /** Destino de rsync: `host:dir/semana/id/` (o `dir/semana/id/` sin host). */

@@ -151,7 +151,6 @@ try {
   // versión corregida a medias. Con --dry-run no se toca nada.
   if (!dryRun) {
     await recuperarCorreccionesCortadas(semanas, outRoot, env, {
-      rsync: rsyncReal,
       avisar,
       log: (t) => console.log(ocultarToken(t, token)),
     });

@@ -4,12 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import {
-  MARGEN_CORRECCION_MS, SIN_CACHE, SIN_CACHE_VOZ, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, narracionesDelReel, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
+  MARGEN_CORRECCION_MS, SIN_CACHE, SIN_CACHE_VOZ, SIN_MARGEN_TRAS_SUBIR, nombresCorregidos, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, narracionesDelReel, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
   type DepsCorreccion, type PuertaCorreccion,
 } from "../../src/calendario/correccion-fondos.ts";
 import type { Borrador } from "../../src/calendario/draft.ts";
 import { parsePlan, semanaDir, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
-import { ErrorContenido, MANIFIESTO, type EnvRender } from "../../src/calendario/render.ts";
+import { ErrorContenido, MANIFIESTO, armarMedios, baseArchivo, type EnvRender } from "../../src/calendario/render.ts";
+import { resolverMedio } from "../../src/calendario/media-server.ts";
 import { revisarRenderizadas, type DepsRevision } from "../../src/calendario/revision-fondos.ts";
 import { claveFila } from "../../src/calendario/scheduler.ts";
 import { previewEntregado, previewsPendientes } from "../../src/calendario/telegram.ts";
@@ -181,6 +182,13 @@ const T0 = new Date("2026-10-26T15:00:00Z");
 const EN_ORIGINAL = "2026-10-26T13:00:00.000Z";
 const ENV_C: EnvRender = { base: "https://media.test/m", token: "tok123", host: "", dir: "" };
 const ARCH = ["reel.mp4", "cover.jpg", "story.jpg"];
+/** Pendiente 2: la versión corregida va con nombres nuevos (`cover.jpg` → `cover-c1.jpg`). */
+const ARCH_C1 = ["reel-c1.mp4", "cover-c1.jpg", "story-c1.jpg"];
+/** Lo que vería el bot en el servidor con unos medios de render.json: el contenido de cada archivo. */
+const servidorSegun = (m: MundoC, id: string, medios: RenderEntry["medios"]): string[] => {
+  const nombres = [...(medios?.archivos ?? []), medios?.cover, medios?.story].filter((a): a is string => !!a);
+  return nombres.map((a) => (existsSync(join(m.server, SEM, id, a)) ? leer(join(m.server, SEM, id, a)) : `falta ${a}`));
+};
 const PUERTA_ON: PuertaCorreccion = { activa: true, motivo: "activa", respondidos: 30, precision: 0.9 };
 
 function piezaPlan(id: string, hora: string): Record<string, unknown> {
@@ -257,11 +265,14 @@ async function conMundoC(
         return { archivos: [...ARCH], duracionMs: 4900, escenas: [{ start: 0, dur: 4 }, { start: 4, dur: 0.9 }] };
       },
       rsync: async (local, remoto) => {
-        // Copia como el rsync real (sin el manifiesto) a la carpeta «servidor».
+        // Copia como el rsync real (sin el manifiesto ni --delete) a la carpeta «servidor»:
+        // todo archivo de la carpeta local, con su nombre; lo que ya estaba en el servidor queda.
         const destino = join(server, remoto);
         mkdirSync(destino, { recursive: true });
-        for (const a of ARCH) if (existsSync(join(local, a))) writeFileSync(join(destino, a), leer(join(local, a)));
-        m.reg.rsync.push({ local, remoto, contenido: leer(join(local, "cover.jpg")) });
+        const archivos = readdirSync(local).filter((a) => !a.startsWith("."));
+        for (const a of archivos) writeFileSync(join(destino, a), leer(join(local, a)));
+        const cover = archivos.find((a) => /^cover(-c\d+)?\.jpg$/.test(a));
+        m.reg.rsync.push({ local, remoto, contenido: cover ? leer(join(local, cover)) : "" });
       },
       verificar: async (url) => {
         m.reg.verificar.push(url);
@@ -294,7 +305,7 @@ async function conMundoC(
 
 const restos = (out: string, id: string): string[] => readdirSync(join(out, SEM)).filter((f) => f.startsWith(`${id}.`));
 
-await checkAsync("corregirFondos: pieza a 2 h → re-render sin la slide 0, sube, verifica, render.json con en nuevo y correccion aplicada", () =>
+await checkAsync("corregirFondos: pieza a 2 h → re-render sin la slide 0, sube con nombres nuevos, verifica, render.json con en nuevo apuntando a ellos y correccion aplicada", () =>
   conMundoC([piezaPlan("lun-reel-dos", "14:00")], { "lun-reel-dos": { revisor: AVISO_PORTADA, fase1: [] } }, async (m, deps) => {
     assert.equal(MARGEN_CORRECCION_MS, 30 * 60_000);
     const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-dos" }], m.out, ENV_C, PUERTA_ON, deps());
@@ -305,25 +316,31 @@ await checkAsync("corregirFondos: pieza a 2 h → re-render sin la slide 0, sube
     assert.equal(m.reg.rsync.length, 1);
     assert.equal(m.reg.rsync[0].local, join(m.out, SEM, "lun-reel-dos"));
     assert.equal(m.reg.rsync[0].remoto, `/${SEM}/lun-reel-dos/`);
-    assert.equal(leer(join(m.server, SEM, "lun-reel-dos", "cover.jpg")), "nuevo");
+    // Pendiente 2: la versión corregida sube con nombres nuevos; los originales siguen intactos.
+    for (const a of ARCH_C1) assert.equal(leer(join(m.server, SEM, "lun-reel-dos", a)), "nuevo", a);
+    for (const a of ARCH) assert.equal(leer(join(m.server, SEM, "lun-reel-dos", a)), "viejo", a);
     assert.equal(m.reg.verificar.length, ARCH.length);
     assert.ok(m.reg.verificar.every((u) => u.startsWith("https://media.test/m/")));
+    assert.deepEqual(m.reg.verificar.map((u) => u.slice(u.lastIndexOf("/") + 1)).sort(), [...ARCH_C1].sort(), "verifica los nombres nuevos");
     assert.equal(m.reg.render_json.length, 1);
     const [s, id, e] = m.reg.render_json[0];
     assert.equal(s, SEM);
     assert.equal(id, "lun-reel-dos");
     assert.equal(e.estado, "renderizado");
     assert.ok(e.en > EN_ORIGINAL, "en posterior al original");
-    assert.deepEqual(e.medios, { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg", duracionMs: 4900 });
+    assert.deepEqual(e.medios, { archivos: ["reel-c1.mp4"], cover: "cover-c1.jpg", story: "story-c1.jpg", duracionMs: 4900 });
+    assert.deepEqual(servidorSegun(m, "lun-reel-dos", e.medios), ["nuevo", "nuevo", "nuevo"], "render.json nuevo → archivos nuevos");
+    assert.deepEqual(servidorSegun(m, "lun-reel-dos", m.semanas[0].render["lun-reel-dos"].medios), ["viejo", "viejo", "viejo"], "render.json viejo → archivos viejos");
     const v = m.visual.get(SEM)!["lun-reel-dos"];
     assert.equal(v.correccion?.estado, "aplicada");
     assert.deepEqual(v.correccion?.slides, [0]);
     assert.ok(v.revisor, "conserva el revisor");
     assert.deepEqual(v.fase1, [], "conserva fase1");
-    // Carpeta final = render nuevo, con manifiesto; sin previa ni tmp.
+    // Carpeta final = render nuevo (solo los nombres nuevos), con manifiesto; sin previa ni tmp.
     const final = join(m.out, SEM, "lun-reel-dos");
-    assert.equal(leer(join(final, "cover.jpg")), "nuevo");
-    assert.ok(existsSync(join(final, MANIFIESTO)));
+    assert.equal(leer(join(final, "cover-c1.jpg")), "nuevo");
+    assert.deepEqual(readdirSync(final).sort(), [MANIFIESTO, ...ARCH_C1].sort());
+    assert.deepEqual(JSON.parse(leer(join(final, MANIFIESTO))).archivos, ARCH_C1);
     assert.deepEqual(restos(m.out, "lun-reel-dos"), [], "sin .prev- ni .tmp-corr-");
     assert.equal(m.reg.avisos.length, 0);
 
@@ -384,7 +401,10 @@ await checkAsync("corregirFondos: la hora cruza el margen durante el render → 
   }),
 );
 
-await checkAsync("corregirFondos: la hora cruza el margen durante la subida → aplicada sin reescribir render.json, render.json intacto, el Mac queda igual que el servidor", () =>
+// Pendiente 2 (cambio de contrato a propósito): antes el caso (c) quedaba «aplicada» porque la
+// subida pisaba los mismos nombres; ahora los corregidos van con nombres nuevos y render.json sigue
+// apuntando a los originales, así que se publica el original: «omitida», sin aviso.
+await checkAsync("corregirFondos: la hora cruza el margen durante la subida → omitida, render.json intacto, se publica el original y el Mac vuelve a él", () =>
   conMundoC([piezaPlan("lun-reel-subida", "14:00")], { "lun-reel-subida": { revisor: AVISO_PORTADA } }, async (m, deps) => {
     const base = deps();
     const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-subida" }], m.out, ENV_C, PUERTA_ON, {
@@ -394,21 +414,23 @@ await checkAsync("corregirFondos: la hora cruza el margen durante la subida → 
         m.reloj.t = new Date("2026-10-26T16:45:00Z").getTime();
       },
     });
-    assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
+    assert.deepEqual(r, { aplicadas: 0, fallidas: 0, omitidas: 1 });
     assert.equal(m.reg.render_json.length, 0, "render.json no se reescribe sin margen (no manda un preview nuevo)");
-    assert.equal(m.reg.rsync.length, 1, "no vuelve a subir el original tan cerca de la hora");
+    assert.equal(m.reg.rsync.length, 1, "no vuelve a subir nada");
     const final = join(m.out, SEM, "lun-reel-subida");
-    assert.equal(leer(join(final, "cover.jpg")), leer(join(m.server, SEM, "lun-reel-subida", "cover.jpg")), "Mac = servidor");
+    assert.equal(leer(join(final, "cover.jpg")), "viejo", "el Mac vuelve al original, el que nombra render.json");
     assert.ok(existsSync(join(final, MANIFIESTO)));
     assert.deepEqual(restos(m.out, "lun-reel-subida"), []);
+    assert.deepEqual(servidorSegun(m, "lun-reel-subida", m.semanas[0].render["lun-reel-subida"].medios), ["viejo", "viejo", "viejo"], "el bot publica el original, entero");
     const c = m.visual.get(SEM)!["lun-reel-subida"].correccion;
-    assert.equal(c?.estado, "aplicada", "los archivos corregidos se van a publicar");
-    assert.equal(c?.motivo, "subida sin reescribir render.json: sin margen antes de la hora");
-    assert.equal(m.reg.avisos.length, 1, "avisa que el preview no muestra lo que se publicará");
+    assert.equal(c?.estado, "omitida", "la corrección no se publica");
+    assert.equal(c?.motivo, SIN_MARGEN_TRAS_SUBIR);
+    assert.equal(m.reg.avisos.length, 0);
   }),
 );
 
-await checkAsync("corregirFondos: rsync falla → fallida, original restaurado y re-subido, un aviso, render.json intacto", () =>
+// Pendiente 2 (cambio de contrato): ya no se re-sube el original al fallar; nunca se pisó.
+await checkAsync("corregirFondos: rsync falla → fallida, original restaurado en el Mac, sin re-subida (el servidor nunca perdió el original), un aviso, render.json intacto", () =>
   conMundoC([piezaPlan("lun-reel-rsync", "14:00")], { "lun-reel-rsync": { revisor: AVISO_PORTADA } }, async (m, deps) => {
     const base = deps();
     let n = 0;
@@ -417,8 +439,8 @@ await checkAsync("corregirFondos: rsync falla → fallida, original restaurado y
       rsync: async (l, rem) => {
         n++;
         if (n === 1) {
-          // Subida a medias: un archivo nuevo alcanzó a llegar.
-          writeFileSync(join(m.server, rem, "cover.jpg"), leer(join(l, "cover.jpg")));
+          // Subida a medias: un archivo nuevo alcanzó a llegar (con su nombre nuevo).
+          writeFileSync(join(m.server, rem, "cover-c1.jpg"), leer(join(l, "cover-c1.jpg")));
           throw new Error("rsync terminó con código 12");
         }
         await base.rsync(l, rem);
@@ -428,8 +450,8 @@ await checkAsync("corregirFondos: rsync falla → fallida, original restaurado y
     assert.equal(m.reg.render_json.length, 0);
     const final = join(m.out, SEM, "lun-reel-rsync");
     assert.equal(leer(join(final, "cover.jpg")), "viejo", "original restaurado en el Mac");
-    assert.equal(leer(join(m.server, SEM, "lun-reel-rsync", "cover.jpg")), "viejo", "y re-subido al servidor");
-    assert.equal(n, 2);
+    assert.deepEqual(servidorSegun(m, "lun-reel-rsync", m.semanas[0].render["lun-reel-rsync"].medios), ["viejo", "viejo", "viejo"], "el servidor sigue con el original que nombra render.json");
+    assert.equal(n, 1, "sin segunda subida");
     assert.deepEqual(restos(m.out, "lun-reel-rsync"), []);
     assert.equal(m.reg.avisos.length, 1);
     assert.match(m.reg.avisos[0], /código 12/);
@@ -451,7 +473,7 @@ await checkAsync("corregirFondos: verificar en false o re-render con ErrorVisual
           if (p.pieza.id === "lun-reel-con") throw new ErrorContenido(["Score 60 < 75."]);
           return base.render(p, tmp, q);
         },
-        verificar: async (u) => !u.includes("lun-reel-ver/cover.jpg"),
+        verificar: async (u) => !u.includes("lun-reel-ver/cover-c1.jpg"),
       });
       assert.deepEqual(r, { aplicadas: 0, fallidas: 3, omitidas: 0 });
       assert.equal(m.reg.render_json.length, 0);
@@ -534,12 +556,12 @@ await checkAsync("corregirFondos: la correccion se fusiona sobre la entrada pend
 
 // I1: la recuperación salió de `corregirFondos` (corría después de la revisión) a
 // `recuperarCorreccionesCortadas`, que render-cli llama antes de `procesar`.
-await checkAsync("recuperarCorreccionesCortadas: una corrida cortada a mitad del swap (sin final, con .prev-) se recupera y el servidor queda con el original", () =>
+await checkAsync("recuperarCorreccionesCortadas: una corrida cortada a mitad del swap (sin final, con .prev-) se recupera sin subir nada; el servidor nunca perdió el original", () =>
   conMundoC([piezaPlan("lun-reel-corte", "14:00")], { "lun-reel-corte": { revisor: AVISO_PORTADA } }, async (m, deps) => {
     const final = join(m.out, SEM, "lun-reel-corte");
     renameSync(final, join(m.out, SEM, "lun-reel-corte.prev-99999"));
     mkdirSync(join(m.out, SEM, "lun-reel-corte.tmp-corr-99999"));
-    writeFileSync(join(m.server, SEM, "lun-reel-corte", "cover.jpg"), "nuevo"); // la subida alcanzó a empezar
+    writeFileSync(join(m.server, SEM, "lun-reel-corte", "cover-c1.jpg"), "nuevo"); // la subida alcanzó a empezar
     // Corre siempre (sin puerta): deshace lo de una corrida anterior, pero no corrige.
     const r = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
     assert.deepEqual(r, { restauradas: 1 });
@@ -547,8 +569,10 @@ await checkAsync("recuperarCorreccionesCortadas: una corrida cortada a mitad del
     assert.equal(leer(join(final, "cover.jpg")), "viejo");
     assert.ok(existsSync(join(final, MANIFIESTO)));
     assert.deepEqual(restos(m.out, "lun-reel-corte"), []);
-    assert.equal(leer(join(m.server, SEM, "lun-reel-corte", "cover.jpg")), "viejo", "re-subido el original");
+    assert.equal(leer(join(m.server, SEM, "lun-reel-corte", "cover.jpg")), "viejo", "el original del servidor, intacto");
+    assert.equal(m.reg.rsync.length, 0, "la recuperación ya no sube nada");
     assert.equal(m.reg.render_json.length, 0);
+    assert.match(m.reg.avisos.join(" "), /el servidor conserva los archivos originales/);
   }),
 );
 
@@ -605,7 +629,8 @@ await checkAsync("revisarRenderizadas: una pieza con correccion (aplicada) no se
 );
 
 // Fix 2: si borrar la previa falla tras una corrección (aplicada o caso (c)), la corrida siguiente no la revierte.
-for (const caso of ["aplicada", "sin margen tras subir"] as const) {
+// Pendiente 2: el caso (c) ya no descarta la previa (restaura el original), así que solo queda «aplicada».
+for (const caso of ["aplicada"] as const) {
   await checkAsync(`corregirFondos: el borrado de la previa falla (${caso}) → la corrida siguiente no revierte nada`, () =>
     conMundoC([piezaPlan("lun-reel-borra", "14:00")], { "lun-reel-borra": { revisor: AVISO_PORTADA } }, async (m, deps) => {
       const base = deps();
@@ -614,22 +639,18 @@ for (const caso of ["aplicada", "sin margen tras subir"] as const) {
         borrar: async () => {
           throw new Error("EBUSY");
         },
-        rsync: async (l, rem) => {
-          await base.rsync(l, rem);
-          if (caso === "sin margen tras subir") m.reloj.t = new Date("2026-10-26T16:45:00Z").getTime();
-        },
       });
       assert.equal(r.aplicadas, 1);
       assert.equal(r.fallidas, 0);
       const final = join(m.out, SEM, "lun-reel-borra");
-      assert.equal(leer(join(final, "cover.jpg")), "nuevo");
+      assert.equal(leer(join(final, "cover-c1.jpg")), "nuevo", caso);
       assert.ok(!restos(m.out, "lun-reel-borra").some((f) => /\.prev-/.test(f)), "no queda una .prev- reconocible");
       // Corrida siguiente (la recuperación, que va antes de procesar): nada vuelve atrás.
       m.reloj.t = T0.getTime();
       const rsyncs = m.reg.rsync.length;
       await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
-      assert.equal(leer(join(final, "cover.jpg")), "nuevo", "la final sigue corregida");
-      assert.equal(leer(join(m.server, SEM, "lun-reel-borra", "cover.jpg")), "nuevo", "el servidor sigue corregido");
+      assert.equal(leer(join(final, "cover-c1.jpg")), "nuevo", "la final sigue corregida");
+      assert.equal(leer(join(m.server, SEM, "lun-reel-borra", "cover-c1.jpg")), "nuevo", "el servidor sigue corregido");
       assert.equal(m.reg.rsync.length, rsyncs, "sin re-subir el original");
       assert.deepEqual(restos(m.out, "lun-reel-borra"), [], "la recuperación limpia el resto descartado");
     }),
@@ -648,21 +669,24 @@ await checkAsync("I1: corte durante la subida → la corrida siguiente restaura 
     const final = join(carpeta, "lun-reel-a");
     renameSync(final, join(carpeta, "lun-reel-a.prev-4242"));
     mkdirSync(final);
-    for (const a of ARCH) writeFileSync(join(final, a), "nuevo");
-    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ARCH, duracionMs: 4900 }));
-    writeFileSync(join(m.server, SEM, "lun-reel-a", "cover.jpg"), "nuevo");
+    for (const a of ARCH_C1) writeFileSync(join(final, a), "nuevo");
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ARCH_C1, duracionMs: 4900 }));
+    writeFileSync(join(m.server, SEM, "lun-reel-a", "cover-c1.jpg"), "nuevo");
     const orden: string[] = [];
     // Corrida siguiente, en el orden de render-cli: recuperar → (procesar) → revisar → corregir.
-    const rec = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps({ rsync: async (l, r) => { orden.push("resubir"); await deps().rsync(l, r); } }));
+    const rec = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
     assert.equal(rec.restauradas, 1);
     orden.push(`revisar:${leer(join(final, "cover.jpg"))}`); // lo que vería extraerCuadros
-    assert.equal(leer(join(m.server, SEM, "lun-reel-a", "cover.jpg")), "viejo", "el servidor vuelve al original");
+    // Pendiente 2: nada que re-subir; el original del servidor nunca se pisó.
+    assert.equal(m.reg.rsync.length, 0);
+    assert.equal(leer(join(m.server, SEM, "lun-reel-a", "cover.jpg")), "viejo", "el servidor conserva el original");
     assert.deepEqual(restos(m.out, "lun-reel-a"), []);
     m.visual.set(SEM, { "lun-reel-a": { revisor: AVISO_PORTADA } }); // la revisión de esta corrida marca la portada
     const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-a" }], m.out, ENV_C, PUERTA_ON, deps());
     assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
-    assert.deepEqual(orden, ["resubir", "revisar:viejo"], "la revisión ve el original restaurado");
-    assert.equal(leer(join(m.server, SEM, "lun-reel-a", "cover.jpg")), "nuevo");
+    assert.deepEqual(orden, ["revisar:viejo"], "la revisión ve el original restaurado");
+    assert.equal(leer(join(m.server, SEM, "lun-reel-a", "cover-c1.jpg")), "nuevo");
+    assert.equal(m.reg.render_json[0][2].medios?.cover, "cover-c1.jpg");
     assert.equal(m.reg.avisos.filter((a) => /quedó a medias/.test(a)).length, 1);
   }),
 );
@@ -678,7 +702,7 @@ await checkAsync("I1: corte + re-planificación → la recuperación no re-sube 
     const rec = await recuperarCorreccionesCortadas(m.semanas, m.out, ENV_C, deps());
     assert.equal(rec.restauradas, 1);
     assert.equal(m.reg.rsync.length, 0, "no re-sube contenido de un borrador anterior");
-    assert.match(m.reg.avisos.join(" "), /no la re-subo \(render.json no la tiene como renderizada/);
+    assert.match(m.reg.avisos.join(" "), /render.json no la tiene como renderizada: se vuelve a renderizar/);
   }),
 );
 
@@ -842,8 +866,8 @@ await checkAsync("I3: la comprobación por defecto usa la misma clave que genera
   }
 });
 
-// Minor: en los caminos de fallo, el original no se re-sube si la hora ya pasó.
-await checkAsync("Minor: la subida falla y la hora ya pasó → no re-sube el original, solo lo avisa", () =>
+// Minor (pendiente 2: ya no hay re-subida en ningún camino de fallo, con o sin hora).
+await checkAsync("Minor: la subida falla y la hora ya pasó → no re-sube nada, solo lo avisa", () =>
   conMundoC([piezaPlan("lun-reel-tarde", "14:00")], { "lun-reel-tarde": { revisor: AVISO_PORTADA } }, async (m, deps) => {
     let n = 0;
     const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-tarde" }], m.out, ENV_C, PUERTA_ON, deps({
@@ -857,7 +881,7 @@ await checkAsync("Minor: la subida falla y la hora ya pasó → no re-sube el or
     assert.equal(n, 1, "no hay segunda subida");
     assert.equal(leer(join(m.out, SEM, "lun-reel-tarde", "cover.jpg")), "viejo", "el Mac vuelve al original");
     assert.equal(m.reg.avisos.length, 1);
-    assert.match(m.reg.avisos[0], /no re-subí el original porque su hora ya pasó/);
+    assert.match(m.reg.avisos[0], /los archivos originales del servidor siguen intactos/);
   }),
 );
 
@@ -957,3 +981,103 @@ await checkAsync("Voz: la comprobación por defecto usa la misma clave que sinte
     rmSync(cache, { recursive: true, force: true });
   }
 });
+
+// --- Pendiente 2: nombres nuevos en la corrección (sin mezclar archivos viejos y nuevos) ---
+check("nombresCorregidos: versión siguiente a la del original, correspondencia uno a uno por nombre base", () => {
+  assert.deepEqual(nombresCorregidos(["reel.mp4", "cover.jpg", "story.jpg"], ARCH), [["reel.mp4", "reel-c1.mp4"], ["cover.jpg", "cover-c1.jpg"], ["story.jpg", "story-c1.jpg"]]);
+  assert.deepEqual(nombresCorregidos(["01.jpg", "02.jpg", "story.jpg"], ["02.jpg", "01.jpg", "story.jpg"]).map(([, a]) => a), ["01-c1.jpg", "02-c1.jpg", "story-c1.jpg"]);
+  // Una segunda corrección (no debería ocurrir: `correccion` previa) no rompe: pasa a -c2.
+  assert.deepEqual(nombresCorregidos(["reel.mp4", "cover.jpg", "story.jpg"], ARCH_C1).map(([, a]) => a), ["reel-c2.mp4", "cover-c2.jpg", "story-c2.jpg"]);
+  assert.throws(() => nombresCorregidos(["reel.mp4", "cover.jpg"], ARCH), /cambió los archivos/);
+  assert.throws(() => nombresCorregidos(["01.jpg", "02.jpg", "03.jpg", "story.jpg"], ["01.jpg", "02.jpg", "story.jpg"]), /cambió los archivos/);
+  assert.throws(() => nombresCorregidos(["cover.jpg", "cover-c1.jpg", "reel.mp4"], ["cover.jpg", "story.jpg", "reel.mp4"]), /cambió los archivos/);
+  // Los nombres nuevos pasan los filtros del Mac (render.ts), del bot (telegram.ts) y del servidor de medios.
+  const root = mkdtempSync(join(tmpdir(), "corr-medios-"));
+  try {
+    mkdirSync(join(root, SEM, "lun-x"), { recursive: true });
+    for (const a of ["01-c1.jpg", "10-c1.jpg", "reel-c1.mp4", "cover-c1.jpg", "story-c1.jpg"]) {
+      assert.match(a, /^[a-z0-9][a-z0-9._-]*\.(jpg|mp4)$/, "ARCHIVO_RE de render.ts");
+      assert.match(a, /^[A-Za-z0-9._-]+$/, "ARCHIVO_RE de telegram.ts");
+      writeFileSync(join(root, SEM, "lun-x", a), "x");
+      assert.ok(resolverMedio(`/media/tok/${SEM}/lun-x/${a}`, "tok", root), `el servidor de medios sirve ${a}`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("armarMedios: reconoce los nombres con versión (carrusel ordenado por slide; reel con cover y story)", () => {
+  assert.deepEqual(armarMedios("carrusel", { archivos: ["10-c1.jpg", "02-c1.jpg", "01-c1.jpg", "story-c1.jpg"] }), { archivos: ["01-c1.jpg", "02-c1.jpg", "10-c1.jpg"], cover: "01-c1.jpg", story: "story-c1.jpg" });
+  assert.deepEqual(armarMedios("reel", { archivos: ARCH_C1, duracionMs: 4900 }), { archivos: ["reel-c1.mp4"], cover: "cover-c1.jpg", story: "story-c1.jpg", duracionMs: 4900 });
+  assert.deepEqual(armarMedios("reel", { archivos: ARCH }), { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg" }, "sin versión, como siempre");
+  assert.equal(baseArchivo("cover-c12.jpg"), "cover.jpg");
+  assert.equal(baseArchivo("lun-reel.mp4"), "lun-reel.mp4");
+});
+
+await checkAsync("Pendiente 2: un bot que lee render.json antes de reescribirlo publica un conjunto coherente de archivos viejos, legibles durante y después de la subida", () =>
+  conMundoC([piezaPlan("lun-reel-bot", "14:00")], { "lun-reel-bot": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    const id = "lun-reel-bot";
+    const viejo = m.semanas[0].render[id].medios; // lo que el bot leyó al empezar a publicar (/publicar)
+    const vistas: string[][] = [];
+    const base = deps();
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id }], m.out, ENV_C, PUERTA_ON, {
+      ...base,
+      // rsync que sube archivo por archivo; el bot mira el servidor entre cada uno.
+      rsync: async (local, remoto) => {
+        const destino = join(m.server, remoto);
+        for (const a of readdirSync(local).filter((x) => !x.startsWith("."))) {
+          vistas.push(servidorSegun(m, id, viejo));
+          writeFileSync(join(destino, a), leer(join(local, a)));
+        }
+        vistas.push(servidorSegun(m, id, viejo));
+      },
+    });
+    assert.equal(r.aplicadas, 1);
+    assert.equal(vistas.length, ARCH.length + 1);
+    for (const v of vistas) assert.deepEqual(v, ["viejo", "viejo", "viejo"], "durante la subida, el render.json viejo da solo archivos viejos");
+    assert.deepEqual(servidorSegun(m, id, viejo), ["viejo", "viejo", "viejo"], "y después también");
+    assert.deepEqual(servidorSegun(m, id, m.reg.render_json[0][2].medios), ["nuevo", "nuevo", "nuevo"], "el render.json nuevo da solo archivos nuevos");
+  }),
+);
+
+await checkAsync("Pendiente 2: una pieza cuyo original ya trae sufijo (-c1) se corrige a -c2 sin romper", () =>
+  conMundoC([piezaPlan("lun-reel-c2", "14:00")], { "lun-reel-c2": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    const final = join(m.out, SEM, "lun-reel-c2");
+    rmSync(final, { recursive: true });
+    mkdirSync(final);
+    for (const a of ARCH_C1) writeFileSync(join(final, a), "viejo");
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ARCH_C1, duracionMs: 4900 }));
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-c2" }], m.out, ENV_C, PUERTA_ON, deps());
+    assert.equal(r.aplicadas, 1);
+    assert.deepEqual(m.reg.render_json[0][2].medios, { archivos: ["reel-c2.mp4"], cover: "cover-c2.jpg", story: "story-c2.jpg", duracionMs: 4900 });
+    assert.deepEqual(readdirSync(final).sort(), [MANIFIESTO, "cover-c2.jpg", "reel-c2.mp4", "story-c2.jpg"]);
+  }),
+);
+
+await checkAsync("Pendiente 2: la revisión de fondos lee una carpeta corregida (-c1) por su manifiesto, no por nombres fijos", () =>
+  conMundoC([piezaPlan("lun-reel-rev", "14:00")], {}, async (m) => {
+    const final = join(m.out, SEM, "lun-reel-rev");
+    rmSync(final, { recursive: true });
+    mkdirSync(final);
+    for (const a of ARCH_C1) writeFileSync(join(final, a), "nuevo");
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ARCH_C1, duracionMs: 4900, escenas: [{ start: 0, dur: 4 }, { start: 4, dur: 0.9 }] }));
+    const pedidos: string[] = [];
+    const deps: DepsRevision = {
+      revisar: async () => { throw new Error("no llega"); },
+      llamar: async () => { throw new Error("no llega"); },
+      extraer: async (_f, _d, cuadros) => {
+        pedidos.push(...cuadros.map((c) => c.archivo));
+        throw new Error("corte de prueba");
+      },
+      enviarFoto: async () => true,
+      escribirVisual: async () => {},
+      leerVisual: async () => ({}) as VisualJson,
+      log: () => {},
+      ahora: () => T0,
+      env: { OPENAI_API_KEY: "sk-test" },
+    };
+    await revisarRenderizadas(m.semanas, m.out, deps);
+    assert.ok(pedidos.length > 0, "llegó a extraer");
+    assert.ok(pedidos.every((a) => ARCH_C1.includes(a)), pedidos.join(", "));
+  }),
+);

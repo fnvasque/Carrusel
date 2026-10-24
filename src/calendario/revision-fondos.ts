@@ -5,7 +5,7 @@ import { corregirFondos, type DepsCorreccion, type PuertaCorreccion } from "./co
 import { parseBorrador, type Borrador } from "./draft.ts";
 import { estadoEfectivo, leerSemana, type Pieza, type SemanaLeida } from "./plan.ts";
 import { TEXT_KEYS } from "./qa.ts";
-import { fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, type EnvRender } from "./render.ts";
+import { baseArchivo, fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, type EnvRender } from "./render.ts";
 import type { LlamarModelo, revisarFondos } from "./revisor-visual.ts";
 import { callbackVisual, captionVisual } from "./telegram.ts";
 import { TOPES_REVISOR, cupo, leerVisual, sinClaves, type CorreccionPieza, type PresupuestoSemana, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "./visual.ts";
@@ -276,8 +276,11 @@ export async function revisarSinAvisar(
         } else {
           const cuadros = cuadrosARevisar(pieza.formato, b, manifiesto.escenas, transicion, Math.min(c.imagenes, TOPES_REVISOR.imagenesPorPieza), quitados);
           cuadrosPedidos = cuadros;
+          // `cuadrosARevisar` usa los nombres estándar (`cover.jpg`, `reel.mp4`); una carpeta que
+          // quedó con la versión corregida de la fase 3 (`cover-c1.jpg`) se lee por su manifiesto.
+          const enCarpeta = cuadros.map((q) => ({ ...q, archivo: manifiesto.archivos.find((a) => baseArchivo(a) === q.archivo) ?? q.archivo }));
           // Un fallo al extraer no se anota: la próxima corrida reintenta.
-          rutas = await deps.extraer(final, destino, cuadros);
+          rutas = await deps.extraer(final, destino, enCarpeta);
           // El plazo se mira también justo antes de llamar: así se pasa a lo más por una llamada.
           if (ahora().getTime() >= limite) {
             log(`🖼️  Revisión de fondos: se acabó el plazo antes de llamar al modelo por ${id}; quedan ${cand.length - k} pieza(s) candidatas para la próxima.`);
