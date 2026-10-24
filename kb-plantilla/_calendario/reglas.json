@@ -107,6 +107,13 @@
       "fuente": "Backtest 2026-10-23: el con prisa marcaba «nada nuevo» en 9 de 20 piezas propias viendo solo títulos; PR claude/pendientes-chicos"
     },
     {
+      "id": "promesas-y-tope-juez",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "Cada pieza declara sus promesas (portada, subtítulo, voz) con la slide donde se cumplen antes del lector frío, y el juez de hooks solo ve candidatos dentro de tituloMaxPalabras",
+      "fuente": "Ensayo 3 del planificador (2026-10-24): 3 de 6 piezas cayeron en el lector frío por P6 de promesa incumplida y el juez eligió un título de 13 palabras; PR claude/promesa-y-tope-juez"
+    },
+    {
       "id": "revision-visual-fase1",
       "desde": "2026-10-23",
       "formato": null,

@@ -27,6 +27,7 @@ export interface Pieza {
   emocion: string | string[];
   entregable: string;
   fraseAmigo: string;
+  promesas?: unknown[];
   lectorFrio: { intentos: number; resultado: string; notas: string };
   origen: { fichas: string[]; referencias: string[] };
   derivadoDe: string | null;
@@ -114,6 +115,8 @@ const PiezaSchema = z.object({
   emocion: z.union([z.string(), z.array(z.string()).min(1)]),
   entregable: z.string(),
   fraseAmigo: z.string(),
+  // Promesas de la portada y la slide donde se cumplen (desde 2026-10-26); las valida validar.mjs.
+  promesas: z.array(z.unknown()).optional(),
   lectorFrio: z.object({ intentos: z.number().int(), resultado: z.string(), notas: z.string() }),
   origen: z.object({ fichas: z.array(z.string()), referencias: z.array(z.string()) }),
   // Opcionales en validar.mjs: sin derivadoDe la pieza no deriva de nadie; sin estado, está planificada.

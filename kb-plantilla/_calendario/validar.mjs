@@ -825,6 +825,7 @@ export function erroresDeHookJuez(p, borrador, config) {
       else patrones.add(c.patron);
       for (const k of ["subtitle", "resultado"]) if (c[k] !== undefined && !esTexto(c[k])) errs.push(`hook.candidatos[${i}].${k} debe ser texto`);
     });
+    errs.push(...titulosLargos(cands, config));
     if (patrones.size < PATRONES_MIN) errs.push(`hook.candidatos usa ${patrones.size} patrón(es): se piden al menos ${PATRONES_MIN} patrones distintos (${PATRONES_HOOK.join(", ")})`);
   }
   const j = h.juez;
@@ -847,6 +848,41 @@ export function erroresDeHookJuez(p, borrador, config) {
   const el = candidatoElegido(h);
   if (el && esTexto(el.title) && h.texto !== el.title) errs.push(`hook.texto ${q(h.texto)} debe ser el título del candidato elegido (${q(el.title)})`);
   if (esObj(borrador)) errs.push(...erroresDeHookBorrador(p, borrador));
+  return errs;
+}
+
+/**
+ * Candidatos cuyo `title` pasa `puerta.tituloMaxPalabras`: si el juez elige uno, el
+ * validador rechaza la portada, así que nunca llegan al juez (`--juez` se niega).
+ */
+export function titulosLargos(cands, config) {
+  if (!Array.isArray(cands)) return [];
+  const max = puerta(config, "tituloMaxPalabras");
+  const errs = [];
+  cands.forEach((c, i) => {
+    if (!esObj(c) || !esTexto(c.title)) return;
+    const n = palabras(c.title).length;
+    if (n > max) errs.push(`hook.candidatos[${i}].title tiene ${n} palabras (máximo ${max}, puerta.tituloMaxPalabras): acórtalo antes de pasarlo al juez`);
+  });
+  return errs;
+}
+
+/**
+ * Desde este día cada pieza declara sus promesas: lo que la portada, el subtítulo o la
+ * voz prometen (un número, «cómo», un resultado) y la slide donde se cumple. El ensayo
+ * del 2026-10-24 perdió 3 de 6 piezas en el lector frío por P6 de promesa incumplida.
+ */
+export const DESDE_PROMESAS = "2026-10-26";
+const exigePromesas = (p) => typeof p.dia === "string" && p.dia >= DESDE_PROMESAS;
+
+/** Forma de `promesas`: lista no vacía de `{ promesa, slide }` (slide 1-based). */
+export function erroresDePromesas(promesas) {
+  if (!Array.isArray(promesas) || promesas.length === 0) return [`falta promesas: desde el ${DESDE_PROMESAS} cada pieza lista [{ "promesa": "…", "slide": n }] con lo que promete la portada o la voz y la slide donde se cumple`];
+  const errs = [];
+  promesas.forEach((x, i) => {
+    if (!esObj(x) || !esTexto(x.promesa)) errs.push(`promesas[${i}].promesa falta: la frase que promete, copiada de la pieza`);
+    if (!esObj(x) || !Number.isInteger(x.slide) || x.slide < 1) errs.push(`promesas[${i}].slide ${q(esObj(x) ? x.slide : x)} inválida: número de la slide (desde 1) donde se cumple`);
+  });
   return errs;
 }
 
@@ -908,6 +944,7 @@ function erroresDePieza(p, config) {
     errs.push(`hook.score ${q(p.hook.score)} bajo el umbral ${umbral} (puerta.hookUmbral, en cada criterio)`);
   }
   if (exigeJuez(p, config)) errs.push(...erroresDeHookJuez(p, undefined, config));
+  if (exigePromesas(p)) errs.push(...erroresDePromesas(p.promesas));
   if (!esObj(p.lectorFrio) || p.lectorFrio.resultado !== "ok") {
     errs.push(`lectorFrio.resultado debe ser exactamente "ok" (es ${q(esObj(p.lectorFrio) ? p.lectorFrio.resultado : p.lectorFrio)})`);
   } else {
@@ -1041,6 +1078,11 @@ function erroresDeBorrador(b, p, config) {
   const n = b.slides.length;
   if (n > MAX_SLIDES) errs.push(`el borrador tiene ${n} slides (máximo ${MAX_SLIDES}, límite de la API de Instagram)`);
   if (n < 2) errs.push(`el borrador tiene ${n} slides (mínimo 2: Hook y Cta)`);
+  if (exigePromesas(p) && Array.isArray(p.promesas)) {
+    p.promesas.forEach((x, i) => {
+      if (esObj(x) && Number.isInteger(x.slide) && x.slide > n) errs.push(`promesas[${i}].slide ${x.slide} no existe: el borrador tiene ${n} slides`);
+    });
+  }
   let hayFuente = false;
   b.slides.forEach((s, i) => {
     const donde = `slide ${i + 1}`;
@@ -2210,10 +2252,12 @@ function imprimirLector(here, semana, id, fallar) {
 }
 
 /** `--juez <semana> <id>`: el mensaje exacto para el subagente juez del hook. */
-function imprimirJuez(here, semana, id, fallar) {
+function imprimirJuez(here, semana, id, fallar, config) {
   const p = piezaDelPlan(here, semana, id, fallar, "uso: node _calendario/validar.mjs --juez <semana AAAA-MM-DD> <id>");
   const cands = esObj(p.hook) ? p.hook.candidatos : undefined;
   if (!Array.isArray(cands) || !cands.length || !cands.every((c) => esObj(c) && esTexto(c.title))) fallar([`${id}: hook.candidatos falta o es inválido en ${semana}/plan.json`]);
+  const largos = titulosLargos(cands, config);
+  if (largos.length) fallar(largos.map((e) => `${id}: ${e}`));
   let md;
   try {
     md = readFileSync(join(here, "guia-hooks.md"), "utf8");
@@ -2251,7 +2295,7 @@ function main(args) {
     return;
   }
   if (args[0] === "--juez") {
-    imprimirJuez(here, args[1], args[2], fallar);
+    imprimirJuez(here, args[1], args[2], fallar, config);
     return;
   }
   if (args[0] === "--probar") return imprimirPrueba(here, config, args.slice(1), fallar);

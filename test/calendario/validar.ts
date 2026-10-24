@@ -39,6 +39,9 @@ import {
   erroresDeHookJuez,
   erroresDeHookBorrador,
   mensajeJuez,
+  titulosLargos,
+  erroresDePromesas,
+  DESDE_PROMESAS,
   SERIES_CALIDAD,
   SEMANAS_PAQUETE,
   MOTIVO_PAQUETE,
@@ -477,7 +480,7 @@ function piezaDelPaquete(b: any): any {
   const cands: any[] = Array.from({ length: 8 }, (_, i) => ({ patron: patrones[i % 4], title: `Candidato número ${i + 1} del hook` }));
   cands[2] = { patron: "dato-contrario", title: h.title, ...(h.resultado !== undefined ? { resultado: h.resultado } : {}) };
   const juez = { elegido: 3, nota: 9, respuestas: JSON.stringify({ elegido: 3, nota: 9, porCandidato: {} }) };
-  return pieza({ dia: "2026-10-26", parametros, hook: { categoria: "en-juego", texto: h.title, score: 9, candidatos: cands, juez } });
+  return pieza({ dia: "2026-10-26", parametros, hook: { categoria: "en-juego", texto: h.title, score: 9, candidatos: cands, juez }, promesas: [{ promesa: h.title, slide: 2 }] });
 }
 /** Config con la puerta en el ritmo dado y tope de 20 s (en el paquete el tope y el ritmo salen de la puerta). */
 const configTope20 = (ritmo: string) => ({ ...config, puerta: { ...config.puerta, ritmoReel: { valor: ritmo, respaldo: "base" }, duracionMaxSegundos: { valor: 20, respaldo: "base" } } });
@@ -2414,4 +2417,70 @@ check("backtest 2026-10-23: la plantilla pide hookUmbral 7 y una nota 7 pasa", (
   assert.equal(cfg.puerta.hookUmbral.valor, 7);
   const errs = validarPieza(pieza({ hook: { categoria: "x", texto: "y", score: 7 } }), cfg).filter((e: string) => /umbral/.test(e));
   assert.deepEqual(errs, []);
+});
+
+// --- promesas contra contenido y tope del título en el juez (ensayo 3, 2026-10-24) ---
+
+const TITULO_13 = "Una dos tres cuatro cinco seis siete ocho nueve diez once doce trece";
+
+check("promesas-1: un candidato con title de 13 palabras da error de tope; con 12, no", () => {
+  const p = piezaJuez();
+  p.hook.candidatos[5].title = TITULO_13;
+  assertHas(erroresDeHookJuez(p, undefined, config), /candidatos\[5\]\.title tiene 13 palabras.*tituloMaxPalabras/);
+  assertHas(validarPieza(p, config), /candidatos\[5\]\.title tiene 13 palabras/);
+  p.hook.candidatos[5].title = TITULO_13.split(" ").slice(0, 12).join(" ");
+  assertNone(titulosLargos(p.hook.candidatos, config));
+});
+
+check("promesas-2: --juez se niega a armar el mensaje si un candidato pasa el tope", () => {
+  const { root, cal, env } = baseConEjemplo();
+  try {
+    copyFileSync(join(DIR, "guia-hooks.md"), join(cal, "guia-hooks.md"));
+    const plan = clone(EJEMPLO.plan);
+    plan.piezas[0].hook = { ...plan.piezas[0].hook, candidatos: candidatos(8) };
+    const escribir = () => writeFileSync(join(cal, EJEMPLO.plan.semana, "plan.json"), JSON.stringify(plan));
+    escribir();
+    const juez = () => execFileSync("node", [join(cal, "validar.mjs"), "--juez", EJEMPLO.plan.semana, plan.piezas[0].id], { encoding: "utf8", stdio: "pipe", env });
+    assert.ok(juez().includes("=== MENSAJE PARA EL SUBAGENTE JUEZ"));
+    plan.piezas[0].hook.candidatos[2].title = TITULO_13;
+    escribir();
+    try {
+      juez();
+      assert.fail("debió negarse");
+    } catch (e: any) {
+      assert.equal(e.status, 1, String(e.stderr));
+      assert.match(String(e.stderr), /candidatos\[2\]\.title tiene 13 palabras/);
+      assert.ok(!String(e.stdout).includes("MENSAJE"), "no imprime el mensaje");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("promesas-3: desde el 2026-10-26 la pieza exige promesas con forma { promesa, slide }", () => {
+  assert.equal(DESDE_PROMESAS, "2026-10-26");
+  const solo = (errs: string[]) => errs.filter((e) => /promesas/.test(e));
+  assertHas(solo(validarPieza(piezaJuez(), config)), /falta promesas/);
+  assertNone(solo(validarPieza(pieza({ dia: "2026-10-25" }), config))); // antes de la fecha no se exige
+  assertNone(solo(validarPieza(piezaJuez({ promesas: [{ promesa: "cuatro momentos", slide: 3 }] }), config)));
+  assertHas(erroresDePromesas([]), /falta promesas/);
+  assertHas(erroresDePromesas([{ promesa: "", slide: 2 }]), /promesas\[0\]\.promesa/);
+  assertHas(erroresDePromesas([{ promesa: "x", slide: 0 }]), /promesas\[0\]\.slide/);
+  assertHas(erroresDePromesas([{ promesa: "x", slide: "3" }]), /promesas\[0\]\.slide/);
+});
+
+check("promesas-4: con borrador, la slide de cada promesa debe existir", () => {
+  const b = borrador();
+  const n = b.slides.length;
+  const solo = (errs: string[]) => errs.filter((e) => /promesas/.test(e));
+  assertNone(solo(vb(piezaJuez({ promesas: [{ promesa: "x", slide: n }] }), b)));
+  assertHas(solo(vb(piezaJuez({ promesas: [{ promesa: "x", slide: n + 1 }] }), b)), new RegExp(`slide ${n + 1} no existe: el borrador tiene ${n} slides`));
+});
+
+check("promesas-5: el manual pide revisar promesas antes del lector frío y avisa del tope en el juez", () => {
+  const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
+  const paso5 = md.slice(md.indexOf("## Paso 5"), md.indexOf("## Paso 6"));
+  assert.ok(/\*\*Promesas contra contenido\*\*/.test(paso5) && paso5.includes("antes de lanzar el"), "paso de promesas en el Paso 5");
+  assert.ok(paso5.includes("`--juez` se niega"), "el tope del título en el juez");
+  assert.ok(md.includes("`promesas` (desde el 2026-10-26"), "en la lista de campos");
 });
