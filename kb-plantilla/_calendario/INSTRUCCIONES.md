@@ -664,6 +664,15 @@ Para cada pieza, en este orden y sin saltarte ninguno:
    y juez», abajo). `hook.categoria` es la emoción del candidato elegido
    (curiosidad, controversia, identificación, autoridad o storytelling); el
    patrón queda en su candidato.
+9. **Promesas contra contenido** (desde el 2026-10-26, antes del lector frío):
+   relee la portada elegida, su subtítulo o `resultado` y la voz del Hook, y
+   anota en `promesas` cada cosa que prometen, con la slide donde se cumple:
+   `[{"promesa": "cuatro momentos", "slide": 3}]`. Un número («4 momentos»,
+   «3 partes») exige ver ese mismo número de cosas en pantalla; «cómo…» exige
+   los pasos; «como este ejemplo» exige el ejemplo. Si una promesa no tiene
+   slide donde se cumpla, **arregla la pieza o la promesa antes de lanzar el
+   lector frío**: en el ensayo del 2026-10-24 eso (la P6) botó 3 de 6 piezas.
+   El validador exige la lista y que cada slide exista en el borrador.
 
 Después, el lector frío (Paso 6) y el validador (Paso 7).
 
@@ -677,7 +686,9 @@ Desde el 2026-10-26 no te pones nota a ti mismo: el que escribe no evalúa.
    portada completa: `title` y, si lo usa, `subtitle` en carruseles; `title` y
    `resultado` en reels; solo `title` si la portada es un `Clip`. Todos
    cumplen la regla 8 y los topes de la puerta: si gana cualquiera, se publica
-   tal cual.
+   tal cual. En especial, ningún `title` pasa de
+   `puerta.tituloMaxPalabras` (12): `--juez` se niega a armar el mensaje si
+   alguno lo pasa, y el validador lo rechaza.
 2. Guárdalos en `hook.candidatos` del `plan.json` de trabajo (aún sin subir) y
    saca el mensaje del juez:
 
@@ -1174,6 +1185,7 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["identificación", "alivio"],
       "entregable": "el prompt para que ChatGPT critique tu propuesta desde el área que te falta (ventas, producción, finanzas), en 3 puntos concretos, antes de presentarla",
       "fraseAmigo": "antes de mostrarle una propuesta a tu jefe, le pides a ChatGPT que la critique desde el área que no conoces, en tres puntos; en un estudio una persona con IA rindió como una pareja",
+      "promesas": [{"promesa": "Que ChatGPT critique antes que tu jefe", "slide": 3}, {"promesa": "en 3 puntos concretos", "slide": 4}],
       "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
       "origen": {"fichas": [], "referencias": ["referencias/cybernetic-teammate.md"]},
       "derivadoDe": null,
@@ -1209,6 +1221,7 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["alivio", "validación"],
       "entregable": "las 3 tareas que Microsoft recomienda pasarle a un agente (reuniones de estado, informes de rutina, trabajo administrativo) y las 2 habilidades que siguen siendo tuyas (control de calidad y pensamiento crítico)",
       "fraseAmigo": "Microsoft recomienda pasarle a la IA las reuniones de estado y los informes de rutina; lo que más pesa en ti es revisar bien lo que entrega",
+      "promesas": [{"promesa": "3 tareas para empezar", "slide": 3}, {"promesa": "las 2 habilidades que siguen siendo tuyas", "slide": 6}],
       "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
       "origen": {"fichas": [], "referencias": ["referencias/work-trend-index.md"]},
       "derivadoDe": null,
@@ -1244,6 +1257,7 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["sorpresa", "alivio"],
       "entregable": "la regla para decidir cuándo revisar lo que entrega la IA: si no la viste acertar en esa tarea, se revisa entera, porque en el estudio de Harvard y BCG acertó menos en una tarea que parecía igual de difícil",
       "fraseAmigo": "en un experimento con 758 consultores la IA los hizo más rápidos en 18 tareas y en otra igual de difícil les bajó los aciertos; si no la viste acertar en esa tarea, revísala entera",
+      "promesas": [{"promesa": "cuándo revisar", "slide": 4}],
       "lectorFrio": {"intentos": 2, "resultado": "ok", "notas": "v1: el lector completo respondió «nada nuevo» a la 8 (la pieza solo pedía revisar a la IA); se agregó el dato del estudio y otra ronda del juez.\nNB: «Nada nuevo» → con prisa P8: no bloquea"},
       "origen": {"fichas": [], "referencias": ["referencias/estudio-de-la-frontera-irregular.md"]},
       "derivadoDe": null,
@@ -1279,6 +1293,7 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["curiosidad", "validación"],
       "entregable": "la cuenta de Ethan Mollick para decidir si delegar una tarea en la IA: cuánto te toma a ti, qué tan probable es que cumpla tu estándar y cuánto tardas en pedir y revisar",
       "fraseAmigo": "antes de pasarle una tarea a la IA, calcula cuánto te toma a ti, si suele hacerlo bien y cuánto te va a tomar revisarlo; si revisar cuesta mucho y falla seguido, hazlo tú",
+      "promesas": [{"promesa": "Con IA, revisar puede costar más", "slide": 3}, {"promesa": "la cuenta para decidir si delegar", "slide": 4}],
       "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
       "origen": {"fichas": [], "referencias": ["referencias/delegar-en-ia.md"]},
       "derivadoDe": null,
@@ -1314,6 +1329,7 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["sorpresa", "validación"],
       "entregable": "las 3 cifras medidas sobre cuánto tiempo ahorra la IA (2,2 horas declaradas, 3 % medido, 19 % más lentos con cronómetro), con el alcance de cada estudio, y el ejercicio de cronometrar una tarea con y sin IA",
       "fraseAmigo": "la gente cree que la IA le ahorra horas, pero cuando lo midieron con cronómetro unos programadores expertos tardaron más; la única forma de saber lo tuyo es cronometrar",
+      "promesas": [{"promesa": "Creían ir 20 % más rápido. Iban 19 % más lentos", "slide": 2}, {"promesa": "cronometrar una tarea con y sin IA", "slide": 6}],
       "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
       "origen": {"fichas": [], "referencias": ["referencias/estudio-metr-ia-y-desarrolladores.md", "referencias/estudio-de-chatbots-en-dinamarca.md", "referencias/encuesta-de-ia-generativa-de-la-fed-de-st-louis.md"]},
       "derivadoDe": null,
@@ -1349,6 +1365,7 @@ la plantilla, los carruseles van a las 13:00):
       "emocion": ["curiosidad", "alivio"],
       "entregable": "la tarea programada de ChatGPT que te deja cada mañana el resumen de noticias de tu área: se pide en el chat, se confirma y llega por aviso o correo, con su veredicto para un jefe de área",
       "fraseAmigo": "le pides a ChatGPT una vez que cada mañana te resuma las noticias de tu área, confirmas y te llega solo; lo probé para llegar al día a la reunión del lunes",
+      "promesas": [{"promesa": "ChatGPT te resume tu área cada mañana", "slide": 3}],
       "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
       "origen": {"fichas": [], "referencias": ["referencias/tareas-programadas-de-chatgpt.md"]},
       "derivadoDe": null,
@@ -1365,7 +1382,8 @@ Campos de cada pieza: `id`, `dia`, `hora`, `formato`, `arquetipo`, `senal`,
 `tema`, `pilar`, `serie` (reels: `hazlo-con-ia`, `criterio` o
 `lo-probe-por-ti`; carruseles: `null`), `hook` (`categoria`, `texto`, `score`
 y, desde el 2026-10-26, `candidatos` y `juez`), `emocion`,
-`entregable`, `fraseAmigo`, `lectorFrio` (`intentos`, `resultado`, `notas`),
+`entregable`, `fraseAmigo`, `promesas` (desde el 2026-10-26: `promesa`, `slide`),
+`lectorFrio` (`intentos`, `resultado`, `notas`),
 `origen` (`fichas`, `referencias`), `derivadoDe`, `caption`, `borrador`,
 `estado: "planificado"` y `parametros`. Si quitas piezas, quedan menos
 entradas; sin ninguna, `"piezas": []`, `"experimento": null` y `"motivo"`.
