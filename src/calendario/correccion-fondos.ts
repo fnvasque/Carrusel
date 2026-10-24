@@ -5,6 +5,7 @@ import { calendarioDir, estadoEfectivo, listarSemanas, ocultarToken, semanaDir, 
 import { borradorASpec, parseBorrador, type Borrador } from "./draft.ts";
 import { fondoEnCache } from "../ai/openaiImage.ts";
 import { applyBrandStyle } from "../render/background.ts";
+import { enCacheVoz, textosNarracion, VOZ_DEFECTO, type Voz } from "../reel/voz.ts";
 import { HECHO, RESPALDO } from "./hook-video.ts";
 import {
   MANIFIESTO, armarMedios, destinoRemoto, fondosIaQuitados, horaDe, leerBorradorSeguro, leerManifiesto, tipoDe,
@@ -122,12 +123,23 @@ export interface DepsCorreccion {
    * `fondoEnCache`, con la misma clave que `generateBackground`. El re-render nunca genera imágenes.
    */
   enCache?: (prompt: string) => boolean;
+  /**
+   * Voz con la que re-renderiza `render` (la misma que recibe `renderPieza`). Por defecto
+   * VOZ_DEFECTO, igual que `renderPieza` sin `voz`; `false` = sin narración.
+   */
+  voz?: () => Promise<Voz | false>;
+  /**
+   * ¿Está en la caché la narración de este texto con esta voz? Por defecto `enCacheVoz`, con la
+   * misma clave que `sintetizar` (velocidad 1, la de `narrarEscenas`). El re-render nunca narra de nuevo.
+   */
+  enCacheVoz?: (texto: string, voz: Voz) => boolean;
 }
 
 /** Lo que usa la recuperación de corridas cortadas. */
 export type DepsRecuperacion = Pick<DepsCorreccion, "rsync" | "avisar" | "log" | "ahora">;
 
 export const SIN_CACHE = "fondo ai sin caché: no se regenera";
+export const SIN_CACHE_VOZ = "voz sin caché: no se regenera";
 
 const SEMANA_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ID_RE = /^[a-z0-9-]{3,80}$/;
@@ -287,9 +299,24 @@ export function fondosAiConservados(b: Borrador, quitadas: number[], formato: Pi
 }
 
 /**
+ * Narraciones que sintetizaría el re-render de un reel (escena y texto), con la misma
+ * derivación que `renderReelResult`: `borradorASpec(…, reel)` → `textosNarracion`. Un
+ * carrusel no narra: devuelve [].
+ */
+export function narracionesDelReel(b: Borrador, formato: Pieza["formato"]): { slide: number; texto: string }[] {
+  if (formato !== "reel") return [];
+  const out: { slide: number; texto: string }[] = [];
+  textosNarracion(borradorASpec(structuredClone(b), { format: "reel" })).forEach((texto, slide) => {
+    if (texto) out.push({ slide, texto });
+  });
+  return out;
+}
+
+/**
  * Corrección automática de fondos (fase 3), después de `revisarSinAvisar` y con el
  * candado del render tomado. Para cada pieza de `piezas` con revisión «revisado» y
- * `slidesACorregir` no vacío: comprueba que los fondos ai que se conservan estén en caché →
+ * `slidesACorregir` no vacío: comprueba que los fondos ai que se conservan (y, en un reel con
+ * voz, cada línea de la narración) estén en caché →
  * re-render en `<id>.tmp-corr-<pid>` sin esos fondos ai → swap de la carpeta final (la actual
  * pasa a `<id>.prev-<pid>`) → rsync → verificar → `escribirRender(renderizado, en nuevo)` →
  * se aparta la previa → `visual.correccion = aplicada` → `confirmar(semana)` de inmediato.
@@ -445,6 +472,25 @@ export async function corregirFondos(
         }
         if (faltan.length) {
           await fallar(`${SIN_CACHE} (${faltan.map((i) => `slide ${i + 1}`).join(", ")})`);
+          continue;
+        }
+
+        // (a'') Tampoco se vuelve a narrar: con voz, cada línea del reel debe estar en `.cache/voz/`.
+        let faltanVoz: number[] = [];
+        if (pieza.formato === "reel") {
+          try {
+            const voz = deps.voz ? await deps.voz() : VOZ_DEFECTO;
+            if (voz !== false) {
+              const enCacheV = deps.enCacheVoz ?? ((texto: string, v: Voz) => enCacheVoz(texto, v));
+              faltanVoz = narracionesDelReel(b, pieza.formato).filter((n) => !enCacheV(n.texto, voz)).map((n) => n.slide);
+            }
+          } catch (e) {
+            await fallar(`no pude comprobar la caché de voz: ${razon(e)}`);
+            continue;
+          }
+        }
+        if (faltanVoz.length) {
+          await fallar(`${SIN_CACHE_VOZ} (${faltanVoz.map((i) => `escena ${i + 1}`).join(", ")})`);
           continue;
         }
 

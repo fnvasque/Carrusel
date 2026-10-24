@@ -213,6 +213,8 @@ try {
             const { puerta, voz } = await leerRecursos();
             return renderPieza(p, tmp, { audioDir, puerta, voz, avisar, clipsDir, quitarFondos: quitar });
           },
+          // La misma voz que usará `render`: la precondición de caché de voz mira esas líneas.
+          voz: async () => (await leerRecursos()).voz,
           rsync: rsyncReal,
           verificar: verificarReal,
           escribirRender: escritor.escribirRender,

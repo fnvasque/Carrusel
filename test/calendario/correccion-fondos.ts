@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import {
-  MARGEN_CORRECCION_MS, SIN_CACHE, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
+  MARGEN_CORRECCION_MS, SIN_CACHE, SIN_CACHE_VOZ, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, narracionesDelReel, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
   type DepsCorreccion, type PuertaCorreccion,
 } from "../../src/calendario/correccion-fondos.ts";
 import type { Borrador } from "../../src/calendario/draft.ts";
@@ -17,6 +17,7 @@ import { ErrorVisual } from "../../src/render/revision.ts";
 import { HECHO, RESPALDO } from "../../src/calendario/hook-video.ts";
 import { fondoEnCache, generateBackground, rutaCacheFondo } from "../../src/ai/openaiImage.ts";
 import { applyBrandStyle } from "../../src/render/background.ts";
+import { enCacheVoz, rutaCacheVoz, sintetizar, VOZ_DEFECTO } from "../../src/reel/voz.ts";
 import { leerVisual, visualPath, type RevisionPieza, type VeredictoImagen, type VisualJson, type VisualPieza } from "../../src/calendario/visual.ts";
 
 check("correccion-fondos: con interruptor, 30 respondidos y precisión 0,8 la puerta está activa", () => {
@@ -859,3 +860,100 @@ await checkAsync("Minor: la subida falla y la hora ya pasó → no re-sube el or
     assert.match(m.reg.avisos[0], /no re-subí el original porque su hora ya pasó/);
   }),
 );
+
+// --- Pendiente 1: precondición de caché de voz (como I3 con las imágenes) ---
+const NARR_HOOK = "Tres atajos para tu correo que ahorran tiempo";
+const NARR_CTA = "Guárdalo y pruébalo hoy mismo en tu oficina";
+const BOR_VOZ = { ...BOR_AI, slides: [{ ...BOR_AI.slides[0], narracion: NARR_HOOK }, { ...BOR_AI.slides[1], narracion: `  ${NARR_CTA.replace(/ /g, "   ")} ` }] };
+
+await checkAsync("Voz: una línea de la narración sin caché → fallida «voz sin caché», sin re-render ni subida", () =>
+  conMundoC([piezaPlan("lun-reel-voz", "14:00")], { "lun-reel-voz": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    const pedidos: [string, string][] = [];
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-voz" }], m.out, ENV_C, PUERTA_ON, deps({
+      voz: async () => "ef_dora",
+      enCacheVoz: (texto, voz) => {
+        pedidos.push([texto, voz]);
+        return texto === NARR_HOOK;
+      },
+    }));
+    assert.deepEqual(r, { aplicadas: 0, fallidas: 1, omitidas: 0 });
+    assert.deepEqual(pedidos, [[NARR_HOOK, "ef_dora"], [NARR_CTA, "ef_dora"]], "cada línea, ya normalizada como la narra el motor, con la voz del render");
+    assert.equal(m.reg.render.length + m.reg.rsync.length + m.reg.render_json.length, 0, "sin render ni gasto");
+    const c = m.visual.get(SEM)!["lun-reel-voz"].correccion;
+    assert.equal(c?.estado, "fallida");
+    assert.equal(SIN_CACHE_VOZ, "voz sin caché: no se regenera");
+    assert.ok(c?.motivo?.startsWith(SIN_CACHE_VOZ), c?.motivo);
+    assert.match(c?.motivo ?? "", /escena 2/);
+    assert.equal(m.reg.avisos.length, 1);
+    assert.equal(leer(join(m.out, SEM, "lun-reel-voz", "cover.jpg")), "viejo");
+  }, {}, BOR_VOZ),
+);
+
+await checkAsync("Voz: todas las líneas en caché → la corrección se aplica", () =>
+  conMundoC([piezaPlan("lun-reel-voz2", "14:00")], { "lun-reel-voz2": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+    let n = 0;
+    const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-voz2" }], m.out, ENV_C, PUERTA_ON, deps({ enCacheVoz: () => (n++, true) }));
+    assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
+    assert.equal(n, 2);
+    assert.equal(m.reg.render.length, 1);
+  }, {}, BOR_VOZ),
+);
+
+await checkAsync("Voz: con la voz apagada o en un carrusel no se comprueba nada", async () => {
+  for (const caso of ["voz false", "carrusel"] as const) {
+    const pieza = { ...piezaPlan("lun-voz-off", "14:00"), ...(caso === "carrusel" ? { formato: "carrusel" } : {}) };
+    await conMundoC([pieza], { "lun-voz-off": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      let n = 0;
+      await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-voz-off" }], m.out, ENV_C, PUERTA_ON, deps({
+        ...(caso === "voz false" ? { voz: async () => false as const } : {}),
+        enCacheVoz: () => (n++, false),
+      }));
+      assert.equal(n, 0, caso);
+      assert.equal(m.reg.render.length, 1, `${caso}: re-renderiza`);
+      assert.notEqual(m.visual.get(SEM)!["lun-voz-off"].correccion?.motivo?.startsWith(SIN_CACHE_VOZ), true, caso);
+    }, {}, BOR_VOZ);
+  }
+  assert.deepEqual(narracionesDelReel(BOR_VOZ as unknown as Borrador, "carrusel"), []);
+  assert.deepEqual(narracionesDelReel(BOR_VOZ as unknown as Borrador, "reel"), [{ slide: 0, texto: NARR_HOOK }, { slide: 1, texto: NARR_CTA }]);
+});
+
+await checkAsync("Voz: la comprobación por defecto usa la misma clave que sintetizar (CARRUSEL_VOZ_CACHE_DIR), sin llamar a Kokoro", async () => {
+  const cache = mkdtempSync(join(tmpdir(), "corr-voz-"));
+  const prevDir = process.env.CARRUSEL_VOZ_CACHE_DIR;
+  const prevKokoro = process.env.CARRUSEL_KOKORO_DIR;
+  process.env.CARRUSEL_VOZ_CACHE_DIR = cache;
+  process.env.CARRUSEL_KOKORO_DIR = join(cache, "sin-kokoro"); // sin venv: si no sale de la caché, lanza
+  const escribir = (texto: string): void => {
+    const { wav, meta } = rutaCacheVoz(texto, VOZ_DEFECTO, 1.0);
+    writeFileSync(wav, "RIFF");
+    writeFileSync(meta, JSON.stringify({ texto, voz: VOZ_DEFECTO, velocidad: 1, segundos: 2.5 }));
+  };
+  try {
+    assert.equal(enCacheVoz(NARR_HOOK), false);
+    await assert.rejects(sintetizar(NARR_HOOK), /no está instalado/);
+    escribir(NARR_HOOK);
+    assert.equal(enCacheVoz(`  ${NARR_HOOK}  `), true, "normaliza el texto como sintetizar");
+    assert.equal(enCacheVoz(NARR_HOOK, "ef_dora"), false, "la voz es parte de la clave");
+    assert.equal(enCacheVoz(NARR_HOOK, VOZ_DEFECTO, 1.2), false, "la velocidad también");
+    const n = await sintetizar(NARR_HOOK);
+    assert.equal(n.path, rutaCacheVoz(NARR_HOOK).wav, "sintetizar lee ese mismo archivo");
+    assert.equal(n.segundos, 2.5);
+    // corregirFondos sin `enCacheVoz` ni `voz` inyectados: VOZ_DEFECTO y esa comprobación.
+    await conMundoC([piezaPlan("lun-reel-vreal", "14:00")], { "lun-reel-vreal": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-vreal" }], m.out, ENV_C, PUERTA_ON, deps({ enCacheVoz: undefined }));
+      assert.deepEqual(r, { aplicadas: 0, fallidas: 1, omitidas: 0 }, "falta la línea de la Cta");
+      assert.equal(m.reg.render.length, 0);
+    }, {}, BOR_VOZ);
+    escribir(NARR_CTA);
+    await conMundoC([piezaPlan("lun-reel-vreal", "14:00")], { "lun-reel-vreal": { revisor: AVISO_PORTADA } }, async (m, deps) => {
+      const r = await corregirFondos(m.semanas, [{ semana: SEM, id: "lun-reel-vreal" }], m.out, ENV_C, PUERTA_ON, deps({ enCacheVoz: undefined }));
+      assert.deepEqual(r, { aplicadas: 1, fallidas: 0, omitidas: 0 });
+    }, {}, BOR_VOZ);
+  } finally {
+    if (prevDir === undefined) delete process.env.CARRUSEL_VOZ_CACHE_DIR;
+    else process.env.CARRUSEL_VOZ_CACHE_DIR = prevDir;
+    if (prevKokoro === undefined) delete process.env.CARRUSEL_KOKORO_DIR;
+    else process.env.CARRUSEL_KOKORO_DIR = prevKokoro;
+    rmSync(cache, { recursive: true, force: true });
+  }
+});
