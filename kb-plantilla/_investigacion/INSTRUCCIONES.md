@@ -121,6 +121,21 @@ lo demás de este manual sigue igual (zonas, citas, validar, registro, resumen).
    del tema no tiene ángulo de IA, no la refresques: nómbrala en el resumen.
    Para el `tipo`: `metodo` es algo que se aplica con pasos (una técnica, una
    receta, un proceso); `concepto` es una idea o arquitectura que se explica.
+   **Cifras con su alcance.** Toda cifra que escribas (en `## Datos clave`,
+   `## Evidencia`, `## Novedades` o `## Para la audiencia`) va con quién la
+   midió, a cuántos o a qué (muestra), cuándo y si es lo que la gente
+   **declara** (encuesta) o lo que se **midió** (cronómetro, registro,
+   experimento), con su `[n]`: «Microsoft encuestó a 20.000 trabajadores que
+   usan IA en 2026 (declarado) [1]», no «el 75 % usa IA». El planificador no
+   puede publicar un número sin ese contexto ni inventarlo; si la fuente no lo
+   da, dilo («la fuente no publica la muestra») en vez de omitirlo.
+   **Listas tal como vienen.** Si la fuente da una lista cerrada o pasos (las
+   3 tareas que recomienda, los 4 pasos del método), cópiala con su número y
+   cada elemento, en el orden de la fuente y con su `[n]`. Las piezas prometen
+   cantidades en la portada («3 tareas») y cada una tiene que verse en una
+   slide: el planificador solo puede contar lo que la referencia enumera, así
+   que no fusiones, no resumas en «varias» y no completes la lista con
+   elementos tuyos.
 3. Para cada referencia, busca si ya existe en `referencias/` (compara `nombre`
    sin tildes ni mayúsculas). Si existe, **actualízala** (no dupliques): agrega el
    tema a `temas`, refresca datos y suma novedades. Si no, créala como
@@ -167,6 +182,7 @@ Plataforma de automatización de flujos, open source y self-hosteable [1].
   (en temas con `enfoqueIA`: qué cambia la IA en ese tema, con el dato [n])
 - **Qué se puede hacer:** 1 a 3 usos concretos que un profesional no técnico
   puede repetir hoy en su trabajo, cada uno con lo que la herramienta hace de verdad [1][2]
+  (si la fuente enumera pasos o elementos, van todos, con su número)
 - **Lo que no sabe un usuario frecuente:** lo que alguien que ya usa Claude o
   ChatGPT a diario probablemente ignora (una capacidad, un límite, un dato) [1]
   (obligatorio con `revisado` desde 2026-10-25)

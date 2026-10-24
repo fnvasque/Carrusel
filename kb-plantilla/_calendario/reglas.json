@@ -114,6 +114,13 @@
       "fuente": "Ensayo 3 del planificador (2026-10-24): 3 de 6 piezas cayeron en el lector frío por P6 de promesa incumplida y el juez eligió un título de 13 palabras; PR claude/promesa-y-tope-juez"
     },
     {
+      "id": "investigacion-alcance-y-listas",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "La investigación escribe cada cifra con quién la midió, muestra, fecha y si es declarada o medida, y copia completas las listas y pasos que enumera la fuente",
+      "fuente": "Guía de redacción («Los números llevan contexto») y promesas del ensayo 3 del planificador (2026-10-24), sin respaldo en el manual de investigación; PR claude/investigacion-contexto-y-listas"
+    },
+    {
       "id": "revision-visual-fase1",
       "desde": "2026-10-23",
       "formato": null,
