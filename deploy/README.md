@@ -162,7 +162,8 @@ que sale después del post, usa la versión que diga render.json en ese momento.
 Orden en cada corrida del Mac: tras tomar el candado y leer las semanas, primero se deshacen los
 restos de una corrección cortada (`<id>.prev-*`: se restaura el original en el Mac; no se sube
 nada porque el servidor nunca perdió los originales), luego `procesar`, la revisión y la
-corrección. Cada corrección aplicada sube su render.json en el acto (el bot manda un preview
+corrección. Las candidatas se corrigen por hora, la más próxima primero, con un tope de 3
+re-renders por corrida (las demás quedan para la próxima). Cada corrección aplicada sube su render.json en el acto (el bot manda un preview
 nuevo de la versión corregida). El re-render nunca gasta en APIs: si un fondo ai que conserva no está en `.cache/ai/`
 (o en `CARRUSEL_AI_CACHE_DIR`), la corrección queda `fallida` («fondo ai sin caché: no se
 regenera») y nunca llama a gpt-image-1; en un reel con voz, si alguna línea de la narración no

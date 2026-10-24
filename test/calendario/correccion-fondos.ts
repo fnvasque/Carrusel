@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import {
-  MARGEN_CORRECCION_MS, SIN_CACHE, SIN_CACHE_VOZ, SIN_MARGEN_TRAS_SUBIR, nombresCorregidos, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, narracionesDelReel, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
+  MARGEN_CORRECCION_MS, MAX_CORRECCIONES_POR_CORRIDA, SIN_CACHE, SIN_CACHE_VOZ, SIN_MARGEN_TRAS_SUBIR, nombresCorregidos, UMBRAL_CORRECCION, corregirFondos, fondosAiConservados, leerPuertaCorreccion, narracionesDelReel, puertaCorreccion, recuperarCorreccionesCortadas, slidesACorregir,
   type DepsCorreccion, type PuertaCorreccion,
 } from "../../src/calendario/correccion-fondos.ts";
 import type { Borrador } from "../../src/calendario/draft.ts";
@@ -258,8 +258,8 @@ async function conMundoC(
     const deps = (o: Partial<DepsCorreccion> = {}): DepsCorreccion => ({
       render: async (p, tmp, quitar) => {
         m.reg.render.push({ id: p.pieza.id, quitar });
-        assert.equal(p.semana, SEM);
-        assert.equal(p.borradorPath, join(semanaDir(SEM), p.pieza.borrador));
+        assert.ok(p.semana === SEM || p.semana === "2026-11-02", p.semana); // SEM2 solo en los tests del tope
+        assert.equal(p.borradorPath, join(semanaDir(p.semana), p.pieza.borrador));
         mkdirSync(tmp, { recursive: true });
         for (const a of ARCH) writeFileSync(join(tmp, a), "nuevo");
         return { archivos: [...ARCH], duracionMs: 4900, escenas: [{ start: 0, dur: 4 }, { start: 4, dur: 0.9 }] };
@@ -1079,5 +1079,101 @@ await checkAsync("Pendiente 2: la revisión de fondos lee una carpeta corregida 
     await revisarRenderizadas(m.semanas, m.out, deps);
     assert.ok(pedidos.length > 0, "llegó a extraer");
     assert.ok(pedidos.every((a) => ARCH_C1.includes(a)), pedidos.join(", "));
+  }),
+);
+
+// --- Pendiente 3: tope de correcciones por corrida, por hora ---
+// El tope semanal de 3 fondos ai deja a lo más 3 candidatas por semana: para pasar el tope de la
+// corrida hace falta una segunda semana en la misma base.
+const SEM2 = "2026-11-02";
+function agregarSemana(m: MundoC, ids: [string, string][]): void {
+  const sd = semanaDir(SEM2);
+  mkdirSync(sd, { recursive: true });
+  const piezas = ids.map(([id, hora]) => ({ ...piezaPlan(id, hora), dia: SEM2 }));
+  const planRaw = { semana: SEM2, zona: "America/Santiago", experimento: null, piezas };
+  writeFileSync(join(sd, "plan.json"), JSON.stringify(planRaw));
+  const render: Record<string, RenderEntry> = {};
+  const visual: Record<string, VisualPieza> = {};
+  for (const [id] of ids) {
+    writeFileSync(join(sd, `${id}.json`), JSON.stringify(BOR_UNO));
+    const final = join(m.out, SEM2, id);
+    mkdirSync(final, { recursive: true });
+    for (const a of ARCH) writeFileSync(join(final, a), "viejo");
+    writeFileSync(join(final, MANIFIESTO), JSON.stringify({ archivos: ARCH, duracionMs: 4900 }));
+    mkdirSync(join(m.server, SEM2, id), { recursive: true });
+    for (const a of ARCH) writeFileSync(join(m.server, SEM2, id, a), "viejo");
+    render[id] = { estado: "renderizado", medios: { archivos: ["reel.mp4"], cover: "cover.jpg", story: "story.jpg", duracionMs: 4900 }, en: EN_ORIGINAL };
+    visual[id] = { revisor: AVISO_PORTADA };
+  }
+  m.semanas.push({ semana: SEM2, plan: parsePlan(JSON.stringify(planRaw)), render, estado: {} });
+  m.visual.set(SEM2, visual);
+}
+const CINCO = (): { semana: string; id: string }[] => [
+  // Desordenadas a propósito: la semana siguiente primero y la de hoy al revés.
+  { semana: SEM2, id: "lun-sig-b" }, { semana: SEM2, id: "lun-sig-a" },
+  { semana: SEM, id: "lun-c" }, { semana: SEM, id: "lun-a" }, { semana: SEM, id: "lun-b" },
+];
+const conCinco = (fn: (m: MundoC, deps: (o?: Partial<DepsCorreccion>) => DepsCorreccion) => Promise<void>): Promise<void> =>
+  conMundoC([piezaPlan("lun-a", "14:00"), piezaPlan("lun-b", "15:00"), piezaPlan("lun-c", "16:00")],
+    { "lun-a": { revisor: AVISO_PORTADA }, "lun-b": { revisor: AVISO_PORTADA }, "lun-c": { revisor: AVISO_PORTADA } },
+    async (m, deps) => {
+      agregarSemana(m, [["lun-sig-a", "10:00"], ["lun-sig-b", "11:00"]]);
+      await fn(m, deps);
+    }, {}, BOR_UNO);
+
+await checkAsync("Tope: a lo más 3 re-renders por corrida, la más próxima primero; las demás no se tocan ni se anotan y se loguea una vez", () =>
+  conCinco(async (m, deps) => {
+    assert.equal(MAX_CORRECCIONES_POR_CORRIDA, 3);
+    const r = await corregirFondos(m.semanas, CINCO(), m.out, ENV_C, PUERTA_ON, deps());
+    assert.deepEqual(r, { aplicadas: 3, fallidas: 0, omitidas: 0 });
+    assert.deepEqual(m.reg.render.map((x) => x.id), ["lun-a", "lun-b", "lun-c"], "por hora");
+    for (const id of ["lun-sig-a", "lun-sig-b"]) {
+      assert.equal(m.visual.get(SEM2)![id].correccion, undefined, `${id} sin anotar`);
+      assert.equal(leer(join(m.out, SEM2, id, "cover.jpg")), "viejo", `${id} intacta`);
+      assert.deepEqual(readdirSync(join(m.server, SEM2, id)).sort(), [...ARCH].sort(), `${id} sin subir`);
+    }
+    const tope = m.reg.logs.filter((l) => /tope de 3 re-renders/.test(l));
+    assert.equal(tope.length, 1, m.reg.logs.join(" | "));
+    assert.match(tope[0], /lun-sig-a/);
+    // Corrida siguiente: las que quedaron se corrigen (las ya corregidas tienen `correccion`).
+    m.reg.render.length = 0;
+    const r2 = await corregirFondos(m.semanas, CINCO(), m.out, ENV_C, PUERTA_ON, deps());
+    assert.deepEqual(r2, { aplicadas: 2, fallidas: 0, omitidas: 0 });
+    assert.deepEqual(m.reg.render.map((x) => x.id), ["lun-sig-a", "lun-sig-b"]);
+  }),
+);
+
+await checkAsync("Tope: los re-renders fallidos (render o subida) cuentan", () =>
+  conCinco(async (m, deps) => {
+    const base = deps();
+    const r = await corregirFondos(m.semanas, CINCO(), m.out, ENV_C, PUERTA_ON, {
+      ...base,
+      render: async (p, tmp, q) => {
+        if (p.pieza.id === "lun-a") {
+          m.reg.render.push({ id: p.pieza.id, quitar: q });
+          throw new ErrorContenido(["Score 60 < 75."]);
+        }
+        return base.render(p, tmp, q);
+      },
+      rsync: async (l, rem) => {
+        if (rem.includes("lun-b")) throw new Error("rsync terminó con código 12");
+        await base.rsync(l, rem);
+      },
+    });
+    assert.deepEqual(r, { aplicadas: 1, fallidas: 2, omitidas: 0 });
+    assert.deepEqual(m.reg.render.map((x) => x.id), ["lun-a", "lun-b", "lun-c"]);
+    assert.equal(m.visual.get(SEM2)!["lun-sig-a"].correccion, undefined);
+  }),
+);
+
+await checkAsync("Tope: una precondición de caché que falla antes de renderizar no cuenta", () =>
+  conCinco(async (m, deps) => {
+    // lun-a lleva narración y su voz no está en caché: fallida sin re-render.
+    writeFileSync(join(semanaDir(SEM), "lun-a.json"), JSON.stringify({ ...BOR_UNO, slides: [{ ...BOR_UNO.slides[0], narracion: NARR_HOOK }, BOR_UNO.slides[1]] }));
+    const r = await corregirFondos(m.semanas, CINCO(), m.out, ENV_C, PUERTA_ON, deps({ enCacheVoz: () => false }));
+    assert.deepEqual(r, { aplicadas: 3, fallidas: 1, omitidas: 0 });
+    assert.equal(m.visual.get(SEM)!["lun-a"].correccion?.estado, "fallida");
+    assert.deepEqual(m.reg.render.map((x) => x.id), ["lun-b", "lun-c", "lun-sig-a"]);
+    assert.equal(m.visual.get(SEM2)!["lun-sig-b"].correccion, undefined, "la quinta queda para la próxima");
   }),
 );

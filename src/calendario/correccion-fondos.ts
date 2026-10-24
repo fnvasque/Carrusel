@@ -93,6 +93,12 @@ export function slidesACorregir(b: Borrador, imagenes: VeredictoImagen[], yaQuit
 /** Solo se corrige si faltan al menos 30 min para la hora de la pieza (se mira al empezar, antes de subir y antes de anotar). */
 export const MARGEN_CORRECCION_MS = 30 * 60_000;
 export const SIN_MARGEN = "sin margen antes de la hora";
+/**
+ * Tope de re-renders intentados por corrida (aplicada, o fallida por render, subida o
+ * verificación). Las precondiciones que fallan antes de renderizar (caché) no cuentan. Al
+ * llegar al tope, las candidatas restantes no se tocan ni se anotan: quedan para la próxima corrida.
+ */
+export const MAX_CORRECCIONES_POR_CORRIDA = 3;
 /** Caso (c): la versión corregida alcanzó a subir, pero render.json no se reescribe; se publica el original. */
 export const SIN_MARGEN_TRAS_SUBIR = "subida sin margen para reescribir render.json: se publica el original";
 
@@ -322,7 +328,9 @@ export function narracionesDelReel(b: Borrador, formato: Pieza["formato"]): { sl
  * La versión corregida lleva NOMBRES NUEVOS (`nombresCorregidos`: `01.jpg` → `01-c1.jpg`,
  * `reel.mp4` → `reel-c1.mp4`) en la misma carpeta remota, y render.json se reescribe con
  * ellos solo después de verificar la subida.
- * La hora se mira al empezar, antes de rsync y antes de anotar render.json.
+ * La hora se mira al empezar, antes de rsync y antes de anotar render.json. Las candidatas
+ * van por hora (la más próxima primero) y a lo más `MAX_CORRECCIONES_POR_CORRIDA` re-renders
+ * por corrida.
  * Si algo falla queda el original en el Mac, render.json no cambia, `fallida` y un aviso; en
  * el servidor no hay nada que deshacer (los originales nunca se pisaron). Una pieza con
  * `correccion` no se vuelve a tocar. Nunca lanza.
@@ -388,8 +396,16 @@ export async function corregirFondos(
       visuales.delete(semana);
     };
 
+    // Por hora de publicación, la más próxima primero (sin hora legible, al final; empate: orden de llegada).
+    const tDe = (x: { semana: string; id: string }): number => {
+      const pz = piezaDe(semanas, x.semana, x.id);
+      return (pz && horaSegura(pz.pieza)) ?? Number.POSITIVE_INFINITY;
+    };
+    const porHora = piezas.map((x, i) => ({ x, i, t: tDe(x) })).sort((a, b) => (a.t === b.t ? a.i - b.i : a.t - b.t)).map((o) => o.x);
+    let intentados = 0;
+    let topeLogueado = false;
     const vistos = new Set<string>();
-    for (const { semana, id } of piezas) {
+    for (const { semana, id } of porHora) {
       if (!SEMANA_RE.test(semana) || !ID_RE.test(id)) continue;
       const k = `${semana}/${id}`;
       if (vistos.has(k)) continue;
@@ -443,6 +459,15 @@ export async function corregirFondos(
         const slides = slidesACorregir(b, previa.revisor.imagenes, ya);
         if (!slides.length) continue;
         const quitar = slides.map((slide) => ({ slide, motivo: motivoRevisor(previa.revisor!.imagenes, slide) }));
+
+        // Tope por corrida: esta candidata y las siguientes quedan intactas para la próxima corrida.
+        if (intentados >= MAX_CORRECCIONES_POR_CORRIDA) {
+          if (!topeLogueado) {
+            topeLogueado = true;
+            log(`🖼️  Corrección de fondos: llegué al tope de ${MAX_CORRECCIONES_POR_CORRIDA} re-renders por corrida; ${id} (${semana}) y las demás candidatas quedan para la próxima corrida.`);
+          }
+          continue;
+        }
 
         const anotar = async (estado: CorreccionPieza["estado"], motivo?: string): Promise<void> => {
           const correccion: CorreccionPieza = { en: ahora().toISOString(), estado, slides, ...(motivo !== undefined ? { motivo: oculto(motivo) } : {}) };
@@ -544,6 +569,7 @@ export async function corregirFondos(
           log(`🖼️  ${id} (${semana}): re-render sin el fondo ai de ${slides.map((i) => `slide ${i + 1}`).join(", ")}…`);
           const pend: PiezaPendiente = { semana, pieza, borradorPath: join(semanaDir(semana), pieza.borrador) };
           let nuevo: Manifiesto;
+          intentados++; // cuenta el re-render intentado, salga como salga
           try {
             const r = await deps.render(pend, tmp, quitar);
             // Nombres nuevos (versión siguiente a la del original): el bot publica lo que diga
