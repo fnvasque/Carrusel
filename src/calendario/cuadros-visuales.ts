@@ -13,6 +13,8 @@ export interface Cuadro {
   que: string;
   /** Segundo del reel donde se saca (solo cuadros de `reel.mp4`). */
   t?: number;
+  /** Índice (desde 0) de la slide o escena a la que pertenece el cuadro; la portada es la 0. */
+  slide: number;
   /** Archivo dentro de la carpeta final de la pieza. */
   archivo: string;
 }
@@ -55,7 +57,7 @@ export function cuadrosARevisar(
   quitados: number[] = [],
 ): Cuadro[] {
   type Candidato = Omit<Cuadro, "n"> & { prio: number };
-  const cand: Candidato[] = [{ que: "portada", archivo: formato === "reel" ? "cover.jpg" : "01.jpg", prio: PRIORIDAD.portada }];
+  const cand: Candidato[] = [{ que: "portada", slide: 0, archivo: formato === "reel" ? "cover.jpg" : "01.jpg", prio: PRIORIDAD.portada }];
   const sin = new Set(quitados);
   const interesa = (i: number): boolean => {
     const s = b.slides[i];
@@ -65,7 +67,7 @@ export function cuadrosARevisar(
   if (formato === "carrusel") {
     b.slides.forEach((_, i) => {
       if (i === 0 || !interesa(i)) return;
-      cand.push({ que: `slide ${i + 1}`, archivo: `${String(i + 1).padStart(2, "0")}.jpg`, prio: PRIORIDAD.final });
+      cand.push({ que: `slide ${i + 1}`, slide: i, archivo: `${String(i + 1).padStart(2, "0")}.jpg`, prio: PRIORIDAD.final });
     });
   } else if (escenas) {
     const ultima = escenas.length - 1;
@@ -80,10 +82,10 @@ export function cuadrosARevisar(
       const acotar = (t: number): number => r3(Math.max(e.start, Math.min(t, tope)));
       // En orden de prioridad (finales, 0 s, 1 s): ante t repetido (±0,01 s) se queda el de mayor prioridad.
       const posibles: Candidato[] = [
-        { que: `${nombre} final`, t: acotar(fin), archivo: "reel.mp4", prio: PRIORIDAD.final },
+        { que: `${nombre} final`, slide: i, t: acotar(fin), archivo: "reel.mp4", prio: PRIORIDAD.final },
         // La portada (cover.jpg) ya es el cuadro 0 s de la escena 1: no se repite.
-        ...(i === 0 && e.start === 0 ? [] : [{ que: `${nombre} a 0 s`, t: acotar(e.start), archivo: "reel.mp4", prio: PRIORIDAD.cero }]),
-        { que: `${nombre} a 1 s`, t: acotar(e.start + 1), archivo: "reel.mp4", prio: PRIORIDAD.uno },
+        ...(i === 0 && e.start === 0 ? [] : [{ que: `${nombre} a 0 s`, slide: i, t: acotar(e.start), archivo: "reel.mp4", prio: PRIORIDAD.cero }]),
+        { que: `${nombre} a 1 s`, slide: i, t: acotar(e.start + 1), archivo: "reel.mp4", prio: PRIORIDAD.uno },
       ];
       const vistos = new Set<number>();
       const unicos = posibles.filter((c) => {

@@ -18,8 +18,8 @@ check("cuadros: carrusel de 5 slides con ai en 1 y 4 → portada + slide 4, sin 
   const b = borr([slide("Hook", { ai: "a" }), slide("Lead"), slide("Step"), slide("Step", { ai: "b" }), slide("Cta")]);
   const c = cuadrosARevisar("carrusel", b, undefined, 0.5, 8);
   assert.deepEqual(c, [
-    { n: 1, que: "portada", archivo: "01.jpg" },
-    { n: 2, que: "slide 4", archivo: "04.jpg" },
+    { n: 1, que: "portada", slide: 0, archivo: "01.jpg" },
+    { n: 2, que: "slide 4", slide: 3, archivo: "04.jpg" },
   ]);
 });
 
@@ -37,7 +37,7 @@ check("cuadros: reel de 6 escenas con Clip en la 1 y la 3 → portada + 5 cuadro
   const b = borr([slide("Clip"), slide("Lead"), slide("Clip"), slide("Step"), slide("Step"), slide("Cta")]);
   const c = cuadrosARevisar("reel", b, escenas6, 0.5, 20);
   assert.equal(c.length, 6);
-  assert.deepEqual(c[0], { n: 1, que: "portada", archivo: "cover.jpg" });
+  assert.deepEqual(c[0], { n: 1, que: "portada", slide: 0, archivo: "cover.jpg" });
   assert.deepEqual(c.map((x) => x.n), [1, 2, 3, 4, 5, 6]);
   assert.deepEqual(c.slice(1).map((x) => [x.que, x.t, x.archivo]), [
     ["escena 1 (Clip) a 1 s", 1, "reel.mp4"],
@@ -65,7 +65,7 @@ check("cuadros: max 4 recorta por prioridad (portada, finales, 0 s, 1 s) y conse
 
 check("cuadros: reel sin escenas → solo la portada; max 1 → portada", () => {
   const b = borr([slide("Clip"), slide("Cta")]);
-  assert.deepEqual(cuadrosARevisar("reel", b, undefined, 0.5, 8), [{ n: 1, que: "portada", archivo: "cover.jpg" }]);
+  assert.deepEqual(cuadrosARevisar("reel", b, undefined, 0.5, 8), [{ n: 1, que: "portada", slide: 0, archivo: "cover.jpg" }]);
   assert.equal(cuadrosARevisar("reel", b, [{ start: 0, dur: 3 }, { start: 3, dur: 3 }], 0.5, 1).length, 1);
 });
 
@@ -101,4 +101,13 @@ await checkAsync("extraerCuadros: destino dentro de la carpeta final → error; 
   const dest = join(raiz, ".revision", "s", "id");
   await extraerCuadros(final, dest, []);
   assert.deepEqual(readdirSync(dest), []);
+});
+
+check("cuadros: cada cuadro lleva el índice de su slide o escena (la portada es la 0)", () => {
+  const b = borr([slide("Clip"), slide("Lead"), slide("Clip")]);
+  const c = cuadrosARevisar("reel", b, escenas6, 0.5, 20);
+  assert.deepEqual(c.map((x) => [x.que, x.slide]), [
+    ["portada", 0], ["escena 1 (Clip) a 1 s", 0], ["escena 1 (Clip) final", 0],
+    ["escena 3 (Clip) a 0 s", 2], ["escena 3 (Clip) a 1 s", 2], ["escena 3 (Clip) final", 2],
+  ]);
 });

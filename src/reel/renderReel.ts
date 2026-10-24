@@ -5,7 +5,7 @@ import type { CarouselSpec, Pace } from "../templates/types.ts";
 import { buildReelPage } from "./page.ts";
 import { captureReel, captureStills, assertFfmpeg, type VozEnReel } from "./capture.ts";
 import { maxSecondsError, specTiming, type ReelTiming } from "./timing.ts";
-import { narrarEscenas, VOZ_DEFECTO, type Voz } from "./voz.ts";
+import { narrarEscenas, textosNarracion, VOZ_DEFECTO, type Voz } from "./voz.ts";
 import type { ModoRevision } from "../render/revision.ts";
 
 export interface RenderReelOptions {
@@ -84,10 +84,7 @@ export async function renderReel(spec: CarouselSpec, opts: RenderReelOptions = {
 export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptions = {}): Promise<RenderReelResult> {
   const base = join(process.cwd(), opts.outDir ?? "output", spec.name);
   // Narración: se sintetiza antes de calcular los tiempos (cada escena dura al menos su voz).
-  const textos = spec.slides.map((s) => {
-    const n = ({ ...spec.defaults, ...s.props } as { narracion?: unknown }).narracion;
-    return typeof n === "string" && n.trim() ? n : undefined;
-  });
+  const textos = textosNarracion(spec);
   const narrar = opts.voz !== false && !opts.framesOnly && textos.some(Boolean);
   const narraciones = narrar ? await narrarEscenas(textos, opts.voz || VOZ_DEFECTO) : [];
   const timing = specTiming(spec, {

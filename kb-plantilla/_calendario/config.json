@@ -176,6 +176,9 @@
   "mixNota": "2026-10-17 (pivote): 4 reels narrados + 2 carruseles por semana, una pieza por día y domingo libre; el tiempo que sobra va a interacción real. Para el sprint de 2 reels al día, ver el git log de este archivo.",
   "pilaresNota": "2026-10-18: se agrega el pilar \"trabajo\" (cómo cambia el trabajo, el liderazgo y las decisiones cuando hay IA de por medio, siempre con un estudio o dato con fuente). Decisión del usuario: desde la semana 2026-10-19 lo llevan las 6 piezas, reels incluidos; el carrusel de opinión del viernes es la serie lo-que-dice-la-evidencia. Se evalúa el 2026-11-02. Detalle en INSTRUCCIONES.md, Paso 3.",
   "clipsMaxSemana": 0,
+  "revisionVisual": {
+    "corregir": false
+  },
   "paquete": {
     "desde": "2026-10-26",
     "semanas": [

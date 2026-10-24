@@ -38,6 +38,19 @@ function getClient(): OpenAI {
   return client;
 }
 
+/** Ruta en la caché del fondo de `prompt` (la misma clave que usa `generateBackground`). */
+export function rutaCacheFondo(prompt: string, opts: GenerateOptions = {}): string {
+  const size = opts.size ?? "1024x1536";
+  const quality = opts.quality ?? "medium";
+  const key = createHash("sha256").update(`${prompt}|${size}|${quality}`).digest("hex");
+  return join(cacheDir(), `${key}.png`);
+}
+
+/** ¿El fondo de `prompt` ya está en la caché? (`generateBackground` no llamaría a la API.) */
+export function fondoEnCache(prompt: string, opts: GenerateOptions = {}): boolean {
+  return existsSync(rutaCacheFondo(prompt, opts));
+}
+
 /**
  * Genera (o recupera de caché) un fondo con gpt-image-1 a partir de un prompt.
  * Devuelve un data URI PNG listo para usar como background-image.
@@ -48,9 +61,7 @@ function getClient(): OpenAI {
 export async function generateBackground(prompt: string, opts: GenerateOptions = {}): Promise<string> {
   const size = opts.size ?? "1024x1536";
   const quality = opts.quality ?? "medium";
-
-  const key = createHash("sha256").update(`${prompt}|${size}|${quality}`).digest("hex");
-  const cachePath = join(cacheDir(), `${key}.png`);
+  const cachePath = rutaCacheFondo(prompt, opts);
 
   if (existsSync(cachePath)) {
     const cached = await readFile(cachePath);

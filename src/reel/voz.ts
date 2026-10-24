@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -25,7 +25,6 @@ export const PALABRAS_POR_SEGUNDO = 2.9;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCRIPT = join(HERE, "..", "..", "scripts", "kokoro-tts.py");
-const CACHE_DIR = join(process.cwd(), ".cache", "voz");
 const TIMEOUT_MS = 180_000;
 
 /** Carpeta del venv de Kokoro (`CARRUSEL_KOKORO_DIR` o ~/.cache/carrusel/kokoro). */
@@ -56,6 +55,52 @@ function sha(s: string): string {
   return createHash("sha256").update(s).digest("hex");
 }
 
+/** Carpeta de la caché de voz. `CARRUSEL_VOZ_CACHE_DIR` la cambia (los tests usan una temporal). */
+function cacheDir(): string {
+  return process.env.CARRUSEL_VOZ_CACHE_DIR?.trim() || join(process.cwd(), ".cache", "voz");
+}
+
+/** Texto tal como se narra y se cachea: espacios colapsados y sin bordes. */
+const limpiar = (texto: string): string => texto.replace(/\s+/g, " ").trim();
+
+/**
+ * Rutas de la caché de una narración (WAV y metadatos), con la MISMA clave que usa
+ * `sintetizar`: (texto limpio, voz, velocidad, modelo).
+ */
+export function rutaCacheVoz(texto: string, voz: Voz = VOZ_DEFECTO, velocidad = 1.0): { wav: string; meta: string } {
+  const key = sha(`${limpiar(texto)}|${voz}|${velocidad}|kokoro-82M`);
+  return { wav: join(cacheDir(), `${key}.wav`), meta: join(cacheDir(), `${key}.json`) };
+}
+
+/** Lee la caché válida de una narración (WAV presente y metadatos con `segundos` > 0), o undefined. */
+async function leerCacheVoz(texto: string, voz: Voz, velocidad: number): Promise<Narracion | undefined> {
+  const { wav, meta } = rutaCacheVoz(texto, voz, velocidad);
+  if (!existsSync(wav) || !existsSync(meta)) return undefined;
+  try {
+    const m = JSON.parse(await readFile(meta, "utf8")) as { segundos?: number };
+    if (typeof m.segundos === "number" && m.segundos > 0) return { path: wav, segundos: m.segundos };
+  } catch {
+    // caché rota: se vuelve a sintetizar
+  }
+  return undefined;
+}
+
+/**
+ * ¿`sintetizar(texto, voz, { velocidad })` saldría de la caché sin llamar a Kokoro? Mismo
+ * criterio que `sintetizar` (WAV y metadatos válidos). Sin efectos; nunca lanza.
+ */
+export function enCacheVoz(texto: string, voz: Voz = VOZ_DEFECTO, velocidad = 1.0): boolean {
+  try {
+    if (!limpiar(texto)) return false;
+    const { wav, meta } = rutaCacheVoz(texto, voz, velocidad);
+    if (!existsSync(wav) || !existsSync(meta)) return false;
+    const m = JSON.parse(readFileSync(meta, "utf8")) as { segundos?: number };
+    return typeof m.segundos === "number" && m.segundos > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Duración (s) de un archivo de audio según ffprobe. */
 export function duracionAudio(path: string): number {
   const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], { encoding: "utf8", timeout: 30_000 });
@@ -80,25 +125,17 @@ function entornoKokoro(): NodeJS.ProcessEnv {
  * claro en español si Kokoro no está instalado o falla.
  */
 export async function sintetizar(texto: string, voz: Voz = VOZ_DEFECTO, opts: { velocidad?: number } = {}): Promise<Narracion> {
-  const limpio = texto.replace(/\s+/g, " ").trim();
+  const limpio = limpiar(texto);
   if (!limpio) throw new Error("La narración está vacía.");
   const velocidad = opts.velocidad ?? 1.0;
-  const key = sha(`${limpio}|${voz}|${velocidad}|kokoro-82M`);
-  const wav = join(CACHE_DIR, `${key}.wav`);
-  const meta = join(CACHE_DIR, `${key}.json`);
-  if (existsSync(wav) && existsSync(meta)) {
-    try {
-      const m = JSON.parse(await readFile(meta, "utf8")) as { segundos?: number };
-      if (typeof m.segundos === "number" && m.segundos > 0) return { path: wav, segundos: m.segundos };
-    } catch {
-      // caché rota: se vuelve a sintetizar
-    }
-  }
+  const { wav, meta } = rutaCacheVoz(limpio, voz, velocidad);
+  const cache = await leerCacheVoz(limpio, voz, velocidad);
+  if (cache) return cache;
   const python = join(kokoroDir(), "bin", "python");
   if (!existsSync(python)) {
     throw new Error(`Kokoro no está instalado (no existe ${python}). Corre scripts/kokoro-install.sh y vuelve a intentar.`);
   }
-  await mkdir(CACHE_DIR, { recursive: true });
+  await mkdir(dirname(wav), { recursive: true });
   const tmp = `${wav}.tmp.wav`;
   const r = spawnSync(python, [SCRIPT, "--voz", voz, "--out", tmp, "--velocidad", String(velocidad)], {
     input: limpio,
@@ -116,6 +153,18 @@ export async function sintetizar(texto: string, voz: Voz = VOZ_DEFECTO, opts: { 
   const { rename } = await import("node:fs/promises");
   await rename(tmp, wav);
   return { path: wav, segundos };
+}
+
+/**
+ * Textos que `narrarEscenas` sintetiza (en `renderReelResult`): la `narracion` de cada escena
+ * (props sobre defaults), solo si es un texto no vacío. Un solo lugar para el render y para la
+ * precondición de caché de la fase 3.
+ */
+export function textosNarracion(spec: { defaults?: Record<string, unknown>; slides: { props: Record<string, unknown> }[] }): (string | undefined)[] {
+  return spec.slides.map((s) => {
+    const n = ({ ...spec.defaults, ...s.props } as { narracion?: unknown }).narracion;
+    return typeof n === "string" && n.trim() ? n : undefined;
+  });
 }
 
 /**

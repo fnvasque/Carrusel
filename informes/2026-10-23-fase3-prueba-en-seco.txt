@@ -1,0 +1,34 @@
+# Prueba en seco de la fase 3 de la revisión visual (2026-10-23)
+# Sin gastar ni subir: render real, rsync/verificar/escritores falsos; fondos ai solo de caché
+# (CARRUSEL_AI_SOLO_CACHE=1, sin OPENAI_API_KEY). Base: clon ~/.cache/carrusel/kb-calendario (solo lectura).
+
+Pieza: 2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia (carrusel, 2026-10-20 13:00)
+       slide 1 (Hook) con background.ai; el resto sin fondo ai; sin hookVideo.
+
+## 1) Render original (corpus)
+npm run calendario:corpus-visual -- --kb ~/.cache/carrusel/kb-calendario --semanas 2026-10-19 \
+  --solo mar-carrusel-6-preguntas-para-delegar-en-ia --conservar <scratchpad>/corpus
+limpia  2026-10-19/mar-carrusel-6-preguntas-para-delegar-en-ia (carrusel) 1.9 s
+Corpus: 1 pieza(s): 1 limpia(s), 0 con violación visual, 0 otra(s).
+
+## 2) corregirFondos (script desechable fuera del repo, npx tsx)
+Entrada: la carpeta del corpus como final en outRoot (con .manifiesto.json de 01..07.jpg + story.jpg),
+render.json sintético en memoria («renderizado» con medios), visual.json sintético con el revisor
+«revisado» y la slide 0 marcada compite: true.
+Puerta forzada: { activa: true, motivo: "prueba en seco", respondidos: 30, precision: 1 }
+Deps: render = renderPieza(..., { omitirScore: true, quitarFondos }); rsync = copia a una carpeta local;
+verificar = true; escribirRender/escribirVisual = en memoria; ahora = 2026-10-20T13:00Z (10:00 en Chile, 3 h de margen).
+
+Logs:
+[log] 🖼️  mar-carrusel-6-preguntas-para-delegar-en-ia (2026-10-19): re-render sin el fondo ai de slide 1…
+[render.avisar] Fondo ai quitado en mar-carrusel-6-preguntas-para-delegar-en-ia (2026-10-19): slide 1, el revisor visual lo marcó (compite). Va con el fondo por defecto.
+[log] 🖼️  ✓ mar-carrusel-6-preguntas-para-delegar-en-ia (2026-10-19): fondo ai quitado en slide 1, re-renderizada y subida.
+
+Resultado: {"aplicadas":1,"fallidas":0,"omitidas":0}
+render.json (escrito en memoria): estado renderizado, archivos 01..07.jpg, cover 01.jpg, story story.jpg
+visual.json → correccion: {"en":"2026-10-20T13:00:00.000Z","estado":"aplicada","slides":[0]}
+Subidas: 1 (a la carpeta local falsa). Restos en outRoot/2026-10-19: solo la carpeta final (sin .prev ni .tmp).
+Portada distinta: sí (01.jpg 152 838 → 131 544 bytes).
+
+Antes:   informes/2026-10-23-fase3-prueba-en-seco-antes.jpg   (fondo ai: mano entrega carpeta a mano robótica)
+Después: informes/2026-10-23-fase3-prueba-en-seco-despues.jpg (fondo liso por defecto del look lima)

@@ -182,18 +182,47 @@ export function tipoDe(archivo: string): string {
  * repo). Reel → archivos [mp4] + cover; carrusel → los slides (cover = el primero). El bot
  * arma las URLs con `mediosPublicos` al publicar.
  */
-function armarMedios(formato: Pieza["formato"], m: Manifiesto): MediosRender {
-  const story = m.archivos.includes("story.jpg") ? "story.jpg" : undefined;
+export function armarMedios(formato: Pieza["formato"], m: Manifiesto): MediosRender {
+  // Los nombres pueden traer el sufijo de versión de la fase 3 (`cover-c1.jpg`): se reconocen por su base.
+  const deBase = (b: string): string | undefined => m.archivos.find((a) => baseArchivo(a) === b);
+  const story = deBase("story.jpg");
   if (formato === "reel") {
+    const cover = deBase("cover.jpg");
     return {
       archivos: m.archivos.filter((a) => a.endsWith(".mp4")),
-      ...(m.archivos.includes("cover.jpg") ? { cover: "cover.jpg" } : {}),
+      ...(cover ? { cover } : {}),
       ...(story ? { story } : {}),
       ...(m.duracionMs !== undefined ? { duracionMs: m.duracionMs } : {}),
     };
   }
-  const archivos = m.archivos.filter((a) => /^\d{2}\.jpg$/.test(a)).sort();
+  const archivos = m.archivos.filter((a) => /^\d{2}\.jpg$/.test(baseArchivo(a))).sort((x, y) => baseArchivo(x).localeCompare(baseArchivo(y)));
   return { archivos, ...(archivos[0] ? { cover: archivos[0] } : {}), ...(story ? { story } : {}) };
+}
+
+/**
+ * Versión de un archivo de medios (fase 3): la corrección sube la versión corregida con
+ * NOMBRES NUEVOS (`01.jpg` → `01-c1.jpg`, `reel.mp4` → `reel-c1.mp4`) en la misma carpeta
+ * remota, para que el bot nunca mezcle archivos viejos y nuevos. Sin sufijo = versión 0.
+ */
+const VERSION_RE = /^(.+?)(?:-c([1-9]\d{0,3}))?\.(jpg|mp4)$/;
+
+/** Nombre sin el sufijo de versión: `cover-c2.jpg` → `cover.jpg`; `01.jpg` → `01.jpg`. */
+export function baseArchivo(a: string): string {
+  const m = VERSION_RE.exec(a);
+  return m ? `${m[1]}.${m[3]}` : a;
+}
+
+/** Número de versión del nombre (0 sin sufijo). */
+export function versionArchivo(a: string): number {
+  const m = VERSION_RE.exec(a);
+  return m?.[2] ? Number(m[2]) : 0;
+}
+
+/** El nombre con la versión `n` (≥ 1): `reel.mp4`, 1 → `reel-c1.mp4`; un sufijo previo se reemplaza. */
+export function conVersion(a: string, n: number): string {
+  const b = baseArchivo(a);
+  const i = b.lastIndexOf(".");
+  return `${b.slice(0, i)}-c${n}${b.slice(i)}`;
 }
 
 /** Destino de rsync: `host:dir/semana/id/` (o `dir/semana/id/` sin host). */
@@ -288,13 +317,15 @@ export async function procesar(
         await writeFile(join(tmp, MANIFIESTO), JSON.stringify(manifiesto), "utf8");
         await rename(tmp, final);
         await olvidarAvisosVisuales(outRoot, p.semana, id).catch((e) => log(`⚠️  No pude limpiar el registro de avisos visuales: ${oculto(razon(e))}`));
-        // Render nuevo: el veredicto del revisor (y sus intentos) era del render anterior; se
-        // borra para que la revisión de fondos mire este. fase1 se conserva.
+        // Render nuevo: el veredicto del revisor (y sus intentos) y la corrección de la fase 3
+        // eran del render anterior; se borran para que la revisión de fondos mire este (si no,
+        // un render fresco con el fondo ai de vuelta nunca se re-revisaría). fase1 se conserva.
+        // Sin bucle: `corregirFondos` no pasa por aquí y una pieza corregida no es pendiente.
         if (deps.escribirVisual) {
           try {
             const previa: VisualPieza = (await leerVisual(p.semana))[id] ?? {};
-            if (previa.revisor !== undefined || previa.intentos !== undefined) {
-              const { revisor: _r, intentos: _i, ...resto } = previa;
+            if (previa.revisor !== undefined || previa.intentos !== undefined || previa.correccion !== undefined) {
+              const { revisor: _r, intentos: _i, correccion: _c, ...resto } = previa;
               await deps.escribirVisual(p.semana, id, resto);
             }
           } catch (err) {
@@ -635,6 +666,8 @@ export async function renderPieza(
     clipsDir?: string;
     /** Solo para el corpus de la revisión visual: salta la puerta de score (`scoreDraft`). Nunca en el render del calendario. */
     omitirScore?: boolean;
+    /** Fase 3 de la revisión visual: slides cuyo fondo ai se quita (se suman a las de `fondosIaQuitados`). */
+    quitarFondos?: { slide: number; motivo: string }[];
   },
 ): Promise<{ archivos: string[]; duracionMs?: number; escenas?: { start: number; dur: number }[] }> {
   const texto = await leerBorradorSeguro(p.semana, p.pieza.borrador);
@@ -645,7 +678,12 @@ export async function renderPieza(
     throw new ErrorContenido([razon(e)]);
   }
   // Tope de fondos ai: los que sobran vuelven al fondo por defecto del look lima.
-  const quitar = (await fondosIaQuitados(p.semana)).get(p.pieza.id) ?? [];
+  const quitar = [...((await fondosIaQuitados(p.semana)).get(p.pieza.id) ?? [])];
+  for (const q of opts.quitarFondos ?? []) {
+    if (!Number.isInteger(q.slide) || q.slide < 0 || q.slide >= b.slides.length) continue;
+    if (!quitar.some((x) => x.slide === q.slide)) quitar.push(q);
+  }
+  quitar.sort((x, y) => x.slide - y.slide);
   if (quitar.length) {
     for (const { slide } of quitar) delete b.slides[slide].background;
     const texto = `Fondo ai quitado en ${p.pieza.id} (${p.semana}): ${quitar.map((q) => `slide ${q.slide + 1}, ${q.motivo}`).join("; ")}. Va con el fondo por defecto.`;

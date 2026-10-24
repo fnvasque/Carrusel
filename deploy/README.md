@@ -125,6 +125,51 @@ publica y te avisa por Telegram.
 
 **Revisión visual de fondos.** El bot también atiende los botones `cal-visual` (Tenía razón / No) de las fotos que manda el Mac; se despliega con el procedimiento de siempre (`scripts/deploy-to-server.sh ubuntu@<ip> --update`).
 
+**Fase 3 de la revisión visual (corrección automática).** El Mac puede quitar solo el fondo ai que
+el revisor marcó y volver a subir la pieza antes de la hora. Se enciende con
+`"revisionVisual": { "corregir": true }` en `_calendario/config.json` de la base y se apaga con
+`false` (sin la clave, apagada). Además del interruptor hay una puerta: al menos 30 avisos
+respondidos y precisión ≥ 0,8 en `bucle.json → visual.total`; el Mac la comprueba en cada corrida
+y, si no se cumple, lo dice en el log y no corrige. Qué corrige: solo el fondo ai de las slides
+marcadas como «compite» o «ajeno» (en la práctica Hook y Cta, que son las que llevan fondo ai), con
+el fondo liso por defecto; nunca regenera la imagen, nunca toca una slide `Clip` ni una pieza con
+hook de video Kling (pedido en el borrador o ya aplicado). Solo actúa si faltan al menos 30 minutos
+para la hora de la pieza; si algo falla, queda el render original y avisa por Telegram. El registro
+queda en `visual.json → <id>.correccion` (aplicada, fallida u omitida, con las slides) y el conteo
+en `bucle.json → visual.correcciones` (por semana y total). Para encenderla basta un `git pull` en
+`Carrusel-render`; el bot no cambia. La regla `revision-visual-fase3` ya está en
+`kb-plantilla/_calendario/reglas.json` con `"pendiente": true` y un `desde` provisional
+(2026-11-09): mientras siga pendiente, el bucle no la mide ni la cuenta como simultánea de otras.
+El día que la enciendas, en esa entrada quita `"pendiente": true` y pon en `desde` ese día
+(AAAA-MM-DD), en la plantilla, en su fila de `test/calendario/reglas.ts` y en el
+`_calendario/reglas.json` de la base, que es el que mide el bucle.
+
+Nombres nuevos, sin mezcla: la versión corregida se sube con un sufijo de versión en la misma
+carpeta del servidor (`01.jpg` → `01-c1.jpg`, `reel.mp4` → `reel-c1.mp4`, `cover-c1.jpg`,
+`story-c1.jpg`). rsync va sin `--delete`, así que los archivos originales siguen ahí, intactos.
+Solo después de verificar la subida se reescribe render.json con los nombres nuevos. El bot
+publica lo que diga render.json: una publicación que ya leyó el render.json viejo (por ejemplo,
+un `/publicar` que el Mac no ve) usa los archivos viejos, todos coherentes, y una posterior usa
+los nuevos. Si la subida termina sin los 30 minutos de margen, render.json no se reescribe, se
+publica el original y la corrección queda `omitida`. Los archivos corregidos que no se usan
+(una subida fallida u omitida) quedan en el servidor sin uso: la limpieza de medios del bot borra
+la carpeta entera 7 días después de publicar. Un render fresco posterior (`procesar`) vuelve a
+los nombres estándar. Riesgo residual, sin cambiar el bot: el bot arma las URLs desde render.json
+en cada intento, así que si la creación de los hijos de un carrusel se corta y se reintenta justo
+cuando llega el render.json nuevo, los hijos pendientes saldrían de la versión nueva; y la story,
+que sale después del post, usa la versión que diga render.json en ese momento.
+
+Orden en cada corrida del Mac: tras tomar el candado y leer las semanas, primero se deshacen los
+restos de una corrección cortada (`<id>.prev-*`: se restaura el original en el Mac; no se sube
+nada porque el servidor nunca perdió los originales), luego `procesar`, la revisión y la
+corrección. Las candidatas se corrigen por hora, la más próxima primero, con un tope de 3
+re-renders por corrida (las demás quedan para la próxima). Cada corrección aplicada sube su render.json en el acto (el bot manda un preview
+nuevo de la versión corregida). El re-render nunca gasta en APIs: si un fondo ai que conserva no está en `.cache/ai/`
+(o en `CARRUSEL_AI_CACHE_DIR`), la corrección queda `fallida` («fondo ai sin caché: no se
+regenera») y nunca llama a gpt-image-1; en un reel con voz, si alguna línea de la narración no
+está en `.cache/voz/` (o en `CARRUSEL_VOZ_CACHE_DIR`), queda `fallida` («voz sin caché: no se
+regenera») y no vuelve a narrar.
+
 **Probar sin publicar.** Pon `CALENDARIO_MODO=aviso` y aplica con `docker compose up -d`: el bot hace todo
 (previews, programación, avisos) menos los POST a Meta. Cuando se vea bien, cambia a `auto`.
 

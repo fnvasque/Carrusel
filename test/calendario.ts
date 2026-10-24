@@ -19,6 +19,7 @@ import "./calendario/corpus.ts";
 import "./calendario/visual.ts";
 import "./calendario/cuadros-visuales.ts";
 import "./calendario/revisor-visual.ts";
+import "./calendario/correccion-fondos.ts";
 import "./calendario/revision-fondos.ts";
 
 await done();

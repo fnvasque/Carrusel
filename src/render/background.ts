@@ -14,8 +14,8 @@ const BRAND_IMAGE_STYLE =
   "accent light on the subject, high contrast, minimalist composition, generous negative " +
   "space for text, shallow depth of field, photoreal, no text, no watermark";
 
-/** Anexa el estilo de marca al prompt, salvo que `brandStyle` sea false. */
-function applyBrandStyle(prompt: string, enabled?: boolean): string {
+/** Anexa el estilo de marca al prompt, salvo que `brandStyle` sea false. Exportada para los tests (clave de la caché `.cache/ai/`). */
+export function applyBrandStyle(prompt: string, enabled?: boolean): string {
   return enabled === false ? prompt : `${prompt}, ${BRAND_IMAGE_STYLE}`;
 }
 

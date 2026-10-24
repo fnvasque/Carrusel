@@ -10,7 +10,7 @@ import { localParts } from "./time.ts";
 
 export type TipoHallazgo = "tilde" | "puntuacion" | "transicion" | "numero-solo" | "zona" | "fondo-compite" | "fondo-ajeno";
 
-export interface VeredictoImagen { n: number; que: string; compite: boolean; ajeno: boolean; frase: string }
+export interface VeredictoImagen { n: number; que: string; /** Índice (desde 0) de la slide o escena del cuadro; ausente en veredictos antiguos. */ slide?: number; compite: boolean; ajeno: boolean; frase: string }
 
 export interface RevisionPieza {
   en: string;
@@ -26,7 +26,11 @@ export interface RevisionPieza {
   usdEstimado?: true;
 }
 
+/** Lo que hizo la fase 3 con la pieza: `en` es la fecha ISO; `slides` los índices que se re-renderizaron con fondo liso. */
+export interface CorreccionPieza { en: string; estado: "aplicada" | "fallida" | "omitida"; slides: number[]; motivo?: string }
+
 export interface VisualPieza {
+  correccion?: CorreccionPieza;
   revisor?: RevisionPieza;
   /** Revisiones fallidas sin veredicto (sin costo o con costo estimado); al llegar al tope se anota «sin revisar». */
   intentos?: number;
@@ -76,6 +80,12 @@ export async function leerVisual(semana: string): Promise<VisualJson> {
     if ("fase1" in pieza && !Array.isArray(pieza.fase1)) delete pieza.fase1;
     if ("revisor" in pieza && !(esObjeto(pieza.revisor) && Array.isArray(pieza.revisor.imagenes))) delete pieza.revisor;
     if ("intentos" in pieza && !(Number.isInteger(pieza.intentos) && (pieza.intentos as number) >= 0)) delete pieza.intentos;
+    if ("correccion" in pieza) {
+      const c = pieza.correccion;
+      const ok = esObjeto(c) && typeof c.en === "string" && (c.estado === "aplicada" || c.estado === "fallida" || c.estado === "omitida") &&
+        Array.isArray(c.slides) && c.slides.every((x) => Number.isInteger(x) && (x as number) >= 0) && (c.motivo === undefined || typeof c.motivo === "string");
+      if (!ok) delete pieza.correccion;
+    }
     out[k] = pieza;
   }
   return out as VisualJson;
@@ -123,11 +133,15 @@ export function cupo(pres: PresupuestoSemana | undefined, pedidas: number): { im
   return { imagenes: n };
 }
 
+/** Correcciones de la fase 3 por estado (`visual.json → <id>.correccion.estado`). */
+export interface ConteoCorrecciones { aplicadas: number; fallidas: number; omitidas: number }
+
 export interface ResumenVisual {
-  porSemana: { semana: string; avisos: number; respondidos: number; aciertos: number; precision?: number }[];
+  /** `correcciones` solo aparece si la semana tiene al menos una (como `precision` solo con respondidos). */
+  porSemana: { semana: string; avisos: number; respondidos: number; aciertos: number; precision?: number; correcciones?: ConteoCorrecciones }[];
   /** tipo → semana → casos. */
   porTipo: Record<string, Record<string, number>>;
-  total: { avisos: number; respondidos: number; aciertos: number; precision?: number };
+  total: { avisos: number; respondidos: number; aciertos: number; precision?: number; correcciones?: ConteoCorrecciones };
   alertas: string[];
   propuestas: string[];
 }
@@ -141,9 +155,12 @@ function diaLocal(iso: string): string | undefined {
 const r2 = (x: number): number => Math.round(x * 100) / 100;
 const conPrecision = (avisos: number, respondidos: number, aciertos: number) => ({ avisos, respondidos, aciertos, ...(respondidos > 0 ? { precision: r2(aciertos / respondidos) } : {}) });
 
+const conCorrecciones = (c: ConteoCorrecciones): { correcciones?: ConteoCorrecciones } => (c.aplicadas + c.fallidas + c.omitidas > 0 ? { correcciones: c } : {});
+
 /**
  * Precisión del revisor visual («Tenía razón» entre los avisos respondidos), hallazgos por tipo y semana,
- * alertas (un tipo de fase 1 reaparece desde `desdeFase1`) y propuestas (tipo `fondo-*` repetido).
+ * alertas (un tipo de fase 1 reaparece desde `desdeFase1`), propuestas (tipo `fondo-*` repetido) y
+ * correcciones de la fase 3 por estado (las entradas mal formadas no cuentan).
  */
 export function resumenVisual(semanas: { semana: string; visual: VisualJson; respuestas: RespuestaVisual[] }[], desdeFase1?: string): ResumenVisual {
   const porTipo: Record<string, Record<string, number>> = {};
@@ -161,9 +178,16 @@ export function resumenVisual(semanas: { semana: string; visual: VisualJson; res
       if (!previa || r.en >= previa.en) ultima.set(k, r);
     }
     let avisos = 0, respondidos = 0, aciertos = 0;
+    const corr: ConteoCorrecciones = { aplicadas: 0, fallidas: 0, omitidas: 0 };
     for (const [id, pieza] of Object.entries(visual)) {
       if (id === "_presupuesto" || !pieza || typeof pieza !== "object") continue;
       const p = pieza as VisualPieza;
+      const c = (p as { correccion?: unknown }).correccion;
+      if (esObjeto(c)) {
+        if (c.estado === "aplicada") corr.aplicadas++;
+        else if (c.estado === "fallida") corr.fallidas++;
+        else if (c.estado === "omitida") corr.omitidas++;
+      }
       if (p.revisor?.estado === "revisado" && Array.isArray(p.revisor.imagenes)) {
         for (const img of p.revisor.imagenes) {
           if (!esObjeto(img) || typeof img.compite !== "boolean" || typeof img.ajeno !== "boolean" || !Number.isInteger(img.n)) continue;
@@ -183,9 +207,11 @@ export function resumenVisual(semanas: { semana: string; visual: VisualJson; res
         if (desdeFase1 && (diaLocal(h.en) ?? "") >= desdeFase1) alertasPorTipo[h.tipo] = (alertasPorTipo[h.tipo] ?? 0) + 1;
       }
     }
-    porSemana.push({ semana, ...conPrecision(avisos, respondidos, aciertos) });
+    porSemana.push({ semana, ...conPrecision(avisos, respondidos, aciertos), ...conCorrecciones(corr) });
   }
   const suma = (k: "avisos" | "respondidos" | "aciertos"): number => porSemana.reduce((a, s) => a + s[k], 0);
+  const sumaCorr = (k: keyof ConteoCorrecciones): number => porSemana.reduce((a, s) => a + (s.correcciones?.[k] ?? 0), 0);
+  const totalCorr = { aplicadas: sumaCorr("aplicadas"), fallidas: sumaCorr("fallidas"), omitidas: sumaCorr("omitidas") };
   const alertas = Object.entries(alertasPorTipo).map(([tipo, n]) => `el motor volvió a fallar en ${tipo} (${n} casos desde ${desdeFase1}): revisar el código`);
   const propuestas: string[] = [];
   for (const [tipo, sem] of Object.entries(porTipo)) {
@@ -194,5 +220,5 @@ export function resumenVisual(semanas: { semana: string; visual: VisualJson; res
     const k = Object.keys(sem).length;
     if (n >= 3 && k >= 2) propuestas.push(`proponer regla en aprendizajes.md: ${tipo} (${n} casos en ${k} semanas)`);
   }
-  return { porSemana, porTipo, total: conPrecision(suma("avisos"), suma("respondidos"), suma("aciertos")), alertas, propuestas };
+  return { porSemana, porTipo, total: { ...conPrecision(suma("avisos"), suma("respondidos"), suma("aciertos")), ...conCorrecciones(totalCorr) }, alertas, propuestas };
 }
