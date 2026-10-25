@@ -105,7 +105,7 @@ export function parsePace(value: unknown, origin = "--pace"): Pace {
  * citas, mito/realidad, el dato de Stat (valor, etiqueta, contexto) y el
  * prompt copiable.
  */
-const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
+export const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
 
 /**
  * Tope (s) de la escena 0 (hook) en `ensenar`: la promesa llega en 3 s y se
@@ -308,6 +308,37 @@ export interface SpecTimingOptions {
    * la escena dura al menos lo que se tarda en decirla (`conNarracion`).
    */
   narracion?: (number | undefined)[];
+  /**
+   * Ritmo de lectura (la puerta del calendario): las escenas narradas duran
+   * también lo que se tarda en leer su texto, el mismo piso que exige el QA.
+   */
+  lectura?: Lectura;
+}
+
+/** Ritmo de lectura: palabras por segundo y piso (s) de cualquier escena. */
+export interface Lectura {
+  palabrasPorSegundo: number;
+  minSegundos: number;
+}
+
+/** Palabras visibles de una escena (las de TEXT_KEYS), las que cuenta el QA de lectura. */
+export function palabrasDeLectura(props: Record<string, unknown>): number {
+  let n = 0;
+  for (const k of TEXT_KEYS) {
+    const v = props[k];
+    const texto = typeof v === "string" ? v : Array.isArray(v) ? v.filter((x) => typeof x === "string").join(" ") : "";
+    n += texto.split(/\s+/).filter(Boolean).length;
+  }
+  return n;
+}
+
+/**
+ * Segundos para leer una escena: max(minS, palabras ÷ wps), redondeado hacia
+ * arriba al centésimo para que la escena nunca quede bajo el piso del QA.
+ */
+export function segundosDeLectura(props: Record<string, unknown>, wps: number, minS: number): number {
+  const s = Math.max(minS, wps > 0 ? palabrasDeLectura(props) / wps : 0);
+  return Math.ceil(+(s * 100).toFixed(6)) / 100;
 }
 
 /** Segundos que se suman a una narración (entrada de la escena + silencio final) para fijar su escena. */
@@ -331,5 +362,15 @@ export function conNarracion(durations: number[], narracion?: (number | undefine
 /** Tiempos del reel de un carrusel: resuelve el ritmo y aplica los overrides. */
 export function specTiming(spec: CarouselSpec, opts: SpecTimingOptions = {}): ReelTiming {
   const pace = specPace(spec, opts.pace);
-  return reelTiming(conNarracion(specDurations(spec, opts.seconds, pace), opts.narracion), opts.fade, pace);
+  let durations = conNarracion(specDurations(spec, opts.seconds, pace), opts.narracion);
+  const { lectura, narracion } = opts;
+  if (lectura && narracion) {
+    // Con voz la escena dura lo que se tarda en decirla, que puede ser menos que lo que se tarda en leerla.
+    durations = durations.map((d, i) => {
+      if (narracion[i] === undefined) return d;
+      const props = { ...spec.defaults, ...spec.slides[i].props } as Record<string, unknown>;
+      return Math.max(d, segundosDeLectura(props, lectura.palabrasPorSegundo, lectura.minSegundos));
+    });
+  }
+  return reelTiming(durations, opts.fade, pace);
 }

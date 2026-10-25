@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { check, done } from "./_check.ts";
-import { conNarracion, NARRACION_MARGEN, reelTiming, specTiming } from "../src/reel/timing.ts";
+import { conNarracion, NARRACION_MARGEN, reelTiming, segundosDeLectura, specTiming } from "../src/reel/timing.ts";
+import { tiemposDeLectura } from "../src/calendario/qa.ts";
 import { ffmpegArgs, GANANCIA_VOZ, MUSICA_BAJO_VOZ } from "../src/reel/capture.ts";
 import { inicioVoces, VOZ_ENTRADA } from "../src/reel/renderReel.ts";
 import { parseVoz, segundosEstimados, VOCES, VOZ_DEFECTO } from "../src/reel/voz.ts";
@@ -43,6 +44,30 @@ check("specTiming: con narracion el hook se pasa de su tope de 3 s y el total cr
   assert.equal(con.scenes[1].dur, +(6.0 + NARRACION_MARGEN).toFixed(2));
   assert.equal(con.scenes[2].dur, sin.scenes[2].dur, "la escena sin voz no cambia");
   assert.ok(con.total > sin.total);
+});
+
+check("specTiming: con lectura la escena narrada dura también su tiempo de lectura y pasa el QA", () => {
+  // Caso del reel del lunes 2026-10-26: prompt + respuesta suman 22 palabras y la voz dura 7,75 s.
+  const lunes: CarouselSpec = {
+    ...spec,
+    slides: [
+      spec.slides[0],
+      { template: Screen, props: { app: "Claude", prompt: "Resume esta planilla para mi gerente. Revisa cada cifra y dime cuál no aparece.", respuesta: "La de devoluciones no está en la planilla.", narracion: "Subes la planilla." } },
+      spec.slides[2],
+    ],
+  };
+  const narracion = [4.2, 7.75, undefined];
+  const soloVoz = specTiming(lunes, { narracion });
+  assert.equal(soloVoz.scenes[1].dur, 8.5);
+  assert.equal(tiemposDeLectura(lunes, 2.5, 1.5, soloVoz.scenes.map((s) => s.dur)).length, 1, "sin lectura, el QA la rechaza");
+  const con = specTiming(lunes, { narracion, lectura: { palabrasPorSegundo: 2.5, minSegundos: 1.5 } });
+  assert.equal(con.scenes[1].dur, 8.8, "22 palabras ÷ 2,5");
+  assert.deepEqual(tiemposDeLectura(lunes, 2.5, 1.5, con.scenes.map((s) => s.dur)), []);
+  assert.equal(con.scenes[0].dur, soloVoz.scenes[0].dur, "la voz larga sigue mandando en el hook");
+  assert.equal(con.scenes[2].dur, soloVoz.scenes[2].dur, "la escena sin voz no cambia");
+  // Redondeo hacia arriba: 7 palabras a 3 por segundo son 2,333… s y la escena no puede quedar en 2,33.
+  assert.ok(segundosDeLectura({ text: "uno dos tres cuatro cinco seis siete" }, 3, 0) >= 7 / 3);
+  assert.equal(segundosDeLectura({ text: "hola" }, 2.5, 1.5), 1.5, "piso mínimo");
 });
 
 check("inicioVoces: cada voz empieza con su escena (+ media transición salvo la 0) + VOZ_ENTRADA", () => {

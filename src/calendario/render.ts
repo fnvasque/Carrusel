@@ -733,7 +733,7 @@ export async function renderPieza(
     if (exceso) throw new ErrorContenido([exceso]);
     let r: Awaited<ReturnType<typeof renderReelResult>>;
     try {
-      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz, revision: "bloquear" });
+      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz, revision: "bloquear", lectura: { palabrasPorSegundo: opts.puerta.lecturaPalabrasPorSegundo, minSegundos: opts.puerta.lecturaMinSegundos } });
     } catch (e) {
       // Con narración las escenas se alargan: pasarse del tope es un problema del borrador, no del Mac.
       if (e instanceof Error && /duracionMaxSegundos/.test(e.message)) throw new ErrorContenido([e.message]);
