@@ -158,8 +158,9 @@ y la promesa completa en 3 s. El espacio extra es para el medio:
   esos 2 puntos y no cabe en 35 s.
 
 **Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
-`context`, `myth`, `reality` y `note` llegan a `cuerpoMaxPalabrasCarrusel`
-(50); títulos y bullets siguen en 12. Son la pieza densa de la semana: el
+`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); títulos y bullets
+siguen en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
+mayúscula y van en ≤ 14 palabras cada uno (ver «Mito contra realidad»). Son la pieza densa de la semana: el
 porqué, el matiz del estudio, un ejemplo de trabajo.
 
 - **Mal:** «Preguntas 1 y 2: objetivo y límites» con bullets «¿Qué quieres y
@@ -168,6 +169,22 @@ porqué, el matiz del estudio, un ejemplo de trabajo.
 - **Bien:** mismo título y bullets, más `body`: «Es el encargo que propone
   Ethan Mollick (Wharton): lo mismo que le pedirías a alguien nuevo del
   equipo. Qué quieres y para qué, y qué puede decidir sin preguntarte.»
+
+## 8. Mito contra realidad: una creencia contra un dato
+
+`MythReality` enfrenta lo que la gente cree con el dato que lo desmiente, y
+dibuja los dos como titular en mayúscula (≤ 14 palabras cada uno). No sirve para
+«lo que pides contra lo que sale»: el pedido sale tachado, como si pedir fuera
+el error.
+
+- **Mal:** `myth` con el pedido a la IA y `reality` con 26 palabras de lo que
+  sale (mar 2026-10-27, «tu correo en tres líneas»). El pedido salió tachado y
+  la «realidad» era un bloque en mayúscula: no se entendía qué era lo falso.
+- **Bien:** dos `Screen`: «Escribe un correo sobre el cambio de turnos» con su
+  respuesta vaga, y después el pedido con quién eres, para qué y el estilo, con
+  su respuesta. El lector ve la diferencia sin que se la expliques.
+- **Bien (mito):** `myth` «Hay que saber editar audio», `reality` «NotebookLM lo
+  arma solo».
 
 ## Pieza completa: antes y después
 

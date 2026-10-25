@@ -37,6 +37,7 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["publico-profesional-ia", "2026-10-26"], ["lector-novedad-p8", "2026-10-26"], ["hook-juez", "2026-10-26"], ["guia-redaccion", "2026-10-26"],
     ["reel-35s", "2026-10-26"], ["carrusel-denso", "2026-10-26"], ["series-publico-profesional", "2026-10-26"],
     ["hook-umbral-7", "2026-10-26"], ["lector-prisa-p8-nb", "2026-10-26"], ["promesas-y-tope-juez", "2026-10-26"], ["investigacion-alcance-y-listas", "2026-10-26"],
+    ["mito-realidad-corto", "2026-10-26"],
     ["revision-visual-fase1", "2026-10-23"],
     ["revision-visual-fase2", "2026-10-23"],
     ["revision-visual-fase3", "2026-11-09"],
