@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { highlightText } from "./highlight.tsx";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { MonoLabel } from "./ui.tsx";
 import { fitDisplaySize, displayLineHeight } from "./fit.ts";
 import type { BaseSlideProps } from "./types.ts";
@@ -26,7 +26,7 @@ export interface ClipProps extends BaseSlideProps {
  */
 export function Clip({ title, highlight, label, archivo, accent, format, ...base }: ClipProps) {
   const lime = accent ?? theme.colors.accent;
-  const size = fitDisplaySize(title, 150, { maxLines: 3, tight: true, keep: [highlight] });
+  const size = fitDisplaySize(title, 150, { maxLines: 3, tight: true, keep: frasesNowrap(highlight) });
   return (
     <Frame format={format} {...base}>
       <div data-clip={archivo} style={{ display: "flex", flexDirection: "column", justifyContent: "flex-start", flex: 1, gap: 28, paddingTop: 120 }}>

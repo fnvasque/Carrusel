@@ -94,6 +94,52 @@ try {
   await caso("zona: en post (no reel) no se revisa", async () => {
     assert.deepEqual(await revisar(abajo(""), false), []);
   });
+  const reelDe = async (offline: CarouselSpec, timing: ReturnType<typeof specTiming>) => {
+    const p = await browser.newPage({ viewport: FORMATS.reel, deviceScaleFactor: 1 });
+    try {
+      await p.setContent(await buildReelPage(offline, timing), { waitUntil: "load" });
+      await p.waitForFunction(() => (window as any).__reelReady === true);
+      return await revisarReel(p, timing);
+    } finally {
+      await p.close();
+    }
+  };
+  // Lados (post y reel): carrusel del martes 2026-10-27, «¿ESTO LO ESCRIBIÓ LA IA?» en nowrap se salía por la derecha.
+  await caso("lados: frase en nowrap que sale por la derecha (post) da hallazgo zona", async () => {
+    const h = await revisar(h2(`ESTO ES <span style="white-space:nowrap">UNA FRASE LARGUÍSIMA QUE NO CABE</span> YA`));
+    assert.equal(tipos(h, "zona").length, 1, JSON.stringify(h));
+    assert.match(h[0].motivo, /sale por el costado/);
+  });
+  await caso("lados: texto recortado en su caja (overflow hidden) da hallazgo zona", async () => {
+    const h = await revisar(`<p style="margin:200px 96px;width:300px;overflow:hidden;white-space:nowrap;font-family:Inter;font-size:48px;color:#fff">Un texto que no cabe en su caja</p>`);
+    assert.equal(tipos(h, "zona").length, 1, JSON.stringify(h));
+    assert.match(h[0].motivo, /se recorta/);
+  });
+  await caso("lados: texto que cabe dentro del margen no da hallazgo (post y reel)", async () => {
+    assert.deepEqual(await revisar(h2("SEEDANCE, MISMO")), []);
+    assert.deepEqual(await revisar(h2("SEEDANCE, MISMO"), true), []);
+  });
+  for (const format of ["post", "reel"] as const) {
+    await caso(`lados: Hook real «¿Esto lo escribió la IA?» (${format}) queda dentro del margen, sin hallazgos`, async () => {
+      const markup = renderToStaticMarkup(createElement(Hook as any, { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", format, background: { color: "#06060A" } }));
+      const h = await revisar(markup, format === "reel");
+      assert.deepEqual(h, [], JSON.stringify(h));
+      const lados = await page.evaluate(() => {
+        const h1 = document.querySelector("h1")!;
+        const r = document.createRange();
+        r.selectNodeContents(h1);
+        const b = r.getBoundingClientRect();
+        return { izq: b.left, der: b.right, texto: h1.innerText.replace(/\s+/g, " ") };
+      });
+      assert.ok(lados.izq >= 60 && lados.der <= 1080 - 60, JSON.stringify(lados));
+      assert.match(lados.texto, /LA IA\?/i);
+    });
+  }
+  await caso("lados: Hook real «¿Esto lo escribió la IA?» en el reel animado no da zona", async () => {
+    const spec = { name: "t", slides: [{ template: Hook, props: { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", background: { color: "#06060A" } } }, { template: Step, props: { step: "01", heading: "Pide tres líneas", highlight: "tres líneas", body: "Corto." } }] } as unknown as CarouselSpec;
+    const h = await reelDe(spec, specTiming(spec));
+    assert.deepEqual(tipos(h, "zona"), [], JSON.stringify(h));
+  });
   const fixture = (n: string) => parseBorrador(readFileSync(new URL(`./fixtures/revision-visual/${n}.json`, import.meta.url), "utf8"));
   const flat = (props: Record<string, any>) => (props.background && "ai" in props.background ? { ...props, background: { color: "#06060A" } } : props);
   const renderSlide = (spec: CarouselSpec, i: number, format: "post" | "reel") =>
@@ -121,16 +167,6 @@ try {
       await p.close();
     }
   });
-  const reelDe = async (offline: CarouselSpec, timing: ReturnType<typeof specTiming>) => {
-    const p = await browser.newPage({ viewport: FORMATS.reel, deviceScaleFactor: 1 });
-    try {
-      await p.setContent(await buildReelPage(offline, timing), { waitUntil: "load" });
-      await p.waitForFunction(() => (window as any).__reelReady === true);
-      return await revisarReel(p, timing);
-    } finally {
-      await p.close();
-    }
-  };
   await caso("transición: kling-vs-seedance no da hallazgos de transicion", async () => {
     const b = fixture("vie-pm-reel-kling-vs-seedance");
     const spec = borradorASpec(b, { format: "reel" });

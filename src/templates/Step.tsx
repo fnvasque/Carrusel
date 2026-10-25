@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { highlightText } from "./highlight.tsx";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight, tieneAcento } from "./fit.ts";
 import { Card, CheckCircle } from "./ui.tsx";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
@@ -79,8 +79,8 @@ function gapNumero(heading: string, headingSize: number): number {
 
 /** Alto estimado del bloque completo a una escala. */
 function stepHeight(sc: StepScale, p: { step?: string; heading: string; highlight?: string; body?: string; bullets?: string[] }, tight: boolean): number {
-  const headingSize = fitDisplaySize(p.heading, sc.headingMax, { maxLines: 2, tight, keep: [p.highlight] });
-  let h = antonHeight(p.heading, headingSize, displayLineHeight(p.heading, 1.0), undefined, tight, [p.highlight]);
+  const headingSize = fitDisplaySize(p.heading, sc.headingMax, { maxLines: 2, tight, keep: frasesNowrap(p.highlight) });
+  let h = antonHeight(p.heading, headingSize, displayLineHeight(p.heading, 1.0), undefined, tight, frasesNowrap(p.highlight));
   if (p.step) h += sc.number * 0.9 + gapNumero(p.heading, headingSize);
   const bullets = p.bullets ?? [];
   if (!p.body && bullets.length === 0) return h;
@@ -107,7 +107,7 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
   const hasBullets = !!bullets && bullets.length > 0;
   const hasCard = !!body || hasBullets;
   const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, body, bullets }, format === "reel"), contentHeight(format, base.source, base.narracion), format, STEP_REEL_FILL);
-  const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: format === "reel", keep: [highlight] });
+  const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 2, tight: format === "reel", keep: frasesNowrap(highlight) });
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: sc.blockGap }}>

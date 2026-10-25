@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { Page } from "playwright";
-import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP } from "../templates/layout.ts";
+import { MARGEN_LATERAL, REEL_SAFE_BOTTOM, REEL_SAFE_TOP } from "../templates/layout.ts";
 
 /**
  * Revisión visual del render: mira el DOM ya pintado en Chromium y devuelve
@@ -53,8 +53,12 @@ export interface InstanteDom {
 
 /** Opciones de `window.__revisarVisual`. `contexto` es un texto o uno por escena (índice = escena). */
 export interface OpcionesDom {
-  comprobar: ("tilde" | "puntuacion" | "zona")[];
+  comprobar: ("tilde" | "puntuacion" | "zona" | "lados")[];
   zona?: { arriba: number; abajo: number };
+  /** Margen lateral (px) para "lados": texto que sale por un costado o se recorta en su caja (tipo "zona"). */
+  lados?: number;
+  /** Ancho del lienzo (por defecto innerWidth). */
+  ancho?: number;
   contexto?: string | string[];
 }
 
@@ -72,15 +76,17 @@ export async function inyectarRevision(page: Page): Promise<void> {
 }
 
 /**
- * Revisa el instante actual de la página: tilde y puntuación siempre; zona
- * segura solo en reel (`REEL_SAFE_TOP` arriba, `REEL_SAFE_BOTTOM` abajo).
+ * Revisa el instante actual de la página: tilde, puntuación y lados
+ * (`MARGEN_LATERAL`, texto que sale por un costado o se recorta) siempre; zona
+ * segura vertical solo en reel (`REEL_SAFE_TOP` arriba, `REEL_SAFE_BOTTOM` abajo).
  * `contexto` va en cada motivo (p. ej. «slide 1 (Cta)»).
  */
 export async function revisarPagina(page: Page, contexto: string, opts: { reel: boolean; altura: number }): Promise<Hallazgo[]> {
   await inyectarRevision(page);
   const dom: OpcionesDom = {
-    comprobar: opts.reel ? ["tilde", "puntuacion", "zona"] : ["tilde", "puntuacion"],
+    comprobar: opts.reel ? ["tilde", "puntuacion", "zona", "lados"] : ["tilde", "puntuacion", "lados"],
     zona: { arriba: REEL_SAFE_TOP, abajo: REEL_SAFE_BOTTOM },
+    lados: MARGEN_LATERAL,
     contexto,
   };
   const r = await page.evaluate(

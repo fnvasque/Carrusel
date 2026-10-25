@@ -12,6 +12,7 @@ import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
 import { readFileSync } from "node:fs";
 import { pillContent } from "../src/templates/Cta.tsx";
+import { frasesNowrap } from "../src/templates/highlight.tsx";
 import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
@@ -753,6 +754,31 @@ check("layout: la fuente al pie reserva su alto real y Step/Stat se ajustan al �
 check("highlight: la puntuación pegada no se separa de la palabra clave", () => {
   const h = renderToStaticMarkup(createElement(Hook, { title: "Narra gratis, sin salir", highlight: "gratis" }));
   assert.match(h, /<span style="white-space:nowrap"><span data-anim="pop"[^>]*>gratis<\/span>,<\/span>/);
+});
+
+// Carrusel del martes 2026-10-27: el highlight de varias palabras iba entero en un nowrap y
+// «¿ESTO LO ESCRIBIÓ LA IA?» se salía por la derecha (se leía «¿ESTO LO ESCRIBIÓ»).
+check("highlight: varias palabras → un pop por palabra, sin nowrap de la frase entera", () => {
+  const h = renderToStaticMarkup(createElement(Hook, { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?" }));
+  const pops = [...h.matchAll(/<span data-anim="pop"[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
+  assert.deepEqual(pops, ["¿Esto", "lo", "escribió", "la", "IA?"]);
+  // Ningún span nowrap contiene un espacio (la línea puede partirse entre palabras).
+  for (const m of h.matchAll(/<span[^>]*white-space:nowrap[^>]*>(.*?)<\/span>/g)) assert.doesNotMatch(m[1].replace(/<[^>]*>/g, ""), /\s/, m[0]);
+  for (const format of ["post", "reel"] as const) {
+    const r = renderToStaticMarkup(createElement(Hook, { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", format }));
+    assert.equal((r.match(/data-anim="pop"/g) ?? []).length, 5, format);
+  }
+});
+check("highlight: varias palabras con puntuación pegada → la puntuación va con la última", () => {
+  const h = renderToStaticMarkup(createElement(Hook, { title: "Narra y subtitula gratis, sin salir", highlight: "subtitula gratis" }));
+  assert.match(h, /<span data-anim="pop"[^>]*>subtitula<\/span> <span style="white-space:nowrap"><span data-anim="pop"[^>]*>gratis<\/span>,<\/span>/);
+});
+check("frasesNowrap: el resaltado solo cuenta como bloque si es una palabra; el mark siempre", () => {
+  assert.deepEqual(frasesNowrap("gratis", "tu PC"), ["gratis", "tu PC"]);
+  assert.deepEqual(frasesNowrap("¿Esto lo escribió la IA?", undefined), [undefined, undefined]);
+  // Con la frase pegada, el titular del reel se achicaba como si no pudiera partirse.
+  const t = "¿Esto lo escribió la IA? Que tu equipo no lo piense";
+  assert.ok(fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: frasesNowrap("¿Esto lo escribió la IA?") }) >= fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: ["¿Esto lo escribió la IA?"] }));
 });
 
 check("plantillas: formato post sin capa bg ni strike", () => {

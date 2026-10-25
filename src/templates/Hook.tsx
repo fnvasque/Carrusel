@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { highlightText } from "./highlight.tsx";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, pickFill, CHAR_EM } from "./layout.ts";
 import { MonoLabel } from "./ui.tsx";
@@ -58,7 +58,7 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
   // Reel: bloque centrado y más grande; el titular toma el mayor tamaño (hasta
   // 220 px, ≤ 6 líneas) con el que el bloque llena el área útil sin desbordar.
   const subSize = reel ? 52 : 44;
-  const reelTitle = (max: number) => fitDisplaySize(title, max, { maxLines: 6, tight: true, keep: [highlight, mark] });
+  const reelTitle = (max: number) => fitDisplaySize(title, max, { maxLines: 6, tight: true, keep: frasesNowrap(highlight, mark) });
   const titleFont =
     titleSize ??
     (reel
@@ -68,7 +68,7 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
             (conResultado ? [150, 140, 130, 120, 110, 100] : [220, 208, 196, 184, 172, 160, 148, 136]),
             (m) => {
               const s = reelTitle(m);
-              let h = antonHeight(title, s, displayLineHeight(title, 0.98), undefined, true, [highlight, mark]) + cardH;
+              let h = antonHeight(title, s, displayLineHeight(title, 0.98), undefined, true, frasesNowrap(highlight, mark)) + cardH;
               if (eyebrow) h += 34 + 36;
               if (subtitle) h += 36 + interHeight(subtitle, subSize, 820, 1.3);
               return h;

@@ -1,14 +1,14 @@
 import type { Page } from "playwright";
 import type { ReelTiming } from "./timing.ts";
 import { inyectarRevision, unicos, type Hallazgo, type InstanteDom, type OpcionesDom, type TextoDom } from "../render/revision.ts";
-import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP } from "../templates/layout.ts";
+import { MARGEN_LATERAL, REEL_SAFE_BOTTOM, REEL_SAFE_TOP } from "../templates/layout.ts";
 import { FORMATS } from "../templates/types.ts";
 
 /**
  * Revisión visual del reel en el tiempo: recorre la timeline con
  * `__reel.seek` y lee el DOM en cada instante (sin capturas). La puntuación se
  * mira en todos los instantes (el espacio antes de la coma dura lo que crece
- * la palabra clave, ~0,3 s); tilde y zona solo en el estado final de cada
+ * la palabra clave, ~0,3 s); tilde, zona y lados solo en el estado final de cada
  * escena; el encime de la transición y el número de paso solo se sacan de la
  * serie completa con los agregadores puros.
  */
@@ -133,14 +133,14 @@ export async function serieReel(page: Page, timing: ReelTiming, instantes?: numb
   const finales = new Set(instantesFinales(timing));
   const pasos = (instantes ?? instantesRevision(timing)).map((t) => ({
     t,
-    comprobar: (finales.has(t) ? ["tilde", "puntuacion", "zona"] : ["puntuacion"]) as OpcionesDom["comprobar"],
+    comprobar: (finales.has(t) ? ["tilde", "puntuacion", "zona", "lados"] : ["puntuacion"]) as OpcionesDom["comprobar"],
   }));
   const plantillas = await page.evaluate(() =>
     Array.from(document.querySelectorAll("[data-scene]")).map((s) => s.getAttribute("data-plantilla") ?? "?"),
   );
   const contextos = plantillas.map((p, i) => `escena ${i + 1} (${p})`);
   const contexto = (i: number) => contextos[i] ?? `escena ${i + 1}`;
-  const opts = { zona: { arriba: REEL_SAFE_TOP, abajo: REEL_SAFE_BOTTOM }, contexto: contextos, altura: FORMATS.reel.height };
+  const opts = { zona: { arriba: REEL_SAFE_TOP, abajo: REEL_SAFE_BOTTOM }, lados: MARGEN_LATERAL, ancho: FORMATS.reel.width, contexto: contextos, altura: FORMATS.reel.height };
   const serie = await page.evaluate(
     ({ pasos, opts }) => (window as any).__revisarSerie(pasos, opts) as InstanteSerie[],
     { pasos, opts },

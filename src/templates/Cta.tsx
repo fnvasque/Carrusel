@@ -1,5 +1,5 @@
 import { Frame } from "./Frame.tsx";
-import { highlightText } from "./highlight.tsx";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
 import { BookmarkIcon, PillIcon, type PillIconName } from "./ui.tsx";
@@ -55,7 +55,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
           gap: Math.round(44 * Math.min(1.3, s)),
         })),
         (c) => {
-          let h = c.icon + c.gap + antonHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: true, keep: [highlight] }), displayLineHeight(title, 0.98), undefined, true, [highlight]);
+          let h = c.icon + c.gap + antonHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: true, keep: frasesNowrap(highlight) }), displayLineHeight(title, 0.98), undefined, true, frasesNowrap(highlight));
           if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
           return h + c.gap + c.pill * 1.2 + 44;
         },
@@ -75,7 +75,7 @@ export function Cta({ title, highlight, reason, handle, cta, ctaIcon, accent, fo
             margin: 0,
             fontFamily: theme.fonts.display,
             fontWeight: 400,
-            fontSize: fitDisplaySize(title, sc.title, { maxLines: 4, tight: reel, keep: [highlight] }),
+            fontSize: fitDisplaySize(title, sc.title, { maxLines: 4, tight: reel, keep: frasesNowrap(highlight) }),
             textWrap: "balance",
             lineHeight: displayLineHeight(title, 0.98),
             textTransform: "uppercase",
