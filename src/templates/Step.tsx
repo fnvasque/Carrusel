@@ -1,5 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText, frasesNowrap } from "./highlight.tsx";
+import { Parrafos, parrafosHeight } from "./parrafos.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight, tieneAcento } from "./fit.ts";
 import { Card, CheckCircle } from "./ui.tsx";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
@@ -86,7 +87,7 @@ function stepHeight(sc: StepScale, p: { step?: string; heading: string; highligh
   if (!p.body && bullets.length === 0) return h;
   const inner = CONTENT_WIDTH - 2 * sc.padX - 4;
   let card = 2 * sc.padY + 4;
-  if (p.body) card += interHeight(p.body, sc.body, inner, 1.4);
+  if (p.body) card += parrafosHeight(p.body, sc.body, inner, 1.4);
   if (p.body && bullets.length) card += 36;
   const textW = inner - sc.check - 28;
   bullets.forEach((b, i) => {
@@ -136,7 +137,7 @@ export function Step({ step, heading, highlight, body, bullets, accent, format =
         {hasCard && (
           <Card anim="rise" style={{ padding: `${sc.padY}px ${sc.padX}px`, display: "flex", flexDirection: "column", gap: 36 }}>
             {body && (
-              <p style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: sc.body, lineHeight: 1.4, color: theme.colors.textSoft, textWrap: "pretty" }}>{body}</p>
+              <Parrafos text={body} size={sc.body} style={{ fontFamily: theme.fonts.body, lineHeight: 1.4, color: theme.colors.textSoft, textWrap: "pretty" }} />
             )}
             {hasBullets && (
               <ul data-anim="stagger" style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: sc.gap }}>

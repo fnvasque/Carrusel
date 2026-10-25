@@ -186,6 +186,34 @@ el error.
 - **Bien (mito):** `myth` «Hay que saber editar audio», `reality` «NotebookLM lo
   arma solo».
 
+## 9. El ejemplo va en su propia línea
+
+Cuando un cuerpo trae un ejemplo entre «» (lo que se le escribe a la IA, una
+frase de muestra) y después su explicación, el ejemplo va primero y en su
+propia línea: el motor separa en su párrafo la cita «…» del inicio, y un `\n`
+explícito también parte el párrafo.
+
+- **Mal:** «Soy jefa de operaciones; el correo va a mis 12 supervisores.» y la
+  explicación en el mismo bloque, sin aire (mar 2026-10-27).
+- **Bien:** `body`: «Soy jefa de operaciones; el correo va a mis 12
+  supervisores.»`\n`La IA no conoce tu equipo: sin esto escribe para cualquiera.
+
+## 10. Lo que la IA responde en pantalla se podría enviar tal cual
+
+La `respuesta` de un `Screen` es la prueba de la pieza: el lector se pregunta
+si él la mandaría. Tiene que ser algo que un profesional de cargo medio enviaría
+sin tocar.
+
+- Si es un correo: asunto claro y concreto, saludo, cuerpo y cierre, con un `\n`
+  entre las partes. Un solo `\n`, sin líneas en blanco (`\n\n`): cada línea
+  vacía ocupa alto y, con el `prompt` y el `heading`, el `Screen` del post ya no
+  cabe sobre la fuente al pie. Respeta los topes de la regla 10 (`prompt` ≤ 30
+  palabras, `respuesta` ≤ 45).
+- Nada de «ojo», muletillas ni jerga juvenil; tono de trabajo, cordial y directo.
+- **Mal:** «Asunto: ojo, cambian los turnos» en un solo bloque (mar 2026-10-27).
+- **Bien:** «Asunto: Rotación de turnos desde el lunes`\n`Hola, equipo:`\n`Desde
+  el lunes los turnos rotan cada dos semanas.`\n`Gracias,`\n`Paula».
+
 ## Pieza completa: antes y después
 
 El reel «¿Cuándo no confiar en la IA? 1 regla» (jue 2026-10-22), reescrito
@@ -231,3 +259,11 @@ reescribe la escena; no lo dejes para el lector.
    porqué y el matiz.
 8. **Entregable**: al final, el lector tiene algo que hacer en su trabajo esta
    semana (una regla, un prompt con contexto, una forma de revisar).
+9. **Mito contra realidad**: `MythReality` solo enfrenta una creencia con un
+   dato (≤ 14 palabras cada uno); el antes y después de un pedido va con dos
+   `Screen`.
+10. **Ejemplos**: el ejemplo entre «» va en su propia línea, antes de su
+    explicación.
+11. **Respuesta en pantalla**: la `respuesta` del `Screen` se podría enviar tal
+    cual (asunto concreto, saludo, un `\n` entre asunto, cuerpo y cierre, sin
+    líneas en blanco; sin «ojo» ni muletillas).

@@ -164,7 +164,11 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    el usuario anotó en `## Mis notas`; nunca inventada. Reemplaza al `Prompt`
    cuando el entregable es un prompt: el espectador ve el prompt **y** el
    resultado. Motivo: en los reels anteriores la herramienta nunca aparecía
-   (regla 6 pedía nombrarla; ahora se muestra).
+   (regla 6 pedía nombrarla; ahora se muestra). La `respuesta` es algo que un profesional de
+   cargo medio enviaría tal cual: si es un correo, asunto claro y concreto,
+   saludo y cierre, con un `\n` entre las partes (sin líneas en blanco: en el
+   post no caben); sin «ojo», muletillas ni jerga
+   juvenil (ver `guia-redaccion.md`, «Lo que la IA responde en pantalla»).
 
 ## Paso 0 — Preparación
 

@@ -140,6 +140,21 @@ try {
     const h = await reelDe(spec, specTiming(spec));
     assert.deepEqual(tipos(h, "zona"), [], JSON.stringify(h));
   });
+  // Cuerpos en párrafos (carrusel 2026-10-27, slides 3 a 5): la cita «…» queda en su propio párrafo, con aire visible.
+  for (const format of ["post", "reel"] as const) {
+    await caso(`párrafos: Step con cita inicial (${format}) separa la cita de la explicación`, async () => {
+      const body = "«Soy jefa de operaciones; el correo va a mis 12 supervisores.» La IA no conoce tu equipo: sin esto escribe para cualquiera.";
+      const h = await revisar(renderToStaticMarkup(createElement(Step as any, { step: "1", heading: "Quién eres y quién lo lee", body, format, background: { color: "#06060A" } })), format === "reel");
+      assert.deepEqual(h, [], JSON.stringify(h));
+      const r = await page.evaluate(() => {
+        const ps = Array.from(document.querySelectorAll("[data-parrafos] > p")).map((p) => p.getBoundingClientRect());
+        const size = parseFloat(getComputedStyle(document.querySelector("[data-parrafos]")!).fontSize);
+        return { n: ps.length, aire: ps.length === 2 ? ps[1].top - ps[0].bottom : 0, size };
+      });
+      assert.equal(r.n, 2);
+      assert.ok(r.aire >= 0.4 * r.size, `aire entre párrafos ${r.aire} px (tamaño ${r.size})`);
+    });
+  }
   const fixture = (n: string) => parseBorrador(readFileSync(new URL(`./fixtures/revision-visual/${n}.json`, import.meta.url), "utf8"));
   const flat = (props: Record<string, any>) => (props.background && "ai" in props.background ? { ...props, background: { color: "#06060A" } } : props);
   const renderSlide = (spec: CarouselSpec, i: number, format: "post" | "reel") =>

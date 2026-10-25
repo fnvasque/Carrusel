@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip } from "../src/templates/index.ts";
+import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip, Screen } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
 import { theme } from "../src/theme.ts";
@@ -13,6 +13,7 @@ import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
 import { readFileSync } from "node:fs";
 import { pillContent } from "../src/templates/Cta.tsx";
 import { frasesNowrap } from "../src/templates/highlight.tsx";
+import { parrafos, parrafosHeight } from "../src/templates/parrafos.tsx";
 import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
@@ -779,6 +780,51 @@ check("frasesNowrap: el resaltado solo cuenta como bloque si es una palabra; el 
   // Con la frase pegada, el titular del reel se achicaba como si no pudiera partirse.
   const t = "¿Esto lo escribió la IA? Que tu equipo no lo piense";
   assert.ok(fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: frasesNowrap("¿Esto lo escribió la IA?") }) >= fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: ["¿Esto lo escribió la IA?"] }));
+});
+
+// Carrusel del martes 2026-10-27 (slides 3 a 5): el ejemplo entre «» y su explicación salían
+// pegados en un bloque; un \n explícito tampoco partía el párrafo.
+check("parrafos: cita «…» inicial en su propio párrafo y \\n parte el párrafo", () => {
+  assert.deepEqual(parrafos("«Soy jefa de operaciones; el correo va a mis 12 supervisores.» La IA no conoce tu equipo: sin esto escribe para cualquiera."), [
+    "«Soy jefa de operaciones; el correo va a mis 12 supervisores.»",
+    "La IA no conoce tu equipo: sin esto escribe para cualquiera.",
+  ]);
+  assert.deepEqual(parrafos("«Directo y cercano, máximo 120 palabras». Si tienes un correo anterior, pégalo."), ["«Directo y cercano, máximo 120 palabras».", "Si tienes un correo anterior, pégalo."]);
+  assert.deepEqual(parrafos("Uno.\nDos."), ["Uno.", "Dos."]);
+  // Una lista de citas o una cita que sigue la frase no se parten.
+  assert.deepEqual(parrafos("«Más corto», «más cercano» o «agrega la fecha» en vez de empezar de cero."), ["«Más corto», «más cercano» o «agrega la fecha» en vez de empezar de cero."]);
+  assert.deepEqual(parrafos("«Hola» dice la IA cuando la abres."), ["«Hola» dice la IA cuando la abres."]);
+  assert.deepEqual(parrafos("Pega un correo tuyo y pide «escríbelo con este estilo»."), ["Pega un correo tuyo y pide «escríbelo con este estilo»."]);
+});
+check("Step: el body con cita inicial o \\n sale en párrafos separados (post y reel); sin ellos, un solo <p>", () => {
+  const body = "«Soy jefa de operaciones; el correo va a mis 12 supervisores.» La IA no conoce tu equipo: sin esto escribe para cualquiera.";
+  for (const format of ["post", "reel"] as const) {
+    const h = renderToStaticMarkup(createElement(Step, { step: "1", heading: "Quién eres y quién lo lee", body, format }));
+    assert.match(h, /data-parrafos="2"[^>]*gap:\d+px/, format);
+    assert.match(h, /<p style="margin:0">«Soy jefa de operaciones; el correo va a mis 12 supervisores\.»<\/p><p style="margin:0">La IA no conoce/, format);
+    const n = renderToStaticMarkup(createElement(Step, { heading: "H", body: "Primera línea.\nSegunda línea.", format }));
+    assert.match(n, /<p style="margin:0">Primera línea\.<\/p><p style="margin:0">Segunda línea\.<\/p>/, format);
+  }
+  const uno = renderToStaticMarkup(createElement(Step, { heading: "H", body: "Un cuerpo sin cita." }));
+  assert.doesNotMatch(uno, /data-parrafos/);
+  assert.match(uno, /<p style="[^"]*">Un cuerpo sin cita\.<\/p>/);
+});
+check("Stat y Prompt: context y note con cita inicial salen en párrafos", () => {
+  const st = renderToStaticMarkup(createElement(Stat, { value: "47%", label: "x", context: "«Lo dijo un estudio.» Y es lo que importa." }));
+  assert.match(st, /data-parrafos="2"/);
+  const pr = renderToStaticMarkup(createElement(Prompt, { heading: "H", prompt: "p", note: "«Cópialo tal cual.» Después ajústalo." }));
+  assert.match(pr, /data-parrafos="2"/);
+});
+check("Screen: respuesta y prompt respetan los \\n (pre-wrap) en post y reel", () => {
+  for (const format of ["post", "reel"] as const) {
+    const h = renderToStaticMarkup(createElement(Screen, { app: "Claude", prompt: "Uno\nDos", respuesta: "Asunto: Rotación de turnos\n\nHola, equipo:\nDesde el lunes.\n\nGracias,\nPaula", format }));
+    assert.match(h, /data-anim="words" style="[^"]*white-space:pre-wrap[^"]*">Asunto: Rotación de turnos\n\nHola, equipo:\nDesde el lunes\.\n\nGracias,\nPaula/, format);
+    assert.match(h, /data-anim="type" style="[^"]*white-space:pre-wrap[^"]*">Uno\nDos/, format);
+  }
+});
+check("parrafosHeight: dos párrafos ocupan más que el mismo texto corrido (el estimador cuenta la separación)", () => {
+  const t = "«Soy jefa de operaciones; el correo va a mis 12 supervisores.» La IA no conoce tu equipo: sin esto escribe para cualquiera.";
+  assert.ok(parrafosHeight(t, 40, 800, 1.4) > parrafosHeight(t.replace(/[«»]/g, ""), 40, 800, 1.4));
 });
 
 check("plantillas: formato post sin capa bg ni strike", () => {

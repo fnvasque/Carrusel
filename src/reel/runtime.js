@@ -231,6 +231,9 @@ document.fonts.ready.then(function () {
         el.dataset.reelH0 = String(h0);
         // La palabra clave no se corta entre líneas al dividirla en palabras.
         pops.forEach(function (p) { p.style.whiteSpace = "nowrap"; });
+        // SplitText colapsa los saltos de un texto pre-wrap (la respuesta de Screen, un
+        // correo con asunto, saludo y cierre): se pasan a <br> antes de dividir.
+        newlinesToBr(el);
         // SplitText conserva el span anidado de la palabra clave y divide sus
         // palabras dentro de él.
         const split = new SplitText(el, { type: "words", wordsClass: "reel-word" });

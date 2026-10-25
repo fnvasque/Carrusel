@@ -6,7 +6,7 @@ import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GAN
 import { findChromium } from "../src/render/renderSlide.ts";
 import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
 import { forceCaretsOn } from "../src/reel/capture.ts";
-import { Stat, Step, Hook } from "../src/templates/index.ts";
+import { Stat, Step, Hook, Screen } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import spec from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
@@ -761,6 +761,74 @@ try {
     await l.close();
     console.log("✓ logo tardío: wordmark oculto hasta 3 s, entra en 0.4 s; por defecto desde el cuadro 0");
   }
+
+  // Carrusel del martes 2026-10-27: la respuesta de la IA (un correo) con saltos de línea
+  // entra palabra por palabra sin perderlos, y el resaltado de varias palabras del hook
+  // (un pop por palabra) pasa entero al acento.
+  {
+    const correo = "Asunto: Rotación de turnos desde el lunes\n\nHola, equipo:\nDesde el lunes los turnos rotan cada dos semanas.\n\nGracias,\nPaula";
+    const s = {
+      name: "_saltos-y-pops",
+      slides: [
+        { template: Hook, props: { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?" } },
+        { template: Screen, props: { app: "Claude", prompt: "Soy jefa de operaciones.\nAvisa el cambio de turnos.", respuesta: correo } },
+      ],
+    } as unknown as CarouselSpec;
+    for (const pace of ["rapido", "ensenar"] as const) {
+      const { page: p, timing: t } = await open(browser, s, pace);
+      const sc = t.scenes[1];
+      const r = await p.evaluate((x) => {
+        (window as any).__reel.seek(x);
+        const resp = document.querySelector('[data-scene="1"] p[data-anim="words"]') as HTMLElement;
+        const prompt = document.querySelector('[data-scene="1"] p[data-anim="type"]') as HTMLElement;
+        // Línea (top redondeado) de la primera aparición de cada palabra (sin funciones con
+        // nombre: tsx les agrega __name, que no existe en la página).
+        const [lineas] = ([[resp, ["Asunto", "Hola", "Desde", "Gracias", "Paula"]]] as [HTMLElement, string[]][]).map(([el, ws]) =>
+          ws.map((w) => {
+            const r = document.createRange();
+            const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+              const i = n.nodeValue!.indexOf(w);
+              if (i < 0) continue;
+              r.setStart(n, i);
+              r.setEnd(n, i + 1);
+              return Math.round(r.getBoundingClientRect().top);
+            }
+            return NaN;
+          }),
+        );
+        return {
+          fallback: resp.dataset.reelSplitFallback === "1",
+          words: resp.querySelectorAll(".reel-word").length,
+          lineas,
+          // El prompt (type) se divide por letras: su salto queda como <br>.
+          brPrompt: prompt.querySelectorAll("br").length,
+          h0: Number(resp.dataset.reelH0),
+          h: resp.getBoundingClientRect().height,
+        };
+      }, sc.start + sc.dur - t.transition);
+      assert.equal(r.fallback, false, `${pace}: la respuesta con saltos se divide sin caer al respaldo`);
+      assert.ok(r.words > 0, `${pace}: la respuesta entra palabra por palabra`);
+      // Cada parte del correo empieza su propia línea (asunto, saludo, cuerpo, cierre, firma).
+      assert.ok(r.lineas.every((y, i) => i === 0 || y > r.lineas[i - 1]), `${pace}: los saltos de la respuesta siguen en el reel: ${r.lineas}`);
+      assert.equal(r.brPrompt, 1, `${pace}: el salto del prompt sigue en el reel`);
+      assert.ok(Math.abs(r.h - r.h0) <= 1, `${pace}: la respuesta mantiene el alto del post (${r.h0} → ${r.h})`);
+      const pops = await p.evaluate((x) => {
+        (window as any).__reel.seek(x);
+        return Array.from(document.querySelectorAll('[data-scene="0"] h1 [data-anim="pop"]')).map((e) => {
+          const probe = document.createElement("span");
+          probe.style.color = (e as HTMLElement).dataset.accent!;
+          document.body.appendChild(probe);
+          const acc = getComputedStyle(probe).color;
+          probe.remove();
+          return getComputedStyle(e).color === acc;
+        });
+      }, t.scenes[0].dur - t.transition);
+      assert.deepEqual(pops, [true, true, true, true, true], `${pace}: las 5 palabras del resaltado terminan en el acento`);
+      await p.close();
+    }
+  }
+  console.log("✓ saltos de línea de la respuesta en el reel y resaltado de varias palabras en acento");
 } finally {
   await browser.close();
 }

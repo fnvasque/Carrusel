@@ -40,6 +40,14 @@ const stress: { name: string; template: ComponentType<any>; props: Record<string
   { name: "mito-largo", template: MythReality, props: { index: 7, total: 8, mythLabel: "Ojo Nº1", myth: "La API de Whisper va a estar disponible para siempre y sin cambios", reality: "whisper-1 se apaga en febrero de 2027; el modelo local sigue", source: SRC2 } },
   { name: "lead-largo", template: Lead, props: { kicker: "En una frase", text: "Una frase larga de contexto que explica la promesa del carrusel con bastante detalle para ocupar varias líneas.", highlight: "promesa" } },
   { name: "hook-mark", template: Hook, props: { eyebrow: "Herramientas", title: "Subtitula y narra gratis, sin salir de tu PC", highlight: "gratis", mark: "tu PC", subtitle: "Whisper y Kokoro, en local." } },
+  // Carrusel del martes 2026-10-27 (mar-carrusel-tu-correo-en-tres-lineas): resaltado de varias
+  // palabras, cuerpos con cita «…» en su propio párrafo y respuesta de correo con saltos.
+  { name: "hook-resaltado-frase", template: Hook, props: { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", subtitle: "3 tips para que tus correos suenen a ti" } },
+  { name: "step-cita-1", template: Step, props: { step: "1", heading: "Quién eres y quién lo lee", body: "«Soy jefa de operaciones; el correo va a mis 12 supervisores.» La IA no conoce tu equipo: sin esto escribe para cualquiera." } },
+  { name: "step-cita-2", template: Step, props: { step: "2", heading: "Qué necesitas y para qué", body: "«Avisa que desde el lunes los turnos rotan cada dos semanas, para que me manden dudas antes del viernes.»\nCon el para qué, sabe qué poner primero." } },
+  { name: "step-cita-3", template: Step, props: { step: "3", heading: "Cómo lo quieres", body: "«Directo y cercano, máximo 120 palabras.» Si tienes un correo anterior que te gustó, pégalo y pide que lo siga." } },
+  { name: "screen-correo", template: Screen, props: { app: "Claude", heading: "Los 3 tips juntos, en un solo pedido", prompt: "Soy jefa de operaciones y escribo a mis 12 supervisores. Avisa que desde el lunes los turnos rotan cada dos semanas. Usa el estilo de este correo: [pegas tu correo]", respuesta: "Asunto: Rotación de turnos desde el lunes\nHola, equipo:\nDesde el lunes los turnos rotan cada dos semanas. Si tienen dudas, escríbanme antes del viernes.\nGracias,\nPaula", source: "Fuente: Anthropic, Claude 101 y guía de prompts; OpenAI y Google, guías de prompts" } },
+  { name: "stat-contexto-cita", template: Stat, props: { value: "47%", label: "lo dice la encuesta", context: "«Reviso todo lo que me entrega la IA.»\nEs lo que más pesa, según Microsoft." } },
   { name: "cta-emoji", template: Cta, props: { title: "Guárdalo antes de editar", highlight: "Guárdalo", reason: "Tu checklist para los primeros 3 segundos.", handle: "ia.punto.es", cta: "Guardar 🔖" } },
 ];
 
