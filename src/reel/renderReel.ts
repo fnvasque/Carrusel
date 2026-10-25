@@ -4,7 +4,7 @@ import { resolveBackground } from "../render/background.ts";
 import type { CarouselSpec, Pace } from "../templates/types.ts";
 import { buildReelPage } from "./page.ts";
 import { captureReel, captureStills, assertFfmpeg, type VozEnReel } from "./capture.ts";
-import { maxSecondsError, specTiming, type ReelTiming } from "./timing.ts";
+import { maxSecondsError, specTiming, type Lectura, type ReelTiming } from "./timing.ts";
 import { narrarEscenas, textosNarracion, VOZ_DEFECTO, type Voz } from "./voz.ts";
 import type { ModoRevision } from "../render/revision.ts";
 
@@ -44,6 +44,8 @@ export interface RenderReelOptions {
    * video; `no` no revisa. No aplica a `framesOnly`.
    */
   revision?: ModoRevision;
+  /** Ritmo de lectura: alarga las escenas narradas hasta que se alcancen a leer (calendario). */
+  lectura?: Lectura;
 }
 
 /** Resultado del render: ruta del MP4 (o del directorio de escenas) y duración del reel. */
@@ -91,7 +93,7 @@ export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptio
     seconds: opts.seconds,
     fade: opts.fade,
     pace: opts.pace,
-    ...(narrar ? { narracion: narraciones.map((n) => n?.segundos) } : {}),
+    ...(narrar ? { narracion: narraciones.map((n) => n?.segundos), lectura: opts.lectura } : {}),
   });
   const exceso = maxSecondsError(timing.total, opts.maxSeconds);
   if (exceso) throw new Error(exceso);

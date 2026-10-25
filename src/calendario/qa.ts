@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { specDurations, specTiming, type ReelTiming } from "../reel/timing.ts";
+import { palabrasDeLectura, specDurations, specTiming, TEXT_KEYS, type ReelTiming } from "../reel/timing.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 import { franjaSegura } from "../templates/layout.ts";
 
@@ -66,17 +66,7 @@ export function hayTextoEnZona(gray: Uint8Array, width: number, height: number, 
 }
 
 /** Props cuyo texto hay que leer (las mismas que alargan la escena en el motor). */
-export const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
-
-function palabras(props: Record<string, unknown>): number {
-  let n = 0;
-  for (const k of TEXT_KEYS) {
-    const v = props[k];
-    const texto = typeof v === "string" ? v : Array.isArray(v) ? v.filter((x) => typeof x === "string").join(" ") : "";
-    n += texto.split(/\s+/).filter(Boolean).length;
-  }
-  return n;
-}
+export { TEXT_KEYS };
 
 /**
  * Escenas que no se ven el tiempo suficiente: duración < max(minS, palabras ÷
@@ -88,7 +78,7 @@ export function tiemposDeLectura(spec: CarouselSpec, wps: number, minS: number, 
   const out: string[] = [];
   spec.slides.forEach((slide, i) => {
     const props = { ...spec.defaults, ...slide.props } as Record<string, unknown>;
-    const n = palabras(props);
+    const n = palabrasDeLectura(props);
     const necesita = Math.max(minS, wps > 0 ? n / wps : 0);
     const dur = durs[i] ?? 0;
     if (dur + 1e-6 < necesita) {
