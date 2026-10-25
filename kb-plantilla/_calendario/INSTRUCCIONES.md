@@ -164,7 +164,11 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    el usuario anotó en `## Mis notas`; nunca inventada. Reemplaza al `Prompt`
    cuando el entregable es un prompt: el espectador ve el prompt **y** el
    resultado. Motivo: en los reels anteriores la herramienta nunca aparecía
-   (regla 6 pedía nombrarla; ahora se muestra).
+   (regla 6 pedía nombrarla; ahora se muestra). La `respuesta` es algo que un profesional de
+   cargo medio enviaría tal cual: si es un correo, asunto claro y concreto,
+   saludo y cierre, con un `\n` entre las partes (sin líneas en blanco: en el
+   post no caben); sin «ojo», muletillas ni jerga
+   juvenil (ver `guia-redaccion.md`, «Lo que la IA responde en pantalla»).
 
 ## Paso 0 — Preparación
 
@@ -1099,10 +1103,19 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 | `Step` | `heading` | `step`, `highlight`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
 | `Prompt` | `heading`, `prompt` | `note` | El prompt copiable (entregable) |
 | `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10) |
-| `MythReality` | `myth`, `reality` | `mythLabel`, `realityLabel` | Mito contra realidad (opinión) |
+| `MythReality` | `myth`, `reality` | `mythLabel`, `realityLabel` | Una creencia contra un dato (≤ 14 palabras cada uno; ver abajo) |
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Clip` | `title`, `archivo` | `highlight`, `label` | Video generado con IA a pantalla completa, solo reels (ver "Reel con video generado") |
 | `Cta` | `title` | `highlight`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
+
+`MythReality` es solo para **una creencia contra un dato**: `myth` es lo que la
+gente cree («Hay que saber editar audio») y `reality` el dato que la desmiente
+(«NotebookLM lo arma solo»). Ambos se dibujan como titular en mayúscula, así que
+van cortos: ≤ 14 palabras cada uno (`MITO_REALIDAD_MAX_PALABRAS`, desde el
+2026-10-26, en carrusel y reel). Nunca lo uses para «lo que pides contra lo que
+sale»: tacha el pedido como si pedir fuera el error. Para el antes y después de
+un pedido van **dos `Screen`**: el pedido vago y su respuesta, y después el
+pedido bueno y su respuesta.
 
 En el `Cta`, `cta` (el texto de la pastilla) es **obligatorio** y pide el gesto
 de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:

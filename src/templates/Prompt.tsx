@@ -2,6 +2,7 @@ import { Frame } from "./Frame.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, wrapLines, pickFill, CHAR_EM, REEL_FILL } from "./layout.ts";
 import { Card } from "./ui.tsx";
+import { parrafos, parrafosHeight, PARRAFO_GAP_EM } from "./parrafos.tsx";
 import type { BaseSlideProps } from "./types.ts";
 import { theme, monoText } from "../theme.ts";
 
@@ -43,7 +44,7 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
   const height = (c: (typeof candidates)[number]) => {
     const hs = fitDisplaySize(heading, c.headingMax, { maxLines: 2, tight: reel });
     let h = antonHeight(heading, hs, displayLineHeight(heading, 1.0), undefined, reel) + c.gap + 86 + 92 + Math.max(codeLines(c.code), c.minLines) * c.code * 1.5;
-    if (note) h += c.gap + interHeight(note, 40, CONTENT_WIDTH - 48, 1.35);
+    if (note) h += c.gap + parrafosHeight(note, 40, CONTENT_WIDTH - 48, 1.35);
     return h;
   };
   // Prefiere el mayor tamaño que cabe sin partir ninguna línea del código; si
@@ -131,7 +132,15 @@ export function Prompt({ heading, prompt, note, accent, format = "post", ...base
         {note && (
           <p data-anim="rise" style={{ margin: 0, display: "flex", gap: 20, fontFamily: theme.fonts.body, fontSize: 40, lineHeight: 1.35, color: theme.colors.textSoft }}>
             <span style={{ color: lime, ...monoText }}>→</span>
-            <span>{note}</span>
+            {parrafos(note).length > 1 ? (
+              <span data-parrafos={parrafos(note).length} style={{ display: "flex", flexDirection: "column", gap: Math.round(PARRAFO_GAP_EM * 40) }}>
+                {parrafos(note).map((x, i) => (
+                  <span key={i}>{x}</span>
+                ))}
+              </span>
+            ) : (
+              <span>{note}</span>
+            )}
           </p>
         )}
       </div>

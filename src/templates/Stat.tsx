@@ -1,6 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { fitDisplaySize, estimateLines, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { contentHeight, antonHeight, interHeight, pickFill } from "./layout.ts";
+import { Parrafos, parrafosHeight } from "./parrafos.tsx";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -54,7 +55,7 @@ function statHeight(sc: StatScale, p: { value: string; label: string; context?: 
   let h = estimateLines(p.value, v.size) * v.size * displayLineHeight(p.value, 0.86);
   if (p.percent) h += sc.gap + 20;
   h += sc.gap + antonHeight(p.label, fitDisplaySize(p.label, sc.labelMax, { maxLines: 3, tight }), displayLineHeight(p.label, 1.02), undefined, tight);
-  if (p.context) h += sc.gap + 34 + interHeight(p.context, sc.body, CONTENT_WIDTH, 1.4);
+  if (p.context) h += sc.gap + 34 + parrafosHeight(p.context, sc.body, CONTENT_WIDTH, 1.4);
   return h;
 }
 
@@ -111,9 +112,7 @@ export function Stat({ value: rawValue, label, context, accent, format = "post",
           {label}
         </h2>
         {context && (
-          <p data-anim="rise" style={{ margin: 0, paddingTop: 32, borderTop: `2px solid ${theme.colors.line}`, fontFamily: theme.fonts.body, fontSize: sc.body, lineHeight: 1.4, color: theme.colors.textSoft, textWrap: "pretty" }}>
-            {context}
-          </p>
+          <Parrafos text={context} size={sc.body} anim="rise" style={{ paddingTop: 32, borderTop: `2px solid ${theme.colors.line}`, fontFamily: theme.fonts.body, lineHeight: 1.4, color: theme.colors.textSoft, textWrap: "pretty" }} />
         )}
       </div>
     </Frame>

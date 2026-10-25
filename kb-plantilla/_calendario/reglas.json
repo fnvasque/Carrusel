@@ -121,6 +121,13 @@
       "fuente": "Guía de redacción («Los números llevan contexto») y promesas del ensayo 3 del planificador (2026-10-24), sin respaldo en el manual de investigación; PR claude/investigacion-contexto-y-listas"
     },
     {
+      "id": "mito-realidad-corto",
+      "desde": "2026-10-26",
+      "formato": null,
+      "descripcion": "MythReality solo para una creencia contra un dato: myth y reality con tope propio de 14 palabras (MITO_REALIDAD_MAX_PALABRAS), fuera del tope de cuerpo; el antes/después de un pedido va con dos Screen",
+      "fuente": "PR claude/arreglos-carrusel-martes (carrusel mar-carrusel-tu-correo-en-tres-lineas, 2026-10-27)"
+    },
+    {
       "id": "revision-visual-fase1",
       "desde": "2026-10-23",
       "formato": null,

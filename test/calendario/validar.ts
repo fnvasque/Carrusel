@@ -46,6 +46,8 @@ import {
   SEMANAS_PAQUETE,
   MOTIVO_PAQUETE,
   NADA_NUEVO_RE,
+  MITO_REALIDAD_MAX_PALABRAS,
+  DESDE_MITO_CORTO,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -2069,6 +2071,34 @@ check("calendario/validar: cuerpoMaxPalabrasCarrusel — body de 45 palabras pas
   assertNone(validarConfig(vieja));
   b.slides[1].props.body = texto(31);
   assertHas(reglasDeTexto(b, vieja, "carrusel"), /puerta\.cuerpoMaxPalabras\)/);
+});
+
+// Carrusel del martes 2026-10-27: una «realidad» de 26 palabras en Anton mayúscula pasaba
+// el tope de cuerpo del carrusel (50); myth y reality se dibujan como titular display.
+check("calendario/validar: myth y reality tienen tope propio (MITO_REALIDAD_MAX_PALABRAS) desde DESDE_MITO_CORTO, en carrusel y reel", () => {
+  assert.equal(MITO_REALIDAD_MAX_PALABRAS, 14);
+  assert.equal(DESDE_MITO_CORTO, "2026-10-26");
+  const cfg = CONFIG_PLANTILLA;
+  const texto = (n: number) => Array.from({ length: n }, (_, i) => `p${i}`).join(" ");
+  const conMito = (myth: string, reality: string) => {
+    const b = borrador();
+    b.slides.splice(1, 0, { template: "MythReality", props: { myth, reality } });
+    return b;
+  };
+  const dia = "2026-10-27";
+  for (const formato of ["carrusel", "reel"] as const) {
+    const largo = reglasDeTexto(conMito(texto(5), texto(26)), cfg, formato, dia);
+    assertHas(largo, /slide 2 \(MythReality\): reality tiene 26 palabras \(máximo 14/);
+    assertHas(largo, /titular/);
+    assertHas(reglasDeTexto(conMito(texto(15), texto(5)), cfg, formato, dia), /myth tiene 15 palabras \(máximo 14/);
+    assert.deepEqual(reglasDeTexto(conMito(texto(14), texto(14)), cfg, formato, dia).filter((e) => /myth|reality/.test(e)), [], formato);
+  }
+  // Semanas viejas: siguen con el tope de cuerpo (no aparecen errores nuevos).
+  assert.deepEqual(reglasDeTexto(conMito(texto(5), texto(26)), cfg, "carrusel", "2026-10-20").filter((e) => /reality/.test(e)), []);
+  assertHas(reglasDeTexto(conMito(texto(5), texto(51)), cfg, "carrusel", "2026-10-20"), /reality tiene 51 palabras \(máximo 50, puerta\.cuerpoMaxPalabrasCarrusel\)/);
+  // validarBorrador pasa el día de la pieza.
+  assertHas(vb(pieza({ dia }), conMito(texto(5), texto(26)), cfg), /reality tiene 26 palabras \(máximo 14/);
+  assert.ok(!has(vb(pieza({ dia: "2026-10-20" }), conMito(texto(5), texto(26)), cfg), /reality tiene 26 palabras \(máximo 14/));
 });
 
 check("calendario/validar: validarConfig de la plantilla pasa y cuerpoMaxPalabrasCarrusel inválido es error", () => {

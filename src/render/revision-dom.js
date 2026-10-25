@@ -2,8 +2,10 @@
  * Revisión visual del DOM (código de navegador plano; lo inyecta
  * src/render/revision.ts con addScriptTag). Define window.__revisarVisual(opts):
  *
- *   opts.comprobar: subconjunto de ["tilde", "puntuacion", "zona"]
+ *   opts.comprobar: subconjunto de ["tilde", "puntuacion", "zona", "lados"]
  *   opts.zona:      { arriba, abajo } en px (solo para "zona")
+ *   opts.lados:     margen lateral en px (solo para "lados"; da hallazgos tipo "zona")
+ *   opts.ancho:     ancho del lienzo (por defecto innerWidth)
  *   opts.altura:    alto del lienzo (por defecto innerHeight)
  *   opts.contexto:  texto para los motivos, o uno por escena (índice = escena)
  *
@@ -233,6 +235,54 @@
         var texto = pintado((bloque.textContent || "").trim().replace(/\s+/g, " "), getComputedStyle(bloque));
         var corto = texto.length > 40 ? texto.slice(0, 40) + "…" : texto;
         hallazgos.push({ tipo: "zona", escena: t.escena, motivo: "visual: texto «" + corto + "» sale de la zona segura en " + contexto(t.escena) });
+      });
+    }
+
+    // Lados (post y reel): el texto pintado no sale del margen lateral y ningún elemento
+    // con texto recorta su contenido. Carrusel 2026-10-27: un resaltado en nowrap se salía
+    // por la derecha y la zona, que solo miraba la vertical, no lo vio.
+    if (comprobar.indexOf("lados") >= 0 && typeof opts.lados === "number") {
+      var ancho = opts.ancho || window.innerWidth;
+      var vistosLados = [];
+      var rl = document.createRange();
+      textos.forEach(function (t, i) {
+        if (t.marca || t.opacidad < 0.3 || t.rect.w <= 0 || t.rect.h <= 0) return;
+        var el = elementos[i];
+        var izq = Infinity, der = -Infinity;
+        Array.prototype.forEach.call(el.childNodes, function (n) {
+          if (n.nodeType !== 3 || !n.textContent.trim()) return;
+          rl.selectNodeContents(n);
+          Array.prototype.forEach.call(rl.getClientRects(), function (r) {
+            if (r.width <= 0 || r.height <= 0) return;
+            izq = Math.min(izq, r.left);
+            der = Math.max(der, r.right);
+          });
+        });
+        var fuera = izq < opts.lados - 1 || der > ancho - opts.lados + 1;
+        var recorta = el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1;
+        if (!fuera && !recorta) return;
+        // Un motivo por bloque (el titular que se recorta y su palabra que sale son lo mismo):
+        // el bloque animado, o el primer ancestro que no es inline.
+        var bloque = el.closest('[data-anim]:not([data-anim="pop"])');
+        if (!bloque) {
+          bloque = el;
+          while (bloque.parentElement && getComputedStyle(bloque).display === "inline") bloque = bloque.parentElement;
+        }
+        var j = -1;
+        vistosLados.forEach(function (v, k) { if (v.bloque === bloque) j = k; });
+        if (j < 0) vistosLados.push({ bloque: bloque, escena: t.escena, fuera: fuera });
+        else if (fuera) vistosLados[j].fuera = true;
+      });
+      vistosLados.forEach(function (v) {
+        var texto = pintado((v.bloque.textContent || "").trim().replace(/\s+/g, " "), getComputedStyle(v.bloque));
+        var corto = texto.length > 40 ? texto.slice(0, 40) + "…" : texto;
+        hallazgos.push({
+          tipo: "zona",
+          escena: v.escena,
+          motivo: v.fuera
+            ? "visual: texto «" + corto + "» sale por el costado (margen " + opts.lados + " px) en " + contexto(v.escena)
+            : "visual: texto «" + corto + "» no cabe en su caja y se recorta en " + contexto(v.escena),
+        });
       });
     }
 

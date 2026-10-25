@@ -104,7 +104,16 @@ const MAX_CANDIDATOS = 8;
 /** Props con texto de título (límite `tituloMaxPalabras`). */
 const CAMPOS_TITULO = ["title", "heading"];
 /** Props con texto de cuerpo (límite `cuerpoMaxPalabras`). */
-const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "myth", "reality", "note"];
+const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "note"];
+/**
+ * `myth` y `reality` de MythReality se dibujan como titular (Anton mayúscula), no como
+ * cuerpo: desde `DESDE_MITO_CORTO` tienen tope propio, `MITO_REALIDAD_MAX_PALABRAS`, en
+ * carrusel y reel. Antes de esa fecha siguen con el tope de cuerpo (las semanas viejas
+ * no ganan errores nuevos). Carrusel del 2026-10-27: una «realidad» de 26 palabras.
+ */
+const CAMPOS_MITO = ["myth", "reality"];
+export const MITO_REALIDAD_MAX_PALABRAS = 14;
+export const DESDE_MITO_CORTO = "2026-10-26";
 /**
  * Props que no pasan por las reglas de lenguaje (siglas, relleno, términos):
  * la cita al pie, el prompt copiable (es para pegarlo en una IA, no para leerlo)
@@ -466,7 +475,7 @@ const terminosEn = (texto, config) => {
  * cada escena contra lo que da el motor. No revisa la forma del borrador (eso es
  * `validarBorrador`): lo que no entiende lo salta.
  */
-export function reglasDeTexto(borrador, config, formato) {
+export function reglasDeTexto(borrador, config, formato, dia) {
   return seguro(() => {
     if (!esObj(borrador) || !Array.isArray(borrador.slides)) return [];
     const errs = [];
@@ -479,6 +488,8 @@ export function reglasDeTexto(borrador, config, formato) {
     const claveCuerpo = esCarrusel ? "cuerpoMaxPalabrasCarrusel" : "cuerpoMaxPalabras";
     const permitidas = new Set(lista(puerta(config, "siglasPermitidas")));
     const relleno = lista(puerta(config, "relleno"));
+    // Sin día (uso suelto) rige la regla vigente; con día, desde DESDE_MITO_CORTO.
+    const mitoCorto = !(typeof dia === "string" && fechaValida(dia) && dia < DESDE_MITO_CORTO);
     const terminos = new Set();
     const slides = borrador.slides;
     slides.forEach((slide, i) => {
@@ -504,6 +515,13 @@ export function reglasDeTexto(borrador, config, formato) {
         if (typeof p[k] !== "string") continue;
         const n = palabras(p[k]).length;
         if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.${claveCuerpo})`);
+      }
+      for (const k of CAMPOS_MITO) {
+        if (typeof p[k] !== "string") continue;
+        const n = palabras(p[k]).length;
+        if (mitoCorto) {
+          if (n > MITO_REALIDAD_MAX_PALABRAS) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${MITO_REALIDAD_MAX_PALABRAS}, MITO_REALIDAD_MAX_PALABRAS): se dibuja como titular en mayúscula; una creencia contra un dato, corto`);
+        } else if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.${claveCuerpo})`);
       }
       for (const [k, texto] of textosDeLenguaje(p)) {
         for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta"))) {
@@ -1167,7 +1185,7 @@ export function validarBorrador(pieza, borrador, config) {
     const errs = erroresDePieza(pieza, config);
     if (!esObj(borrador)) return [...errs, "el borrador no es un objeto JSON"];
     errs.push(...erroresDeBorrador(borrador, pieza, config));
-    errs.push(...reglasDeTexto(borrador, config, pieza.formato));
+    errs.push(...reglasDeTexto(borrador, config, pieza.formato, pieza.dia));
     errs.push(...erroresDeRetencion(borrador, pieza, config));
     return errs;
   });

@@ -13,6 +13,13 @@ import { estimateLines, CONTENT_WIDTH } from "./fit.ts";
 export const REEL_SAFE_BOTTOM = 440;
 /** Margen superior en Reels (la cabecera de IG tapa el borde de arriba). */
 export const REEL_SAFE_TOP = 150;
+/**
+ * Margen lateral mínimo del texto pintado (post y reel): la revisión visual marca
+ * el texto que se acerca más que esto a un costado del lienzo. El contenido usa
+ * `theme.padding` (96 px); los 36 px de diferencia absorben la caja del mark y la
+ * tinta que sobresale.
+ */
+export const MARGEN_LATERAL = 60;
 /** Margen vertical del post (arriba y abajo). */
 export const POST_PAD_Y = theme.padding - 24;
 /** Alto de la cabecera de marca (etiqueta + wordmark). */

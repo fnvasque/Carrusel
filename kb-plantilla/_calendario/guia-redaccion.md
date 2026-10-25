@@ -158,8 +158,9 @@ y la promesa completa en 3 s. El espacio extra es para el medio:
   esos 2 puntos y no cabe en 35 s.
 
 **Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
-`context`, `myth`, `reality` y `note` llegan a `cuerpoMaxPalabrasCarrusel`
-(50); títulos y bullets siguen en 12. Son la pieza densa de la semana: el
+`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); títulos y bullets
+siguen en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
+mayúscula y van en ≤ 14 palabras cada uno (ver «Mito contra realidad»). Son la pieza densa de la semana: el
 porqué, el matiz del estudio, un ejemplo de trabajo.
 
 - **Mal:** «Preguntas 1 y 2: objetivo y límites» con bullets «¿Qué quieres y
@@ -168,6 +169,50 @@ porqué, el matiz del estudio, un ejemplo de trabajo.
 - **Bien:** mismo título y bullets, más `body`: «Es el encargo que propone
   Ethan Mollick (Wharton): lo mismo que le pedirías a alguien nuevo del
   equipo. Qué quieres y para qué, y qué puede decidir sin preguntarte.»
+
+## 8. Mito contra realidad: una creencia contra un dato
+
+`MythReality` enfrenta lo que la gente cree con el dato que lo desmiente, y
+dibuja los dos como titular en mayúscula (≤ 14 palabras cada uno). No sirve para
+«lo que pides contra lo que sale»: el pedido sale tachado, como si pedir fuera
+el error.
+
+- **Mal:** `myth` con el pedido a la IA y `reality` con 26 palabras de lo que
+  sale (mar 2026-10-27, «tu correo en tres líneas»). El pedido salió tachado y
+  la «realidad» era un bloque en mayúscula: no se entendía qué era lo falso.
+- **Bien:** dos `Screen`: «Escribe un correo sobre el cambio de turnos» con su
+  respuesta vaga, y después el pedido con quién eres, para qué y el estilo, con
+  su respuesta. El lector ve la diferencia sin que se la expliques.
+- **Bien (mito):** `myth` «Hay que saber editar audio», `reality` «NotebookLM lo
+  arma solo».
+
+## 9. El ejemplo va en su propia línea
+
+Cuando un cuerpo trae un ejemplo entre «» (lo que se le escribe a la IA, una
+frase de muestra) y después su explicación, el ejemplo va primero y en su
+propia línea: el motor separa en su párrafo la cita «…» del inicio, y un `\n`
+explícito también parte el párrafo.
+
+- **Mal:** «Soy jefa de operaciones; el correo va a mis 12 supervisores.» y la
+  explicación en el mismo bloque, sin aire (mar 2026-10-27).
+- **Bien:** `body`: «Soy jefa de operaciones; el correo va a mis 12
+  supervisores.»`\n`La IA no conoce tu equipo: sin esto escribe para cualquiera.
+
+## 10. Lo que la IA responde en pantalla se podría enviar tal cual
+
+La `respuesta` de un `Screen` es la prueba de la pieza: el lector se pregunta
+si él la mandaría. Tiene que ser algo que un profesional de cargo medio enviaría
+sin tocar.
+
+- Si es un correo: asunto claro y concreto, saludo, cuerpo y cierre, con un `\n`
+  entre las partes. Un solo `\n`, sin líneas en blanco (`\n\n`): cada línea
+  vacía ocupa alto y, con el `prompt` y el `heading`, el `Screen` del post ya no
+  cabe sobre la fuente al pie. Respeta los topes de la regla 10 (`prompt` ≤ 30
+  palabras, `respuesta` ≤ 45).
+- Nada de «ojo», muletillas ni jerga juvenil; tono de trabajo, cordial y directo.
+- **Mal:** «Asunto: ojo, cambian los turnos» en un solo bloque (mar 2026-10-27).
+- **Bien:** «Asunto: Rotación de turnos desde el lunes`\n`Hola, equipo:`\n`Desde
+  el lunes los turnos rotan cada dos semanas.`\n`Gracias,`\n`Paula».
 
 ## Pieza completa: antes y después
 
@@ -214,3 +259,11 @@ reescribe la escena; no lo dejes para el lector.
    porqué y el matiz.
 8. **Entregable**: al final, el lector tiene algo que hacer en su trabajo esta
    semana (una regla, un prompt con contexto, una forma de revisar).
+9. **Mito contra realidad**: `MythReality` solo enfrenta una creencia con un
+   dato (≤ 14 palabras cada uno); el antes y después de un pedido va con dos
+   `Screen`.
+10. **Ejemplos**: el ejemplo entre «» va en su propia línea, antes de su
+    explicación.
+11. **Respuesta en pantalla**: la `respuesta` del `Screen` se podría enviar tal
+    cual (asunto concreto, saludo, un `\n` entre asunto, cuerpo y cierre, sin
+    líneas en blanco; sin «ojo» ni muletillas).

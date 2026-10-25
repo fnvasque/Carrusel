@@ -214,21 +214,26 @@ document.fonts.ready.then(function () {
         } else {
           master.fromTo(el, { scale: 1.04 }, { scale: 1, transformOrigin: "50% 50%", duration: HOOK_ZOOM, ease: "power2.out", immediateRender: true }, 0);
         }
-        const pop = el.querySelector('[data-anim="pop"]');
-        if (pop) {
+        // Un resaltado de varias palabras trae un pop por palabra (highlight.tsx).
+        const parentColor = getComputedStyle(el).color;
+        el.querySelectorAll('[data-anim="pop"]').forEach(function (pop) {
           pop.dataset.accent = pop.style.color;
-          master.fromTo(pop, { color: getComputedStyle(el).color }, { color: pop.style.color, duration: POP_DUR, ease: "power2.out", immediateRender: true }, gancho ? HOOK_GANCHO.popAt : HOOK_POP_AT);
-        }
+          master.fromTo(pop, { color: parentColor }, { color: pop.style.color, duration: POP_DUR, ease: "power2.out", immediateRender: true }, gancho ? HOOK_GANCHO.popAt : HOOK_POP_AT);
+        });
         return POP_DUR;
       }
       if (kind === "words") {
-        let pop = el.querySelector('[data-anim="pop"]');
-        if (pop) pop.dataset.accent = pop.style.color; // acento original, para tests
+        // Un pop por palabra resaltada (varias si el resaltado tiene varias palabras).
+        let pops = Array.from(el.querySelectorAll('[data-anim="pop"]'));
+        pops.forEach(function (p) { p.dataset.accent = p.style.color; }); // acento original, para tests
         // Altura con el corte de líneas del post, para detectar si el split lo cambia.
         const h0 = el.getBoundingClientRect().height;
         el.dataset.reelH0 = String(h0);
         // La palabra clave no se corta entre líneas al dividirla en palabras.
-        if (pop) pop.style.whiteSpace = "nowrap";
+        pops.forEach(function (p) { p.style.whiteSpace = "nowrap"; });
+        // SplitText colapsa los saltos de un texto pre-wrap (la respuesta de Screen, un
+        // correo con asunto, saludo y cierre): se pasan a <br> antes de dividir.
+        newlinesToBr(el);
         // SplitText conserva el span anidado de la palabra clave y divide sus
         // palabras dentro de él.
         const split = new SplitText(el, { type: "words", wordsClass: "reel-word" });
@@ -236,13 +241,13 @@ document.fonts.ready.then(function () {
           // El split cambió el corte de líneas: se deshace y el bloque entra
           // entero (rise), conservando el pop por color.
           split.revert();
-          pop = el.querySelector('[data-anim="pop"]');
-          if (pop) pop.style.whiteSpace = "";
+          pops = Array.from(el.querySelectorAll('[data-anim="pop"]'));
+          pops.forEach(function (p) { p.style.whiteSpace = ""; });
           el.dataset.reelSplitFallback = "1";
           console.warn("SplitText cambiaba el corte de líneas; el texto entra entero: " + el.textContent.slice(0, 60));
           sub.from(el, { y: 40, autoAlpha: 0, duration: 0.45, ease: "power3.out" }, at);
-          if (!pop) return 0.45;
-          sub.from(pop, { color: getComputedStyle(el).color, duration: 0.3, ease: "power2.out" }, at + 0.45);
+          if (!pops.length) return 0.45;
+          sub.from(pops, { color: getComputedStyle(el).color, duration: 0.3, ease: "power2.out" }, at + 0.45);
           return 0.75;
         }
         // Puntuación tras la palabra clave (pop/mark) va dentro de ella: si no, al escalarla queda un hueco antes de la coma.
@@ -258,7 +263,10 @@ document.fonts.ready.then(function () {
         // escalan sus palabras, que SplitText deja como inline-block. La escala
         // reducida se fija ANTES de crear la entrada de las palabras: así la
         // entrada la conserva (0.9 durante todo el titular) y el pop solo crece.
-        const popWords = pop ? Array.from(pop.querySelectorAll(".reel-word")).filter(function (w) { return !w.parentElement.closest(".reel-word"); }) : [];
+        const popWords = [];
+        pops.forEach(function (p) {
+          p.querySelectorAll(".reel-word").forEach(function (w) { if (!w.parentElement.closest(".reel-word")) popWords.push(w); });
+        });
         if (popWords.length) gsap.set(popWords, { scale: 0.9, transformOrigin: "50% 60%" });
         sub.from(words, { yPercent: 60, autoAlpha: 0, duration: 0.45, ease: "power4.out", stagger: 0.06 }, at);
         let len = 0.45 + 0.06 * (words.length - 1);
@@ -271,9 +279,9 @@ document.fonts.ready.then(function () {
           const clear = c.replace(/^rgb\(([^)]*)\)$/, "rgba($1, 0)");
           sub.from(mk, { backgroundColor: clear, duration: 0.45, ease: "power4.out" }, at + 0.06 * words.indexOf(mw[0]));
         });
-        if (pop) {
+        if (pops.length) {
           const parentColor = getComputedStyle(el).color;
-          sub.from(pop, { color: parentColor, duration: 0.3, ease: "power2.out" }, at + len);
+          sub.from(pops, { color: parentColor, duration: 0.3, ease: "power2.out" }, at + len);
           if (popWords.length) sub.fromTo(popWords, { scale: 0.9 }, { scale: 1, duration: 0.3, ease: "power2.out", immediateRender: false }, at + len);
           len += 0.3;
         }
