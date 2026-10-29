@@ -84,7 +84,8 @@ check("adversario T5: 'Responde LLM' en el cuerpo de un Step esquiva la regla de
 check("adversario T5: 'primer  comentario' con doble espacio o espacio duro pasa", () => {
   for (const sep of ["  ", " "]) {
     const p = pieza();
-    p.caption = p.caption.replace("Guárdalo", `El link está en el primer${sep}comentario. Guárdalo`);
+    // Desde el pivote el caption del ejemplo cierra con PARTIR, no con «Guárdalo»: la frase va antes de los hashtags.
+    p.caption = p.caption.replace("\n\n#ia", ` El link está en el primer${sep}comentario.\n\n#ia`);
     const errs = validarBorrador(p, borrador(), config);
     assert.ok(errs.some((e: string) => /primer comentario/.test(e)), `sep ${JSON.stringify(sep)}: ${JSON.stringify(errs)}`);
   }

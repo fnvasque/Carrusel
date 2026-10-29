@@ -11,7 +11,10 @@ import { fechaValida } from "./time.ts";
  */
 
 export type Formato = "reel" | "carrusel";
-export type Senal = "guardados" | "envios" | "comentarios" | "retencion";
+export type Senal = "guardados" | "envios" | "comentarios" | "retencion" | "dm";
+
+/** La señal con que se mide una pieza: `dm` (mensajes) aún no tiene métrica propia en la API y se mide como `retencion`. */
+export const senalMedible = (s: Senal): Senal => (s === "dm" ? "retencion" : s);
 export type Estado = "planificado" | "renderizado" | "programado" | "publicado" | "saltado" | "fallido";
 
 export interface Pieza {
@@ -106,7 +109,7 @@ const PiezaSchema = z.object({
   hora: z.string().regex(/^([01]\d|2[0-3]):(00|30)$/, "hora inválida (HH:00 o HH:30)"),
   formato: z.enum(["reel", "carrusel"]),
   arquetipo: z.string(),
-  senal: z.enum(["guardados", "envios", "comentarios", "retencion"]),
+  senal: z.enum(["guardados", "envios", "comentarios", "retencion", "dm"]),
   tema: z.string(),
   pilar: z.string(),
   // candidatos y juez (desde 2026-10-26) los valida validar.mjs; aquí se conservan tal cual.

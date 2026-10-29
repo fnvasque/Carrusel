@@ -52,7 +52,31 @@ const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 /** Plantilla → prop donde debe aparecer su `highlight`. */
 const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title" };
 
-const SENALES = ["guardados", "envios", "comentarios", "retencion"];
+const SENALES = ["guardados", "envios", "comentarios", "retencion", "dm"];
+
+/**
+ * Cierre de las piezas por DM (`config.cta`): la palabra que la audiencia escribe por mensaje y
+ * el primer día en que se exige. Sin `cta` válido en el config, null (el validador no cambia).
+ */
+export function ctaDe(config) {
+  const c = esObj(config) ? config.cta : undefined;
+  if (!esObj(c) || !esTexto(c.palabra) || !fechaValida(c.desde)) return null;
+  return { palabra: c.palabra, desde: c.desde };
+}
+
+/** ¿El texto pide la palabra del cta? Palabra completa y en mayúsculas exactas, ignorando tildes ("compartir" no cuenta). */
+export function contienePalabraCta(texto, palabra) {
+  if (!esTexto(texto) || !esTexto(palabra)) return false;
+  const sinTildes = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const esc = sinTildes(palabra).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${esc}(?![\\p{L}\\p{N}])`, "u").test(sinTildes(texto));
+}
+
+/** ¿Rige el cierre por DM ese día? Devuelve el cta vigente o null. */
+const ctaVigente = (config, dia) => {
+  const c = ctaDe(config);
+  return c && typeof dia === "string" && dia >= c.desde ? c : null;
+};
 /** Veces que un tema puede salir en la semana sin ser derivado (con 2 reels por día no alcanzan los temas elegibles). */
 const MAX_PIEZAS_POR_TEMA = 2;
 /** Entradas del mix por día (piezas que se publican ese día). */
@@ -436,11 +460,13 @@ function textosDeLenguaje(props) {
 }
 
 /** Siglas no permitidas en un texto (y siglas con puntos). */
-function siglasProhibidas(texto, permitidas, enCta) {
+function siglasProhibidas(texto, permitidas, enCta, palabraCta) {
   const malas = [];
   let palabraClave = false;
   for (const m of texto.matchAll(SIGLA_RE)) {
     if (permitidas.has(m[1])) continue;
+    // La palabra del cta (p. ej. PARTIR) no es sigla dentro del Cta.
+    if (enCta && palabraCta && m[1] === palabraCta) continue;
     // Excepción única: una palabra en mayúsculas justo después de "Comenta", en el Cta.
     if (enCta && !palabraClave && ANTES_DE_PALABRA_CLAVE.test(normalizar(texto.slice(0, m.index)))) {
       palabraClave = true;
@@ -488,6 +514,9 @@ export function reglasDeTexto(borrador, config, formato, dia) {
     const claveCuerpo = esCarrusel ? "cuerpoMaxPalabrasCarrusel" : "cuerpoMaxPalabras";
     const permitidas = new Set(lista(puerta(config, "siglasPermitidas")));
     const relleno = lista(puerta(config, "relleno"));
+    // Antes de `cta.desde` la palabra del cta sigue siendo una sigla; sin día (uso suelto) rige.
+    const cta = ctaDe(config);
+    const palabraCta = cta && !(typeof dia === "string" && dia < cta.desde) ? cta.palabra : undefined;
     // Sin día (uso suelto) rige la regla vigente; con día, desde DESDE_MITO_CORTO.
     const mitoCorto = !(typeof dia === "string" && fechaValida(dia) && dia < DESDE_MITO_CORTO);
     const terminos = new Set();
@@ -524,7 +553,7 @@ export function reglasDeTexto(borrador, config, formato, dia) {
         } else if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.${claveCuerpo})`);
       }
       for (const [k, texto] of textosDeLenguaje(p)) {
-        for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta"))) {
+        for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta", palabraCta))) {
           errs.push(`${donde}: ${k} usa la sigla "${s}" (permitidas: ${[...permitidas].join(", ")}; puerta.siglasPermitidas; sin puntos)`);
         }
         for (const r of rellenoEn(texto, relleno)) errs.push(`${donde}: ${k} tiene relleno "${r}" (puerta.relleno)`);
@@ -564,7 +593,7 @@ export function reglasDeTexto(borrador, config, formato, dia) {
  * `config.hashtagsBase` + 0–2 del tema), en minúsculas y sin tildes, separados
  * por espacios; sin "primer comentario" ni relleno.
  */
-export function validarCaption(caption, config, tema) {
+export function validarCaption(caption, config, tema, dia) {
   return seguro(() => {
     if (!esTexto(caption)) return ["falta caption (texto)"];
     const errs = [];
@@ -593,6 +622,8 @@ export function validarCaption(caption, config, tema) {
     }
     if (contieneFrase(tokens(caption), "primer comentario")) errs.push('el caption no puede mandar al "primer comentario"');
     for (const r of rellenoEn(caption, lista(puerta(config, "relleno")))) errs.push(`el caption tiene relleno "${r}" (puerta.relleno)`);
+    const cta = ctaVigente(config, dia);
+    if (cta && !contienePalabraCta(caption, cta.palabra)) errs.push(`el caption debe pedir ${cta.palabra} (config.cta, desde el ${cta.desde})`);
     return errs;
   });
 }
@@ -788,6 +819,15 @@ const PATRONES_MIN = 3;
 /** Series válidas desde `paquete.desde` (el público profesional; `gratis-vs-pago` deja de valer). */
 export const SERIES_CALIDAD = ["hazlo-con-ia", "criterio", "lo-probe-por-ti"];
 /**
+ * Series válidas del config: `config.series` si es una lista de slugs no vacía; si no,
+ * las series de calidad por defecto.
+ */
+export function seriesDe(config) {
+  const l = esObj(config) ? config.series : undefined;
+  return Array.isArray(l) && l.length > 0 && l.every((s) => typeof s === "string" && SLUG_SERIE_RE.test(s)) ? l : SERIES_CALIDAD;
+}
+const SLUG_SERIE_RE = /^[a-z0-9-]{3,40}$/;
+/**
  * Lunes de las semanas del paquete calidad-contenido: sin experimento propio y sin tocar
  * duración ni ritmo del reel. Valor por defecto: manda `config.paquete.semanas` si viene.
  */
@@ -945,6 +985,10 @@ function erroresDePieza(p, config) {
   if (!esTexto(p.arquetipo)) errs.push("falta arquetipo");
   if (p.senal === undefined || p.senal === null || p.senal === "") errs.push("falta senal (señal objetivo: sin señal no hay pieza)");
   else if (!SENALES.includes(p.senal)) errs.push(`senal ${q(p.senal)} inválida (usa: ${SENALES.join(", ")})`);
+  else {
+    const ctaP = ctaVigente(config, p.dia);
+    if (ctaP && p.senal !== "dm") errs.push(`senal ${q(p.senal)}: desde el ${ctaP.desde} toda pieza va con senal "dm" (el cierre es Escríbeme ${ctaP.palabra})`);
+  }
   const emo = p.emocion;
   if (!(esTexto(emo) || (Array.isArray(emo) && emo.length > 0 && emo.every(esTexto)))) errs.push("falta emocion (la emoción que busca la pieza)");
   if (!esTexto(p.entregable)) errs.push("falta entregable (qué se lleva el espectador)");
@@ -976,11 +1020,14 @@ function erroresDePieza(p, config) {
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
   if (exigeJuez(p, config)) {
-    if (p.serie !== undefined && p.serie !== null && !SERIES_CALIDAD.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${SERIES_CALIDAD.join(", ")} o null`);
+    const validas = seriesDe(config);
+    // Con `config.series` cada pieza lleva serie (reel o carrusel); sin él, la serie sigue siendo opcional.
+    if (esObj(config) && config.series !== undefined && (p.serie === undefined || p.serie === null)) errs.push(`falta serie: desde el ${paqueteDe(config).desde} cada pieza lleva una de ${validas.join(", ")}`);
+    else if (p.serie !== undefined && p.serie !== null && !validas.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${validas.join(", ")}${esObj(config) && config.series !== undefined ? "" : " o null"}`);
   } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
-  errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined));
+  errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined, p.dia));
   return errs;
 }
 
@@ -1005,8 +1052,9 @@ const GESTO_PASTILLA = {
   envios: RAICES_ENVIAR,
   comentarios: ["comenta", "escribe", "responde"],
   retencion: [...RAICES_GUARDAR, ...RAICES_ENVIAR],
+  dm: ["escrib"],
 };
-const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo" };
+const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo", dm: "Escríbeme PARTIR" };
 
 /**
  * Errores de `handle` y de la pastilla (`cta`) del Cta. Sin `cta` el motor
@@ -1166,6 +1214,15 @@ function erroresDeBorrador(b, p, config) {
   if (plantillas[0] !== "Hook" && plantillas[0] !== "Clip") errs.push("la primera slide debe ser un Hook (la promesa va en la portada) o un Clip (el video es la portada)");
   if (plantillas.filter((t) => t === "Hook").length > 1) errs.push("solo puede haber un Hook");
   if (n >= 2 && plantillas[n - 1] !== "Cta") errs.push("la última slide debe ser un Cta (un solo gesto)");
+  const ctaV = ctaVigente(config, p.dia);
+  if (ctaV) {
+    for (const s of b.slides) {
+      if (!esObj(s) || s.template !== "Cta" || !esObj(s.props)) continue;
+      if (!contienePalabraCta(s.props.title, ctaV.palabra) && !contienePalabraCta(s.props.cta, ctaV.palabra)) {
+        errs.push(`el Cta debe pedir ${ctaV.palabra} (en el título o la pastilla; config.cta, desde el ${ctaV.desde})`);
+      }
+    }
+  }
   if (!hayFuente) errs.push("falta source: cita al pie la ficha o referencia de origen en alguna slide");
   return errs;
 }
@@ -1625,10 +1682,14 @@ export function validarPlan(plan, config) {
         if (!delDia.length) errs.push(`${id}: config.mix no tiene entrada para ese día`);
         else if (!libres.length) errs.push(`${id}: config.mix solo tiene ${delDia.length} entrada(s) para ese día y ya están tomadas por otras piezas`);
         else {
-          // La entrada que mejor calza: misma hora y formato y arquetipo; luego formato y arquetipo;
+          // La entrada que mejor calza: misma hora, formato, arquetipo y serie; luego formato, arquetipo y serie;
+          // luego misma hora y formato y arquetipo; luego formato y arquetipo;
           // luego misma hora y formato; luego mismo formato; si no, la primera libre.
           const calza = (f) => libres.find(({ x }) => f(x));
+          const mismaSerie = (x) => (x.serie ?? null) === (p.serie ?? null);
           const m =
+            calza((x) => x.hora === p.hora && x.formato === p.formato && x.arquetipo === p.arquetipo && mismaSerie(x)) ??
+            calza((x) => x.formato === p.formato && x.arquetipo === p.arquetipo && mismaSerie(x)) ??
             calza((x) => x.hora === p.hora && x.formato === p.formato && x.arquetipo === p.arquetipo) ??
             calza((x) => x.formato === p.formato && x.arquetipo === p.arquetipo) ??
             calza((x) => x.hora === p.hora && x.formato === p.formato) ??
@@ -1638,6 +1699,7 @@ export function validarPlan(plan, config) {
           const slot = typeof m.x.hora === "string" ? ` (${m.x.hora})` : "";
           if (p.formato !== m.x.formato) errs.push(`${id}: formato ${q(p.formato)} no sigue el mix (ese día va ${m.x.formato}${slot})`);
           if (p.arquetipo !== m.x.arquetipo && !enExperimento) errs.push(`${id}: arquetipo ${q(p.arquetipo)} no sigue el mix (ese día va ${m.x.arquetipo}${slot})`);
+          if (typeof m.x.serie === "string" && p.serie !== m.x.serie) errs.push(`${id}: serie ${q(p.serie ?? null)} no sigue el mix (ese día va ${m.x.serie}${slot})`);
         }
       }
       if (typeof p.tema === "string") {
@@ -1756,16 +1818,17 @@ export function validarConfig(config) {
     if (!esObj(config)) return ["config.json debe ser un objeto"];
     const errs = [];
     if (!esTexto(config.zona)) errs.push("zona debe ser un texto (America/Santiago)");
-    if (!Array.isArray(config.mix) || config.mix.length < 6 || config.mix.length > 7 * MAX_ENTRADAS_MIX_DIA) {
-      errs.push(`mix debe tener de 6 a ${7 * MAX_ENTRADAS_MIX_DIA} entradas (una por pieza y día: lunes a sábado, domingo si se publica; hasta ${MAX_ENTRADAS_MIX_DIA} por día)`);
+    if (!Array.isArray(config.mix) || config.mix.length < 3 || config.mix.length > 7 * MAX_ENTRADAS_MIX_DIA) {
+      errs.push(`mix debe tener de 3 a ${7 * MAX_ENTRADAS_MIX_DIA} entradas (una por pieza y día; hasta ${MAX_ENTRADAS_MIX_DIA} por día)`);
     } else {
       const porDia = new Map();
       const horas = new Set();
       config.mix.forEach((m, i) => {
         if (!esObj(m) || !Number.isInteger(m.dia) || m.dia < 0 || m.dia > 6 || !FORMATOS.includes(m.formato) || !esTexto(m.arquetipo)) {
-          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo, hora? }`);
+          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo, hora?, serie? }`);
           return;
         }
+        if (m.serie !== undefined && !seriesDe(config).includes(m.serie)) errs.push(`mix[${i}].serie ${q(m.serie)} inválida: usa ${seriesDe(config).join(", ")}`);
         if (m.hora !== undefined && !(typeof m.hora === "string" && HORA_RE.test(m.hora))) errs.push(`mix[${i}].hora ${q(m.hora)} inválida (HH:MM en :00 o :30)`);
         const n = (porDia.get(m.dia) ?? 0) + 1;
         porDia.set(m.dia, n);
@@ -1780,6 +1843,14 @@ export function validarConfig(config) {
       for (const [dia, n] of porDia) {
         if (n > 1 && config.mix.some((m) => esObj(m) && m.dia === dia && typeof m.hora !== "string")) errs.push(`mix: día ${dia} tiene ${n} entradas y alguna sin hora (con varias piezas por día, cada entrada lleva su hora)`);
       }
+    }
+    if (config.series !== undefined && !(Array.isArray(config.series) && config.series.length > 0 && config.series.every((s) => typeof s === "string" && SLUG_SERIE_RE.test(s)))) {
+      errs.push("series debe ser una lista no vacía de slugs (p. ej. por-donde-partir, lo-que-construi)");
+    }
+    // Cierre por DM (opcional): mal escrito, ctaDe lo ignora y la puerta quedaría abierta; por eso es error.
+    const cta = config.cta;
+    if (cta !== undefined && !(esObj(cta) && esTexto(cta.palabra) && cta.palabra === cta.palabra.toUpperCase() && fechaValida(cta.desde))) {
+      errs.push('cta debe ser { "palabra": "PARTIR" (en mayúsculas), "desde": "AAAA-MM-DD" (primer día en que se exige) }');
     }
     if (!esObj(config.horasPorDefecto) || !Object.values(config.horasPorDefecto).every((h) => typeof h === "string" && HORA_RE.test(h))) {
       errs.push("horasPorDefecto: cada hora en HH:MM con :00 o :30");
@@ -1957,100 +2028,459 @@ export function validarSemana(dir, config, opts = {}) {
 // --- ejemplo embebido -------------------------------------------------------
 
 /**
- * Pieza y borrador de ejemplo: los mismos que muestra `INSTRUCCIONES.md` (un
- * test lo verifica). `--self-test` los valida con la config instalada.
+ * Semana de ejemplo (2026-11-02, primera del paquete pivote-coaching: mix de 3, series
+ * por-donde-partir y lo-que-construi, señal dm y cierre PARTIR) y el borrador de su primera
+ * pieza. `INSTRUCCIONES.md` muestra el plan como esqueleto y la primera pieza con su borrador
+ * como ejemplo completo (un test lo verifica). `--self-test` los valida con la config instalada.
  */
 export const EJEMPLO = {
-  plan: {
-    semana: "2026-10-12",
-    zona: "America/Santiago",
-    experimento: {
-      variable: "hook",
-      hipotesis: "en tutoriales, un hook de curiosidad retiene más que uno de lista",
-      piezas: ["lun-reel-pdfs-a-podcast"],
+  "plan": {
+    "semana": "2026-11-02",
+    "zona": "America/Santiago",
+    "experimento": {
+      "variable": null,
+      "motivo": "paquete pivote-coaching"
     },
-    piezas: [
+    "piezas": [
       {
-        id: "lun-reel-pdfs-a-podcast",
-        dia: "2026-10-12",
-        hora: "14:00",
-        formato: "reel",
-        arquetipo: "tutorial",
-        senal: "guardados",
-        tema: "[[Automatización con IA]]",
-        pilar: "herramienta",
-        hook: { categoria: "curiosidad", texto: "Tus 6 informes pendientes, en un podcast", score: 9 },
-        emocion: ["curiosidad", "alivio"],
-        entregable: "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
-        fraseAmigo: "hay una herramienta que convierte los informes que no alcanzas a leer en un podcast para escuchar de camino al trabajo",
-        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)" },
-        origen: { fichas: ["fuentes/2026-10-04-dm-ejemplo.md"], referencias: ["referencias/notebooklm.md"] },
-        derivadoDe: null,
-        caption:
-          "Automatización para el trabajo: 6 informes convertidos en un podcast.\n\nGuárdalo para tu próxima pila de informes y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
-        borrador: "lun-reel-pdfs-a-podcast.json",
-        estado: "planificado",
-        parametros: {
-          tituloMaxPalabras: 12,
-          bulletMaxPalabras: 12,
-          cuerpoMaxPalabras: 30,
-          terminosTecnicosMax: 1,
-          siglasPermitidas: ["GPT", "PDF", "IA", "DM"],
-          relleno: ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"],
-          hookUmbral: 7,
-          lecturaPalabrasPorSegundo: 2.5,
-          lecturaMinSegundos: 1.5,
-          reescriturasMax: 3,
-          logoEnCuadro0: true,
-          ritmoReel: "ensenar",
-          duracionMaxSegundos: 60,
-          tituloPalabras: 7,
-          hook: "curiosidad",
+        "id": "lun-reel-pdfs-a-podcast",
+        "dia": "2026-11-02",
+        "hora": "09:00",
+        "formato": "reel",
+        "arquetipo": "tutorial",
+        "senal": "dm",
+        "tema": "[[Aprendizaje con IA]]",
+        "pilar": "trabajo",
+        "serie": "por-donde-partir",
+        "hook": {
+          "categoria": "identificación",
+          "texto": "Mis 6 informes pendientes: ahora los escucho",
+          "score": 8,
+          "candidatos": [
+            {
+              "patron": "resultado",
+              "title": "Mis 6 informes pendientes: ahora los escucho",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "antes-despues",
+              "title": "De 6 informes sin leer a escucharlos",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "en-juego",
+              "title": "Mi primera tarea para la IA",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "error-comun",
+              "title": "Yo no sabía qué pedirle a la IA",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "pregunta-del-jefe",
+              "title": "«¿Leíste el informe?» Lo escuché",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "resultado",
+              "title": "Le pregunté a la IA cómo ayudarme",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "antes-despues",
+              "title": "Antes los acumulaba; ahora los escucho",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            },
+            {
+              "patron": "en-juego",
+              "title": "Por dónde partí con la IA",
+              "resultado": "Resumen de audio listo: mis 6 informes pendientes."
+            }
+          ],
+          "juez": {
+            "elegido": 1,
+            "nota": 8,
+            "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+          }
         },
-      },
-    ],
-  },
-  borrador: {
-    name: "lun-reel-pdfs-a-podcast",
-    angle: "de una pila de PDFs pendientes a un podcast que escuchas caminando",
-    pillar: "herramienta",
-    pace: "ensenar",
-    audio: "lima-01.mp3",
-    logoEnCuadro0: true,
-    slides: [
-      {
-        template: "Hook",
-        props: { title: "Tus 6 informes pendientes, en un podcast", highlight: "podcast", subtitle: "El truco es el prompt" },
-        background: { ai: "pila de documentos de papel que se transforman en ondas de sonido" },
-      },
-      {
-        template: "Lead",
-        props: { text: "6 archivos, 1 cuaderno y cero horas frente a la pantalla.", highlight: "cero horas" },
-      },
-      {
-        template: "Step",
-        props: { step: "1", heading: "Sube tus PDFs a NotebookLM", body: "Entra a notebooklm.google.com, crea un cuaderno y arrastra los archivos." },
-      },
-      {
-        template: "Step",
-        props: { step: "2", heading: "Pide el resumen en audio", bullets: ["Toca resumen en audio", "Prueba la versión corta"] },
-      },
-      {
-        template: "Prompt",
-        props: { heading: "Pega esto antes de generarlo", prompt: "Resume estos documentos con las 3 ideas clave y un ejemplo de cada una." },
-      },
-      {
-        template: "Cta",
-        props: {
-          title: "Guárdalo para tu próxima pila de lectura",
-          highlight: "Guárdalo",
-          handle: "ia.punto.es",
-          cta: "Guárdalo",
-          source: "Fuente: notebooklm.google.com",
+        "emocion": [
+          "alivio",
+          "curiosidad"
+        ],
+        "entregable": "una primera tarea para la IA si no sabes por dónde partir: preguntarle a Gemini Notebook cómo te ayuda con tus informes y pedirle el resumen de audio en español para escucharlos",
+        "fraseAmigo": "yo no sabía qué pedirle a la IA, así que le pregunté cómo me ayudaba con mis informes; ahora me los resume en audio y los escucho camino al trabajo",
+        "promesas": [
+          {
+            "promesa": "Mis 6 informes pendientes: ahora los escucho",
+            "slide": 5
+          },
+          {
+            "promesa": "Resumen de audio listo: mis 6 informes pendientes",
+            "slide": 5
+          }
+        ],
+        "lectorFrio": {
+          "intentos": 2,
+          "resultado": "ok",
+          "notas": "v1: el lector con prisa no vio qué herramienta era; se nombró en la pantalla del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 4: subí los 6 PDF a un cuaderno; la voz dice que es un cuaderno nuevo)"
         },
+        "origen": {
+          "fichas": [
+            "fuentes/2026-10-04-dm-ejemplo.md"
+          ],
+          "referencias": [
+            "referencias/notebooklm.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+        "borrador": "lun-reel-pdfs-a-podcast.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "cuerpoMaxPalabrasCarrusel": 50,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "tituloPalabras": 7
+        }
       },
-    ],
+      {
+        "id": "mie-reel-mis-agentes-y-1-guardado",
+        "dia": "2026-11-04",
+        "hora": "09:00",
+        "formato": "reel",
+        "arquetipo": "atemporal",
+        "senal": "dm",
+        "tema": "[[Automatización con IA]]",
+        "pilar": "trabajo",
+        "serie": "lo-que-construi",
+        "hook": {
+          "categoria": "storytelling",
+          "texto": "Armé agentes que publican solos: 1 guardado",
+          "score": 8,
+          "candidatos": [
+            {
+              "patron": "resultado",
+              "title": "Mis agentes planifican la semana solos",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "dato-contrario",
+              "title": "Armé agentes que publican solos: 1 guardado",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "error-comun",
+              "title": "Mi error: automatizar antes de saber qué decir",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "antes-despues",
+              "title": "De 2 reels al día a 3 por semana",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "en-juego",
+              "title": "27 piezas automáticas y nadie las guardó",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "resultado",
+              "title": "Lo que aprendí armando agentes de IA",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "dato-contrario",
+              "title": "La máquina funcionaba; el mensaje no",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            },
+            {
+              "patron": "error-comun",
+              "title": "Automaticé todo menos lo importante",
+              "resultado": "Semana planificada: 3 piezas, todas validadas."
+            }
+          ],
+          "juez": {
+            "elegido": 2,
+            "nota": 8,
+            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
+          }
+        },
+        "emocion": [
+          "curiosidad",
+          "validación"
+        ],
+        "entregable": "lo que aprendí armando agentes que planifican y publican esta cuenta: con 27 piezas y 1 guardado, lo que faltaba no era automatizar más sino saber a quién le hablaba; y cada vez que algo fallaba igual, sumar una regla a las instrucciones en vez de corregir a mano",
+        "fraseAmigo": "armé un sistema que escribe y publica solo; funcionó, pero nadie guardaba nada, porque le faltaba saber a quién le hablaba",
+        "promesas": [
+          {
+            "promesa": "Armé agentes que publican solos",
+            "slide": 2
+          },
+          {
+            "promesa": "1 guardado",
+            "slide": 3
+          }
+        ],
+        "lectorFrio": {
+          "intentos": 1,
+          "resultado": "ok",
+          "notas": "los dos lectores entendieron qué aprendí y nombraron algo nuevo en la 8 a la primera"
+        },
+        "origen": {
+          "fichas": [],
+          "referencias": [
+            "referencias/ingenieria-de-arnes.md",
+            "referencias/building-effective-agents.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Automatización con IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+        "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "cuerpoMaxPalabrasCarrusel": 50,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "tituloPalabras": 7
+        }
+      },
+      {
+        "id": "vie-carrusel-mis-3-primeros-pedidos",
+        "dia": "2026-11-06",
+        "hora": "13:00",
+        "formato": "carrusel",
+        "arquetipo": "lista",
+        "senal": "dm",
+        "tema": "[[Liderazgo y gestión de equipos]]",
+        "pilar": "trabajo",
+        "serie": "por-donde-partir",
+        "hook": {
+          "categoria": "identificación",
+          "texto": "No sabía qué pedirle a ChatGPT como jefe: partí con 3",
+          "score": 8,
+          "candidatos": [
+            {
+              "patron": "resultado",
+              "title": "Mis 3 primeros pedidos a ChatGPT como jefe",
+              "subtitle": "Los que publicó OpenAI para quien lidera un equipo"
+            },
+            {
+              "patron": "en-juego",
+              "title": "No sabía qué pedirle a ChatGPT como jefe: partí con 3",
+              "subtitle": "Informe semanal, feedback difícil y carga del equipo"
+            },
+            {
+              "patron": "error-comun",
+              "title": "Mi error: pedirle a ChatGPT «ayúdame con esto»",
+              "subtitle": "Los 3 pedidos que sí me sirvieron como jefe"
+            },
+            {
+              "patron": "pregunta-del-jefe",
+              "title": "«¿Ya usas IA?» Así empecé yo",
+              "subtitle": "3 pedidos de jefe para tu primera semana"
+            },
+            {
+              "patron": "antes-despues",
+              "title": "De no saber qué pedir a 3 pedidos fijos",
+              "subtitle": "Para el informe, el feedback y la carga del equipo"
+            },
+            {
+              "patron": "resultado",
+              "title": "Mi informe semanal al jefe, armado con ChatGPT",
+              "subtitle": "Y otros 2 pedidos para empezar"
+            },
+            {
+              "patron": "en-juego",
+              "title": "Lo que le pido a ChatGPT antes de un feedback difícil",
+              "subtitle": "Y 2 pedidos más para partir como jefe"
+            },
+            {
+              "patron": "error-comun",
+              "title": "No partí por una herramienta: partí por 3 pedidos",
+              "subtitle": "Los de la guía de OpenAI para jefes"
+            }
+          ],
+          "juez": {
+            "elegido": 2,
+            "nota": 8,
+            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir como jefe, con 3 pedidos concretos\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedir «ayúdame»\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"el informe semanal\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preparar un feedback\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
+          }
+        },
+        "emocion": [
+          "alivio",
+          "identificación"
+        ],
+        "entregable": "los 3 pedidos de la guía oficial de OpenAI con que partí como jefe: el informe semanal al jefe con logros, bloqueos y pedidos; 2 o 3 formas de dar un feedback difícil, con pros y contras; y marcar en la planilla de horas a quien pase de 45 horas por 2 semanas",
+        "fraseAmigo": "si no sabes qué pedirle a ChatGPT como jefe, parte por lo que ya haces cada semana: el informe para tu jefe, un feedback difícil y revisar la carga del equipo",
+        "promesas": [
+          {
+            "promesa": "No sabía qué pedirle a ChatGPT como jefe",
+            "slide": 2
+          },
+          {
+            "promesa": "partí con 3",
+            "slide": 3
+          },
+          {
+            "promesa": "Informe semanal, feedback difícil y carga del equipo",
+            "slide": 5
+          }
+        ],
+        "lectorFrio": {
+          "intentos": 1,
+          "resultado": "ok",
+          "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"
+        },
+        "origen": {
+          "fichas": [],
+          "referencias": [
+            "referencias/chatgpt-para-managers.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Liderazgo con IA: no sabía qué pedirle a ChatGPT como jefe y partí con 3 pedidos de la guía de OpenAI.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+        "borrador": "vie-carrusel-mis-3-primeros-pedidos.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "cuerpoMaxPalabrasCarrusel": 50,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "tituloPalabras": 11
+        }
+      }
+    ]
   },
+  "borrador": {
+    "name": "lun-reel-pdfs-a-podcast",
+    "angle": "mi primera tarea para la IA: le pregunté cómo me ayudaba con mis informes pendientes y ahora los escucho",
+    "pillar": "trabajo",
+    "pace": "gancho",
+    "audio": "lima-01.mp3",
+    "logoEnCuadro0": true,
+    "slides": [
+      {
+        "template": "Hook",
+        "props": {
+          "title": "Mis 6 informes pendientes: ahora los escucho",
+          "highlight": "los escucho",
+          "resultado": "Resumen de audio listo: mis 6 informes pendientes.",
+          "app": "Gemini Notebook",
+          "modo": "aviso"
+        },
+        "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
+      },
+      {
+        "template": "Lead",
+        "props": {
+          "text": "No sabía qué pedirle a la IA, así que le pregunté.",
+          "highlight": "le pregunté"
+        },
+        "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
+      },
+      {
+        "template": "Screen",
+        "props": {
+          "app": "Gemini Notebook",
+          "prompt": "¿Cómo me ayudas con estos 6 informes?",
+          "respuesta": "Puedo resumirlos en audio, hacerte tarjetas o responder citando cada informe."
+        },
+        "narracion": "Le escribí esto a Gemini Notebook, la herramienta de Google para estudiar tus documentos, y me ofreció tres caminos."
+      },
+      {
+        "template": "Step",
+        "props": {
+          "step": "1",
+          "heading": "Subí mis informes a un cuaderno",
+          "body": "En notebook.google, con los 6 PDF."
+        },
+        "narracion": "Primero creé un cuaderno nuevo y subí ahí los seis informes en PDF."
+      },
+      {
+        "template": "Step",
+        "props": {
+          "step": "2",
+          "heading": "Pedí el resumen de audio",
+          "body": "En español latinoamericano."
+        },
+        "narracion": "Después elegí el español latinoamericano y pedí el resumen de audio. Lo escuché caminando."
+      },
+      {
+        "template": "Cta",
+        "props": {
+          "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
+          "highlight": "PARTIR",
+          "handle": "ia.punto.es",
+          "cta": "Escríbeme PARTIR",
+          "source": "Fuente: notebook.google"
+        },
+        "narracion": "¿No sabes cuál sería tu primera tarea? Escríbeme y te cuento."
+      }
+    ]
+  }
 };
 
 // --- CLI --------------------------------------------------------------------

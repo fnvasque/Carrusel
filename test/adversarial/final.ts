@@ -17,7 +17,7 @@ import { parsearReferencia } from "../../src/insights/summary.ts";
 import { commitPaths } from "../../src/kb/store.ts";
 import { refreshCalibration } from "../../src/score/calibration.ts";
 // @ts-ignore: módulo .mjs sin dependencias (tiene validar.d.mts)
-import { EJEMPLO, validarSemana } from "../../kb-plantilla/_calendario/validar.mjs";
+import { validarSemana } from "../../kb-plantilla/_calendario/validar.mjs";
 
 /**
  * Adversario final (rama completa): una semana entera con los módulos reales y solo
@@ -39,12 +39,31 @@ process.env.KB_GIT = "0";
 process.env.META_ACCESS_TOKEN = "token-falso-final";
 process.env.META_IG_USER_ID = IG;
 
-/** Base temporal con `_calendario/config.json` (audios con la pista del ejemplo). */
+/**
+ * El ejemplo y el mix de 6 anteriores al pivote a coaching (2026-11-02): estos hallazgos arman una
+ * semana de 6 piezas del 2026-10-12 a partir del ejemplo de entonces. Desde el pivote la plantilla
+ * trae un ejemplo de la semana 2026-11-02 y un mix de 3; se congelan aquí los de antes.
+ */
+const EJEMPLO = JSON.parse(readFileSync(new URL("./fixtures/ejemplo-2026-10-12.json", import.meta.url), "utf8"));
+const MIX_6 = [
+  { dia: 1, formato: "reel", arquetipo: "tutorial", hora: "09:00" },
+  { dia: 2, formato: "carrusel", arquetipo: "lista", hora: "14:00" },
+  { dia: 3, formato: "reel", arquetipo: "compartible", hora: "09:00" },
+  { dia: 4, formato: "reel", arquetipo: "demo", hora: "09:00" },
+  { dia: 5, formato: "carrusel", arquetipo: "opinion", hora: "14:00" },
+  { dia: 6, formato: "reel", arquetipo: "atemporal", hora: "09:00" },
+];
+
+/** Base temporal con `_calendario/config.json` (audios con la pista del ejemplo; mix y paquete de antes del pivote). */
 function nuevaBase(prefijo: string): string {
   const dir = mkdtempSync(join(tmpdir(), `adv-final-${prefijo}-`));
   mkdirSync(join(dir, "_calendario"), { recursive: true });
   const config = JSON.parse(readFileSync(join(PLANTILLA, "config.json"), "utf8"));
   config.audios = [AUDIO];
+  config.mix = MIX_6;
+  config.paquete = { desde: "2026-10-26", semanas: ["2026-10-26", "2026-11-02"], motivo: "paquete calidad-contenido" };
+  delete config.series;
+  delete config.cta;
   writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify(config, null, 2));
   // Las fichas y referencias que cita el ejemplo en `origen` (validar.mjs comprueba que existan).
   const origen = EJEMPLO.plan.piezas[0].origen as { fichas: string[]; referencias: string[] };

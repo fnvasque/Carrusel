@@ -142,6 +142,13 @@
       "fuente": "PR de la fase 2 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
     },
     {
+      "id": "pivote-coaching",
+      "desde": "2026-11-02",
+      "formato": null,
+      "descripcion": "Pivote a vitrina de coaching: mix de 3 piezas (2 reels + 1 carrusel), series por-donde-partir y lo-que-construi, primera persona, cierre PARTIR",
+      "fuente": "informes/foresight-instagram-2026-10-28.md; PR del pivote"
+    },
+    {
       "id": "revision-visual-fase3",
       "desde": "2026-11-09",
       "pendiente": true,

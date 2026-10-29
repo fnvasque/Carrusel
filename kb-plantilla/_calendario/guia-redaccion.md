@@ -17,13 +17,50 @@ para explicar, no para decir más cosas.
 
 ## A quién le escribes
 
-Un profesional con cargo medio (jefe de área, coordinador, gerente de primera
-línea), no programador, que ya paga Claude o ChatGPT y lo usa en el trabajo.
-No es principiante: sabe pedir un resumen o un borrador. Le falta **criterio**:
-cuándo confiar, cómo revisar, cómo encargar, qué dice el estudio con sus
-matices. Le escribes como un colega que sabe un poco más: directo, con tuteo,
-en español neutro (sin voseo ni «vosotros», sin modismos), sin jerga sin
-explicar y sin exagerar.
+Desde el 2026-11-02 (pivote a vitrina de coaching): un profesional de cargo
+medio (jefe de área, coordinador, gerente de primera línea), no programador,
+que **nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde
+partir**. No sabe qué es un agente ni qué pedirle a la IA. Le escribes en
+primera persona, como alguien que ya dio ese paso y le cuenta cómo: directo,
+con tuteo, en español neutro (sin voseo ni «vosotros», sin modismos), sin
+jerga sin explicar y sin exagerar.
+
+> Nota histórica (2026-10-26 a 2026-11-01, ya no rige): el lector «ya paga
+> Claude o ChatGPT» y le faltaba criterio, no el primer paso. Los ejemplos de
+> esta guía con datos de estudios siguen sirviendo para la forma (idea
+> completa, números con contexto, voz que explica); el lector es el de arriba.
+
+## Desde 2026-11-02: primera persona, nivel cero y cierre PARTIR
+
+Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
+Donde esta sección choque con el resto de la guía, manda esta.
+
+- **Primera persona singular** en pantalla y en la voz: «yo partí por aquí»,
+  «a mí me pasó», «armé un sistema que…». El lector ve a alguien como él dar
+  el paso, no a un experto que le dice qué hacer.
+  - **Mal:** «Sube tus informes a Gemini Notebook y ahorra horas.»
+  - **Bien:** «Primero creé un cuaderno nuevo y subí ahí los seis informes en
+    PDF.»
+- **Nivel cero sin jerga:** un término técnico como máximo en toda la pieza, y
+  explicado en la misma escena con palabras de oficina.
+  - **Mal:** «Un agente orquesta tus tareas con herramientas.»
+  - **Bien:** «Un agente es una IA que hace tareas sola, paso a paso.»
+- **Quitar el miedo, no vender herramientas.** Cada pieza termina con un
+  primer paso que el lector puede dar hoy; la idea central es «pregúntale a la
+  IA cómo ayudarte».
+- **`lo-que-construi`:** el «resultado» de la regla dura 8 es lo que se
+  aprendió construyendo el sistema, con el número honesto (también lo que no
+  funcionó: 27 piezas, 1 guardado).
+- **Cierre PARTIR (regla dura 11):** el `Cta` y el caption piden «escríbeme
+  PARTIR» y dicen qué recibe quien escribe. Texto base: «Escríbeme PARTIR y te
+  cuento por dónde empezar en tu caso». La voz del `Cta` pide lo mismo con
+  palabras habladas («¿No sabes cuál sería tu primera tarea? Escríbeme y te
+  cuento.»).
+
+**Lo que ya no va:** listas de herramientas, «10 prompts», el truco de la
+semana, la voz de experto («ya sabes pedir un resumen»: este lector no lo
+sabe), los cierres «Guárdalo» o «Mándaselo» (la señal de toda pieza es `dm`) y
+los temas que no responden «¿por dónde parto con la IA en mi trabajo?».
 
 ## 1. Cada escena es una idea completa
 
@@ -114,7 +151,8 @@ consecuencia: qué cambia para su trabajo, qué decide distinto, qué evita.
 
 El lector frío responde «¿Qué aprendiste que no sabías?» (pregunta 8); «nada
 nuevo» bloquea. Antes de escribir, nombra en una línea lo que un usuario
-frecuente de ChatGPT o Claude **no sabe** de este tema: un límite, un error
+frecuente de ChatGPT o Claude **no sabe** de este tema (desde el 2026-11-02:
+lo que no sabe alguien que nunca ha usado IA más allá de una pregunta suelta): un límite, un error
 común, el matiz de un estudio, una forma de pedir que cambia el resultado.
 Sale de la referencia («Lo que no sabe un usuario frecuente», «Límites»,
 «Evidencia», «Novedades»), con su cita. Esa línea es el centro de la pieza, no
@@ -217,7 +255,9 @@ sin tocar.
 ## Pieza completa: antes y después
 
 El reel «¿Cuándo no confiar en la IA? 1 regla» (jue 2026-10-22), reescrito
-como pieza de la serie `criterio`. Mismos hechos (referencia
+como pieza de la serie `criterio` (serie retirada el 2026-11-02: el ejemplo
+sirve para la forma de cada escena, no para la serie ni la voz, que desde el
+pivote va en primera persona). Mismos hechos (referencia
 `estudio-de-la-frontera-irregular.md`), otra redacción.
 
 | Escena | Antes (en pantalla / voz) | Después (en pantalla / voz) |
@@ -242,8 +282,9 @@ seguras) es la regla, no una nota al pie.
 Antes del hook y del lector frío, pasa cada pieza por esto. Si un punto falla,
 reescribe la escena; no lo dejes para el lector.
 
-1. **Lo nuevo**: puedo decir en una línea qué no sabía un usuario frecuente, y
-   sale de la referencia con cita.
+1. **Lo nuevo**: puedo decir en una línea qué no sabía alguien que nunca ha
+   usado IA más allá de una pregunta suelta, y sale de la referencia con cita
+   (en `lo-que-construi`, de lo que pasó al construir).
 2. **Idea completa**: en cada escena, pantalla y voz juntas (en carrusel,
    título y cuerpo juntos) dicen quién o qué, hace qué y por qué importa. La
    pantalla puede ser un rótulo si la voz trae sujeto, verbo y consecuencia.
@@ -257,8 +298,8 @@ reescribe la escena; no lo dejes para el lector.
 7. **Espacio**: reel ≤ 35 s con el hook en ≤ 7 palabras; el espacio extra se
    fue a contexto y matiz, no a más pasos. Carrusel: el cuerpo explica el
    porqué y el matiz.
-8. **Entregable**: al final, el lector tiene algo que hacer en su trabajo esta
-   semana (una regla, un prompt con contexto, una forma de revisar).
+8. **Entregable**: al final, el lector tiene un primer paso que dar en su
+   trabajo esta semana, y el cierre le pide «escríbeme PARTIR».
 9. **Mito contra realidad**: `MythReality` solo enfrenta una creencia con un
    dato (≤ 14 palabras cada uno); el antes y después de un pedido va con dos
    `Screen`.
@@ -267,3 +308,5 @@ reescribe la escena; no lo dejes para el lector.
 11. **Respuesta en pantalla**: la `respuesta` del `Screen` se podría enviar tal
     cual (asunto concreto, saludo, un `\n` entre asunto, cuerpo y cierre, sin
     líneas en blanco; sin «ojo» ni muletillas).
+12. **Primera persona**: la pieza la cuenta quien la vivió («yo partí», «armé»),
+    con un término técnico como máximo, explicado.

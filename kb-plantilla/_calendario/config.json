@@ -5,47 +5,32 @@
       "dia": 1,
       "formato": "reel",
       "arquetipo": "tutorial",
-      "hora": "09:00"
-    },
-    {
-      "dia": 2,
-      "formato": "carrusel",
-      "arquetipo": "lista",
-      "hora": "14:00"
+      "hora": "09:00",
+      "serie": "por-donde-partir"
     },
     {
       "dia": 3,
       "formato": "reel",
-      "arquetipo": "compartible",
-      "hora": "09:00"
-    },
-    {
-      "dia": 4,
-      "formato": "reel",
-      "arquetipo": "demo",
-      "hora": "09:00"
+      "arquetipo": "atemporal",
+      "hora": "09:00",
+      "serie": "lo-que-construi"
     },
     {
       "dia": 5,
       "formato": "carrusel",
-      "arquetipo": "opinion",
-      "hora": "14:00"
-    },
-    {
-      "dia": 6,
-      "formato": "reel",
-      "arquetipo": "atemporal",
-      "hora": "09:00"
+      "arquetipo": "lista",
+      "hora": "13:00",
+      "serie": "por-donde-partir"
     }
   ],
   "horasPorDefecto": {
+    "0": "14:00",
     "1": "14:00",
     "2": "14:00",
     "3": "14:00",
     "4": "14:00",
     "5": "14:00",
-    "6": "14:00",
-    "0": "14:00"
+    "6": "14:00"
   },
   "ventanaHoras": [
     "08:00",
@@ -70,7 +55,7 @@
     "#herramientasia"
   ],
   "fondosIAMaxSemana": 3,
-  "hookVideoMaxSemana": 1,
+  "hookVideoMaxSemana": 0,
   "ventanaMedicion": {
     "valor": "72h",
     "respaldo": "base",
@@ -173,19 +158,27 @@
   "audios": [],
   "voz": "em_alex",
   "vozNota": "Voz de la narración de los reels (Kokoro, local): em_alex, em_santa o ef_dora; false = reels sin voz. La eligió el usuario el 2026-10-17.",
-  "mixNota": "2026-10-17 (pivote): 4 reels narrados + 2 carruseles por semana, una pieza por día y domingo libre; el tiempo que sobra va a interacción real. Para el sprint de 2 reels al día, ver el git log de este archivo.",
-  "pilaresNota": "2026-10-18: se agrega el pilar \"trabajo\" (cómo cambia el trabajo, el liderazgo y las decisiones cuando hay IA de por medio, siempre con un estudio o dato con fuente). Decisión del usuario: desde la semana 2026-10-19 lo llevan las 6 piezas, reels incluidos; el carrusel de opinión del viernes es la serie lo-que-dice-la-evidencia. Se evalúa el 2026-11-02. Detalle en INSTRUCCIONES.md, Paso 3.",
+  "mixNota": "2026-10-28 (pivote a vitrina de coaching, informes/foresight-instagram-2026-10-28.md): 3 piezas por semana, 2 reels (lunes por-donde-partir, miércoles lo-que-construi) y 1 carrusel (viernes por-donde-partir); cada pieza cierra pidiendo «escríbeme PARTIR». Rige desde la semana 2026-11-02. Para los mix anteriores (6 piezas desde el 2026-10-17, sprint de 2 reels al día), ver el git log de este archivo.",
+  "pilaresNota": "2026-10-28 (pivote a vitrina de coaching): la lista de pilares no cambia (el render la tiene fija); desde la semana 2026-11-02 las piezas van con pilar trabajo o herramienta y la identidad la lleva la serie (config.series). Detalle en INSTRUCCIONES.md, «Propósito de la cuenta» y Paso 3.",
   "clipsMaxSemana": 0,
   "revisionVisual": {
     "corregir": false
   },
   "paquete": {
-    "desde": "2026-10-26",
+    "desde": "2026-11-02",
     "semanas": [
-      "2026-10-26",
-      "2026-11-02"
+      "2026-11-02",
+      "2026-11-09"
     ],
-    "motivo": "paquete calidad-contenido"
+    "motivo": "paquete pivote-coaching"
   },
-  "paqueteNota": "Fechas del paquete calidad-contenido: desde = primer día con hook de 8 a 10 candidatos y juez, y series nuevas; semanas = lunes de las semanas sin experimento propio y sin fijar ritmoReel ni duracionMaxSegundos. Para correr el paquete se cambian aquí (y los desde de reglas.json), no en validar.mjs."
+  "paqueteNota": "Fechas del paquete pivote-coaching: desde = primer día con series de config.series, cierre PARTIR y hook con juez; semanas = lunes de las semanas sin experimento propio y sin fijar ritmoReel ni duracionMaxSegundos (se evalúa el 2026-11-16). Para correr el paquete se cambian aquí (y los desde de reglas.json), no en validar.mjs.",
+  "series": [
+    "por-donde-partir",
+    "lo-que-construi"
+  ],
+  "cta": {
+    "palabra": "PARTIR",
+    "desde": "2026-11-02"
+  }
 }

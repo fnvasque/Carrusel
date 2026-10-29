@@ -43,11 +43,17 @@ import {
   erroresDePromesas,
   DESDE_PROMESAS,
   SERIES_CALIDAD,
+  seriesDe,
   SEMANAS_PAQUETE,
   MOTIVO_PAQUETE,
   NADA_NUEVO_RE,
   MITO_REALIDAD_MAX_PALABRAS,
   DESDE_MITO_CORTO,
+  contienePalabraCta,
+  ctaDe,
+  erroresDeReferencias,
+  leerAlcance,
+  claveTema,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -71,10 +77,37 @@ const CONFIG_PLANTILLA = JSON.parse(readFileSync(join(DIR, "config.json"), "utf8
  * parten de borradores en ritmo enseñar de 4 escenas, así que la fixture fija
  * ensenar y 60 s. Los casos de gancho y de tope las cambian explícitamente.
  */
+/**
+ * Mix, paquete y tope de hookVideo anteriores al pivote a coaching (2026-11-02): los casos de
+ * abajo se escribieron contra ellos (piezas de martes, jueves y sábado, paquete
+ * calidad-contenido, sin `series` ni `cta`). Desde el pivote la plantilla trae otros valores;
+ * la fixture conserva los de antes para que cada caso siga probando una sola cosa. Lo del
+ * pivote se prueba con `CONFIG_EJEMPLO` (la plantilla tal cual) y con `config3`/`configCta`.
+ */
+const MIX_6 = [
+  { dia: 1, formato: "reel", arquetipo: "tutorial", hora: "09:00" },
+  { dia: 2, formato: "carrusel", arquetipo: "lista", hora: "14:00" },
+  { dia: 3, formato: "reel", arquetipo: "compartible", hora: "09:00" },
+  { dia: 4, formato: "reel", arquetipo: "demo", hora: "09:00" },
+  { dia: 5, formato: "carrusel", arquetipo: "opinion", hora: "14:00" },
+  { dia: 6, formato: "reel", arquetipo: "atemporal", hora: "09:00" },
+];
+const { series: _seriesPlantilla, cta: _ctaPlantilla, ...PLANTILLA_SIN_PIVOTE } = CONFIG_PLANTILLA;
 const CONFIG_BASE = {
-  ...CONFIG_PLANTILLA,
+  ...PLANTILLA_SIN_PIVOTE,
+  mix: MIX_6,
+  hookVideoMaxSemana: 1,
+  paquete: { desde: "2026-10-26", semanas: ["2026-10-26", "2026-11-02"], motivo: "paquete calidad-contenido" },
   puerta: { ...CONFIG_PLANTILLA.puerta, ritmoReel: { valor: "ensenar", respaldo: "base" }, duracionMaxSegundos: { valor: 60, respaldo: "supuesto" } },
 };
+/** La plantilla tal cual (pivote a coaching) con la pista del ejemplo: contra ella se valida `EJEMPLO`, como en `--self-test`. */
+const CONFIG_EJEMPLO = { ...CONFIG_PLANTILLA, audios: [...CONFIG_PLANTILLA.audios, "lima-01.mp3"] };
+/**
+ * El ejemplo de antes del pivote (semana 2026-10-12: Hook con subtítulo, dos Step, Prompt y Cta),
+ * congelado. Los casos del lector que prueban cómo se leen esas plantillas (la ventana del Prompt,
+ * el subtítulo, el número de paso) parten de él; el ejemplo vigente usa Screen en vez de Prompt.
+ */
+const EJEMPLO_VIEJO = JSON.parse(readFileSync(new URL("../adversarial/fixtures/ejemplo-2026-10-12.json", import.meta.url), "utf8"));
 /** Config con una pista registrada (la instalada trae `audios: []`). */
 const config = { ...CONFIG_BASE, audios: ["lima-01.mp3"] };
 /** Mix del sprint de 2 reels al día (2026-10-15 → 2026-10-18): varias entradas por día, con hora. Prueba el emparejamiento por entrada. */
@@ -782,7 +815,7 @@ function referenciaLista(temas: string[], revisado = "2026-10-09", audiencia = "
 }
 
 /** Fichas y referencias que citan las piezas (las referencias, listas para su tema) y un candidatos.json vigente. */
-function crearOrigen(root: string, piezas: any[]): void {
+function crearOrigen(root: string, piezas: any[], generado = "2026-10-12"): void {
   const temasPorRef = new Map<string, string[]>();
   for (const x of piezas) {
     for (const r of x.origen.fichas) {
@@ -798,7 +831,7 @@ function crearOrigen(root: string, piezas: any[]): void {
   mkdirSync(join(root, "_calendario"), { recursive: true });
   writeFileSync(
     join(root, "_calendario", "candidatos.json"),
-    JSON.stringify({ generado: "2026-10-12", temas: [{ tema: "[[Automatización con IA]]", motivo: "proxima-semana", detalle: "x" }] }),
+    JSON.stringify({ generado, temas: [{ tema: "[[Automatización con IA]]", motivo: "proxima-semana", detalle: "x" }] }),
   );
 }
 
@@ -1018,7 +1051,7 @@ check("calendario/validar: validarSemana — carpeta distinta de plan.semana →
 // --- ejemplo, CLI y manual ---
 
 check("calendario/validar: el ejemplo embebido pasa (con su pista agregada a config.audios)", () => {
-  const c = { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] };
+  const c = CONFIG_EJEMPLO;
   assertNone(validarPlan(EJEMPLO.plan, c));
   assertNone(validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, c));
 });
@@ -1057,9 +1090,11 @@ check("calendario/validar (CLI): --self-test, semana válida → 0, semana invá
     const cal = join(root, "_calendario");
     mkdirSync(join(cal, "2026-10-12"), { recursive: true });
     copyFileSync(join(DIR, "validar.mjs"), join(cal, "validar.mjs"));
-    writeFileSync(join(cal, "config.json"), JSON.stringify(config));
+    // --self-test valida EJEMPLO con la config instalada: la plantilla tal cual (desde el pivote, la semana 2026-11-02).
+    writeFileSync(join(cal, "config.json"), JSON.stringify(CONFIG_EJEMPLO));
     const env = { ...process.env, CARRUSEL_DIR: join(root, "nada") };
     execFileSync("node", [join(cal, "validar.mjs"), "--self-test"], { stdio: "pipe", env });
+    writeFileSync(join(cal, "config.json"), JSON.stringify(config));
     const p = plan();
     crearOrigen(root, p.piezas);
     for (const x of p.piezas) {
@@ -1210,47 +1245,51 @@ check("calendario/validar (R46): paridad validar.mjs ↔ plan.ts — EJEMPLO emb
     ["ejemplo de INSTRUCCIONES.md", { ...clone(EJEMPLO.plan), piezas: [bloque("ejemplo:pieza")] }],
     ["esqueleto de INSTRUCCIONES.md (pegable tal cual)", bloque("esqueleto:plan")],
   ];
+  // Desde el pivote a coaching el ejemplo y el esqueleto son la semana 2026-11-02: se validan con la plantilla tal cual.
   for (const [nombre, plan] of casos) {
-    assert.deepEqual(validarPlan(plan, config), [], `${nombre}: validarPlan`);
-    for (const p of plan.piezas) assert.deepEqual(validarPieza(p, config), [], `${nombre}: ${p.id}`);
+    assert.deepEqual(validarPlan(plan, CONFIG_EJEMPLO), [], `${nombre}: validarPlan`);
+    for (const p of plan.piezas) assert.deepEqual(validarPieza(p, CONFIG_EJEMPLO), [], `${nombre}: ${p.id}`);
     assert.doesNotThrow(() => parsePlan(JSON.stringify(plan)), `${nombre}: parsePlan`);
   }
-  // El esqueleto es una semana completa: 6 piezas, temas distintos, experimento sobre una de ellas.
+  // El esqueleto es una semana completa del mix de la plantilla (3 piezas desde el pivote; antes 6), con
+  // temas distintos, y es la misma semana que EJEMPLO. En el paquete no hay experimento propio (antes: una variable).
   const esqueleto = bloque("esqueleto:plan");
-  assert.equal(esqueleto.piezas.length, 6);
-  assert.equal(new Set(esqueleto.piezas.map((p: any) => p.tema)).size, 6);
-  assert.ok(esqueleto.experimento.piezas.every((id: string) => esqueleto.piezas.some((p: any) => p.id === id)));
+  assert.equal(esqueleto.piezas.length, CONFIG_PLANTILLA.mix.length);
+  assert.equal(new Set(esqueleto.piezas.map((p: any) => p.tema)).size, CONFIG_PLANTILLA.mix.length);
+  assert.deepEqual(esqueleto, EJEMPLO.plan);
+  assert.deepEqual(esqueleto.experimento, { variable: null, motivo: CONFIG_PLANTILLA.paquete.motivo });
   assert.ok(!JSON.stringify(esqueleto).includes("..."), "sin marcadores para reemplazar");
   // Variantes que validar.mjs acepta: sin estado, sin derivadoDe, emoción en texto, latido sin experimento.
   const variante = clone(EJEMPLO.plan);
   delete variante.piezas[0].estado;
   delete variante.piezas[0].derivadoDe;
   variante.piezas[0].emocion = "curiosidad";
-  assert.deepEqual(validarPlan(variante, config), []);
-  assert.deepEqual(validarPieza(variante.piezas[0], config), []);
+  assert.deepEqual(validarPlan(variante, CONFIG_EJEMPLO), []);
+  assert.deepEqual(validarPieza(variante.piezas[0], CONFIG_EJEMPLO), []);
   assert.doesNotThrow(() => parsePlan(JSON.stringify(variante)));
   const latido = { semana: "2026-10-12", zona: "America/Santiago", piezas: [], motivo: "sin piezas publicables" };
-  assert.deepEqual(validarPlan(latido, config), []);
+  assert.deepEqual(validarPlan(latido, CONFIG_EJEMPLO), []);
   assert.doesNotThrow(() => parsePlan(JSON.stringify(latido)));
 });
 
 check("calendario/validar: INSTRUCCIONES.md — mix con los valores exactos, presupuesto de lectura, audios vacíos y esqueleto de plan.json", () => {
   const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
-  for (const m of CONFIG_BASE.mix) assert.ok(md.includes(`| \`${m.formato}\` | \`${m.arquetipo}\` |`), `mix: ${m.arquetipo}`);
+  // La tabla del manual es la del mix de la plantilla (desde el pivote, 3 entradas; antes, las 6 de MIX_6).
+  for (const m of CONFIG_PLANTILLA.mix) assert.ok(md.includes(`| \`${m.formato}\` | \`${m.arquetipo}\` |`), `mix: ${m.arquetipo}`);
   assert.ok(/12 palabras/.test(md));
   assert.ok(/`config\.audios` está vacío/.test(md));
   const m = md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/);
   assert.ok(m, "falta el esqueleto de plan.json");
   const esqueleto = JSON.parse(m[1]);
   assert.deepEqual(Object.keys(esqueleto), ["semana", "zona", "experimento", "piezas"]);
-  assert.equal(esqueleto.piezas.length, 6);
+  assert.equal(esqueleto.piezas.length, CONFIG_PLANTILLA.mix.length);
 });
 
 // --- lector frío (2026-10-07): texto exacto por código y origen verificado ---
 
 /** Borrador con un mito y un dato para probar las etiquetas y el valor del Stat. */
 function borradorConMito(): any {
-  const b = clone(EJEMPLO.borrador) as any;
+  const b = clone(EJEMPLO_VIEJO.borrador) as any;
   b.slides.splice(5, 0,
     { template: "MythReality", props: { myth: "Necesitas pagar para tener un podcast", reality: "NotebookLM lo hace gratis" } },
     { template: "MythReality", props: { myth: "Hay que saber editar audio", reality: "Lo arma solo", mythLabel: "Lo que crees", realityLabel: "Lo que pasa" } },
@@ -1261,7 +1300,7 @@ function borradorConMito(): any {
 
 check("calendario/validar (lector): con prisa ve el prompt completo y las etiquetas del mito", () => {
   const { conPrisa, completo } = textosLector(borradorConMito());
-  const prompt = EJEMPLO.borrador.slides[4].props.prompt as string;
+  const prompt = EJEMPLO_VIEJO.borrador.slides[4].props.prompt as string;
   assert.ok(conPrisa.includes(prompt), conPrisa);
   assert.ok(completo.includes(prompt));
   for (const t of [conPrisa, completo]) {
@@ -1281,20 +1320,20 @@ check("calendario/validar (lector): con prisa ve el prompt completo y las etique
 });
 
 check("calendario/validar (lector): source no entra en ningún lector; el número de paso sí (también numérico)", () => {
-  const source = EJEMPLO.borrador.slides[5].props.source as string;
-  const { conPrisa, completo } = textosLector(EJEMPLO.borrador);
+  const source = EJEMPLO_VIEJO.borrador.slides[5].props.source as string;
+  const { conPrisa, completo } = textosLector(EJEMPLO_VIEJO.borrador);
   for (const t of [conPrisa, completo]) {
     assert.ok(!t.includes(source), t);
     assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
     assert.ok(/^2\n.*Pide el resumen en audio/m.test(t), t);
   }
-  const b = clone(EJEMPLO.borrador) as any;
+  const b = clone(EJEMPLO_VIEJO.borrador) as any;
   b.slides[2].props.step = 1;
   for (const t of Object.values(textosLector(b))) assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
 });
 
 check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, note, reason, pastilla, @handle, ventana del prompt y Desliza (solo carrusel)", () => {
-  const b = clone(EJEMPLO.borrador) as any;
+  const b = clone(EJEMPLO_VIEJO.borrador) as any;
   b.slides[0].props.eyebrow = "Truco de estudio";
   b.slides[1].props.kicker = "Sin pantalla";
   b.slides[4].props.note = "Funciona también en inglés";
@@ -1374,7 +1413,7 @@ function baseConEjemplo(): { root: string; cal: string; env: NodeJS.ProcessEnv }
   mkdirSync(dir, { recursive: true });
   copyFileSync(join(DIR, "validar.mjs"), join(cal, "validar.mjs"));
   copyFileSync(join(DIR, "lector-frio.md"), join(cal, "lector-frio.md"));
-  writeFileSync(join(cal, "config.json"), JSON.stringify({ ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+  writeFileSync(join(cal, "config.json"), JSON.stringify(CONFIG_EJEMPLO));
   writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
   writeFileSync(join(dir, `${EJEMPLO.plan.piezas[0].id}.json`), JSON.stringify(EJEMPLO.borrador));
   crearOrigen(root, EJEMPLO.plan.piezas);
@@ -1523,7 +1562,7 @@ check("calendario/validar: origen — ruta inexistente, traversal, symlink afuer
     rmSync(afuera, { recursive: true, force: true });
   }
   // validarBorrador (lo que usa --self-test) no depende de que exista la base.
-  assertNone(validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+  assertNone(validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, CONFIG_EJEMPLO));
 });
 
 check("calendario/validar: lector-frio.md e INSTRUCCIONES.md — criterio nuevo del lector con prisa y uso de --lector", () => {
@@ -1591,7 +1630,7 @@ check("calendario/validar (lector): la ventana del Prompt dice \"Copia este prom
     assert.ok(html.includes("Copia este prompt"), format);
     assert.ok(!html.includes("copia-este-prompt"), format);
   }
-  const { completo } = textosLector(EJEMPLO.borrador);
+  const { completo } = textosLector(EJEMPLO_VIEJO.borrador);
   assert.ok(completo.includes("Copia este prompt") && !completo.includes("copia-este-prompt"), completo);
 });
 
@@ -1612,7 +1651,7 @@ check("calendario/validar: lectorFrio.notas — cada duda no bloqueante en forma
     "duda no bloqueante: cuaderno",
   ]) assert.ok(conNotas(malo).some((e: string) => /NB: «cita» → regla/.test(e)), `${malo}: ${JSON.stringify(conNotas(malo))}`);
   assert.ok(conNotas(3).length > 0, "notas debe ser texto");
-  assertNone(validarPieza(EJEMPLO.plan.piezas[0], { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }));
+  assertNone(validarPieza(EJEMPLO.plan.piezas[0], CONFIG_EJEMPLO));
   assert.match(EJEMPLO.plan.piezas[0].lectorFrio.notas, /NB: «[^«»]+» → \S/);
 });
 
@@ -2040,7 +2079,9 @@ check("paquete: pieza del 2026-11-03 con duracionMaxSegundos o ritmoReel → err
 check("calendario/validar: lector-frio.md — público profesional y pregunta 8 (novedad)", () => {
   const md = readFileSync(join(DIR, "lector-frio.md"), "utf8");
   const seccion = seccionDelLector(md)!;
-  assert.ok(seccion.includes("cargo medio") && seccion.includes("ya paga"));
+  // Desde el pivote a coaching (2026-11-02) el lector es de nivel cero (antes: «ya paga Claude o ChatGPT»).
+  assert.ok(seccion.includes("cargo medio") && seccion.includes("nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde partir"));
+  assert.ok(!seccion.includes("ya paga"));
   assert.ok(seccion.includes("8. ¿Qué aprendiste que no sabías"));
   assert.ok(!seccion.includes("no técnico, viendo esto"));
   assert.ok(seccion.includes('"8"'));
@@ -2128,12 +2169,13 @@ check("calendario/validar: tope de 35 s de la plantilla — un reel de ~30 s no 
 
 // --- guías de hooks y redacción, manual para el público nuevo (2026-10-22) ---
 
-check("manual: remite a las dos guías y al juez, tiene la serie criterio y ya no gratis-vs-pago", () => {
+check("manual: remite a las dos guías y al juez, tiene las series vigentes y ya no gratis-vs-pago", () => {
   const md = readFileSync(join(DIR, "INSTRUCCIONES.md"), "utf8");
-  for (const x of ["guia-redaccion.md", "guia-hooks.md", "--juez", "criterio"]) assert.ok(md.includes(x), `falta ${x}`);
+  // Desde el pivote a coaching las series y el paquete vigentes salen de la plantilla (antes: «criterio» y MOTIVO_PAQUETE).
+  for (const x of ["guia-redaccion.md", "guia-hooks.md", "--juez", ...seriesDe(CONFIG_PLANTILLA)]) assert.ok(md.includes(x), `falta ${x}`);
   assert.ok(!md.includes("gratis-vs-pago"), "gratis-vs-pago sigue en el manual");
   assert.ok(md.includes("node _calendario/validar.mjs --juez"), "falta el comando del juez");
-  assert.ok(md.includes(MOTIVO_PAQUETE), "falta la suspensión del experimento en las semanas del paquete");
+  assert.ok(md.includes(CONFIG_PLANTILLA.paquete.motivo), "falta la suspensión del experimento en las semanas del paquete");
   assert.ok(md.includes("cuerpoMaxPalabrasCarrusel"), "falta el tope de cuerpo de carrusel");
   assert.ok(md.includes("con prisa P8: no bloquea"), "falta la regla NB de la P8 del con prisa");
 });
@@ -2178,10 +2220,11 @@ check("ejemplo y esqueleto: el EJEMPLO pasa validarSemana; desde DESDE_CALIDAD l
   try {
     const dir = join(root, "_calendario", EJEMPLO.plan.semana);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+    // EJEMPLO trae el borrador de su primera pieza: la semana se valida con esa pieza (desde el pivote el plan tiene 3).
+    writeFileSync(join(dir, "plan.json"), JSON.stringify({ ...EJEMPLO.plan, piezas: [EJEMPLO.plan.piezas[0]] }));
     writeFileSync(join(dir, `${EJEMPLO.plan.piezas[0].id}.json`), JSON.stringify(EJEMPLO.borrador));
-    crearOrigen(root, EJEMPLO.plan.piezas);
-    assertNone(validarSemana(dir, { ...CONFIG_BASE, audios: [EJEMPLO.borrador.audio] }, { score: () => 90 }));
+    crearOrigen(root, EJEMPLO.plan.piezas, EJEMPLO.plan.semana);
+    assertNone(validarSemana(dir, CONFIG_EJEMPLO, { score: () => 90 }));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -2194,9 +2237,54 @@ check("ejemplo y esqueleto: el EJEMPLO pasa validarSemana; desde DESDE_CALIDAD l
   for (const p of esqueleto.piezas) {
     assert.ok(conJuez(p), `${p.id}: falta candidatos y juez`);
     assertNone(erroresDeHookJuez(p));
-    if (p.formato === "reel") assert.ok(SERIES_CALIDAD.includes(p.serie), `${p.id}: serie ${p.serie}`);
-    else assert.ok(p.hook.candidatos.every((c: any) => c.resultado === undefined), `${p.id}: el carrusel no lleva resultado`);
+    // Desde el pivote las series son las de config.series y también las lleva el carrusel (antes: SERIES_CALIDAD, solo reels).
+    assert.ok(seriesDe(CONFIG_PLANTILLA).includes(p.serie), `${p.id}: serie ${p.serie}`);
+    if (p.formato !== "reel") assert.ok(p.hook.candidatos.every((c: any) => c.resultado === undefined), `${p.id}: el carrusel no lleva resultado`);
     assert.ok(!/gratis/i.test(p.hook.texto), `${p.id}: «gratis» no es gancho para este público`);
+  }
+});
+
+check("ejemplo: los temas de las 3 piezas están en el alcance de la plantilla y sus referencias están listas (validarSemana completo)", () => {
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-alcance-"));
+  try {
+    mkdirSync(join(root, "_investigacion"), { recursive: true });
+    copyFileSync("kb-plantilla/_investigacion/alcance.json", join(root, "_investigacion", "alcance.json"));
+    const alcance = leerAlcance(root)!;
+    assert.ok(alcance, "alcance.json de la plantilla legible");
+    crearOrigen(root, EJEMPLO.plan.piezas, EJEMPLO.plan.semana);
+    for (const p of EJEMPLO.plan.piezas) {
+      assert.ok(alcance.dentro.has(claveTema(p.tema)), `${p.id}: ${p.tema} no está en dentro`);
+      assertNone(erroresDeReferencias(p, root, EJEMPLO.plan.semana, alcance));
+    }
+    // La semana entera: cada pieza con un borrador (el de la pieza 0 adaptado a su id, formato y Cta).
+    const dir = join(root, "_calendario", EJEMPLO.plan.semana);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+    for (const p of EJEMPLO.plan.piezas) {
+      const b = clone(EJEMPLO.borrador);
+      b.name = p.id;
+      if (p.formato === "carrusel") {
+        delete b.pace;
+        delete b.audio;
+        for (const sl of b.slides) delete sl.narracion;
+        delete b.slides[0].props.resultado;
+        delete b.slides[0].props.app;
+        delete b.slides[0].props.modo;
+      }
+      const el = p.hook.candidatos[p.hook.juez.elegido - 1];
+      b.slides[0].props.title = el.title;
+      if (el.subtitle !== undefined) b.slides[0].props.subtitle = el.subtitle;
+      if (el.resultado !== undefined) b.slides[0].props.resultado = el.resultado;
+      b.slides[0].props.highlight = el.title.split(" ").at(-1);
+      writeFileSync(join(dir, p.borrador), JSON.stringify(b));
+    }
+    const errs = validarSemana(dir, CONFIG_EJEMPLO, { score: () => 90, avisos: [] });
+    // Los borradores prestados no son los de cada pieza: solo cuentan los errores de tema, alcance y referencia.
+    assertNone(errs.filter((e: string) => /alcance|referencia|tema/.test(e)));
+    // Un tema fuera del alcance (el de la versión anterior del ejemplo) sí se rechaza.
+    assertHas(erroresDeReferencias({ ...EJEMPLO.plan.piezas[1], tema: "[[Ingeniería de agentes de IA]]" }, root, EJEMPLO.plan.semana, alcance), /no está en "dentro" ni "despues"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -2214,8 +2302,9 @@ check("guías y esqueleto (revisión 1): ejemplos con el alcance de su dato y to
   assert.ok(hooks.includes("sesiones de programación"), "el 15 % / 28 % lleva su alcance");
   assert.ok(red.includes("pantalla y voz juntas"), "la regla de idea completa juzga pantalla + voz");
   const esqueleto = JSON.parse(md.match(/<!-- esqueleto:plan -->\s*```json\n([\s\S]*?)\n```/)![1]);
-  const mie = esqueleto.piezas.find((p: any) => p.serie === "criterio");
-  assert.equal(mie.hook.texto, "La IA no siempre ayuda: cuándo revisar");
+  // Desde el pivote el esqueleto es la semana 2026-11-02; el miércoles es de lo-que-construi (antes: criterio).
+  const mie = esqueleto.piezas.find((p: any) => p.serie === "lo-que-construi");
+  assert.ok(mie, "falta la pieza de lo-que-construi en el esqueleto");
   assertNone(erroresDeHookJuez(mie));
 });
 
@@ -2315,7 +2404,8 @@ const configCorrida = { ...config, paquete: PAQUETE_CORRIDO };
 const { paquete: _paquete, ...configSinPaquete } = config as any;
 
 check("pr56-2: la plantilla de config.json trae el bloque paquete con las fechas vigentes", () => {
-  assert.deepEqual(CONFIG_PLANTILLA.paquete, { desde: "2026-10-26", semanas: ["2026-10-26", "2026-11-02"], motivo: "paquete calidad-contenido" });
+  // Desde el pivote a coaching (2026-10-28) el paquete vigente es pivote-coaching (antes: calidad-contenido, 2026-10-26 y 2026-11-02).
+  assert.deepEqual(CONFIG_PLANTILLA.paquete, { desde: "2026-11-02", semanas: ["2026-11-02", "2026-11-09"], motivo: "paquete pivote-coaching" });
   assertNone(validarConfig(CONFIG_PLANTILLA));
 });
 
@@ -2513,4 +2603,154 @@ check("promesas-5: el manual pide revisar promesas antes del lector frío y avis
   assert.ok(/\*\*Promesas contra contenido\*\*/.test(paso5) && paso5.includes("antes de lanzar el"), "paso de promesas en el Paso 5");
   assert.ok(paso5.includes("`--juez` se niega"), "el tope del título en el juez");
   assert.ok(md.includes("`promesas` (desde el 2026-10-26"), "en la lista de campos");
+});
+
+// --- pivote coaching: mix de 3 y series desde el config ---
+
+const SERIES_PIVOTE = ["por-donde-partir", "lo-que-construi"];
+const MIX_3 = [
+  { dia: 1, formato: "reel", arquetipo: "tutorial", hora: "09:00", serie: "por-donde-partir" },
+  { dia: 3, formato: "reel", arquetipo: "atemporal", hora: "09:00", serie: "lo-que-construi" },
+  { dia: 5, formato: "carrusel", arquetipo: "lista", hora: "13:00", serie: "por-donde-partir" },
+];
+const config3 = { ...config, mix: MIX_3, series: SERIES_PIVOTE };
+
+check("pivote: validarConfig acepta un mix de 3 con series", () => assertNone(validarConfig(config3)));
+
+check("pivote: validarConfig con 2 entradas → mix debe tener de 3 a", () => {
+  assertHas(validarConfig({ ...config3, mix: MIX_3.slice(0, 2) }), /mix debe tener de 3 a/);
+});
+
+check("pivote: mix[i].serie fuera de config.series → error", () => {
+  const mix = clone(MIX_3);
+  mix[0].serie = "otra";
+  assertHas(validarConfig({ ...config3, mix }), /mix\[0\]\.serie/);
+});
+
+check("pivote: seriesDe usa config.series o SERIES_CALIDAD", () => {
+  assert.deepEqual(seriesDe({}), SERIES_CALIDAD);
+  assert.deepEqual(seriesDe({ series: ["por-donde-partir"] }), ["por-donde-partir"]);
+  assert.deepEqual(seriesDe({ series: [] }), SERIES_CALIDAD);
+});
+
+check("pivote: validarPieza — serie fuera de config.series nombra las válidas; falta serie desde paquete.desde", () => {
+  const ser = (over: Record<string, unknown>) => validarPieza(pieza({ dia: "2026-11-04", ...over }), config3).filter((e) => /serie/.test(e));
+  assertHas(ser({ serie: "hazlo-con-ia" }), /por-donde-partir, lo-que-construi/);
+  assert.ok(!ser({ serie: "hazlo-con-ia" }).some((e) => / o null/.test(e)), "con config.series ya no se ofrece null");
+  assertNone(ser({ serie: "lo-que-construi" }));
+  assertHas(ser({ serie: undefined }), /falta serie/);
+  assertHas(ser({ serie: null, formato: "carrusel" }), /falta serie/);
+  // antes de paquete.desde no se exige
+  assertNone(validarPieza(pieza({ dia: "2026-10-21", serie: undefined }), config3).filter((e) => /falta serie/.test(e)));
+  // sin config.series no se exige
+  assertNone(validarPieza(pieza({ dia: "2026-11-04", serie: undefined }), config).filter((e) => /falta serie/.test(e)));
+});
+
+check("pivote: validarPlan — el mix calza por serie y marca la que no sigue", () => {
+  const mk = (serieMie: string) => plan({
+    semana: "2026-11-02",
+    experimento: null,
+    piezas: [
+      { id: "lun-reel-a", dia: "2026-11-02", hora: "09:00", formato: "reel", arquetipo: "tutorial", serie: "por-donde-partir", tema: "[[Tema uno]]" },
+      { id: "mie-reel-c", dia: "2026-11-04", hora: "09:00", formato: "reel", arquetipo: "atemporal", serie: serieMie, tema: "[[Tema dos]]" },
+      { id: "vie-carrusel-d", dia: "2026-11-06", hora: "13:00", formato: "carrusel", arquetipo: "lista", serie: "por-donde-partir", tema: "[[Tema tres]]" },
+    ].map((x) => pieza({ ...x, borrador: `${x.id}.json` })),
+  });
+  const serie = (errs: string[]) => errs.filter((e) => /mie-reel-c.*serie/.test(e));
+  assertNone(serie(validarPlan(mk("lo-que-construi"), config3)));
+  const errs = serie(validarPlan(mk("por-donde-partir"), config3));
+  assertHas(errs, /serie/);
+  assertHas(errs, /lo-que-construi/);
+});
+
+// --- señal dm y cierre PARTIR ---
+
+const configCta = { ...config, cta: { palabra: "PARTIR", desde: "2026-11-02" } };
+const bDm = (cta: string, title = "Escríbeme PARTIR y te cuento") => {
+  const b = borrador();
+  b.slides[3].props = { title, cta, source: "Fuente: notebooklm.google.com" };
+  return b;
+};
+
+check("calendario/validar: contienePalabraCta — palabra completa y mayúsculas exactas", () => {
+  assert.equal(contienePalabraCta("Escríbeme PARTIR y te cuento", "PARTIR"), true);
+  assert.equal(contienePalabraCta("para compartir", "PARTIR"), false);
+  assert.equal(contienePalabraCta("escríbeme partir", "PARTIR"), false);
+  assert.equal(contienePalabraCta("Escríbeme PARTIRSE", "PARTIR"), false);
+});
+
+check("calendario/validar: ctaDe lee config.cta o devuelve null", () => {
+  assert.deepEqual(ctaDe(configCta), { palabra: "PARTIR", desde: "2026-11-02" });
+  assert.equal(ctaDe(config), null);
+  assert.equal(ctaDe({ cta: { palabra: "PARTIR", desde: "mañana" } }), null);
+});
+
+check("calendario/validar: señal dm — la pastilla debe pedir escribir", () => {
+  const p = pieza({ dia: "2026-11-02", senal: "dm" });
+  assertHas(vb(p, bDm("Guárdalo")), /no pide el gesto de la señal dm/);
+  assert.ok(!has(vb(p, bDm("Escríbeme PARTIR")), /no pide el gesto de la señal dm/));
+  assert.ok(!has(vb(p, bDm("Escríbeme PARTIR")), /senal .* inválida/));
+});
+
+check("calendario/validar: PARTIR no es sigla en el Cta, sí en otro slide", () => {
+  const b = bDm("Escríbeme PARTIR");
+  assert.ok(!has(reglasDeTexto(b, configCta), /PARTIR/));
+  const c = borrador();
+  c.slides[1].props.body = "Escríbeme PARTIR ahora.";
+  assertHas(reglasDeTexto(c, configCta), /sigla "PARTIR"/);
+  // antes de cta.desde sigue siendo sigla, incluso en el Cta
+  assertHas(reglasDeTexto(b, configCta, "reel", "2026-10-30"), /sigla "PARTIR"/);
+});
+
+check("calendario/validar: el caption debe pedir PARTIR desde cta.desde", () => {
+  const caption = (p: any) => validarCaption(p.caption, configCta, undefined, p.dia);
+  const conPartir = "Por dónde partir con IA.\n\nEscríbeme PARTIR.\n\n#ia #inteligenciaartificial #herramientasia";
+  const sin = pieza({ dia: "2026-11-02" });
+  assertHas(vb(sin, bDm("Escríbeme PARTIR"), configCta), /el caption debe pedir PARTIR/);
+  assertHas(caption(sin), /el caption debe pedir PARTIR/);
+  assert.ok(!has(vb(pieza({ dia: "2026-10-30" }), borrador(), configCta), /el caption debe pedir PARTIR/));
+  assert.ok(!has(vb(pieza({ dia: "2026-11-02", caption: conPartir }), bDm("Escríbeme PARTIR"), configCta), /el caption debe pedir PARTIR/));
+  // «compartir» no cuenta
+  assertHas(vb(pieza({ dia: "2026-11-02", caption: conPartir.replace("PARTIR.", "compartir.") }), bDm("Escríbeme PARTIR"), configCta), /el caption debe pedir PARTIR/);
+  // sin config.cta no hay error
+  assert.ok(!has(vb(sin, bDm("Escríbeme PARTIR"), config), /debe pedir PARTIR/));
+});
+
+check("calendario/validar: el Cta debe pedir PARTIR en título o pastilla desde cta.desde", () => {
+  const p = pieza({ dia: "2026-11-02", senal: "dm" });
+  assertHas(vb(p, bDm("Escríbeme", "Cuéntame tu caso"), configCta), /el Cta debe pedir PARTIR/);
+  assert.ok(!has(vb(p, bDm("Escríbeme", "Escríbeme PARTIR y te cuento"), configCta), /el Cta debe pedir PARTIR/));
+  assert.ok(!has(vb(p, bDm("Escríbeme PARTIR", "Cuéntame tu caso"), configCta), /el Cta debe pedir PARTIR/));
+  assert.ok(!has(vb(pieza({ dia: "2026-10-30", senal: "dm" }), bDm("Escríbeme", "Cuéntame tu caso"), configCta), /el Cta debe pedir PARTIR/));
+  assert.ok(!has(vb(p, bDm("Escríbeme", "Cuéntame tu caso"), config), /el Cta debe pedir PARTIR/));
+});
+
+// --- validarConfig: cta y series mal escritos no dejan la puerta abierta ---
+
+check("calendario/validar: validarConfig — cta debe ser { palabra en mayúsculas, desde AAAA-MM-DD }", () => {
+  assertNone(validarConfig(configCta));
+  for (const malo of [
+    "PARTIR",
+    { palabra: "partir", desde: "2026-11-02" },
+    { palabra: "", desde: "2026-11-02" },
+    { palabra: "PARTIR", desde: "mañana" },
+    { palabra: "PARTIR" },
+    { desde: "2026-11-02" },
+    { palabra: 3, desde: "2026-11-02" },
+  ]) assertHas(validarConfig({ ...config, cta: malo }), /^cta /);
+});
+
+check("calendario/validar: validarConfig — series debe ser una lista no vacía de slugs", () => {
+  assertNone(validarConfig(config3));
+  for (const malo of [[], "por-donde-partir", ["Por Donde Partir"], ["ok-slug", 3], {}]) {
+    assertHas(validarConfig({ ...config3, series: malo, mix: MIX_6 }), /^series /);
+  }
+});
+
+check("pivote: senal dm exigida desde cta.desde", () => {
+  const sen = (cfg: unknown, over: Record<string, unknown>) => validarPieza(pieza({ senal: "guardados", ...over }), cfg as any).filter((e) => /^senal /.test(e));
+  assertHas(sen(configCta, { dia: "2026-11-02" }), /desde el 2026-11-02 toda pieza va con senal "dm"/);
+  assertNone(sen(configCta, { dia: "2026-10-30" }));
+  assertNone(sen(config, { dia: "2026-11-02" }));
+  assertNone(sen(configCta, { dia: "2026-11-02", senal: "dm" }));
 });

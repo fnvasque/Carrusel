@@ -1,0 +1,146 @@
+{
+  "plan": {
+    "semana": "2026-10-12",
+    "zona": "America/Santiago",
+    "experimento": {
+      "variable": "hook",
+      "hipotesis": "en tutoriales, un hook de curiosidad retiene más que uno de lista",
+      "piezas": [
+        "lun-reel-pdfs-a-podcast"
+      ]
+    },
+    "piezas": [
+      {
+        "id": "lun-reel-pdfs-a-podcast",
+        "dia": "2026-10-12",
+        "hora": "14:00",
+        "formato": "reel",
+        "arquetipo": "tutorial",
+        "senal": "guardados",
+        "tema": "[[Automatización con IA]]",
+        "pilar": "herramienta",
+        "hook": {
+          "categoria": "curiosidad",
+          "texto": "Tus 6 informes pendientes, en un podcast",
+          "score": 9
+        },
+        "emocion": [
+          "curiosidad",
+          "alivio"
+        ],
+        "entregable": "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
+        "fraseAmigo": "hay una herramienta que convierte los informes que no alcanzas a leer en un podcast para escuchar de camino al trabajo",
+        "lectorFrio": {
+          "intentos": 2,
+          "resultado": "ok",
+          "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)"
+        },
+        "origen": {
+          "fichas": [
+            "fuentes/2026-10-04-dm-ejemplo.md"
+          ],
+          "referencias": [
+            "referencias/notebooklm.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Automatización para el trabajo: 6 informes convertidos en un podcast.\n\nGuárdalo para tu próxima pila de informes y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+        "borrador": "lun-reel-pdfs-a-podcast.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "ritmoReel": "ensenar",
+          "duracionMaxSegundos": 60,
+          "tituloPalabras": 7,
+          "hook": "curiosidad"
+        }
+      }
+    ]
+  },
+  "borrador": {
+    "name": "lun-reel-pdfs-a-podcast",
+    "angle": "de una pila de PDFs pendientes a un podcast que escuchas caminando",
+    "pillar": "herramienta",
+    "pace": "ensenar",
+    "audio": "lima-01.mp3",
+    "logoEnCuadro0": true,
+    "slides": [
+      {
+        "template": "Hook",
+        "props": {
+          "title": "Tus 6 informes pendientes, en un podcast",
+          "highlight": "podcast",
+          "subtitle": "El truco es el prompt"
+        },
+        "background": {
+          "ai": "pila de documentos de papel que se transforman en ondas de sonido"
+        }
+      },
+      {
+        "template": "Lead",
+        "props": {
+          "text": "6 archivos, 1 cuaderno y cero horas frente a la pantalla.",
+          "highlight": "cero horas"
+        }
+      },
+      {
+        "template": "Step",
+        "props": {
+          "step": "1",
+          "heading": "Sube tus PDFs a NotebookLM",
+          "body": "Entra a notebooklm.google.com, crea un cuaderno y arrastra los archivos."
+        }
+      },
+      {
+        "template": "Step",
+        "props": {
+          "step": "2",
+          "heading": "Pide el resumen en audio",
+          "bullets": [
+            "Toca resumen en audio",
+            "Prueba la versión corta"
+          ]
+        }
+      },
+      {
+        "template": "Prompt",
+        "props": {
+          "heading": "Pega esto antes de generarlo",
+          "prompt": "Resume estos documentos con las 3 ideas clave y un ejemplo de cada una."
+        }
+      },
+      {
+        "template": "Cta",
+        "props": {
+          "title": "Guárdalo para tu próxima pila de lectura",
+          "highlight": "Guárdalo",
+          "handle": "ia.punto.es",
+          "cta": "Guárdalo",
+          "source": "Fuente: notebooklm.google.com"
+        }
+      }
+    ]
+  }
+}

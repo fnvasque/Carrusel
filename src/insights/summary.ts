@@ -1,5 +1,5 @@
 import { addDays, horaOnlineALocal, localParts, ZONA_ONLINE_FOLLOWERS } from "../calendario/time.ts";
-import type { Senal } from "../calendario/plan.ts";
+import { senalMedible, type Senal } from "../calendario/plan.ts";
 import { escapeHtml } from "../kb/telegram.ts";
 import { shortcodeFromUrl } from "../kb/shortcode.ts";
 import { DESVIO_COMPARABLE_MS, TOLERANCIA_MS, VENTANAS, etiquetaVentana, horasDeVentana, modoComparacion, valorSenal, type Ventana } from "./derive.ts";
@@ -42,7 +42,7 @@ export interface ResumenSemana {
 }
 
 const HORA_MS = 3_600_000;
-const SENALES: Senal[] = ["guardados", "envios", "comentarios", "retencion"];
+const SENALES: Senal[] = ["guardados", "envios", "comentarios", "retencion", "dm"];
 const TABLA_POR_DEFECTO = "tabla por defecto (menos de 100 seguidores)";
 
 const esNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
@@ -97,7 +97,7 @@ function desvioMs(i: Instantanea, publicadoEn: string | undefined, ventana: Vent
 /** Etiqueta de un valor: tasas en % con un decimal, conteos enteros. */
 function fmtValor(f: FilaPieza): string {
   if (!esNum(f.valor)) return "sin dato";
-  if (f.modo === "tasa" || f.senal === "retencion") return `${(f.valor * 100).toFixed(1)} %`;
+  if (f.modo === "tasa" || f.senal !== undefined && senalMedible(f.senal) === "retencion") return `${(f.valor * 100).toFixed(1)} %`;
   return String(Math.round(f.valor));
 }
 
@@ -150,11 +150,11 @@ export function resumirSemana(
     const r = reg.get(i.mediaId);
     const esMotor = i.origen === "motor";
     const senal = esMotor ? (r?.senal ?? "guardados") : "guardados";
-    const valor = valorSenal(senal, i, i.derivadas ?? {}, umbral);
+    const valor = valorSenal(senalMedible(senal), i, i.derivadas ?? {}, umbral);
     const desvio = desvioMs(i, r?.publicadoEn, ventana);
     const fila: FilaPieza = {
       piezaId: i.piezaId ?? r?.piezaId, mediaId: i.mediaId, permalink: r?.permalink, senal, valor,
-      modo: senal === "retencion" ? "tasa" : modoComparacion(i.reach, umbral),
+      modo: senalMedible(senal) === "retencion" ? "tasa" : modoComparacion(i.reach, umbral),
       tardia: desvio !== undefined && Math.abs(desvio) > TOLERANCIA_MS ? true : undefined,
     };
     if (!esMotor) {
