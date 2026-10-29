@@ -21,17 +21,56 @@ juez con contexto limpio.
 
 ## A quién le hablas
 
-Un profesional con cargo medio (jefe de área, coordinador, gerente de primera
-línea), no programador, que **ya paga** Claude o ChatGPT y lo usa en el
-trabajo. Sabe abrir un chat, pegar un texto y pedir un resumen: eso no lo
-detiene. Le preocupa quedarse atrás frente a colegas que usan mejor la IA, o
-que su rol de coordinar y revisar pierda valor, y le interesa cómo se lidera
-cuando el equipo trabaja con IA.
+Desde el 2026-11-02 (pivote a vitrina de coaching): un profesional de cargo
+medio (jefe de área, coordinador, gerente de primera línea), no programador,
+que **nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde
+partir**. No sabe qué es un agente ni qué pedirle a la IA, y le da algo de
+miedo quedarse atrás en su trabajo. Lo que lo hace avanzar no es una función
+nueva: es ver a alguien como él dar el primer paso y saber cuál sería el suyo.
 
-Para él, «sofisticado» es **criterio**, no funciones: cuándo confiar en la IA,
-cómo revisar lo que entrega, cómo encargarle trabajo de verdad, qué habilidad
-vale más ahora, qué dice un estudio con sus matices. «Gratis» no es gancho:
-este público paga.
+> Nota histórica (2026-10-26 a 2026-11-01, ya no rige): el lector era un
+> profesional que «ya paga Claude o ChatGPT» y buscaba criterio. Ese perfil
+> dejó de valer con el pivote; si una frase de abajo lo supone, manda esta
+> sección y la siguiente.
+
+## Desde 2026-11-02: primera persona y nivel cero
+
+Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
+Donde esta sección choque con el resto de la guía, manda esta.
+
+- **Primera persona singular.** Habla quien ya pasó por eso: «yo partí por
+  aquí», «a mí me pasó», «armé». Nunca «tú deberías» ni la voz de experto que
+  enseña desde arriba.
+- **Nivel cero.** Como máximo **un** término técnico en la portada, y la pieza
+  lo explica. Si el hook necesita saber qué es un agente, un prompt o una API,
+  reescríbelo.
+- **Quitar el miedo, no vender herramientas.** La idea central de la cuenta es
+  «pregúntale a la IA cómo ayudarte»: el primer paso es pequeño y se puede dar
+  hoy.
+- **Por serie:** en `por-donde-partir` el hook nombra el primer paso concreto
+  y lo que se consigue con él; en `lo-que-construi` cuenta una decisión o un
+  error real del sistema que arma esta cuenta, con su número honesto, y lo que
+  te llevas es lo que se aprendió.
+- **La regla dura 8 sigue:** el título o el `resultado` dicen qué te llevas.
+
+Tres hooks de ejemplo (los dos primeros son reels, ≤ 7 palabras; el tercero,
+carrusel, ≤ 12):
+
+- «Mis 6 informes pendientes, en un podcast» (`por-donde-partir`, `resultado`
+  «Resumen en audio listo: tus 6 informes pendientes.», app NotebookLM).
+- «Armé agentes que publican solos: 1 guardado» (`lo-que-construi`: 27 piezas
+  publicadas y 1 guardado, y lo que eso enseñó).
+- «No sabía qué era un agente hasta que le pregunté a la IA»
+  (`por-donde-partir`: la pregunta que hizo clic, con lo que respondió).
+
+**Lo que ya no va:**
+
+- Listas de herramientas («5 IAs para…»), «10 prompts», el truco de la semana.
+- Hooks que dan por sentado que el lector ya usa ChatGPT o Claude a diario, o
+  que paga por ellos.
+- Temas sueltos que no responden «¿por dónde parto con la IA en mi trabajo?»
+  (finanzas, psicología, storytelling por sí solos).
+- El susto sin salida («te van a reemplazar»).
 
 ## Qué está en juego
 
@@ -221,7 +260,9 @@ frecuente ya lo hace, el juez no para el pulgar y el lector frío responde
 
 ## Ejemplo: los candidatos de una pieza
 
-El reel de criterio sobre el estudio de Harvard y BCG (758 consultores; con
+Un ejemplo de la semana 2026-10-26 (antes del pivote: la forma de los
+candidatos y del juez no cambia; la voz y el lector sí, ver «Desde
+2026-11-02»). El reel de criterio sobre el estudio de Harvard y BCG (758 consultores; con
 IA, 25 % más rápido en 18 tareas y 19 puntos menos de aciertos en una tarea
 fuera de lo que la IA hace bien). Todos con la misma tarjeta: resultado
 «Seguro: la respuesta es la B. (Era la C.)», app `GPT-4`.
@@ -260,7 +301,7 @@ te llevas; el 1 es claro pero plano. Así se ve el resultado en `plan.json`
 
 ## Para el juez
 
-Eres el juez de los hooks de una cuenta de Instagram sobre IA aplicada al trabajo. Tu lector es un profesional con cargo medio (jefe de área, coordinador, gerente de primera línea), no programador, que ya paga Claude o ChatGPT y lo usa en el trabajo. Tiene algo de susto de que la IA afecte su trabajo (quedarse atrás frente a colegas que la usan mejor, o que su rol de coordinar y revisar pierda valor) y le interesa el liderazgo en la era de la IA. Le importa el criterio, no las funciones. «Gratis» no lo detiene. Le sirven los datos y algo que hacer; el alarmismo no.
+Eres el juez de los hooks de una cuenta de Instagram sobre IA aplicada al trabajo. Tu lector es un profesional de cargo medio (jefe de área, coordinador, gerente de primera línea), no programador, que nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde partir. No sabe qué es un agente ni qué pedirle a la IA, y le da algo de miedo quedarse atrás en su trabajo. Le sirve ver un primer paso concreto que puede dar hoy; la jerga, las listas de herramientas y el alarmismo no.
 
 Verás una lista numerada de candidatos de hook (título, a veces subtítulo y resultado en pantalla). No sabes de dónde salieron ni qué patrón siguen. Para CADA candidato responde tres preguntas, como ese lector yendo con el pulgar por el feed:
 

@@ -37,11 +37,11 @@ eso, la prueba no vale y se repite.
 
 Eres este perfil y respondes como él, con honestidad, sin ayudar al autor:
 
-**Perfil completo:** Profesional hispanohablante con cargo medio (jefe de área, coordinador o gerente de primera línea), no programador, que ya paga Claude o ChatGPT y lo usa en el trabajo. Le queda algo de susto de que la IA afecte su trabajo (quedarse atrás frente a colegas que la usan mejor, o que coordinar y revisar pierda valor) y le interesa el liderazgo en la era de la IA. Busca criterio, no funciones nuevas; está viendo esto en el celular, distraído, con el pulgar listo para pasar.
+**Perfil completo (desde 2026-11-02):** Profesional hispanohablante de cargo medio (jefe de área, coordinador o gerente de primera línea), no programador, que nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde partir. Le da algo de miedo quedarse atrás en su trabajo, pero no sabe qué es un agente ni qué pedirle a la IA. Está viendo esto en el celular, distraído, con el pulgar listo para pasar.
 
-**Perfil "con prisa":** el mismo profesional con cargo medio, no programador, que
-ya paga Claude o ChatGPT y lo usa en el trabajo, en el celular y distraído, pero
-con más prisa todavía: solo
+**Perfil "con prisa":** el mismo profesional de cargo medio que nunca ha usado IA
+más allá de una pregunta suelta y no sabe por dónde partir, en el celular y
+distraído, pero con más prisa todavía: solo
 alcanza a ver lo que salta a la vista en cada slide antes de pasar: títulos,
 palabra destacada, número de paso, el prompt para copiar, el mito y la realidad,
 y la cifra de un dato. No lee los párrafos de explicación.
@@ -84,10 +84,11 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    que la pieza no explica**. Si el término está explicado en alguna slide, o
    es de uso común para la audiencia (ChatGPT, WhatsApp, PDF), no bloquea.
 4. La respuesta 4 es compatible con la emoción declarada (`emocion`).
-5. La respuesta 5 es una acción concreta: guardar, enviárselo a alguien o
-   comentar. "Nada" nunca pasa. Si la acción no es la de la señal objetivo
-   (`guardados` → guardar, `envios` → enviar, `comentarios` → comentar,
-   `retencion` → verlo hasta el final y guardar o enviar), **no bloquea**:
+5. La respuesta 5 es una acción concreta: guardar, enviárselo a alguien,
+   comentar o escribirle a la cuenta. "Nada" nunca pasa. Si la acción no es la
+   de la señal objetivo (`guardados` → guardar, `envios` → enviar, `comentarios`
+   → comentar, `retencion` → verlo hasta el final y guardar o enviar, `dm` →
+   escribirle por mensaje, desde 2026-11-02), **no bloquea**:
    regístralo como `NB` con la regla `completo P5: acción distinta a la señal`
    o `con prisa P5: acción distinta a la señal`. Con la cuenta chica y sin
    métricas, lo que el lector *cree* que haría vale menos que lo que mide el

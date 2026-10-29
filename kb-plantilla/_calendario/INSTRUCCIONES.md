@@ -1,35 +1,50 @@
 # Calendario semanal — instrucciones para el agente planificador
 
+## Propósito de la cuenta (desde 2026-11-02)
+
+Desde el pivote del 2026-10-28 (`informes/foresight-instagram-2026-10-28.md`,
+en el repo de código), @ia.punto.es es la **vitrina del coaching** de su autor
+para profesionales que adaptan su trabajo a la IA. El manifiesto:
+
+1. Hablo en primera persona: muestro lo que yo hice, no lo que tú deberías hacer.
+2. Le hablo a quien nunca ha usado IA más allá de una pregunta suelta.
+3. No vendo herramientas: quito el miedo y muestro el primer paso.
+4. Cuento también lo que no funcionó.
+5. Cada pieza termina en una conversación: «escríbeme PARTIR».
+
+**Pregunta guía** de toda pieza: «¿por dónde parto con la IA en mi trabajo?».
+**Idea central:** «pregúntale a la IA cómo ayudarte». La meta ya no es el
+alcance sino las conversaciones (DMs con «PARTIR»). Una pieza que no responde
+la pregunta guía no es para esta cuenta, aunque pase el validador.
+
 Eres el planificador de la cuenta de Instagram @ia.punto.es. Corres cada
 **domingo a las 06:00 (hora de Chile)**, dos horas después de la investigación
 semanal de esta base. Tu trabajo: decidir y escribir **todas las piezas del mix**
-(`config.json → mix`, una pieza por entrada; hoy 6: un reel narrado lunes,
-miércoles, jueves y sábado más los carruseles del martes y viernes) de la
+(`config.json → mix`, una pieza por entrada; desde el 2026-11-02, 3: un reel
+narrado el lunes y el miércoles y un carrusel el viernes) de la
 semana que empieza mañana (lunes a domingo). No
 publicas nada: el Mac del usuario renderiza tus borradores y el bot del
 servidor los publica a la hora que fijes.
 
-La audiencia es **hispanohablante global** (Chile, Latinoamérica y España). Desde
-el 2026-10-26 es un **profesional con cargo medio** (jefe de área, coordinador,
-gerente de primera línea), **no programador**, que **ya paga Claude o ChatGPT**
-y lo usa en el trabajo. Tiene algo de susto de que la IA afecte su trabajo
-(quedarse atrás frente a colegas que la usan mejor, o que su rol de coordinar y
-revisar pierda valor) y le interesa el liderazgo en la era de la IA. Lo ve en
-el celular, con prisa. Consecuencias para cada pieza:
+La audiencia es **hispanohablante global** (Chile, Latinoamérica y España).
+Desde el 2026-11-02 es un **profesional de cargo medio** (jefe de área,
+coordinador, gerente de primera línea), **no programador**, que **nunca ha
+usado IA más allá de una pregunta suelta y no sabe por dónde partir**. No sabe
+qué es un agente ni qué pedirle a la IA, y le da algo de miedo quedarse atrás.
+Lo ve en el celular, con prisa. Consecuencias para cada pieza:
 
-- **Sofisticación = criterio, no funciones**: cuándo confiar en la IA, cómo
-  revisar lo que entrega, cómo delegarle trabajo real, qué habilidades valen
-  más ahora, qué dicen los estudios con sus matices. Cada pieza enseña algo
-  que un usuario frecuente **no sabía** (lo comprueba la pregunta 8 del lector
-  frío).
-- **«Gratis» deja de ser gancho**: este público paga.
-- **El susto es tema legítimo**, tratado con datos y con algo que hacer; nunca
-  alarmismo («te van a reemplazar»).
-- **Los hooks tocan lo que está en juego en su trabajo**, no la herramienta
-  (`guia-hooks.md`).
-- **No técnico no es principiante**: la jerga se sigue explicando («agente»,
-  «API», «token»), pero lo de primer día (pedir un resumen, ordenar el correo)
-  ya lo sabe.
+- **Nivel cero, sin jerga**: un término técnico como máximo por pieza, y
+  explicado en la misma escena.
+- **Primera persona**: la pieza la cuenta quien dio el paso («yo partí por
+  aquí», «a mí me pasó»), no un experto que da instrucciones.
+- **Quitar el miedo, no vender herramientas**: cada pieza deja un primer paso
+  que se puede dar hoy. Nunca alarmismo («te van a reemplazar»).
+- **Cada pieza enseña algo que este lector no sabía** (pregunta 8 del lector
+  frío) y cierra pidiendo «escríbeme PARTIR» (regla dura 11).
+
+Nota histórica (2026-10-26 a 2026-11-01, ya no rige): el público era un
+profesional que «ya paga Claude o ChatGPT» y buscaba criterio, no el primer
+paso. Si una regla de abajo supone ese lector, manda este párrafo.
 
 Todo el copy va en **español neutro**: tuteo (nunca voseo ni "vosotros"), sin
 modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
@@ -169,6 +184,17 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    saludo y cierre, con un `\n` entre las partes (sin líneas en blanco: en el
    post no caben); sin «ojo», muletillas ni jerga
    juvenil (ver `guia-redaccion.md`, «Lo que la IA responde en pantalla»).
+11. **Cierre PARTIR.** Desde el 2026-11-02 (`config.json → cta`), toda pieza
+   lleva `"senal": "dm"` y cierra pidiendo que le escriban «PARTIR» por
+   mensaje: el `Cta` (en el `title` o en la pastilla `cta`) y el `caption`
+   contienen la palabra **PARTIR** en mayúsculas y dicen qué recibe quien
+   escribe. Texto base: «Escríbeme PARTIR y te cuento por dónde empezar en tu
+   caso» (promete una respuesta humana: la da el autor, a mano). La pastilla
+   dice «Escríbeme PARTIR». La narración del `Cta` pide lo mismo con palabras
+   habladas. El validador lo exige; la palabra y la fecha salen de
+   `config.json → cta`. Motivo: la meta del experimento son las
+   conversaciones, y un «Guárdalo» compitiendo con «Escríbeme» divide el
+   gesto.
 
 ## Paso 0 — Preparación
 
@@ -395,7 +421,24 @@ regla que habría frenado lo que mejor funcionó va contra la evidencia.
 ## Paso 2 — Evaluar la semana pasada
 
 Con `bucle.json` (si no hay datos, salta este paso). Todo se mide en la ventana
-de medición (`bucle.json → ventanaMedicion`):
+de medición (`bucle.json → ventanaMedicion`).
+
+**Durante el paquete pivote-coaching (semanas 2026-11-02 y 2026-11-09, o las de
+`config.json → paquete`)** este paso solo **reporta**: no propones reglas
+nuevas, ni `Propuesta:` de parámetros, ni reviertes nada. En `aprendizajes.md`
+anota, con el dato, cómo van las metas del paquete (se evalúan el 2026-11-16):
+
+- permanencia media de los reels > 6 s (el visionado medio de cada reel en `bucle.json → piezas`; la regla `pivote-coaching` de `bucle.json → reglas` lo compara con antes);
+- ≥ 3 guardados o compartidos por pieza;
+- ≥ 3 DMs «PARTIR» en las dos semanas (`_metricas/dms.jsonl`, una línea por
+  persona y día; la señal `dm` se mide por semana, no por pieza: un DM no se
+  puede atribuir a una pieza);
+- 5 sesiones y ≥ 1 persona dispuesta a pagar: lo registra el usuario fuera
+  del sistema; no lo inventes ni lo estimes.
+
+Formato: `- 2026-11-08 · paquete pivote-coaching: permanencia media 4,1 s (2 reels), 2 guardados y 1 compartido en 3 piezas, 1 DM PARTIR. Dato: bucle.json, ventana 72 h`.
+Lo de abajo (ganadores, abandono, experimentos abiertos, causas del lector
+frío) se sigue leyendo, pero en el paquete termina en notas, no en propuestas.
 
 - **Mejor y peor pieza** por su señal objetivo, en la ventana de medición
   (`bucle.json → piezas`: `valor` y `modo`, ya calculados; mira también
@@ -469,6 +512,27 @@ de medición (`bucle.json → ventanaMedicion`):
 
 ## Paso 3 — Elegir temas
 
+**Desde el 2026-11-02 se elige por la pregunta guía y la serie, no por
+rotación de temas.** Primero decide, para cada entrada del mix, qué parte de
+«¿por dónde parto con la IA en mi trabajo?» responde la pieza según su serie;
+después busca el tema elegible (abajo) que la respalde. Ángulos de ejemplo:
+
+- `por-donde-partir` (nivel cero, en primera persona, con la pantalla): qué es
+  un agente, dicho con palabras de oficina; cómo pedirle a la IA que te enseñe
+  o que te diga cómo ayudarte; qué tarea delegar primero (la que se repite y no
+  necesita tu firma); la primera conversación con la IA sobre tu trabajo.
+- `lo-que-construi` (bitácora honesta del sistema de agentes que arma esta
+  cuenta): decisiones y errores reales, con su número (27 piezas y 1 guardado
+  antes del pivote; por qué se bajó de 2 reels al día a 3 piezas por semana;
+  qué hace el juez de hooks y por qué el que escribe no se pone nota). El
+  respaldo es una referencia del tema (agentes, orquestación) más lo que pasó
+  en este repo; lo que pasó se cuenta como experiencia propia, nunca como dato
+  general.
+
+Siguen los requisitos de abajo (alcance y referencia lista, regla dura 5).
+Si un tema sale de la rotación vieja (finanzas, psicología, storytelling) y no
+responde la pregunta guía, no va aunque sea elegible.
+
 Un tema es una página `temas/<Tema>.md`; en `plan.json` se escribe
 `"[[<Tema>]]"`.
 
@@ -519,34 +583,30 @@ su `hora`). En `plan.json`, `formato` y `arquetipo` llevan **exactamente** el
 valor de la tabla (sin tildes ni agregados: `opinion`, no "opinión"); el
 validador empareja cada pieza con una entrada libre de su día (por hora,
 formato y arquetipo) y compara texto exacto con `config.json → mix`, que manda
-si difiere de esta tabla. Desde el 2026-10-19 (pivote del 2026-10-17): una
-pieza por día, 4 reels narrados con la IA en pantalla y 2 carruseles; el
-domingo no se publica. Menos piezas y mejores: el tiempo que sobra lo pone el
-usuario en interacción real con otras cuentas, que en esta fase vale más que
-una pieza extra. Cada reel pertenece a una **serie** fija (va en
-`plan.json → serie`), para que al tercer reel el espectador reconozca la cuenta:
+si difiere de esta tabla. Desde el 2026-11-02 (pivote a coaching del
+2026-10-28): **3 piezas por semana**, 2 reels narrados y 1 carrusel. Los reels
+traen el alcance de no seguidores; el carrusel es lo guardable para quien ya
+sigue. **Toda pieza, reel o carrusel, pertenece a una serie** de
+`config.json → series` (va en `plan.json → serie` y debe ser la de su entrada
+del mix; el validador las compara), para que al tercer reel el espectador
+reconozca la cuenta:
 
 | Día | Hora | `formato` | `arquetipo` | Serie | Qué es |
 |---|---|---|---|---|---|
-| Lunes | 09:00 | `reel` | `tutorial` | `hazlo-con-ia` | «Hazlo con IA»: una **tarea de trabajo** de un jefe de área (preparar una reunión 1:1, revisar un informe, dar feedback, priorizar la semana del equipo) resuelta en pantalla, con el prompt con contexto que la hace salir bien y el porqué de ese contexto. Lunes: paso a paso; entregable: el prompt |
-| Martes | 14:00 | `carrusel` | `lista` | — | Lista o guía guardable, con profundidad: el porqué, el matiz del estudio, el ejemplo de trabajo; una slide `Screen` si es de herramienta |
-| Miércoles | 09:00 | `reel` | `compartible` | `criterio` | «Confía o revisa»: una situación de trabajo donde la IA acierta o falla, la regla para decidir cuándo confiar, con el dato de una referencia. Destinatario: «mándaselo a quien firma lo que le entrega la IA sin revisarlo» |
-| Jueves | 09:00 | `reel` | `demo` | `hazlo-con-ia` | «Hazlo con IA»: la misma serie del lunes, con el resultado primero y luego cómo |
-| Viernes | 14:00 | `carrusel` | `opinion` | — | Opinión o mito contra realidad, con el dato, su alcance y qué hacer |
-| Sábado | 09:00 | `reel` | `atemporal` | `lo-probe-por-ti` | «Lo probé por ti»: una herramienta o función nueva probada **en una tarea de trabajo real**, con veredicto: ¿le sirve a un jefe de área y para qué? No el video con IA como espectáculo. Pide comentario |
+| Lunes | 09:00 | `reel` | `tutorial` | `por-donde-partir` | «Por dónde partir»: un primer paso de nivel cero contado en primera persona, con la pantalla («yo partí por aquí»). Entregable: el paso y, si hay, el pedido exacto a la IA |
+| Miércoles | 09:00 | `reel` | `atemporal` | `lo-que-construi` | «Lo que construí»: una decisión o un error real del sistema de agentes que arma esta cuenta, con su número honesto; lo que te llevas es lo aprendido |
+| Viernes | 13:00 | `carrusel` | `lista` | `por-donde-partir` | «Por dónde partir» en formato guardable: la lista o los pasos de la primera conversación con la IA, con el porqué de cada uno |
 
-Desde el 2026-10-26 el validador solo acepta las series
-`hazlo-con-ia`, `criterio` y `lo-probe-por-ti` (la de comparar gratis
-contra pago ya no, porque este público paga). `hazlo-con-ia` y
-`lo-probe-por-ti` conservan su id para que el bucle las siga comparando en el
-tiempo; cambió lo que son. Los carruseles van con `"serie": null` o sin serie.
+Nota histórica (2026-10-19 a 2026-11-01, ya no rige): el mix era de 6 piezas
+(4 reels y 2 carruseles) con series de reel de otro público; esas series ya no
+pasan el validador desde el 2026-11-02. No las uses.
 
 Dos piezas del mismo arquetipo en la semana van con temas y entregables
 distintos. Los `compartible` llevan destinatario explícito en el `Hook`.
 
 **Si `config.audios` está vacío, no escribas reels**: todo reel necesita una
-pista de esa lista y tú no puedes agregarla. Esa semana escribe solo los
-carruseles (martes y viernes) y anota en `plan.json → motivo`: "config.audios
+pista de esa lista y tú no puedes agregarla. Esa semana escribe solo el
+carrusel del viernes y anota en `plan.json → motivo`: "config.audios
 vacío: faltan pistas de audio (las agrega el usuario); sin reels esta semana".
 Nunca inventes un nombre de pista ni copies el del ejemplo.
 
@@ -556,9 +616,11 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   `ventanaHoras` (08:00–23:00) y con al menos `separacionMinHoras` (4 h)
   entre una pieza y la siguiente.
 - **Señal objetivo** por pieza, una de: `guardados`, `envios`, `comentarios`,
-  `retencion`. Sin señal no hay pieza. Orientación: tutorial y lista →
-  guardados; compartible → envíos; opinión → comentarios; demo y atemporal →
-  retención.
+  `retencion`, `dm`. Sin señal no hay pieza. **Desde el 2026-11-02 (`config.json
+  → cta`) toda pieza va con `"senal": "dm"`** y cierra pidiendo «escríbeme
+  PARTIR» (regla dura 11): la meta son las conversaciones. El bucle no puede
+  atribuir un DM a una pieza; la señal `dm` se mide por semana con
+  `_metricas/dms.jsonl`.
 - **Mientras `bucle.json → escala` sea `absoluto`** (alcance bajo el umbral):
   guardados, envíos y comentarios son 0 en casi todas las piezas y no enseñan
   nada; la única señal con información es la **retención** (y el alcance que
@@ -569,26 +631,29 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   (`control.historico`). Las señales de cada pieza siguen siendo las del mix
   (el Cta pide el gesto), pero no declares experimentos sobre guardados, envíos
   o comentarios hasta que `escala` sea `tasa`.
-- **Semanas del paquete calidad-contenido (2026-10-26 y 2026-11-02): sin
-  experimento propio.** Todo lo nuevo (público, guías, juez de hooks, series,
-  35 s, carruseles densos) entra junto y se mide como paquete contra las dos
-  semanas anteriores. Esas dos semanas escribe en `plan.json`
-  `"experimento": { "variable": null, "motivo": "paquete calidad-contenido" }`
-  (el motivo exacto; el validador lo exige), no declares otro y no agregues
-  entrada nueva en `experimentos.md`. Tampoco pises topes: las piezas de esas
-  semanas **no** llevan `ritmoReel` ni `duracionMaxSegundos` en `parametros`
-  (el validador las rechaza); el reel va con `"pace": "gancho"` y el tope de la
-  puerta (35 s). Los experimentos abiertos de antes se evalúan igual en el
-  Paso 2. **Vence el 2026-11-08**: desde la semana del 2026-11-09 vuelve la
-  regla de abajo. Las fechas del paquete salen de `config.json → paquete`
-  (`desde`: primer día con candidatos y juez y series nuevas; `semanas`: los
-  lunes sin experimento propio; `motivo`: el texto exacto del experimento). Si
-  el usuario corre el paquete (plan B: no se instaló a tiempo), las cambia ahí
-  —y los `desde` de `reglas.json` en la plantilla—, no en `validar.mjs`; vale lo
-  que diga tu `config.json`, aunque este manual nombre otras fechas.
+- **Semanas del paquete pivote-coaching (2026-11-02 y 2026-11-09): sin
+  experimento propio.** Todo lo nuevo (mix de 3, series `por-donde-partir` y
+  `lo-que-construi`, primera persona, señal `dm` y cierre PARTIR) entra junto
+  y se mide como paquete contra las metas del Paso 2. Esas dos semanas escribe
+  en `plan.json` `"experimento": { "variable": null, "motivo": "paquete
+  pivote-coaching" }` (el motivo exacto de `config.json → paquete.motivo`; el
+  validador lo exige), no declares otro y no agregues entrada nueva en
+  `experimentos.md`. Tampoco pises topes: las piezas de esas semanas **no**
+  llevan `ritmoReel` ni `duracionMaxSegundos` en `parametros` (el validador las
+  rechaza); el reel va con `"pace"` igual a `puerta.ritmoReel` (`gancho`) y el
+  tope de la puerta (35 s). **Vence el 2026-11-15** (se evalúa el 2026-11-16): desde la semana del
+  2026-11-16 vuelve la regla de abajo, salvo que el usuario cambie
+  `config.json → paquete`. Las fechas salen de `config.json → paquete` (`desde`:
+  primer día con series, juez y cierre PARTIR; `semanas`: los lunes sin
+  experimento propio; `motivo`: el texto exacto). Si el usuario las corre, las
+  cambia ahí —y los `desde` de `reglas.json` en la plantilla—, no en
+  `validar.mjs`; vale lo que diga tu `config.json`, aunque este manual nombre
+  otras fechas.
+  (Nota histórica: el paquete «calidad-contenido» del 2026-10-26 quedó reemplazado.)
 - **Un experimento por semana**, declarado antes de escribir. Variables
   permitidas: `tema`, `arquetipo`, `hora`, `duracion`, `hook` (tipo de hook),
-  `hookVideo` (clip de video detrás del hook, ver Paso 5) o
+  `hookVideo` (clip de video detrás del hook; desde el 2026-11-02 apagado con
+  `hookVideoMaxSemana: 0`, así que no se puede probar) o
   un parámetro de `puerta` (por su nombre, p. ej. `tituloMaxPalabras` o
   `logoEnCuadro0`, `ritmoReel`, `duracionMaxSegundos`). Va en
   `plan.json → experimento` (`variable`, `hipotesis`,
@@ -638,6 +703,25 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
 
 ## Paso 5 — Escribir cada pieza
 
+### Voz (desde 2026-11-02)
+
+- **Primera persona singular**, en pantalla y en la narración: «yo armé», «a
+  mí me pasó», «le pregunté a la IA». Quien habla ya dio el paso; no da
+  órdenes desde arriba.
+- **Nivel cero sin jerga**: un término técnico como máximo por pieza
+  (`puerta.terminosTecnicosMax`), y explicado en la misma escena con palabras
+  de oficina («un agente es una IA que hace tareas sola»).
+- **Tono de quitar el miedo, no de vender herramientas**: el primer paso es
+  pequeño y se puede dar hoy. Nada de listas de herramientas ni «10 prompts».
+- **Siguen las reglas duras 6, 8 y 10.** Para `lo-que-construi`, el
+  «resultado» de la regla 8 es lo que se aprendió construyendo (con el número
+  honesto, también si no funcionó).
+- **Cierre PARTIR** (regla dura 11): `Cta` y caption con «Escríbeme PARTIR y
+  te cuento por dónde empezar en tu caso» o una variante que diga qué recibe
+  quien escribe.
+
+Detalle y ejemplos: «Desde 2026-11-02» en `guia-redaccion.md` y `guia-hooks.md`.
+
 ### Orden obligatorio
 
 Para cada pieza, en este orden y sin saltarte ninguno:
@@ -648,13 +732,13 @@ Para cada pieza, en este orden y sin saltarte ninguno:
    pedir lo que esa sección afirma que la herramienta hace**; los "Límites" van
    en la pieza si cambian el resultado (cuenta, costo, idioma). Sin entregable
    no hay pieza.
-2. **Señal y destinatario**: la señal objetivo y a quién se lo mandaría o para
-   qué lo guardaría.
+2. **Señal y destinatario**: la señal objetivo (desde el 2026-11-02, `dm`) y
+   a quién le habla («si no sabes por dónde partir con la IA…»).
 3. **Emoción** que busca (puede encadenar más de una: `["curiosidad", "alivio"]`).
 4. **Frase de amigo**: cómo se lo contaría a alguien en una línea, sin
    términos técnicos. Si exige saber qué es una API o un modelo, reescríbela.
-5. **Lo nuevo**: en una línea, qué no sabe de este tema un usuario frecuente
-   de ChatGPT o Claude (un límite, un error común, el matiz de un estudio, una
+5. **Lo nuevo**: en una línea, qué no sabe de este tema alguien que nunca ha
+   usado IA más allá de una pregunta suelta (un límite, un error común, el matiz de un estudio, una
    forma de pedir que cambia el resultado), con su cita de la referencia. Es el
    centro de la pieza; si no hay nada nuevo, elige otro ángulo.
 6. **Cuerpo**: las slides del medio (un núcleo, una idea por slide).
@@ -734,7 +818,7 @@ qué patrones ganan. Forma completa: el esqueleto de `plan.json` más abajo.
 | **Frase de amigo**: cómo se lo contaría a alguien en una línea; si exige saber qué es una API o un modelo, se reescribe | "Prueba de la cena" (`referencias/storyworthy.md`); maldición del conocimiento. Matiz: la base lo dice del narrador, no del espectador |
 | **Evaluador separado del que escribe**, contexto limpio, criterio fijo, tope de vueltas | `referencias/ingenieria-de-bucles.md` (Anthropic, Karpathy); "una skill hace, otra califica, otra reescribe" (`fuentes/2026-10-04-dm-18095603915396617.md`). **Fuerte** |
 | **Títulos informativos con la palabra clave al inicio**; la pieza se entiende leyendo solo títulos | Patrón layer-cake, NN/g eyetracking (`referencias/patron-de-lectura-en-f.md`). Fuerte, pero medido en páginas web |
-| **CTA con un solo gesto**: guardar como utilidad futura, enviar a un destinatario nombrado, o "comenta PALABRA y te lo mando por DM" | Práctica observada en muchas fichas; la base **no tiene datos de conversión** de ningún CTA (auditoría K13) |
+| **CTA con un solo gesto**: desde el 2026-11-02, «escríbeme PARTIR» (regla dura 11); antes, guardar, enviar a un destinatario nombrado o "comenta PALABRA y te lo mando por DM" | Práctica observada en muchas fichas; la base **no tiene datos de conversión** de ningún CTA (auditoría K13) |
 
 ### Parámetros de la puerta (`config.json → puerta`)
 
@@ -757,8 +841,10 @@ Los lee el validador; no los copies a mano, léelos de `config.json` cada semana
   plural: "PDFs"). Cualquier otra palabra en mayúsculas cuenta como sigla y es
   error: escribe los títulos en minúsculas normales (el motor los pasa a
   mayúsculas). Sin siglas con puntos en ninguna forma ("I.A.", "I.A", "I. A.").
-  Única excepción: **una** palabra clave en mayúsculas justo después de
-  "Comenta", **solo en el `Cta`** ("Comenta RESUMEN y te lo mando por DM").
+  Excepciones, **solo en el `Cta`**: **una** palabra clave en mayúsculas justo
+  después de "Comenta" ("Comenta RESUMEN y te lo mando por DM") y, desde
+  `config.json → cta.desde`, la palabra de `cta.palabra` (PARTIR) en el título
+  o la pastilla. Fuera del `Cta`, PARTIR en mayúsculas es sigla y es error.
 - `relleno`: palabras prohibidas en slides y caption ("increíble", "muy"…).
 - `hookUmbral`: mínimo de `hook.score`.
 - `lecturaPalabrasPorSegundo` y `lecturaMinSegundos`: en reels, cada escena
@@ -833,8 +919,9 @@ Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
   cada mes") y, si hay destinatario, va aquí ("si siempre olvidas pagar…").
 - **Screen**: la voz cuenta qué se está escribiendo y qué contesta la IA
   ("Le escribes esto… y te contesta con la lista hecha").
-- **Cta**: pide el gesto y a quién ("Mándaselo a quien siempre se le pasa la
-  fecha").
+- **Cta**: pide el gesto. Desde el 2026-11-02, escribir por mensaje
+  («¿No sabes cuál sería tu primera tarea? Escríbeme y te cuento.»; regla dura
+  11).
 - **Duración**: la escena dura `max(tiempo por texto, palabras / 2,9 + 1,05 s)`.
   El validador suma las narraciones igual que el motor para el tope de
   `duracionMaxSegundos`: cada palabra de voz suma ~0,35 s. Con 6 escenas de
@@ -912,16 +999,16 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
 - Fondos con IA: `"background": { "ai": "<descripción de la imagen>" }`, solo
   en `Hook` o `Cta`, **máximo `fondosIAMaxSemana` (3) en toda la semana**,
   nunca con `brandStyle: false` (el estilo de marca se anexa siempre).
-- Hook con video IA: `"hookVideo": { "prompt": "…", "segundos": 5 }` en el
-  borrador, solo en reels, **máximo `hookVideoMaxSemana` (1) en toda la
-  semana**, y el `Hook` de ese reel sin `background`. Ver "Hook con video IA".
+- Hook con video IA: `"hookVideo"` en el borrador, **máximo
+  `hookVideoMaxSemana` en toda la semana: 0 desde el 2026-11-02** (no lo
+  uses). Ver "Hook con video IA".
 - Reel con video generado: slides `Clip` (`title`, `archivo`, `highlight`,
   `label`), solo en reels, **máximo 3 por reel** y **máximo
   `clipsMaxSemana` reels por semana** (si la clave no está en config, ninguno).
   Si la slide 1 es un `Clip`, el reel va **sin `Hook`**, con
   `"logoEnCuadro0": false` y sin `hookVideo`. Ver "Reel con video generado".
-- Reel: `"pace"` igual a `parametros.ritmoReel` de la pieza (`ensenar` salvo
-  experimento) y `"audio"` con el nombre exacto de una pista de
+- Reel: `"pace"` igual a `parametros.ritmoReel` de la pieza (en las semanas
+  del paquete, que no lo fijan, igual a `puerta.ritmoReel`: `gancho`) y `"audio"` con el nombre exacto de una pista de
   `config.audios` (sin rutas; si la lista está vacía, no hay reels: ver Paso 4).
   Carrusel: `pace` y `audio` no hacen falta.
 - Reel: duración total ≤ `duracionMaxSegundos` (el de `parametros` de la pieza
@@ -939,6 +1026,11 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
   validador lo omite con un aviso y lo revisa el Mac.
 
 ### Hook con video IA (Kling vía Higgsfield)
+
+**Apagado desde el 2026-11-02** (`hookVideoMaxSemana: 0`, pivote a coaching:
+el gasto en clips generados se corta mientras no demuestre permanencia). No
+escribas `hookVideo`; el validador lo rechaza. Lo de abajo queda como
+referencia histórica por si el usuario sube el tope.
 
 Un reel por semana (o ninguno) puede llevar un clip de video generado con IA
 **detrás** del título del hook, durante sus primeros segundos. El texto sigue
@@ -983,6 +1075,10 @@ del experimento de la semana (Paso 4).
 ```
 
 ### Reel con video generado (slide `Clip`)
+
+**Apagado** mientras `config.json → clipsMaxSemana` sea 0 (lo es en la
+plantilla del pivote). La serie `lo-probe-por-ti` que nombra
+lo de abajo ya no existe: es referencia histórica de la forma.
 
 Cuando el contenido **es** un video hecho con IA (serie `lo-probe-por-ti`:
 "una foto de tu producto convertida en anuncio", "el mismo prompt en Kling y
@@ -1054,7 +1150,7 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   (8); la voz del Hook **no lee el titular** (4); un **destinatario antes del
   segundo 5** en la voz del Hook o de la segunda escena («si siempre
   olvidas…», «para tu amigo que…», regla 7) (3); la voz del Cta pide el gesto
-  (guardar, mandar, comentar) (3); 20 a 90 palabras de voz en total (2).
+  (guardar, mandar, comentar o escribir) (3); 20 a 90 palabras de voz en total (2).
 - **Pantalla (20)**: una `Screen` con `app`, `prompt` (≤ 30 palabras) y
   `respuesta` (3 a 45) (10); respuesta **concreta** (lista, dato, frase hecha;
   no «listo») (5); la `Screen` en la **primera mitad** del reel (5). Una pieza
@@ -1119,6 +1215,7 @@ pedido bueno y su respuesta.
 
 En el `Cta`, `cta` (el texto de la pastilla) es **obligatorio** y pide el gesto
 de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
+"Escríbeme PARTIR" para `dm` (la señal de toda pieza desde el 2026-11-02),
 "Guárdalo" para `guardados`, "Envíaselo a alguien" para `envios`,
 "Comenta PALABRA" para `comentarios` y "Guárdalo" o "Envíaselo a alguien" para
 `retencion`. `handle` va sin @: el motor la agrega (`"ia.punto.es"`, nunca
@@ -1131,6 +1228,8 @@ de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
 - **3 a 5 hashtags** en total: todos los de `config.json → hashtagsBase` + 0 a
   2 del tema. En minúsculas, sin tildes, separados por espacios, al final.
 - Nunca "primer comentario". Sin relleno.
+- Desde `config.json → cta.desde` (2026-11-02): pide **PARTIR** en mayúsculas,
+  con el texto base de la regla dura 11 antes de los hashtags.
 
 ### Fuente y parámetros
 
@@ -1153,247 +1252,405 @@ de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
 ### Esqueleto de `plan.json`
 
 Una semana completa y válida tal cual (pasa `validar.mjs` y el lector del bot; un
-test lo verifica). Es la semana del 2026-11-09: la primera después del paquete,
-con experimento propio y cada hook con sus candidatos y la respuesta del juez.
-Cópiala y cambia el contenido de cada pieza: ids, temas, candidatos, juez,
-captions, `origen` y `parametros` con los valores que de verdad usaste. **En
-las semanas del paquete (2026-10-26 y 2026-11-02, o las de `config.json →
-paquete` si el usuario las corrió)** cambia además el
-experimento por `{ "variable": null, "motivo": "paquete calidad-contenido" }` y
-quita `ritmoReel` y `duracionMaxSegundos` de cada `parametros` (Paso 4). Las
-horas son las del mix de tu `config.json` (aquí, con la separación de 20 h de
-la plantilla, los carruseles van a las 13:00):
+test verifica que es idéntica al ejemplo embebido en `validar.mjs`). Es la
+semana del 2026-11-02, la primera del paquete pivote-coaching: 3 piezas del mix,
+cada una con su serie, `"senal": "dm"`, cierre PARTIR en el caption, el hook con
+sus candidatos y la respuesta del juez, `experimento` del paquete y
+`parametros` sin `ritmoReel` ni `duracionMaxSegundos`. Cópiala y cambia el
+contenido de cada pieza: ids, temas, candidatos, juez, captions, `origen` y
+`parametros` con los valores que de verdad usaste. Fuera de las semanas del
+paquete (`config.json → paquete`), cambia además el experimento por uno propio
+(Paso 4) y agrega `ritmoReel` y `duracionMaxSegundos` a cada `parametros`. Las
+horas son las del mix de tu `config.json`:
 
 <!-- esqueleto:plan -->
 ```json
 {
-  "semana": "2026-11-09",
+  "semana": "2026-11-02",
   "zona": "America/Santiago",
-  "experimento": {"variable": "logoEnCuadro0", "hipotesis": "sin la marca en el primer cuadro, la tarjeta con el resultado de la IA se ve antes y los reels retienen más a 3 s", "piezas": ["lun-reel-critica-antes-que-tu-jefe", "mie-reel-cuando-revisar-a-la-ia", "jue-reel-conviene-delegar-esta-tarea", "sab-reel-tu-area-cada-manana"]},
+  "experimento": {
+    "variable": null,
+    "motivo": "paquete pivote-coaching"
+  },
   "piezas": [
     {
-      "id": "lun-reel-critica-antes-que-tu-jefe",
-      "dia": "2026-11-09",
+      "id": "lun-reel-pdfs-a-podcast",
+      "dia": "2026-11-02",
       "hora": "09:00",
       "formato": "reel",
       "arquetipo": "tutorial",
-      "senal": "guardados",
-      "tema": "[[Liderazgo y gestión de equipos]]",
-      "pilar": "trabajo",
-      "serie": "hazlo-con-ia",
-      "hook": {
-        "categoria": "identificación", "texto": "Que ChatGPT critique antes que tu jefe", "score": 9,
-        "candidatos": [
-          {"patron": "resultado", "title": "ChatGPT critica tu propuesta en 3 puntos", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "en-juego", "title": "Que ChatGPT critique antes que tu jefe", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "pregunta-del-jefe", "title": "«¿Y ventas qué opina?» Pregúntale a ChatGPT", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "error-comun", "title": "El error: presentar sin mirar ventas", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "dato-contrario", "title": "Solo con IA, rindió como una pareja", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "antes-despues", "title": "Tu idea, con 3 críticas de ChatGPT", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "en-juego", "title": "ChatGPT encuentra los huecos de tu propuesta", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."},
-          {"patron": "resultado", "title": "La mirada que te falta, con ChatGPT", "resultado": "Desde ventas, 3 puntos: 1 precio, 2 cliente, 3 canal."}
-        ],
-        "juez": {"elegido": 2, "nota": 9, "respuestas": "{\"elegido\": 2, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"una crítica en 3 puntos\"}, \"2\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"llegar donde mi jefe con la propuesta revisada\"}, \"3\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"no sé qué es eso de ventas\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"revisar mi propuesta desde ventas\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"un dato de un estudio, no sé para qué\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"3 críticas\"}, \"7\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"encontrar huecos\"}, \"8\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"otra mirada\"}}}"}
-      },
-      "emocion": ["identificación", "alivio"],
-      "entregable": "el prompt para que ChatGPT critique tu propuesta desde el área que te falta (ventas, producción, finanzas), en 3 puntos concretos, antes de presentarla",
-      "fraseAmigo": "antes de mostrarle una propuesta a tu jefe, le pides a ChatGPT que la critique desde el área que no conoces, en tres puntos; en un estudio una persona con IA rindió como una pareja",
-      "promesas": [{"promesa": "Que ChatGPT critique antes que tu jefe", "slide": 3}, {"promesa": "en 3 puntos concretos", "slide": 4}],
-      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
-      "origen": {"fichas": [], "referencias": ["referencias/cybernetic-teammate.md"]},
-      "derivadoDe": null,
-      "caption": "Liderazgo con IA: ChatGPT critica tu propuesta desde el área que te falta, antes que tu jefe.\n\nGuárdalo para tu próxima presentación.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "lun-reel-critica-antes-que-tu-jefe.json",
-      "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
-    },
-    {
-      "id": "mar-carrusel-que-pasarle-a-la-ia",
-      "dia": "2026-11-10",
-      "hora": "13:00",
-      "formato": "carrusel",
-      "arquetipo": "lista",
-      "senal": "guardados",
+      "senal": "dm",
       "tema": "[[Automatización con IA]]",
       "pilar": "trabajo",
-      "serie": null,
+      "serie": "por-donde-partir",
       "hook": {
-        "categoria": "autoridad", "texto": "«¿Qué le pasamos a la IA?»: 3 tareas para empezar", "score": 9,
+        "categoria": "identificación",
+        "texto": "Mis 6 informes pendientes, en un podcast",
+        "score": 8,
         "candidatos": [
-          {"patron": "resultado", "title": "3 tareas para pasarle a la IA esta semana", "subtitle": "Las que recomienda Microsoft, y las 2 que siguen siendo tuyas"},
-          {"patron": "en-juego", "title": "Lo que la IA no hace por ti en tu equipo", "subtitle": "Las 2 habilidades que más pesan, según 20.000 trabajadores"},
-          {"patron": "dato-contrario", "title": "El 86 % usa la IA como punto de partida", "subtitle": "Qué delegar y qué revisar tú, con datos de Microsoft"},
-          {"patron": "error-comun", "title": "El error: delegarle a la IA lo que hay que revisar", "subtitle": "Qué pasarle y qué quedarte, con datos de Microsoft"},
-          {"patron": "pregunta-del-jefe", "title": "«¿Qué le pasamos a la IA?»: 3 tareas para empezar", "subtitle": "Las que recomienda Microsoft para reuniones e informes"},
-          {"patron": "antes-despues", "title": "De informes de rutina a revisar lo que importa", "subtitle": "3 tareas para pasarle a la IA y qué hacer tú"},
-          {"patron": "resultado", "title": "Pásale a la IA tus informes de rutina", "subtitle": "Y otras 2 tareas que recomienda Microsoft"},
-          {"patron": "en-juego", "title": "Tu valor en el equipo: revisar lo que hace la IA", "subtitle": "Las 2 habilidades que más pesan, con datos de Microsoft"}
+          {
+            "patron": "resultado",
+            "title": "Mis 6 informes pendientes, en un podcast",
+            "subtitle": "El truco es el prompt",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "antes-despues",
+            "title": "De 6 informes sin leer a escucharlos",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "en-juego",
+            "title": "Mi primera tarea para la IA",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "error-comun",
+            "title": "Yo empecé pidiéndole todo a la IA",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "pregunta-del-jefe",
+            "title": "«¿Leíste el informe?» Lo escuché",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "resultado",
+            "title": "NotebookLM me lee los informes pendientes",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "antes-despues",
+            "title": "Antes los acumulaba; ahora los escucho",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          },
+          {
+            "patron": "en-juego",
+            "title": "Por dónde partí con la IA",
+            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+          }
         ],
-        "juez": {"elegido": 5, "nota": 9, "respuestas": "{\"elegido\": 5, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"3 tareas\"}, \"2\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"qué habilidades cuidar\"}, \"3\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"un porcentaje\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"qué no delegar\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"qué responder cuando mi jefe pregunte qué pasarle a la IA\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"dejar los informes\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"pasarle los informes\"}, \"8\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"por qué revisar me da valor\"}}}"}
+        "juez": {
+          "elegido": 1,
+          "nota": 8,
+          "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer, con un prompt\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedirle todo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"una app que lee\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+        }
       },
-      "emocion": ["alivio", "validación"],
-      "entregable": "las 3 tareas que Microsoft recomienda pasarle a un agente (reuniones de estado, informes de rutina, trabajo administrativo) y las 2 habilidades que siguen siendo tuyas (control de calidad y pensamiento crítico)",
-      "fraseAmigo": "Microsoft recomienda pasarle a la IA las reuniones de estado y los informes de rutina; lo que más pesa en ti es revisar bien lo que entrega",
-      "promesas": [{"promesa": "3 tareas para empezar", "slide": 3}, {"promesa": "las 2 habilidades que siguen siendo tuyas", "slide": 6}],
-      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
-      "origen": {"fichas": [], "referencias": ["referencias/work-trend-index.md"]},
+      "emocion": [
+        "alivio",
+        "curiosidad"
+      ],
+      "entregable": "una primera tarea concreta para pasarle a la IA si no sabes por dónde partir: convertir los informes pendientes en un resumen en audio, con el prompt que lo lleva a las ideas clave",
+      "fraseAmigo": "yo partí con la IA pasándole los informes que no alcanzaba a leer; me los convierte en un podcast que escucho de camino al trabajo",
+      "promesas": [
+        {
+          "promesa": "Mis 6 informes pendientes, en un podcast",
+          "slide": 4
+        },
+        {
+          "promesa": "El truco es el prompt",
+          "slide": 5
+        }
+      ],
+      "lectorFrio": {
+        "intentos": 2,
+        "resultado": "ok",
+        "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)"
+      },
+      "origen": {
+        "fichas": [
+          "fuentes/2026-10-04-dm-ejemplo.md"
+        ],
+        "referencias": [
+          "referencias/notebooklm.md"
+        ]
+      },
       "derivadoDe": null,
-      "caption": "Automatización con IA: 3 tareas para pasarle a la IA y las 2 habilidades que siguen siendo tuyas.\n\nGuárdalo para tu próxima reunión de equipo.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "mar-carrusel-que-pasarle-a-la-ia.json",
+      "caption": "Automatización con IA: mi primera tarea para la IA fue convertir 6 informes pendientes en un podcast.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+      "borrador": "lun-reel-pdfs-a-podcast.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {
+        "tituloMaxPalabras": 12,
+        "bulletMaxPalabras": 12,
+        "cuerpoMaxPalabras": 30,
+        "cuerpoMaxPalabrasCarrusel": 50,
+        "terminosTecnicosMax": 1,
+        "siglasPermitidas": [
+          "GPT",
+          "PDF",
+          "IA",
+          "DM"
+        ],
+        "relleno": [
+          "increíble",
+          "brutal",
+          "realmente",
+          "básicamente",
+          "la verdad",
+          "muy"
+        ],
+        "hookUmbral": 7,
+        "lecturaPalabrasPorSegundo": 2.5,
+        "lecturaMinSegundos": 1.5,
+        "reescriturasMax": 3,
+        "logoEnCuadro0": true,
+        "tituloPalabras": 7
+      }
     },
     {
-      "id": "mie-reel-cuando-revisar-a-la-ia",
-      "dia": "2026-11-11",
-      "hora": "09:00",
-      "formato": "reel",
-      "arquetipo": "compartible",
-      "senal": "envios",
-      "tema": "[[Productividad y gestión del tiempo]]",
-      "pilar": "trabajo",
-      "serie": "criterio",
-      "hook": {
-        "categoria": "controversia", "texto": "La IA no siempre ayuda: cuándo revisar", "score": 9,
-        "candidatos": [
-          {"patron": "resultado", "title": "Cuándo revisar a la IA: 1 regla", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "en-juego", "title": "Lo hizo la IA, lo firmas tú", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "dato-contrario", "title": "La IA no siempre ayuda: cuándo revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "pregunta-del-jefe", "title": "«¿Revisaste lo que hizo la IA?»", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "error-comun", "title": "El error: creerle igual a la IA", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "dato-contrario", "title": "Más rápido con IA, hasta esta tarea", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "en-juego", "title": "Tu equipo usa IA: qué revisar", "resultado": "Seguro: la respuesta es la B. (Era la C.)"},
-          {"patron": "dato-contrario", "title": "Con IA acertaron menos. ¿Dónde?", "resultado": "Seguro: la respuesta es la B. (Era la C.)"}
-        ],
-        "juez": {"elegido": 3, "nota": 9, "respuestas": "{\"elegido\": 3, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"una regla\"}, \"2\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no sé qué me llevo\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"cuándo revisar lo que hace la IA, porque en una tarea falló\"}, \"4\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"nada, es una pregunta\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no confiar igual en todo\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"saber dónde deja de servir\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"qué revisar de mi equipo\"}, \"8\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"dónde se equivoca\"}}}"}
-      },
-      "emocion": ["sorpresa", "alivio"],
-      "entregable": "la regla para decidir cuándo revisar lo que entrega la IA: si no la viste acertar en esa tarea, se revisa entera, porque en el estudio de Harvard y BCG acertó menos en una tarea que parecía igual de difícil",
-      "fraseAmigo": "en un experimento con 758 consultores la IA los hizo más rápidos en 18 tareas y en otra igual de difícil les bajó los aciertos; si no la viste acertar en esa tarea, revísala entera",
-      "promesas": [{"promesa": "cuándo revisar", "slide": 4}],
-      "lectorFrio": {"intentos": 2, "resultado": "ok", "notas": "v1: el lector completo respondió «nada nuevo» a la 8 (la pieza solo pedía revisar a la IA); se agregó el dato del estudio y otra ronda del juez.\nNB: «Nada nuevo» → con prisa P8: no bloquea"},
-      "origen": {"fichas": [], "referencias": ["referencias/estudio-de-la-frontera-irregular.md"]},
-      "derivadoDe": null,
-      "caption": "Productividad con IA: en una tarea que parecía igual de difícil, con IA acertaron menos. Cuándo revisar.\n\nMándaselo a quien firma lo que le entrega la IA sin revisarlo.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "mie-reel-cuando-revisar-a-la-ia.json",
-      "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
-    },
-    {
-      "id": "jue-reel-conviene-delegar-esta-tarea",
-      "dia": "2026-11-12",
-      "hora": "09:00",
-      "formato": "reel",
-      "arquetipo": "demo",
-      "senal": "retencion",
-      "tema": "[[Modelos mentales y pensamiento crítico]]",
-      "pilar": "trabajo",
-      "serie": "hazlo-con-ia",
-      "hook": {
-        "categoria": "curiosidad", "texto": "Con IA, revisar puede costar más", "score": 8,
-        "candidatos": [
-          {"patron": "resultado", "title": "¿Delegar en la IA? 3 preguntas", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "en-juego", "title": "¿Lo haces tú o la IA?", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "error-comun", "title": "El error: delegarle a la IA todo", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "dato-contrario", "title": "Con IA, revisar puede costar más", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "pregunta-del-jefe", "title": "«¿Por qué no lo hace la IA?»", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "antes-despues", "title": "Delegar en la IA con una cuenta", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "resultado", "title": "La cuenta para delegar en la IA", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."},
-          {"patron": "en-juego", "title": "Tu tiempo: cuándo dárselo a la IA", "resultado": "1 hora de tarea, 30 minutos de revisión: conviene solo si casi siempre acierta."}
-        ],
-        "juez": {"elegido": 4, "nota": 8, "respuestas": "{\"elegido\": 4, \"nota\": 8, \"porCandidato\": {\"1\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"3 preguntas para decidir\"}, \"2\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"una cuenta\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"no delegar todo\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"saber cuándo no conviene delegar, con la cuenta\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"qué responder\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"una cuenta\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"una cuenta\"}, \"8\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"cuándo delegar\"}}}"}
-      },
-      "emocion": ["curiosidad", "validación"],
-      "entregable": "la cuenta de Ethan Mollick para decidir si delegar una tarea en la IA: cuánto te toma a ti, qué tan probable es que cumpla tu estándar y cuánto tardas en pedir y revisar",
-      "fraseAmigo": "antes de pasarle una tarea a la IA, calcula cuánto te toma a ti, si suele hacerlo bien y cuánto te va a tomar revisarlo; si revisar cuesta mucho y falla seguido, hazlo tú",
-      "promesas": [{"promesa": "Con IA, revisar puede costar más", "slide": 3}, {"promesa": "la cuenta para decidir si delegar", "slide": 4}],
-      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
-      "origen": {"fichas": [], "referencias": ["referencias/delegar-en-ia.md"]},
-      "derivadoDe": null,
-      "caption": "Modelos mentales para delegar en la IA: la cuenta para saber si te conviene o si es mejor hacerlo tú.\n\nMíralo hasta el final para ver la cuenta completa.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "jue-reel-conviene-delegar-esta-tarea.json",
-      "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
-    },
-    {
-      "id": "vie-carrusel-el-reloj-y-la-sensacion",
-      "dia": "2026-11-13",
-      "hora": "13:00",
-      "formato": "carrusel",
-      "arquetipo": "opinion",
-      "senal": "comentarios",
-      "tema": "[[Psicología del comportamiento y toma de decisiones]]",
-      "pilar": "trabajo",
-      "serie": null,
-      "hook": {
-        "categoria": "controversia", "texto": "Creían ir 20 % más rápido. Iban 19 % más lentos", "score": 9,
-        "candidatos": [
-          {"patron": "dato-contrario", "title": "Creían ir 20 % más rápido. Iban 19 % más lentos", "subtitle": "Con IA: qué midieron 3 estudios y cómo medir lo tuyo"},
-          {"patron": "pregunta-del-jefe", "title": "«¿Cuánto nos ahorra la IA?»: qué responderle a tu jefe", "subtitle": "3 estudios, lo que miden y cómo medirlo en tu equipo"},
-          {"patron": "resultado", "title": "Cuánto te ahorra la IA de verdad: 3 estudios", "subtitle": "Lo que dice la gente, lo medido y el cronómetro"},
-          {"patron": "error-comun", "title": "El error: medir la IA por lo que sientes", "subtitle": "3 estudios y cómo cronometrar una tarea tuya"},
-          {"patron": "antes-despues", "title": "2,2 horas que dicen ahorrar con IA, 3 % medido", "subtitle": "Lo que sientes y lo que marca el reloj"},
-          {"patron": "en-juego", "title": "Las horas que crees ganar con IA", "subtitle": "Y lo que midieron 3 estudios con cronómetro"},
-          {"patron": "dato-contrario", "title": "Con IA, el reloj y la sensación no coinciden", "subtitle": "3 estudios y una forma de medir lo tuyo"},
-          {"patron": "pregunta-del-jefe", "title": "«¿La IA nos hace más rápidos?»: lo que dicen 3 estudios", "subtitle": "Y cómo medirlo en una tarea de tu equipo"}
-        ],
-        "juez": {"elegido": 1, "nota": 9, "respuestas": "{\"elegido\": 1, \"nota\": 9, \"porCandidato\": {\"1\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"que la sensación de ir rápido engaña, y cómo medir lo mío\"}, \"2\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"qué responderle a mi jefe\"}, \"3\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"3 estudios\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"no fiarme de la sensación\"}, \"5\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"dos cifras\"}, \"6\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"lo que de verdad ahorro\"}, \"7\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"que no coinciden\"}, \"8\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"lo que dicen los estudios\"}}}"}
-      },
-      "emocion": ["sorpresa", "validación"],
-      "entregable": "las 3 cifras medidas sobre cuánto tiempo ahorra la IA (2,2 horas declaradas, 3 % medido, 19 % más lentos con cronómetro), con el alcance de cada estudio, y el ejercicio de cronometrar una tarea con y sin IA",
-      "fraseAmigo": "la gente cree que la IA le ahorra horas, pero cuando lo midieron con cronómetro unos programadores expertos tardaron más; la única forma de saber lo tuyo es cronometrar",
-      "promesas": [{"promesa": "Creían ir 20 % más rápido. Iban 19 % más lentos", "slide": 2}, {"promesa": "cronometrar una tarea con y sin IA", "slide": 6}],
-      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
-      "origen": {"fichas": [], "referencias": ["referencias/estudio-metr-ia-y-desarrolladores.md", "referencias/estudio-de-chatbots-en-dinamarca.md", "referencias/encuesta-de-ia-generativa-de-la-fed-de-st-louis.md"]},
-      "derivadoDe": null,
-      "caption": "Decisiones con IA: creían ir más rápido y el cronómetro dijo otra cosa. 3 estudios y cómo medir lo tuyo.\n\n¿Cuánto crees que te ahorra a ti? Cuéntalo en los comentarios.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "vie-carrusel-el-reloj-y-la-sensacion.json",
-      "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": true, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
-    },
-    {
-      "id": "sab-reel-tu-area-cada-manana",
-      "dia": "2026-11-14",
+      "id": "mie-reel-mis-agentes-y-1-guardado",
+      "dia": "2026-11-04",
       "hora": "09:00",
       "formato": "reel",
       "arquetipo": "atemporal",
-      "senal": "comentarios",
-      "tema": "[[Avances en inteligencia artificial]]",
-      "pilar": "herramienta",
-      "serie": "lo-probe-por-ti",
+      "senal": "dm",
+      "tema": "[[Ingeniería de agentes de IA]]",
+      "pilar": "trabajo",
+      "serie": "lo-que-construi",
       "hook": {
-        "categoria": "curiosidad", "texto": "ChatGPT te resume tu área cada mañana", "score": 8,
+        "categoria": "storytelling",
+        "texto": "Armé agentes que publican solos: 1 guardado",
+        "score": 8,
         "candidatos": [
-          {"patron": "resultado", "title": "ChatGPT te resume tu área cada mañana", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "en-juego", "title": "Al día antes que tu equipo: ChatGPT", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "pregunta-del-jefe", "title": "«¿Viste la noticia?» ChatGPT ya te avisó", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "error-comun", "title": "El error: pedirle a ChatGPT cada día", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "antes-despues", "title": "De buscar noticias a recibirlas de ChatGPT", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "resultado", "title": "Tu resumen diario, programado en ChatGPT", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "resultado", "title": "Programa a ChatGPT: un resumen diario", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."},
-          {"patron": "antes-despues", "title": "Antes buscabas; ahora ChatGPT te avisa", "resultado": "Tarea de hoy lista: el resumen de noticias de tu área."}
+          {
+            "patron": "resultado",
+            "title": "Mis agentes planifican la semana solos",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "dato-contrario",
+            "title": "Armé agentes que publican solos: 1 guardado",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "error-comun",
+            "title": "Mi error: automatizar antes de saber qué decir",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "antes-despues",
+            "title": "De 2 reels al día a 3 por semana",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "en-juego",
+            "title": "27 piezas automáticas y nadie las guardó",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "resultado",
+            "title": "Lo que aprendí armando agentes de IA",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "dato-contrario",
+            "title": "La máquina funcionaba; el mensaje no",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          },
+          {
+            "patron": "error-comun",
+            "title": "Automaticé todo menos lo importante",
+            "resultado": "Semana planificada: 6 piezas, todas validadas."
+          }
         ],
-        "juez": {"elegido": 1, "nota": 8, "respuestas": "{\"elegido\": 1, \"nota\": 8, \"porCandidato\": {\"1\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"un resumen de mi área cada mañana, sin pedirlo\"}, \"2\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"estar al día\"}, \"3\": {\"pulgar\": \"sí\", \"importa\": \"sí\", \"teLlevas\": \"que me avise\"}, \"4\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"no pedirlo cada día\"}, \"5\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"recibir noticias\"}, \"6\": {\"pulgar\": \"sí\", \"importa\": \"no\", \"teLlevas\": \"un resumen que se programa una vez\"}, \"7\": {\"pulgar\": \"no\", \"importa\": \"sí\", \"teLlevas\": \"programar un resumen\"}, \"8\": {\"pulgar\": \"no\", \"importa\": \"no\", \"teLlevas\": \"que me avise\"}}}"}
+        "juez": {
+          "elegido": 2,
+          "nota": 8,
+          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
+        }
       },
-      "emocion": ["curiosidad", "alivio"],
-      "entregable": "la tarea programada de ChatGPT que te deja cada mañana el resumen de noticias de tu área: se pide en el chat, se confirma y llega por aviso o correo, con su veredicto para un jefe de área",
-      "fraseAmigo": "le pides a ChatGPT una vez que cada mañana te resuma las noticias de tu área, confirmas y te llega solo; lo probé para llegar al día a la reunión del lunes",
-      "promesas": [{"promesa": "ChatGPT te resume tu área cada mañana", "slide": 3}],
-      "lectorFrio": {"intentos": 1, "resultado": "ok", "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"},
-      "origen": {"fichas": [], "referencias": ["referencias/tareas-programadas-de-chatgpt.md"]},
+      "emocion": [
+        "curiosidad",
+        "validación"
+      ],
+      "entregable": "la lección de construir un sistema de agentes que planifica, escribe y publica esta cuenta: con 27 piezas y 1 guardado, lo que faltaba no era automatizar más sino saber para quién y para qué escribir",
+      "fraseAmigo": "armé un sistema que escribe y publica solo; funcionó, pero nadie guardaba nada, porque le faltaba saber a quién le hablaba",
+      "promesas": [
+        {
+          "promesa": "Armé agentes que publican solos",
+          "slide": 2
+        },
+        {
+          "promesa": "1 guardado",
+          "slide": 3
+        }
+      ],
+      "lectorFrio": {
+        "intentos": 1,
+        "resultado": "ok",
+        "notas": "los dos lectores entendieron qué aprendí y nombraron algo nuevo en la 8 a la primera"
+      },
+      "origen": {
+        "fichas": [],
+        "referencias": [
+          "referencias/orquestacion-multi-agente.md"
+        ]
+      },
       "derivadoDe": null,
-      "caption": "Avances de ChatGPT: lo probé por ti, un resumen de las noticias de tu área cada mañana, sin pedirlo.\n\n¿Qué tema te harías resumir tú? Cuéntamelo en los comentarios.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "sab-reel-tu-area-cada-manana.json",
+      "caption": "Agentes de IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
       "estado": "planificado",
-      "parametros": {"tituloMaxPalabras": 12, "bulletMaxPalabras": 12, "cuerpoMaxPalabras": 30, "cuerpoMaxPalabrasCarrusel": 50, "terminosTecnicosMax": 1, "siglasPermitidas": ["GPT", "PDF", "IA", "DM"], "relleno": ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"], "hookUmbral": 7, "lecturaPalabrasPorSegundo": 2.5, "lecturaMinSegundos": 1.5, "reescriturasMax": 3, "logoEnCuadro0": false, "ritmoReel": "gancho", "duracionMaxSegundos": 35}
+      "parametros": {
+        "tituloMaxPalabras": 12,
+        "bulletMaxPalabras": 12,
+        "cuerpoMaxPalabras": 30,
+        "cuerpoMaxPalabrasCarrusel": 50,
+        "terminosTecnicosMax": 1,
+        "siglasPermitidas": [
+          "GPT",
+          "PDF",
+          "IA",
+          "DM"
+        ],
+        "relleno": [
+          "increíble",
+          "brutal",
+          "realmente",
+          "básicamente",
+          "la verdad",
+          "muy"
+        ],
+        "hookUmbral": 7,
+        "lecturaPalabrasPorSegundo": 2.5,
+        "lecturaMinSegundos": 1.5,
+        "reescriturasMax": 3,
+        "logoEnCuadro0": true,
+        "tituloPalabras": 7
+      }
+    },
+    {
+      "id": "vie-carrusel-preguntale-a-la-ia",
+      "dia": "2026-11-06",
+      "hora": "13:00",
+      "formato": "carrusel",
+      "arquetipo": "lista",
+      "senal": "dm",
+      "tema": "[[Aprendizaje con IA]]",
+      "pilar": "trabajo",
+      "serie": "por-donde-partir",
+      "hook": {
+        "categoria": "identificación",
+        "texto": "No sabía por dónde partir: le pregunté a la IA",
+        "score": 8,
+        "candidatos": [
+          {
+            "patron": "resultado",
+            "title": "4 preguntas para que la IA te diga cómo ayudarte",
+            "subtitle": "Las que le hice yo el primer día"
+          },
+          {
+            "patron": "en-juego",
+            "title": "No sabía por dónde partir: le pregunté a la IA",
+            "subtitle": "Las 4 preguntas que le hice y lo que me respondió"
+          },
+          {
+            "patron": "error-comun",
+            "title": "Mi error: buscar el prompt perfecto",
+            "subtitle": "Bastaba preguntarle a la IA cómo ayudarme"
+          },
+          {
+            "patron": "pregunta-del-jefe",
+            "title": "«¿Ya usas IA?» Así empecé yo",
+            "subtitle": "4 preguntas para tu primera conversación"
+          },
+          {
+            "patron": "antes-despues",
+            "title": "De no saber qué pedir a 4 preguntas",
+            "subtitle": "Pregúntale a la IA cómo puede ayudarte"
+          },
+          {
+            "patron": "resultado",
+            "title": "Pregúntale a la IA cómo ayudarte",
+            "subtitle": "4 preguntas para empezar en tu trabajo"
+          },
+          {
+            "patron": "en-juego",
+            "title": "Lo que la IA puede hacer en tu trabajo",
+            "subtitle": "Pregúntaselo a ella: 4 preguntas"
+          },
+          {
+            "patron": "error-comun",
+            "title": "No empieces por una herramienta",
+            "subtitle": "Empieza con estas 4 preguntas a la IA"
+          }
+        ],
+        "juez": {
+          "elegido": 2,
+          "nota": 8,
+          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"4 preguntas\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezar sin saber qué pedir, con 4 preguntas\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no buscar el prompt perfecto\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"4 preguntas\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preguntarle a la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"lo que puede hacer\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
+        }
+      },
+      "emocion": [
+        "alivio",
+        "identificación"
+      ],
+      "entregable": "las 4 preguntas para la primera conversación con la IA: qué haces en tu trabajo, qué te quita más tiempo, qué podría hacer ella y cómo pedírselo",
+      "fraseAmigo": "si no sabes qué pedirle a la IA, pregúntale a ella cómo te puede ayudar, contándole qué haces; yo partí así",
+      "promesas": [
+        {
+          "promesa": "No sabía por dónde partir: le pregunté a la IA",
+          "slide": 2
+        },
+        {
+          "promesa": "Las 4 preguntas que le hice",
+          "slide": 3
+        },
+        {
+          "promesa": "lo que me respondió",
+          "slide": 5
+        }
+      ],
+      "lectorFrio": {
+        "intentos": 1,
+        "resultado": "ok",
+        "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"
+      },
+      "origen": {
+        "fichas": [],
+        "referencias": [
+          "referencias/modo-aprendizaje-de-claude.md"
+        ]
+      },
+      "derivadoDe": null,
+      "caption": "Aprendizaje con IA: no sabía por dónde partir y le pregunté a la IA cómo ayudarme. Las 4 preguntas que le hice.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "vie-carrusel-preguntale-a-la-ia.json",
+      "estado": "planificado",
+      "parametros": {
+        "tituloMaxPalabras": 12,
+        "bulletMaxPalabras": 12,
+        "cuerpoMaxPalabras": 30,
+        "cuerpoMaxPalabrasCarrusel": 50,
+        "terminosTecnicosMax": 1,
+        "siglasPermitidas": [
+          "GPT",
+          "PDF",
+          "IA",
+          "DM"
+        ],
+        "relleno": [
+          "increíble",
+          "brutal",
+          "realmente",
+          "básicamente",
+          "la verdad",
+          "muy"
+        ],
+        "hookUmbral": 7,
+        "lecturaPalabrasPorSegundo": 2.5,
+        "lecturaMinSegundos": 1.5,
+        "reescriturasMax": 3,
+        "logoEnCuadro0": true,
+        "tituloPalabras": 10
+      }
     }
   ]
 }
 ```
 
 Campos de cada pieza: `id`, `dia`, `hora`, `formato`, `arquetipo`, `senal`,
-`tema`, `pilar`, `serie` (reels: `hazlo-con-ia`, `criterio` o
-`lo-probe-por-ti`; carruseles: `null`), `hook` (`categoria`, `texto`, `score`
+`tema`, `pilar` (desde el 2026-11-02, `trabajo` o `herramienta`), `serie`
+(desde el 2026-11-02, reels y carruseles: una de `config.json → series`, la de
+su entrada del mix), `hook` (`categoria`, `texto`, `score`
 y, desde el 2026-10-26, `candidatos` y `juez`), `emocion`,
 `entregable`, `fraseAmigo`, `promesas` (desde el 2026-10-26: `promesa`, `slide`),
 `lectorFrio` (`intentos`, `resultado`, `notas`),
@@ -1403,35 +1660,92 @@ entradas; sin ninguna, `"piezas": []`, `"experimento": null` y `"motivo"`.
 
 ### Ejemplo completo
 
-Una pieza de una semana anterior (2026-10-12, antes del pivote y del público
-nuevo) con su borrador: sirve para ver la forma de cada campo y de un
-borrador, no el contenido de hoy. Lo actual está en el esqueleto (hooks con
-candidatos y juez), en `guia-redaccion.md` (un reel completo de 35 s, antes y
-después) y en las reglas duras 8 a 10 (narración, resultado en el primer
-cuadro, `Screen`). Una entrada de `plan.json → piezas`:
+La primera pieza del esqueleto (lunes 2026-11-02, serie `por-donde-partir`) con
+su borrador: un reel de 6 escenas en ritmo `gancho`, narrado en primera
+persona, de ~34 s, con el resultado en el primer cuadro y el cierre PARTIR en
+el `Cta` y en el caption. Una entrada de `plan.json → piezas`:
 
 <!-- ejemplo:pieza -->
 ```json
 {
   "id": "lun-reel-pdfs-a-podcast",
-  "dia": "2026-10-12",
-  "hora": "14:00",
+  "dia": "2026-11-02",
+  "hora": "09:00",
   "formato": "reel",
   "arquetipo": "tutorial",
-  "senal": "guardados",
+  "senal": "dm",
   "tema": "[[Automatización con IA]]",
-  "pilar": "herramienta",
+  "pilar": "trabajo",
+  "serie": "por-donde-partir",
   "hook": {
-    "categoria": "curiosidad",
-    "texto": "Tus 6 informes pendientes, en un podcast",
-    "score": 9
+    "categoria": "identificación",
+    "texto": "Mis 6 informes pendientes, en un podcast",
+    "score": 8,
+    "candidatos": [
+      {
+        "patron": "resultado",
+        "title": "Mis 6 informes pendientes, en un podcast",
+        "subtitle": "El truco es el prompt",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "antes-despues",
+        "title": "De 6 informes sin leer a escucharlos",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "en-juego",
+        "title": "Mi primera tarea para la IA",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "error-comun",
+        "title": "Yo empecé pidiéndole todo a la IA",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "pregunta-del-jefe",
+        "title": "«¿Leíste el informe?» Lo escuché",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "resultado",
+        "title": "NotebookLM me lee los informes pendientes",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "antes-despues",
+        "title": "Antes los acumulaba; ahora los escucho",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      },
+      {
+        "patron": "en-juego",
+        "title": "Por dónde partí con la IA",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+      }
+    ],
+    "juez": {
+      "elegido": 1,
+      "nota": 8,
+      "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer, con un prompt\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedirle todo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"una app que lee\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+    }
   },
   "emocion": [
-    "curiosidad",
-    "alivio"
+    "alivio",
+    "curiosidad"
   ],
-  "entregable": "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
-  "fraseAmigo": "hay una herramienta que convierte los informes que no alcanzas a leer en un podcast para escuchar de camino al trabajo",
+  "entregable": "una primera tarea concreta para pasarle a la IA si no sabes por dónde partir: convertir los informes pendientes en un resumen en audio, con el prompt que lo lleva a las ideas clave",
+  "fraseAmigo": "yo partí con la IA pasándole los informes que no alcanzaba a leer; me los convierte en un podcast que escucho de camino al trabajo",
+  "promesas": [
+    {
+      "promesa": "Mis 6 informes pendientes, en un podcast",
+      "slide": 4
+    },
+    {
+      "promesa": "El truco es el prompt",
+      "slide": 5
+    }
+  ],
   "lectorFrio": {
     "intentos": 2,
     "resultado": "ok",
@@ -1446,13 +1760,14 @@ cuadro, `Screen`). Una entrada de `plan.json → piezas`:
     ]
   },
   "derivadoDe": null,
-  "caption": "Automatización para el trabajo: 6 informes convertidos en un podcast.\n\nGuárdalo para tu próxima pila de informes y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+  "caption": "Automatización con IA: mi primera tarea para la IA fue convertir 6 informes pendientes en un podcast.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
   "borrador": "lun-reel-pdfs-a-podcast.json",
   "estado": "planificado",
   "parametros": {
     "tituloMaxPalabras": 12,
     "bulletMaxPalabras": 12,
     "cuerpoMaxPalabras": 30,
+    "cuerpoMaxPalabrasCarrusel": 50,
     "terminosTecnicosMax": 1,
     "siglasPermitidas": [
       "GPT",
@@ -1473,43 +1788,42 @@ cuadro, `Screen`). Una entrada de `plan.json → piezas`:
     "lecturaMinSegundos": 1.5,
     "reescriturasMax": 3,
     "logoEnCuadro0": true,
-    "ritmoReel": "ensenar",
-    "duracionMaxSegundos": 60,
-    "tituloPalabras": 7,
-    "hook": "curiosidad"
+    "tituloPalabras": 7
   }
 }
 ```
 
-Su borrador, `_calendario/2026-10-12/lun-reel-pdfs-a-podcast.json`:
+Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
 
 <!-- ejemplo:borrador -->
 ```json
 {
   "name": "lun-reel-pdfs-a-podcast",
-  "angle": "de una pila de PDFs pendientes a un podcast que escuchas caminando",
-  "pillar": "herramienta",
-  "pace": "ensenar",
+  "angle": "la primera tarea que le pasé a la IA: de una pila de informes pendientes a un podcast que escucho caminando",
+  "pillar": "trabajo",
+  "pace": "gancho",
   "audio": "lima-01.mp3",
   "logoEnCuadro0": true,
   "slides": [
     {
       "template": "Hook",
       "props": {
-        "title": "Tus 6 informes pendientes, en un podcast",
+        "title": "Mis 6 informes pendientes, en un podcast",
         "highlight": "podcast",
-        "subtitle": "El truco es el prompt"
+        "subtitle": "El truco es el prompt",
+        "resultado": "Resumen en audio listo: tus 6 informes pendientes.",
+        "app": "NotebookLM",
+        "modo": "aviso"
       },
-      "background": {
-        "ai": "pila de documentos de papel que se transforman en ondas de sonido"
-      }
+      "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
     },
     {
       "template": "Lead",
       "props": {
         "text": "6 archivos, 1 cuaderno y cero horas frente a la pantalla.",
         "highlight": "cero horas"
-      }
+      },
+      "narracion": "Los informes que no alcanzaba a leer, los escuché caminando."
     },
     {
       "template": "Step",
@@ -1517,7 +1831,8 @@ Su borrador, `_calendario/2026-10-12/lun-reel-pdfs-a-podcast.json`:
         "step": "1",
         "heading": "Sube tus PDFs a NotebookLM",
         "body": "Entra a notebooklm.google.com, crea un cuaderno y arrastra los archivos."
-      }
+      },
+      "narracion": "Primero los subí a NotebookLM: creé un cuaderno nuevo y ahí arrastré los seis archivos."
     },
     {
       "template": "Step",
@@ -1528,24 +1843,27 @@ Su borrador, `_calendario/2026-10-12/lun-reel-pdfs-a-podcast.json`:
           "Toca resumen en audio",
           "Prueba la versión corta"
         ]
-      }
+      },
+      "narracion": "Después le pedí el resumen en audio, y elegí la versión más corta."
     },
     {
       "template": "Prompt",
       "props": {
         "heading": "Pega esto antes de generarlo",
         "prompt": "Resume estos documentos con las 3 ideas clave y un ejemplo de cada una."
-      }
+      },
+      "narracion": "Y el truco: antes de generarlo pegué esto, para que vaya directo a tres ideas clave con un ejemplo de cada una."
     },
     {
       "template": "Cta",
       "props": {
-        "title": "Guárdalo para tu próxima pila de lectura",
-        "highlight": "Guárdalo",
+        "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
+        "highlight": "PARTIR",
         "handle": "ia.punto.es",
-        "cta": "Guárdalo",
+        "cta": "Escríbeme PARTIR",
         "source": "Fuente: notebooklm.google.com"
-      }
+      },
+      "narracion": "¿No sabes cuál sería tu primera tarea? Escríbeme y te cuento."
     }
   ]
 }
@@ -1598,7 +1916,7 @@ Criterio (detalle en `lector-frio.md`):
   explicada o es de uso común para la audiencia, como ChatGPT, no bloquea). La
   **6** bloquea solo si señala una **contradicción**, una **promesa** que la
   pieza no cumple o que no pudo seguir los pasos para obtener el entregable.
-  Las demás dudas son mejoras opcionales. La **5** pide una acción concreta (guardar, enviar o comentar; "nada" bloquea); si no es la de la señal, va como `NB` (`P5: acción distinta a la señal`) y no bloquea. La 1, 2 y 4, igual que siempre.
+  Las demás dudas son mejoras opcionales. La **5** pide una acción concreta (guardar, enviar, comentar o escribir por mensaje; "nada" bloquea); si no es la de la señal, va como `NB` (`P5: acción distinta a la señal`) y no bloquea. La 1, 2 y 4, igual que siempre.
 - **Lector con prisa:** cuentan solo (1) tema, (2) entregable, (5) una acción
   concreta (si no es la de la señal, `NB`), y (7). Su 8 no bloquea desde 2026-10-23 (backtest: con solo títulos marcaba «nada nuevo» en 9 de 20 piezas): anótala como `NB` con `con prisa P8: no bloquea`. Sus respuestas 3, 4, 6 y 8 no bloquean; si te sirven,
   úsalas para afinar un título, pero no reescribas la pieza ni cuentes una

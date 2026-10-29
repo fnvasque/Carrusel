@@ -1843,6 +1843,11 @@ export function validarConfig(config) {
     if (config.series !== undefined && !(Array.isArray(config.series) && config.series.length > 0 && config.series.every((s) => typeof s === "string" && SLUG_SERIE_RE.test(s)))) {
       errs.push("series debe ser una lista no vacía de slugs (p. ej. por-donde-partir, lo-que-construi)");
     }
+    // Cierre por DM (opcional): mal escrito, ctaDe lo ignora y la puerta quedaría abierta; por eso es error.
+    const cta = config.cta;
+    if (cta !== undefined && !(esObj(cta) && esTexto(cta.palabra) && cta.palabra === cta.palabra.toUpperCase() && fechaValida(cta.desde))) {
+      errs.push('cta debe ser { "palabra": "PARTIR" (en mayúsculas), "desde": "AAAA-MM-DD" (primer día en que se exige) }');
+    }
     if (!esObj(config.horasPorDefecto) || !Object.values(config.horasPorDefecto).every((h) => typeof h === "string" && HORA_RE.test(h))) {
       errs.push("horasPorDefecto: cada hora en HH:MM con :00 o :30");
     }
@@ -2019,100 +2024,462 @@ export function validarSemana(dir, config, opts = {}) {
 // --- ejemplo embebido -------------------------------------------------------
 
 /**
- * Pieza y borrador de ejemplo: los mismos que muestra `INSTRUCCIONES.md` (un
- * test lo verifica). `--self-test` los valida con la config instalada.
+ * Semana de ejemplo (2026-11-02, primera del paquete pivote-coaching: mix de 3, series
+ * por-donde-partir y lo-que-construi, señal dm y cierre PARTIR) y el borrador de su primera
+ * pieza. `INSTRUCCIONES.md` muestra el plan como esqueleto y la primera pieza con su borrador
+ * como ejemplo completo (un test lo verifica). `--self-test` los valida con la config instalada.
  */
 export const EJEMPLO = {
-  plan: {
-    semana: "2026-10-12",
-    zona: "America/Santiago",
-    experimento: {
-      variable: "hook",
-      hipotesis: "en tutoriales, un hook de curiosidad retiene más que uno de lista",
-      piezas: ["lun-reel-pdfs-a-podcast"],
+  "plan": {
+    "semana": "2026-11-02",
+    "zona": "America/Santiago",
+    "experimento": {
+      "variable": null,
+      "motivo": "paquete pivote-coaching"
     },
-    piezas: [
+    "piezas": [
       {
-        id: "lun-reel-pdfs-a-podcast",
-        dia: "2026-10-12",
-        hora: "14:00",
-        formato: "reel",
-        arquetipo: "tutorial",
-        senal: "guardados",
-        tema: "[[Automatización con IA]]",
-        pilar: "herramienta",
-        hook: { categoria: "curiosidad", texto: "Tus 6 informes pendientes, en un podcast", score: 9 },
-        emocion: ["curiosidad", "alivio"],
-        entregable: "prompt copiable para que el resumen en audio vaya directo a las ideas clave",
-        fraseAmigo: "hay una herramienta que convierte los informes que no alcanzas a leer en un podcast para escuchar de camino al trabajo",
-        lectorFrio: { intentos: 2, resultado: "ok", notas: "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)" },
-        origen: { fichas: ["fuentes/2026-10-04-dm-ejemplo.md"], referencias: ["referencias/notebooklm.md"] },
-        derivadoDe: null,
-        caption:
-          "Automatización para el trabajo: 6 informes convertidos en un podcast.\n\nGuárdalo para tu próxima pila de informes y prueba el prompt de la slide 5.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
-        borrador: "lun-reel-pdfs-a-podcast.json",
-        estado: "planificado",
-        parametros: {
-          tituloMaxPalabras: 12,
-          bulletMaxPalabras: 12,
-          cuerpoMaxPalabras: 30,
-          terminosTecnicosMax: 1,
-          siglasPermitidas: ["GPT", "PDF", "IA", "DM"],
-          relleno: ["increíble", "brutal", "realmente", "básicamente", "la verdad", "muy"],
-          hookUmbral: 7,
-          lecturaPalabrasPorSegundo: 2.5,
-          lecturaMinSegundos: 1.5,
-          reescriturasMax: 3,
-          logoEnCuadro0: true,
-          ritmoReel: "ensenar",
-          duracionMaxSegundos: 60,
-          tituloPalabras: 7,
-          hook: "curiosidad",
+        "id": "lun-reel-pdfs-a-podcast",
+        "dia": "2026-11-02",
+        "hora": "09:00",
+        "formato": "reel",
+        "arquetipo": "tutorial",
+        "senal": "dm",
+        "tema": "[[Automatización con IA]]",
+        "pilar": "trabajo",
+        "serie": "por-donde-partir",
+        "hook": {
+          "categoria": "identificación",
+          "texto": "Mis 6 informes pendientes, en un podcast",
+          "score": 8,
+          "candidatos": [
+            {
+              "patron": "resultado",
+              "title": "Mis 6 informes pendientes, en un podcast",
+              "subtitle": "El truco es el prompt",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "antes-despues",
+              "title": "De 6 informes sin leer a escucharlos",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "en-juego",
+              "title": "Mi primera tarea para la IA",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "error-comun",
+              "title": "Yo empecé pidiéndole todo a la IA",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "pregunta-del-jefe",
+              "title": "«¿Leíste el informe?» Lo escuché",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "resultado",
+              "title": "NotebookLM me lee los informes pendientes",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "antes-despues",
+              "title": "Antes los acumulaba; ahora los escucho",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            },
+            {
+              "patron": "en-juego",
+              "title": "Por dónde partí con la IA",
+              "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            }
+          ],
+          "juez": {
+            "elegido": 1,
+            "nota": 8,
+            "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer, con un prompt\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedirle todo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"una app que lee\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+          }
         },
-      },
-    ],
-  },
-  borrador: {
-    name: "lun-reel-pdfs-a-podcast",
-    angle: "de una pila de PDFs pendientes a un podcast que escuchas caminando",
-    pillar: "herramienta",
-    pace: "ensenar",
-    audio: "lima-01.mp3",
-    logoEnCuadro0: true,
-    slides: [
-      {
-        template: "Hook",
-        props: { title: "Tus 6 informes pendientes, en un podcast", highlight: "podcast", subtitle: "El truco es el prompt" },
-        background: { ai: "pila de documentos de papel que se transforman en ondas de sonido" },
-      },
-      {
-        template: "Lead",
-        props: { text: "6 archivos, 1 cuaderno y cero horas frente a la pantalla.", highlight: "cero horas" },
-      },
-      {
-        template: "Step",
-        props: { step: "1", heading: "Sube tus PDFs a NotebookLM", body: "Entra a notebooklm.google.com, crea un cuaderno y arrastra los archivos." },
-      },
-      {
-        template: "Step",
-        props: { step: "2", heading: "Pide el resumen en audio", bullets: ["Toca resumen en audio", "Prueba la versión corta"] },
-      },
-      {
-        template: "Prompt",
-        props: { heading: "Pega esto antes de generarlo", prompt: "Resume estos documentos con las 3 ideas clave y un ejemplo de cada una." },
-      },
-      {
-        template: "Cta",
-        props: {
-          title: "Guárdalo para tu próxima pila de lectura",
-          highlight: "Guárdalo",
-          handle: "ia.punto.es",
-          cta: "Guárdalo",
-          source: "Fuente: notebooklm.google.com",
+        "emocion": [
+          "alivio",
+          "curiosidad"
+        ],
+        "entregable": "una primera tarea concreta para pasarle a la IA si no sabes por dónde partir: convertir los informes pendientes en un resumen en audio, con el prompt que lo lleva a las ideas clave",
+        "fraseAmigo": "yo partí con la IA pasándole los informes que no alcanzaba a leer; me los convierte en un podcast que escucho de camino al trabajo",
+        "promesas": [
+          {
+            "promesa": "Mis 6 informes pendientes, en un podcast",
+            "slide": 4
+          },
+          {
+            "promesa": "El truco es el prompt",
+            "slide": 5
+          }
+        ],
+        "lectorFrio": {
+          "intentos": 2,
+          "resultado": "ok",
+          "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)"
         },
+        "origen": {
+          "fichas": [
+            "fuentes/2026-10-04-dm-ejemplo.md"
+          ],
+          "referencias": [
+            "referencias/notebooklm.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Automatización con IA: mi primera tarea para la IA fue convertir 6 informes pendientes en un podcast.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+        "borrador": "lun-reel-pdfs-a-podcast.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "cuerpoMaxPalabrasCarrusel": 50,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "tituloPalabras": 7
+        }
       },
-    ],
+      {
+        "id": "mie-reel-mis-agentes-y-1-guardado",
+        "dia": "2026-11-04",
+        "hora": "09:00",
+        "formato": "reel",
+        "arquetipo": "atemporal",
+        "senal": "dm",
+        "tema": "[[Ingeniería de agentes de IA]]",
+        "pilar": "trabajo",
+        "serie": "lo-que-construi",
+        "hook": {
+          "categoria": "storytelling",
+          "texto": "Armé agentes que publican solos: 1 guardado",
+          "score": 8,
+          "candidatos": [
+            {
+              "patron": "resultado",
+              "title": "Mis agentes planifican la semana solos",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "dato-contrario",
+              "title": "Armé agentes que publican solos: 1 guardado",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "error-comun",
+              "title": "Mi error: automatizar antes de saber qué decir",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "antes-despues",
+              "title": "De 2 reels al día a 3 por semana",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "en-juego",
+              "title": "27 piezas automáticas y nadie las guardó",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "resultado",
+              "title": "Lo que aprendí armando agentes de IA",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "dato-contrario",
+              "title": "La máquina funcionaba; el mensaje no",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            },
+            {
+              "patron": "error-comun",
+              "title": "Automaticé todo menos lo importante",
+              "resultado": "Semana planificada: 6 piezas, todas validadas."
+            }
+          ],
+          "juez": {
+            "elegido": 2,
+            "nota": 8,
+            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
+          }
+        },
+        "emocion": [
+          "curiosidad",
+          "validación"
+        ],
+        "entregable": "la lección de construir un sistema de agentes que planifica, escribe y publica esta cuenta: con 27 piezas y 1 guardado, lo que faltaba no era automatizar más sino saber para quién y para qué escribir",
+        "fraseAmigo": "armé un sistema que escribe y publica solo; funcionó, pero nadie guardaba nada, porque le faltaba saber a quién le hablaba",
+        "promesas": [
+          {
+            "promesa": "Armé agentes que publican solos",
+            "slide": 2
+          },
+          {
+            "promesa": "1 guardado",
+            "slide": 3
+          }
+        ],
+        "lectorFrio": {
+          "intentos": 1,
+          "resultado": "ok",
+          "notas": "los dos lectores entendieron qué aprendí y nombraron algo nuevo en la 8 a la primera"
+        },
+        "origen": {
+          "fichas": [],
+          "referencias": [
+            "referencias/orquestacion-multi-agente.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Agentes de IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+        "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "cuerpoMaxPalabrasCarrusel": 50,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "tituloPalabras": 7
+        }
+      },
+      {
+        "id": "vie-carrusel-preguntale-a-la-ia",
+        "dia": "2026-11-06",
+        "hora": "13:00",
+        "formato": "carrusel",
+        "arquetipo": "lista",
+        "senal": "dm",
+        "tema": "[[Aprendizaje con IA]]",
+        "pilar": "trabajo",
+        "serie": "por-donde-partir",
+        "hook": {
+          "categoria": "identificación",
+          "texto": "No sabía por dónde partir: le pregunté a la IA",
+          "score": 8,
+          "candidatos": [
+            {
+              "patron": "resultado",
+              "title": "4 preguntas para que la IA te diga cómo ayudarte",
+              "subtitle": "Las que le hice yo el primer día"
+            },
+            {
+              "patron": "en-juego",
+              "title": "No sabía por dónde partir: le pregunté a la IA",
+              "subtitle": "Las 4 preguntas que le hice y lo que me respondió"
+            },
+            {
+              "patron": "error-comun",
+              "title": "Mi error: buscar el prompt perfecto",
+              "subtitle": "Bastaba preguntarle a la IA cómo ayudarme"
+            },
+            {
+              "patron": "pregunta-del-jefe",
+              "title": "«¿Ya usas IA?» Así empecé yo",
+              "subtitle": "4 preguntas para tu primera conversación"
+            },
+            {
+              "patron": "antes-despues",
+              "title": "De no saber qué pedir a 4 preguntas",
+              "subtitle": "Pregúntale a la IA cómo puede ayudarte"
+            },
+            {
+              "patron": "resultado",
+              "title": "Pregúntale a la IA cómo ayudarte",
+              "subtitle": "4 preguntas para empezar en tu trabajo"
+            },
+            {
+              "patron": "en-juego",
+              "title": "Lo que la IA puede hacer en tu trabajo",
+              "subtitle": "Pregúntaselo a ella: 4 preguntas"
+            },
+            {
+              "patron": "error-comun",
+              "title": "No empieces por una herramienta",
+              "subtitle": "Empieza con estas 4 preguntas a la IA"
+            }
+          ],
+          "juez": {
+            "elegido": 2,
+            "nota": 8,
+            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"4 preguntas\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezar sin saber qué pedir, con 4 preguntas\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no buscar el prompt perfecto\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"4 preguntas\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preguntarle a la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"lo que puede hacer\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
+          }
+        },
+        "emocion": [
+          "alivio",
+          "identificación"
+        ],
+        "entregable": "las 4 preguntas para la primera conversación con la IA: qué haces en tu trabajo, qué te quita más tiempo, qué podría hacer ella y cómo pedírselo",
+        "fraseAmigo": "si no sabes qué pedirle a la IA, pregúntale a ella cómo te puede ayudar, contándole qué haces; yo partí así",
+        "promesas": [
+          {
+            "promesa": "No sabía por dónde partir: le pregunté a la IA",
+            "slide": 2
+          },
+          {
+            "promesa": "Las 4 preguntas que le hice",
+            "slide": 3
+          },
+          {
+            "promesa": "lo que me respondió",
+            "slide": 5
+          }
+        ],
+        "lectorFrio": {
+          "intentos": 1,
+          "resultado": "ok",
+          "notas": "los dos lectores entendieron el entregable y nombraron algo nuevo en la 8 a la primera"
+        },
+        "origen": {
+          "fichas": [],
+          "referencias": [
+            "referencias/modo-aprendizaje-de-claude.md"
+          ]
+        },
+        "derivadoDe": null,
+        "caption": "Aprendizaje con IA: no sabía por dónde partir y le pregunté a la IA cómo ayudarme. Las 4 preguntas que le hice.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+        "borrador": "vie-carrusel-preguntale-a-la-ia.json",
+        "estado": "planificado",
+        "parametros": {
+          "tituloMaxPalabras": 12,
+          "bulletMaxPalabras": 12,
+          "cuerpoMaxPalabras": 30,
+          "cuerpoMaxPalabrasCarrusel": 50,
+          "terminosTecnicosMax": 1,
+          "siglasPermitidas": [
+            "GPT",
+            "PDF",
+            "IA",
+            "DM"
+          ],
+          "relleno": [
+            "increíble",
+            "brutal",
+            "realmente",
+            "básicamente",
+            "la verdad",
+            "muy"
+          ],
+          "hookUmbral": 7,
+          "lecturaPalabrasPorSegundo": 2.5,
+          "lecturaMinSegundos": 1.5,
+          "reescriturasMax": 3,
+          "logoEnCuadro0": true,
+          "tituloPalabras": 10
+        }
+      }
+    ]
   },
+  "borrador": {
+    "name": "lun-reel-pdfs-a-podcast",
+    "angle": "la primera tarea que le pasé a la IA: de una pila de informes pendientes a un podcast que escucho caminando",
+    "pillar": "trabajo",
+    "pace": "gancho",
+    "audio": "lima-01.mp3",
+    "logoEnCuadro0": true,
+    "slides": [
+      {
+        "template": "Hook",
+        "props": {
+          "title": "Mis 6 informes pendientes, en un podcast",
+          "highlight": "podcast",
+          "subtitle": "El truco es el prompt",
+          "resultado": "Resumen en audio listo: tus 6 informes pendientes.",
+          "app": "NotebookLM",
+          "modo": "aviso"
+        },
+        "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
+      },
+      {
+        "template": "Lead",
+        "props": {
+          "text": "6 archivos, 1 cuaderno y cero horas frente a la pantalla.",
+          "highlight": "cero horas"
+        },
+        "narracion": "Los informes que no alcanzaba a leer, los escuché caminando."
+      },
+      {
+        "template": "Step",
+        "props": {
+          "step": "1",
+          "heading": "Sube tus PDFs a NotebookLM",
+          "body": "Entra a notebooklm.google.com, crea un cuaderno y arrastra los archivos."
+        },
+        "narracion": "Primero los subí a NotebookLM: creé un cuaderno nuevo y ahí arrastré los seis archivos."
+      },
+      {
+        "template": "Step",
+        "props": {
+          "step": "2",
+          "heading": "Pide el resumen en audio",
+          "bullets": [
+            "Toca resumen en audio",
+            "Prueba la versión corta"
+          ]
+        },
+        "narracion": "Después le pedí el resumen en audio, y elegí la versión más corta."
+      },
+      {
+        "template": "Prompt",
+        "props": {
+          "heading": "Pega esto antes de generarlo",
+          "prompt": "Resume estos documentos con las 3 ideas clave y un ejemplo de cada una."
+        },
+        "narracion": "Y el truco: antes de generarlo pegué esto, para que vaya directo a tres ideas clave con un ejemplo de cada una."
+      },
+      {
+        "template": "Cta",
+        "props": {
+          "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
+          "highlight": "PARTIR",
+          "handle": "ia.punto.es",
+          "cta": "Escríbeme PARTIR",
+          "source": "Fuente: notebooklm.google.com"
+        },
+        "narracion": "¿No sabes cuál sería tu primera tarea? Escríbeme y te cuento."
+      }
+    ]
+  }
 };
 
 // --- CLI --------------------------------------------------------------------
