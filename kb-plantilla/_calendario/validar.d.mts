@@ -73,5 +73,6 @@ export declare const NADA_NUEVO_RE: RegExp[];
 export declare function mensajeJuez(seccion: string, candidatos: object[]): string;
 export declare function seccionDelJuez(md: string): string | undefined;
 export declare const SERIES_CALIDAD: string[];
+export declare function seriesDe(config: unknown): string[];
 export declare const SEMANAS_PAQUETE: string[];
 export declare const MOTIVO_PAQUETE: string;

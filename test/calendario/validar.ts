@@ -43,6 +43,7 @@ import {
   erroresDePromesas,
   DESDE_PROMESAS,
   SERIES_CALIDAD,
+  seriesDe,
   SEMANAS_PAQUETE,
   MOTIVO_PAQUETE,
   NADA_NUEVO_RE,
@@ -2513,4 +2514,61 @@ check("promesas-5: el manual pide revisar promesas antes del lector frío y avis
   assert.ok(/\*\*Promesas contra contenido\*\*/.test(paso5) && paso5.includes("antes de lanzar el"), "paso de promesas en el Paso 5");
   assert.ok(paso5.includes("`--juez` se niega"), "el tope del título en el juez");
   assert.ok(md.includes("`promesas` (desde el 2026-10-26"), "en la lista de campos");
+});
+
+// --- pivote coaching: mix de 3 y series desde el config ---
+
+const SERIES_PIVOTE = ["por-donde-partir", "lo-que-construi"];
+const MIX_3 = [
+  { dia: 1, formato: "reel", arquetipo: "tutorial", hora: "09:00", serie: "por-donde-partir" },
+  { dia: 3, formato: "reel", arquetipo: "atemporal", hora: "09:00", serie: "lo-que-construi" },
+  { dia: 5, formato: "carrusel", arquetipo: "lista", hora: "13:00", serie: "por-donde-partir" },
+];
+const config3 = { ...config, mix: MIX_3, series: SERIES_PIVOTE };
+
+check("pivote: validarConfig acepta un mix de 3 con series", () => assertNone(validarConfig(config3)));
+
+check("pivote: validarConfig con 2 entradas → mix debe tener de 3 a", () => {
+  assertHas(validarConfig({ ...config3, mix: MIX_3.slice(0, 2) }), /mix debe tener de 3 a/);
+});
+
+check("pivote: mix[i].serie fuera de config.series → error", () => {
+  const mix = clone(MIX_3);
+  mix[0].serie = "otra";
+  assertHas(validarConfig({ ...config3, mix }), /mix\[0\]\.serie/);
+});
+
+check("pivote: seriesDe usa config.series o SERIES_CALIDAD", () => {
+  assert.deepEqual(seriesDe({}), SERIES_CALIDAD);
+  assert.deepEqual(seriesDe({ series: ["por-donde-partir"] }), ["por-donde-partir"]);
+  assert.deepEqual(seriesDe({ series: [] }), SERIES_CALIDAD);
+});
+
+check("pivote: validarPieza — serie fuera de config.series nombra las válidas; falta serie desde paquete.desde", () => {
+  const ser = (over: Record<string, unknown>) => validarPieza(pieza({ dia: "2026-11-04", ...over }), config3).filter((e) => /serie/.test(e));
+  assertHas(ser({ serie: "hazlo-con-ia" }), /por-donde-partir, lo-que-construi/);
+  assertNone(ser({ serie: "lo-que-construi" }));
+  assertHas(ser({ serie: undefined }), /falta serie/);
+  assertHas(ser({ serie: null, formato: "carrusel" }), /falta serie/);
+  // antes de paquete.desde no se exige
+  assertNone(validarPieza(pieza({ dia: "2026-10-21", serie: undefined }), config3).filter((e) => /falta serie/.test(e)));
+  // sin config.series no se exige
+  assertNone(validarPieza(pieza({ dia: "2026-11-04", serie: undefined }), config).filter((e) => /falta serie/.test(e)));
+});
+
+check("pivote: validarPlan — el mix calza por serie y marca la que no sigue", () => {
+  const mk = (serieMie: string) => plan({
+    semana: "2026-11-02",
+    experimento: null,
+    piezas: [
+      { id: "lun-reel-a", dia: "2026-11-02", hora: "09:00", formato: "reel", arquetipo: "tutorial", serie: "por-donde-partir", tema: "[[Tema uno]]" },
+      { id: "mie-reel-c", dia: "2026-11-04", hora: "09:00", formato: "reel", arquetipo: "atemporal", serie: serieMie, tema: "[[Tema dos]]" },
+      { id: "vie-carrusel-d", dia: "2026-11-06", hora: "13:00", formato: "carrusel", arquetipo: "lista", serie: "por-donde-partir", tema: "[[Tema tres]]" },
+    ].map((x) => pieza({ ...x, borrador: `${x.id}.json` })),
+  });
+  const serie = (errs: string[]) => errs.filter((e) => /mie-reel-c.*serie/.test(e));
+  assertNone(serie(validarPlan(mk("lo-que-construi"), config3)));
+  const errs = serie(validarPlan(mk("por-donde-partir"), config3));
+  assertHas(errs, /serie/);
+  assertHas(errs, /lo-que-construi/);
 });

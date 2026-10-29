@@ -788,6 +788,15 @@ const PATRONES_MIN = 3;
 /** Series válidas desde `paquete.desde` (el público profesional; `gratis-vs-pago` deja de valer). */
 export const SERIES_CALIDAD = ["hazlo-con-ia", "criterio", "lo-probe-por-ti"];
 /**
+ * Series válidas del config: `config.series` si es una lista de slugs no vacía; si no,
+ * las series de calidad por defecto.
+ */
+export function seriesDe(config) {
+  const l = esObj(config) ? config.series : undefined;
+  return Array.isArray(l) && l.length > 0 && l.every((s) => typeof s === "string" && SLUG_SERIE_RE.test(s)) ? l : SERIES_CALIDAD;
+}
+const SLUG_SERIE_RE = /^[a-z0-9-]{3,40}$/;
+/**
  * Lunes de las semanas del paquete calidad-contenido: sin experimento propio y sin tocar
  * duración ni ritmo del reel. Valor por defecto: manda `config.paquete.semanas` si viene.
  */
@@ -976,7 +985,10 @@ function erroresDePieza(p, config) {
   } else if (p.origen.fichas.length + p.origen.referencias.length === 0) errs.push("origen vacío: cita al menos una ficha o referencia de la base");
   if (p.derivadoDe !== undefined && p.derivadoDe !== null && !esTexto(p.derivadoDe)) errs.push("derivadoDe debe ser null o el id de la pieza ganadora");
   if (exigeJuez(p, config)) {
-    if (p.serie !== undefined && p.serie !== null && !SERIES_CALIDAD.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${SERIES_CALIDAD.join(", ")} o null`);
+    const validas = seriesDe(config);
+    // Con `config.series` cada pieza lleva serie (reel o carrusel); sin él, la serie sigue siendo opcional.
+    if (esObj(config) && config.series !== undefined && (p.serie === undefined || p.serie === null)) errs.push(`falta serie: desde el ${paqueteDe(config).desde} cada pieza lleva una de ${validas.join(", ")}`);
+    else if (p.serie !== undefined && p.serie !== null && !validas.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${validas.join(", ")} o null`);
   } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
@@ -1625,10 +1637,14 @@ export function validarPlan(plan, config) {
         if (!delDia.length) errs.push(`${id}: config.mix no tiene entrada para ese día`);
         else if (!libres.length) errs.push(`${id}: config.mix solo tiene ${delDia.length} entrada(s) para ese día y ya están tomadas por otras piezas`);
         else {
-          // La entrada que mejor calza: misma hora y formato y arquetipo; luego formato y arquetipo;
+          // La entrada que mejor calza: misma hora, formato, arquetipo y serie; luego formato, arquetipo y serie;
+          // luego misma hora y formato y arquetipo; luego formato y arquetipo;
           // luego misma hora y formato; luego mismo formato; si no, la primera libre.
           const calza = (f) => libres.find(({ x }) => f(x));
+          const mismaSerie = (x) => (x.serie ?? null) === (p.serie ?? null);
           const m =
+            calza((x) => x.hora === p.hora && x.formato === p.formato && x.arquetipo === p.arquetipo && mismaSerie(x)) ??
+            calza((x) => x.formato === p.formato && x.arquetipo === p.arquetipo && mismaSerie(x)) ??
             calza((x) => x.hora === p.hora && x.formato === p.formato && x.arquetipo === p.arquetipo) ??
             calza((x) => x.formato === p.formato && x.arquetipo === p.arquetipo) ??
             calza((x) => x.hora === p.hora && x.formato === p.formato) ??
@@ -1638,6 +1654,7 @@ export function validarPlan(plan, config) {
           const slot = typeof m.x.hora === "string" ? ` (${m.x.hora})` : "";
           if (p.formato !== m.x.formato) errs.push(`${id}: formato ${q(p.formato)} no sigue el mix (ese día va ${m.x.formato}${slot})`);
           if (p.arquetipo !== m.x.arquetipo && !enExperimento) errs.push(`${id}: arquetipo ${q(p.arquetipo)} no sigue el mix (ese día va ${m.x.arquetipo}${slot})`);
+          if (typeof m.x.serie === "string" && p.serie !== m.x.serie) errs.push(`${id}: serie ${q(p.serie ?? null)} no sigue el mix (ese día va ${m.x.serie}${slot})`);
         }
       }
       if (typeof p.tema === "string") {
@@ -1756,16 +1773,17 @@ export function validarConfig(config) {
     if (!esObj(config)) return ["config.json debe ser un objeto"];
     const errs = [];
     if (!esTexto(config.zona)) errs.push("zona debe ser un texto (America/Santiago)");
-    if (!Array.isArray(config.mix) || config.mix.length < 6 || config.mix.length > 7 * MAX_ENTRADAS_MIX_DIA) {
-      errs.push(`mix debe tener de 6 a ${7 * MAX_ENTRADAS_MIX_DIA} entradas (una por pieza y día: lunes a sábado, domingo si se publica; hasta ${MAX_ENTRADAS_MIX_DIA} por día)`);
+    if (!Array.isArray(config.mix) || config.mix.length < 3 || config.mix.length > 7 * MAX_ENTRADAS_MIX_DIA) {
+      errs.push(`mix debe tener de 3 a ${7 * MAX_ENTRADAS_MIX_DIA} entradas (una por pieza y día; hasta ${MAX_ENTRADAS_MIX_DIA} por día)`);
     } else {
       const porDia = new Map();
       const horas = new Set();
       config.mix.forEach((m, i) => {
         if (!esObj(m) || !Number.isInteger(m.dia) || m.dia < 0 || m.dia > 6 || !FORMATOS.includes(m.formato) || !esTexto(m.arquetipo)) {
-          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo, hora? }`);
+          errs.push(`mix[${i}] inválido: { dia: 0-6 (0 = domingo), formato: reel|carrusel, arquetipo, hora?, serie? }`);
           return;
         }
+        if (m.serie !== undefined && !seriesDe(config).includes(m.serie)) errs.push(`mix[${i}].serie ${q(m.serie)} inválida: usa ${seriesDe(config).join(", ")}`);
         if (m.hora !== undefined && !(typeof m.hora === "string" && HORA_RE.test(m.hora))) errs.push(`mix[${i}].hora ${q(m.hora)} inválida (HH:MM en :00 o :30)`);
         const n = (porDia.get(m.dia) ?? 0) + 1;
         porDia.set(m.dia, n);
@@ -1780,6 +1798,9 @@ export function validarConfig(config) {
       for (const [dia, n] of porDia) {
         if (n > 1 && config.mix.some((m) => esObj(m) && m.dia === dia && typeof m.hora !== "string")) errs.push(`mix: día ${dia} tiene ${n} entradas y alguna sin hora (con varias piezas por día, cada entrada lleva su hora)`);
       }
+    }
+    if (config.series !== undefined && !(Array.isArray(config.series) && config.series.length > 0 && config.series.every((s) => typeof s === "string" && SLUG_SERIE_RE.test(s)))) {
+      errs.push("series debe ser una lista no vacía de slugs (p. ej. por-donde-partir, lo-que-construi)");
     }
     if (!esObj(config.horasPorDefecto) || !Object.values(config.horasPorDefecto).every((h) => typeof h === "string" && HORA_RE.test(h))) {
       errs.push("horasPorDefecto: cada hora en HH:MM con :00 o :30");
