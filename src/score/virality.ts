@@ -146,8 +146,9 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   if (ctaSlide) {
     const p = ctaSlide.props as Record<string, unknown>;
     const ctaText = `${String(p.title ?? "")} ${String(p.cta ?? "")}`;
-    if (has(ctaText, ["guarda", "guárdalo", "guardalo", "comparte", "mándaselo", "mandaselo", "descarga", "envíaselo"])) cta += 6;
-    else { ctaNotes.push("CTA sin verbo de guardar/compartir"); suggestions.push("El CTA primario debe pedir guardar o compartir (tu métrica)."); }
+    // «Escríbeme PARTIR» (señal dm, desde el pivote a coaching del 2026-11-02) cuenta como el gesto, igual que en el reel (GESTO).
+    if (has(ctaText, ["guarda", "guárdalo", "guardalo", "comparte", "mándaselo", "mandaselo", "descarga", "envíaselo", "escríbeme", "escribeme"])) cta += 6;
+    else { ctaNotes.push("CTA sin verbo de guardar/compartir/escribir"); suggestions.push("El CTA primario debe pedir el gesto que mide la cuenta: escribir (Escríbeme PARTIR), guardar o compartir."); }
     if (typeof p.handle === "string" && p.handle) cta += 4; else ctaNotes.push("sin handle");
   } else {
     ctaNotes.push("sin slide CTA");

@@ -51,6 +51,9 @@ import {
   DESDE_MITO_CORTO,
   contienePalabraCta,
   ctaDe,
+  erroresDeReferencias,
+  leerAlcance,
+  claveTema,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -99,6 +102,12 @@ const CONFIG_BASE = {
 };
 /** La plantilla tal cual (pivote a coaching) con la pista del ejemplo: contra ella se valida `EJEMPLO`, como en `--self-test`. */
 const CONFIG_EJEMPLO = { ...CONFIG_PLANTILLA, audios: [...CONFIG_PLANTILLA.audios, "lima-01.mp3"] };
+/**
+ * El ejemplo de antes del pivote (semana 2026-10-12: Hook con subtítulo, dos Step, Prompt y Cta),
+ * congelado. Los casos del lector que prueban cómo se leen esas plantillas (la ventana del Prompt,
+ * el subtítulo, el número de paso) parten de él; el ejemplo vigente usa Screen en vez de Prompt.
+ */
+const EJEMPLO_VIEJO = JSON.parse(readFileSync(new URL("../adversarial/fixtures/ejemplo-2026-10-12.json", import.meta.url), "utf8"));
 /** Config con una pista registrada (la instalada trae `audios: []`). */
 const config = { ...CONFIG_BASE, audios: ["lima-01.mp3"] };
 /** Mix del sprint de 2 reels al día (2026-10-15 → 2026-10-18): varias entradas por día, con hora. Prueba el emparejamiento por entrada. */
@@ -1280,7 +1289,7 @@ check("calendario/validar: INSTRUCCIONES.md — mix con los valores exactos, pre
 
 /** Borrador con un mito y un dato para probar las etiquetas y el valor del Stat. */
 function borradorConMito(): any {
-  const b = clone(EJEMPLO.borrador) as any;
+  const b = clone(EJEMPLO_VIEJO.borrador) as any;
   b.slides.splice(5, 0,
     { template: "MythReality", props: { myth: "Necesitas pagar para tener un podcast", reality: "NotebookLM lo hace gratis" } },
     { template: "MythReality", props: { myth: "Hay que saber editar audio", reality: "Lo arma solo", mythLabel: "Lo que crees", realityLabel: "Lo que pasa" } },
@@ -1291,7 +1300,7 @@ function borradorConMito(): any {
 
 check("calendario/validar (lector): con prisa ve el prompt completo y las etiquetas del mito", () => {
   const { conPrisa, completo } = textosLector(borradorConMito());
-  const prompt = EJEMPLO.borrador.slides[4].props.prompt as string;
+  const prompt = EJEMPLO_VIEJO.borrador.slides[4].props.prompt as string;
   assert.ok(conPrisa.includes(prompt), conPrisa);
   assert.ok(completo.includes(prompt));
   for (const t of [conPrisa, completo]) {
@@ -1311,20 +1320,20 @@ check("calendario/validar (lector): con prisa ve el prompt completo y las etique
 });
 
 check("calendario/validar (lector): source no entra en ningún lector; el número de paso sí (también numérico)", () => {
-  const source = EJEMPLO.borrador.slides[5].props.source as string;
-  const { conPrisa, completo } = textosLector(EJEMPLO.borrador);
+  const source = EJEMPLO_VIEJO.borrador.slides[5].props.source as string;
+  const { conPrisa, completo } = textosLector(EJEMPLO_VIEJO.borrador);
   for (const t of [conPrisa, completo]) {
     assert.ok(!t.includes(source), t);
     assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
     assert.ok(/^2\n.*Pide el resumen en audio/m.test(t), t);
   }
-  const b = clone(EJEMPLO.borrador) as any;
+  const b = clone(EJEMPLO_VIEJO.borrador) as any;
   b.slides[2].props.step = 1;
   for (const t of Object.values(textosLector(b))) assert.ok(/^1\n.*Sube tus PDFs a NotebookLM/m.test(t), t);
 });
 
 check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, note, reason, pastilla, @handle, ventana del prompt y Desliza (solo carrusel)", () => {
-  const b = clone(EJEMPLO.borrador) as any;
+  const b = clone(EJEMPLO_VIEJO.borrador) as any;
   b.slides[0].props.eyebrow = "Truco de estudio";
   b.slides[1].props.kicker = "Sin pantalla";
   b.slides[4].props.note = "Funciona también en inglés";
@@ -1621,7 +1630,7 @@ check("calendario/validar (lector): la ventana del Prompt dice \"Copia este prom
     assert.ok(html.includes("Copia este prompt"), format);
     assert.ok(!html.includes("copia-este-prompt"), format);
   }
-  const { completo } = textosLector(EJEMPLO.borrador);
+  const { completo } = textosLector(EJEMPLO_VIEJO.borrador);
   assert.ok(completo.includes("Copia este prompt") && !completo.includes("copia-este-prompt"), completo);
 });
 
@@ -2232,6 +2241,50 @@ check("ejemplo y esqueleto: el EJEMPLO pasa validarSemana; desde DESDE_CALIDAD l
     assert.ok(seriesDe(CONFIG_PLANTILLA).includes(p.serie), `${p.id}: serie ${p.serie}`);
     if (p.formato !== "reel") assert.ok(p.hook.candidatos.every((c: any) => c.resultado === undefined), `${p.id}: el carrusel no lleva resultado`);
     assert.ok(!/gratis/i.test(p.hook.texto), `${p.id}: «gratis» no es gancho para este público`);
+  }
+});
+
+check("ejemplo: los temas de las 3 piezas están en el alcance de la plantilla y sus referencias están listas (validarSemana completo)", () => {
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-alcance-"));
+  try {
+    mkdirSync(join(root, "_investigacion"), { recursive: true });
+    copyFileSync("kb-plantilla/_investigacion/alcance.json", join(root, "_investigacion", "alcance.json"));
+    const alcance = leerAlcance(root)!;
+    assert.ok(alcance, "alcance.json de la plantilla legible");
+    crearOrigen(root, EJEMPLO.plan.piezas, EJEMPLO.plan.semana);
+    for (const p of EJEMPLO.plan.piezas) {
+      assert.ok(alcance.dentro.has(claveTema(p.tema)), `${p.id}: ${p.tema} no está en dentro`);
+      assertNone(erroresDeReferencias(p, root, EJEMPLO.plan.semana, alcance));
+    }
+    // La semana entera: cada pieza con un borrador (el de la pieza 0 adaptado a su id, formato y Cta).
+    const dir = join(root, "_calendario", EJEMPLO.plan.semana);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(EJEMPLO.plan));
+    for (const p of EJEMPLO.plan.piezas) {
+      const b = clone(EJEMPLO.borrador);
+      b.name = p.id;
+      if (p.formato === "carrusel") {
+        delete b.pace;
+        delete b.audio;
+        for (const sl of b.slides) delete sl.narracion;
+        delete b.slides[0].props.resultado;
+        delete b.slides[0].props.app;
+        delete b.slides[0].props.modo;
+      }
+      const el = p.hook.candidatos[p.hook.juez.elegido - 1];
+      b.slides[0].props.title = el.title;
+      if (el.subtitle !== undefined) b.slides[0].props.subtitle = el.subtitle;
+      if (el.resultado !== undefined) b.slides[0].props.resultado = el.resultado;
+      b.slides[0].props.highlight = el.title.split(" ").at(-1);
+      writeFileSync(join(dir, p.borrador), JSON.stringify(b));
+    }
+    const errs = validarSemana(dir, CONFIG_EJEMPLO, { score: () => 90, avisos: [] });
+    // Los borradores prestados no son los de cada pieza: solo cuentan los errores de tema, alcance y referencia.
+    assertNone(errs.filter((e: string) => /alcance|referencia|tema/.test(e)));
+    // Un tema fuera del alcance (el de la versión anterior del ejemplo) sí se rechaza.
+    assertHas(erroresDeReferencias({ ...EJEMPLO.plan.piezas[1], tema: "[[Ingeniería de agentes de IA]]" }, root, EJEMPLO.plan.semana, alcance), /no está en "dentro" ni "despues"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

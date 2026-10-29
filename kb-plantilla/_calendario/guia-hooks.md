@@ -56,8 +56,9 @@ Donde esta sección choque con el resto de la guía, manda esta.
 Tres hooks de ejemplo (los dos primeros son reels, ≤ 7 palabras; el tercero,
 carrusel, ≤ 12):
 
-- «Mis 6 informes pendientes, en un podcast» (`por-donde-partir`, `resultado`
-  «Resumen en audio listo: tus 6 informes pendientes.», app NotebookLM).
+- «Mis 6 informes pendientes: ahora los escucho» (`por-donde-partir`,
+  `resultado` «Resumen de audio listo: mis 6 informes pendientes.», app Gemini
+  Notebook).
 - «Armé agentes que publican solos: 1 guardado» (`lo-que-construi`: 27 piezas
   publicadas y 1 guardado, y lo que eso enseñó).
 - «No sabía qué era un agente hasta que le pregunté a la IA»

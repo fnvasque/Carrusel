@@ -38,9 +38,9 @@ Donde esta sección choque con el resto de la guía, manda esta.
 - **Primera persona singular** en pantalla y en la voz: «yo partí por aquí»,
   «a mí me pasó», «armé un sistema que…». El lector ve a alguien como él dar
   el paso, no a un experto que le dice qué hacer.
-  - **Mal:** «Sube tus informes a NotebookLM y ahorra horas.»
-  - **Bien:** «Primero subí mis informes a NotebookLM: creé un cuaderno y
-    arrastré los seis archivos.»
+  - **Mal:** «Sube tus informes a Gemini Notebook y ahorra horas.»
+  - **Bien:** «Primero creé un cuaderno nuevo y subí ahí los seis informes en
+    PDF.»
 - **Nivel cero sin jerga:** un término técnico como máximo en toda la pieza, y
   explicado en la misma escena con palabras de oficina.
   - **Mal:** «Un agente orquesta tus tareas con herramientas.»

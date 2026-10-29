@@ -713,6 +713,17 @@ check("viralidad: Stat cuenta como desarrollo accionable y como slide numerado",
   assert.equal(dim(nonNumeric, "Retención"), dim(withLead, "Retención"), "un Stat sin número no cuenta como numerado");
 });
 
+check("viralidad: el Cta del carrusel que pide «Escríbeme PARTIR» suma el gesto, igual que «Guárdalo»", () => {
+  const hook = { template: Hook, props: { title: "Hook" } };
+  const ctaDim = (props: Record<string, unknown>) =>
+    scoreCarousel({ name: "x", slides: [hook, { template: Cta, props: { handle: "ia.punto.es", ...props } }] }).dimensions.find((d) => d.name === "CTA")!.score;
+  assert.equal(ctaDim({ title: "Guárdalo para tu próxima reunión" }), 10);
+  assert.equal(ctaDim({ title: "Escríbeme PARTIR y te cuento por dónde empezar en tu caso" }), 10);
+  assert.equal(ctaDim({ title: "Te cuento por dónde empezar", cta: "Escríbeme PARTIR" }), 10, "la pastilla también cuenta");
+  assert.equal(ctaDim({ title: "Escribeme PARTIR" }), 10, "sin tilde");
+  assert.equal(ctaDim({ title: "Fin" }), 4, "sin gesto: solo el handle");
+});
+
 check("mono sin ligaduras: el código se ve como se escribe", () => {
   const p = renderToStaticMarkup(createElement(Prompt, { heading: "H", prompt: "pip install kokoro>=0.9.4" }));
   const typeDiv = p.match(/<div data-anim="type" style="([^"]*)"/)![1];

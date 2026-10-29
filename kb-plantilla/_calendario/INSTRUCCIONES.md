@@ -140,8 +140,10 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    (Paso 5, `guia-hooks.md`); la regla 8 sigue valiendo para todos.
    - Mal: «¿Por qué tu texto se olvida?» + «El truco: no decirlo». Bien:
      «Haz que tu texto se recuerde» + subtítulo «1 prompt de ChatGPT».
-   - Mal: «¿Pagar por ordenar 117 correos? No, gratis». Bien: «Claude: de no
-     leídos a 2 urgentes» (el gancho no es el precio: este público paga).
+   - Mal: «¿Qué es un agente? Te lo explico». Bien: «No sabía qué era un
+     agente hasta que le pregunté a la IA» + subtítulo «La pregunta que le
+     hice y lo que me respondió» (desde 2026-11-02: primera persona y nivel
+     cero; la promesa es lo que te llevas, no la definición).
    - Mal: «¿Cuánto tiempo te ahorra la IA? 3 estudios». Bien: «“¿Cuánto nos
      ahorra la IA?”: qué responderle a tu jefe» + subtítulo «3 estudios, lo
      que miden y cómo medirlo en tu equipo».
@@ -524,10 +526,15 @@ después busca el tema elegible (abajo) que la respalde. Ángulos de ejemplo:
 - `lo-que-construi` (bitácora honesta del sistema de agentes que arma esta
   cuenta): decisiones y errores reales, con su número (27 piezas y 1 guardado
   antes del pivote; por qué se bajó de 2 reels al día a 3 piezas por semana;
-  qué hace el juez de hooks y por qué el que escribe no se pone nota). El
-  respaldo es una referencia del tema (agentes, orquestación) más lo que pasó
+  qué hace el juez de hooks y por qué el que escribe no se pone nota). Temas
+  de `dentro` que le calzan: `[[Automatización con IA]]` (agentes y flujos:
+  `referencias/building-effective-agents.md`, `referencias/ingenieria-de-arnes.md`),
+  `[[Productividad y gestión del tiempo]]` (cuánto tiempo ahorró o costó de
+  verdad) y `[[Modelos mentales y pensamiento crítico]]` (por qué el que escribe
+  no se evalúa). El respaldo es una referencia lista de ese tema más lo que pasó
   en este repo; lo que pasó se cuenta como experiencia propia, nunca como dato
-  general.
+  general. Un tema que no esté en `dentro` o `despues` de
+  `_investigacion/alcance.json` no va, aunque la pieza hable de agentes.
 
 Siguen los requisitos de abajo (alcance y referencia lista, regla dura 5).
 Si un tema sale de la rotación vieja (finanzas, psicología, storytelling) y no
@@ -602,7 +609,8 @@ Nota histórica (2026-10-19 a 2026-11-01, ya no rige): el mix era de 6 piezas
 pasan el validador desde el 2026-11-02. No las uses.
 
 Dos piezas del mismo arquetipo en la semana van con temas y entregables
-distintos. Los `compartible` llevan destinatario explícito en el `Hook`.
+distintos. Toda pieza lleva su destinatario explícito («si no sabes por dónde
+partir con la IA…») en el `Hook` o en la voz de la primera escena (regla dura 7).
 
 **Si `config.audios` está vacío, no escribas reels**: todo reel necesita una
 pista de esa lista y tú no puedes agregarla. Esa semana escribe solo el
@@ -625,12 +633,13 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   guardados, envíos y comentarios son 0 en casi todas las piezas y no enseñan
   nada; la única señal con información es la **retención** (y el alcance que
   trae). En esa fase el experimento de la semana **solo** prueba variables que
-  mueven la retención (`hook`, `hookVideo`, `ritmoReel`, `duracionMaxSegundos`,
-  `logoEnCuadro0`, `duracion`), se aplica a **todos los reels de la semana**
+  mueven la retención (`hook`, `ritmoReel`, `duracionMaxSegundos`,
+  `logoEnCuadro0`, `duracion`; `hookVideo` está apagado desde el 2026-11-02), se aplica a **todos los reels de la semana**
   (no a 2) y se evalúa por retención contra las semanas anteriores
-  (`control.historico`). Las señales de cada pieza siguen siendo las del mix
-  (el Cta pide el gesto), pero no declares experimentos sobre guardados, envíos
-  o comentarios hasta que `escala` sea `tasa`.
+  (`control.historico`). Desde el 2026-11-02 la señal de cada pieza es siempre
+  `dm` (regla dura 11; el Cta pide «Escríbeme PARTIR»); no declares
+  experimentos sobre guardados, envíos, comentarios ni DMs hasta que `escala`
+  sea `tasa`.
 - **Semanas del paquete pivote-coaching (2026-11-02 y 2026-11-09): sin
   experimento propio.** Todo lo nuevo (mix de 3, series `por-donde-partir` y
   `lo-que-construi`, primera persona, señal `dm` y cierre PARTIR) entra junto
@@ -1019,7 +1028,7 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
 - `id`: minúsculas, números y guiones, 3 a 80 caracteres
   (`^[a-z0-9-]{3,80}$`), con la forma `<dia>-<turno>-<formato>-<slug>` cuando el
   día tiene varias piezas (`turno`: `am` para la de la mañana, `pm` para la de
-  la tarde; el carrusel de las 14:00 va sin turno), p. ej.
+  la tarde; el carrusel de las 13:00 va sin turno), p. ej.
   `lun-am-reel-resumir-pdfs`, `lun-pm-reel-pendientes-en-4-cajas`,
   `mar-carrusel-5-prompts-para-excel`. El borrador se llama `<id>.json`.
 - Score léxico ≥ `scoreMin` (75): si el repo de código no está al lado, el
@@ -1157,8 +1166,9 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   de evidencia sin `Screen` pero con `source` en alguna slide recibe 10.
 - **Estructura (15)**: 4 a 6 escenas (7; con 3 o 7, solo 3); `pace: "gancho"`
   (4); `Cta` al cierre (4).
-- **CTA (10)**: el título del `Cta` pide guardar, compartir o comentar (6) y
-  lleva `handle` (4).
+- **CTA (10)**: el título o la pastilla del `Cta` pide el gesto (6): desde el
+  2026-11-02, «Escríbeme PARTIR» (también cuentan guardar, compartir o
+  comentar); y lleva `handle` (4).
 - **Marca (10, resta 3 por cada una)**: igual que en carrusel; la narración
   también cuenta.
 
@@ -1177,8 +1187,9 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   con la **fuente** en alguna slide (2 por slide, hasta 6).
 - **Retención (15)**: pasos numerados (`step` en los `Step`, o un `Stat` con
   número) (7); el indicador de progreso lo pone el motor.
-- **CTA (10)**: el título del `Cta` pide guardar o compartir ("Guárdalo",
-  "Mándaselo", "Compártelo") (6) y lleva `handle` (4).
+- **CTA (10)**: el título o la pastilla del `Cta` pide el gesto (6): desde el
+  2026-11-02, «Escríbeme PARTIR» (también cuentan "Guárdalo", "Mándaselo",
+  "Compártelo"); y lleva `handle` (4).
 - **Marca (10, resta 3 por cada una)**: sin **hype** ("increíble",
   "revolucionario", "brutal"…), sin miedo ("te reemplaza"), sin **jerga**
   ("llm", "token", "embedding", "fine-tuning", "prompt engineering") y sin
@@ -1280,82 +1291,81 @@ horas son las del mix de tu `config.json`:
       "formato": "reel",
       "arquetipo": "tutorial",
       "senal": "dm",
-      "tema": "[[Automatización con IA]]",
+      "tema": "[[Aprendizaje con IA]]",
       "pilar": "trabajo",
       "serie": "por-donde-partir",
       "hook": {
         "categoria": "identificación",
-        "texto": "Mis 6 informes pendientes, en un podcast",
+        "texto": "Mis 6 informes pendientes: ahora los escucho",
         "score": 8,
         "candidatos": [
           {
             "patron": "resultado",
-            "title": "Mis 6 informes pendientes, en un podcast",
-            "subtitle": "El truco es el prompt",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "title": "Mis 6 informes pendientes: ahora los escucho",
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "antes-despues",
             "title": "De 6 informes sin leer a escucharlos",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "en-juego",
             "title": "Mi primera tarea para la IA",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "error-comun",
-            "title": "Yo empecé pidiéndole todo a la IA",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "title": "Yo no sabía qué pedirle a la IA",
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "pregunta-del-jefe",
             "title": "«¿Leíste el informe?» Lo escuché",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "resultado",
-            "title": "NotebookLM me lee los informes pendientes",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "title": "Le pregunté a la IA cómo ayudarme",
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "antes-despues",
             "title": "Antes los acumulaba; ahora los escucho",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           },
           {
             "patron": "en-juego",
             "title": "Por dónde partí con la IA",
-            "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+            "resultado": "Resumen de audio listo: mis 6 informes pendientes."
           }
         ],
         "juez": {
           "elegido": 1,
           "nota": 8,
-          "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer, con un prompt\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedirle todo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"una app que lee\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+          "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
         }
       },
       "emocion": [
         "alivio",
         "curiosidad"
       ],
-      "entregable": "una primera tarea concreta para pasarle a la IA si no sabes por dónde partir: convertir los informes pendientes en un resumen en audio, con el prompt que lo lleva a las ideas clave",
-      "fraseAmigo": "yo partí con la IA pasándole los informes que no alcanzaba a leer; me los convierte en un podcast que escucho de camino al trabajo",
+      "entregable": "una primera tarea para la IA si no sabes por dónde partir: preguntarle a Gemini Notebook cómo te ayuda con tus informes y pedirle el resumen de audio en español para escucharlos",
+      "fraseAmigo": "yo no sabía qué pedirle a la IA, así que le pregunté cómo me ayudaba con mis informes; ahora me los resume en audio y los escucho camino al trabajo",
       "promesas": [
         {
-          "promesa": "Mis 6 informes pendientes, en un podcast",
-          "slide": 4
+          "promesa": "Mis 6 informes pendientes: ahora los escucho",
+          "slide": 5
         },
         {
-          "promesa": "El truco es el prompt",
+          "promesa": "Resumen de audio listo: mis 6 informes pendientes",
           "slide": 5
         }
       ],
       "lectorFrio": {
         "intentos": 2,
         "resultado": "ok",
-        "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)"
+        "notas": "v1: el lector con prisa no vio qué herramienta era; se nombró en la pantalla del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 4: subí los 6 PDF a un cuaderno; la voz dice que es un cuaderno nuevo)"
       },
       "origen": {
         "fichas": [
@@ -1366,7 +1376,7 @@ horas son las del mix de tu `config.json`:
         ]
       },
       "derivadoDe": null,
-      "caption": "Automatización con IA: mi primera tarea para la IA fue convertir 6 informes pendientes en un podcast.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+      "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
       "borrador": "lun-reel-pdfs-a-podcast.json",
       "estado": "planificado",
       "parametros": {
@@ -1404,7 +1414,7 @@ horas son las del mix de tu `config.json`:
       "formato": "reel",
       "arquetipo": "atemporal",
       "senal": "dm",
-      "tema": "[[Ingeniería de agentes de IA]]",
+      "tema": "[[Automatización con IA]]",
       "pilar": "trabajo",
       "serie": "lo-que-construi",
       "hook": {
@@ -1415,42 +1425,42 @@ horas son las del mix de tu `config.json`:
           {
             "patron": "resultado",
             "title": "Mis agentes planifican la semana solos",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "dato-contrario",
             "title": "Armé agentes que publican solos: 1 guardado",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "error-comun",
             "title": "Mi error: automatizar antes de saber qué decir",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "antes-despues",
             "title": "De 2 reels al día a 3 por semana",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "en-juego",
             "title": "27 piezas automáticas y nadie las guardó",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "resultado",
             "title": "Lo que aprendí armando agentes de IA",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "dato-contrario",
             "title": "La máquina funcionaba; el mensaje no",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           },
           {
             "patron": "error-comun",
             "title": "Automaticé todo menos lo importante",
-            "resultado": "Semana planificada: 6 piezas, todas validadas."
+            "resultado": "Semana planificada: 3 piezas, todas validadas."
           }
         ],
         "juez": {
@@ -1463,7 +1473,7 @@ horas son las del mix de tu `config.json`:
         "curiosidad",
         "validación"
       ],
-      "entregable": "la lección de construir un sistema de agentes que planifica, escribe y publica esta cuenta: con 27 piezas y 1 guardado, lo que faltaba no era automatizar más sino saber para quién y para qué escribir",
+      "entregable": "lo que aprendí armando agentes que planifican y publican esta cuenta: con 27 piezas y 1 guardado, lo que faltaba no era automatizar más sino saber a quién le hablaba; y cada vez que algo fallaba igual, sumar una regla a las instrucciones en vez de corregir a mano",
       "fraseAmigo": "armé un sistema que escribe y publica solo; funcionó, pero nadie guardaba nada, porque le faltaba saber a quién le hablaba",
       "promesas": [
         {
@@ -1483,11 +1493,12 @@ horas son las del mix de tu `config.json`:
       "origen": {
         "fichas": [],
         "referencias": [
-          "referencias/orquestacion-multi-agente.md"
+          "referencias/ingenieria-de-arnes.md",
+          "referencias/building-effective-agents.md"
         ]
       },
       "derivadoDe": null,
-      "caption": "Agentes de IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+      "caption": "Automatización con IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
       "estado": "planificado",
       "parametros": {
@@ -1519,84 +1530,84 @@ horas son las del mix de tu `config.json`:
       }
     },
     {
-      "id": "vie-carrusel-preguntale-a-la-ia",
+      "id": "vie-carrusel-mis-3-primeros-pedidos",
       "dia": "2026-11-06",
       "hora": "13:00",
       "formato": "carrusel",
       "arquetipo": "lista",
       "senal": "dm",
-      "tema": "[[Aprendizaje con IA]]",
+      "tema": "[[Liderazgo y gestión de equipos]]",
       "pilar": "trabajo",
       "serie": "por-donde-partir",
       "hook": {
         "categoria": "identificación",
-        "texto": "No sabía por dónde partir: le pregunté a la IA",
+        "texto": "No sabía qué pedirle a ChatGPT como jefe: partí con 3",
         "score": 8,
         "candidatos": [
           {
             "patron": "resultado",
-            "title": "4 preguntas para que la IA te diga cómo ayudarte",
-            "subtitle": "Las que le hice yo el primer día"
+            "title": "Mis 3 primeros pedidos a ChatGPT como jefe",
+            "subtitle": "Los que publicó OpenAI para quien lidera un equipo"
           },
           {
             "patron": "en-juego",
-            "title": "No sabía por dónde partir: le pregunté a la IA",
-            "subtitle": "Las 4 preguntas que le hice y lo que me respondió"
+            "title": "No sabía qué pedirle a ChatGPT como jefe: partí con 3",
+            "subtitle": "Informe semanal, feedback difícil y carga del equipo"
           },
           {
             "patron": "error-comun",
-            "title": "Mi error: buscar el prompt perfecto",
-            "subtitle": "Bastaba preguntarle a la IA cómo ayudarme"
+            "title": "Mi error: pedirle a ChatGPT «ayúdame con esto»",
+            "subtitle": "Los 3 pedidos que sí me sirvieron como jefe"
           },
           {
             "patron": "pregunta-del-jefe",
             "title": "«¿Ya usas IA?» Así empecé yo",
-            "subtitle": "4 preguntas para tu primera conversación"
+            "subtitle": "3 pedidos de jefe para tu primera semana"
           },
           {
             "patron": "antes-despues",
-            "title": "De no saber qué pedir a 4 preguntas",
-            "subtitle": "Pregúntale a la IA cómo puede ayudarte"
+            "title": "De no saber qué pedir a 3 pedidos fijos",
+            "subtitle": "Para el informe, el feedback y la carga del equipo"
           },
           {
             "patron": "resultado",
-            "title": "Pregúntale a la IA cómo ayudarte",
-            "subtitle": "4 preguntas para empezar en tu trabajo"
+            "title": "Mi informe semanal al jefe, armado con ChatGPT",
+            "subtitle": "Y otros 2 pedidos para empezar"
           },
           {
             "patron": "en-juego",
-            "title": "Lo que la IA puede hacer en tu trabajo",
-            "subtitle": "Pregúntaselo a ella: 4 preguntas"
+            "title": "Lo que le pido a ChatGPT antes de un feedback difícil",
+            "subtitle": "Y 2 pedidos más para partir como jefe"
           },
           {
             "patron": "error-comun",
-            "title": "No empieces por una herramienta",
-            "subtitle": "Empieza con estas 4 preguntas a la IA"
+            "title": "No partí por una herramienta: partí por 3 pedidos",
+            "subtitle": "Los de la guía de OpenAI para jefes"
           }
         ],
         "juez": {
           "elegido": 2,
           "nota": 8,
-          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"4 preguntas\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezar sin saber qué pedir, con 4 preguntas\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no buscar el prompt perfecto\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"4 preguntas\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preguntarle a la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"lo que puede hacer\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
+          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir como jefe, con 3 pedidos concretos\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedir «ayúdame»\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"el informe semanal\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preparar un feedback\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
         }
       },
       "emocion": [
         "alivio",
         "identificación"
       ],
-      "entregable": "las 4 preguntas para la primera conversación con la IA: qué haces en tu trabajo, qué te quita más tiempo, qué podría hacer ella y cómo pedírselo",
-      "fraseAmigo": "si no sabes qué pedirle a la IA, pregúntale a ella cómo te puede ayudar, contándole qué haces; yo partí así",
+      "entregable": "los 3 pedidos de la guía oficial de OpenAI con que partí como jefe: el informe semanal al jefe con logros, bloqueos y pedidos; 2 o 3 formas de dar un feedback difícil, con pros y contras; y marcar en la planilla de horas a quien pase de 45 horas por 2 semanas",
+      "fraseAmigo": "si no sabes qué pedirle a ChatGPT como jefe, parte por lo que ya haces cada semana: el informe para tu jefe, un feedback difícil y revisar la carga del equipo",
       "promesas": [
         {
-          "promesa": "No sabía por dónde partir: le pregunté a la IA",
+          "promesa": "No sabía qué pedirle a ChatGPT como jefe",
           "slide": 2
         },
         {
-          "promesa": "Las 4 preguntas que le hice",
+          "promesa": "partí con 3",
           "slide": 3
         },
         {
-          "promesa": "lo que me respondió",
+          "promesa": "Informe semanal, feedback difícil y carga del equipo",
           "slide": 5
         }
       ],
@@ -1608,12 +1619,12 @@ horas son las del mix de tu `config.json`:
       "origen": {
         "fichas": [],
         "referencias": [
-          "referencias/modo-aprendizaje-de-claude.md"
+          "referencias/chatgpt-para-managers.md"
         ]
       },
       "derivadoDe": null,
-      "caption": "Aprendizaje con IA: no sabía por dónde partir y le pregunté a la IA cómo ayudarme. Las 4 preguntas que le hice.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
-      "borrador": "vie-carrusel-preguntale-a-la-ia.json",
+      "caption": "Liderazgo con IA: no sabía qué pedirle a ChatGPT como jefe y partí con 3 pedidos de la guía de OpenAI.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+      "borrador": "vie-carrusel-mis-3-primeros-pedidos.json",
       "estado": "planificado",
       "parametros": {
         "tituloMaxPalabras": 12,
@@ -1640,7 +1651,7 @@ horas son las del mix de tu `config.json`:
         "lecturaMinSegundos": 1.5,
         "reescriturasMax": 3,
         "logoEnCuadro0": true,
-        "tituloPalabras": 10
+        "tituloPalabras": 11
       }
     }
   ]
@@ -1662,8 +1673,11 @@ entradas; sin ninguna, `"piezas": []`, `"experimento": null` y `"motivo"`.
 
 La primera pieza del esqueleto (lunes 2026-11-02, serie `por-donde-partir`) con
 su borrador: un reel de 6 escenas en ritmo `gancho`, narrado en primera
-persona, de ~34 s, con el resultado en el primer cuadro y el cierre PARTIR en
-el `Cta` y en el caption. Una entrada de `plan.json → piezas`:
+persona, de ~34 s, con el resultado en el primer cuadro, la IA en pantalla
+(`Screen` con lo que le pregunté y lo que respondió, regla dura 10: «pregúntale a
+la IA cómo ayudarte») y el cierre PARTIR en el `Cta` y en el caption. Todo lo
+que afirma sale de `referencias/notebooklm.md` (desde 2026-07-16 la
+herramienta se llama Gemini Notebook). Una entrada de `plan.json → piezas`:
 
 <!-- ejemplo:pieza -->
 ```json
@@ -1674,82 +1688,81 @@ el `Cta` y en el caption. Una entrada de `plan.json → piezas`:
   "formato": "reel",
   "arquetipo": "tutorial",
   "senal": "dm",
-  "tema": "[[Automatización con IA]]",
+  "tema": "[[Aprendizaje con IA]]",
   "pilar": "trabajo",
   "serie": "por-donde-partir",
   "hook": {
     "categoria": "identificación",
-    "texto": "Mis 6 informes pendientes, en un podcast",
+    "texto": "Mis 6 informes pendientes: ahora los escucho",
     "score": 8,
     "candidatos": [
       {
         "patron": "resultado",
-        "title": "Mis 6 informes pendientes, en un podcast",
-        "subtitle": "El truco es el prompt",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "title": "Mis 6 informes pendientes: ahora los escucho",
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "antes-despues",
         "title": "De 6 informes sin leer a escucharlos",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "en-juego",
         "title": "Mi primera tarea para la IA",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "error-comun",
-        "title": "Yo empecé pidiéndole todo a la IA",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "title": "Yo no sabía qué pedirle a la IA",
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "pregunta-del-jefe",
         "title": "«¿Leíste el informe?» Lo escuché",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "resultado",
-        "title": "NotebookLM me lee los informes pendientes",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "title": "Le pregunté a la IA cómo ayudarme",
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "antes-despues",
         "title": "Antes los acumulaba; ahora los escucho",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       },
       {
         "patron": "en-juego",
         "title": "Por dónde partí con la IA",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes."
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes."
       }
     ],
     "juez": {
       "elegido": 1,
       "nota": 8,
-      "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer, con un prompt\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedirle todo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"una app que lee\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+      "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
     }
   },
   "emocion": [
     "alivio",
     "curiosidad"
   ],
-  "entregable": "una primera tarea concreta para pasarle a la IA si no sabes por dónde partir: convertir los informes pendientes en un resumen en audio, con el prompt que lo lleva a las ideas clave",
-  "fraseAmigo": "yo partí con la IA pasándole los informes que no alcanzaba a leer; me los convierte en un podcast que escucho de camino al trabajo",
+  "entregable": "una primera tarea para la IA si no sabes por dónde partir: preguntarle a Gemini Notebook cómo te ayuda con tus informes y pedirle el resumen de audio en español para escucharlos",
+  "fraseAmigo": "yo no sabía qué pedirle a la IA, así que le pregunté cómo me ayudaba con mis informes; ahora me los resume en audio y los escucho camino al trabajo",
   "promesas": [
     {
-      "promesa": "Mis 6 informes pendientes, en un podcast",
-      "slide": 4
+      "promesa": "Mis 6 informes pendientes: ahora los escucho",
+      "slide": 5
     },
     {
-      "promesa": "El truco es el prompt",
+      "promesa": "Resumen de audio listo: mis 6 informes pendientes",
       "slide": 5
     }
   ],
   "lectorFrio": {
     "intentos": 2,
     "resultado": "ok",
-    "notas": "v1: el lector con prisa no vio para qué servía el prompt; se nombró en el subtítulo del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 3: crea un cuaderno y arrastra los archivos)"
+    "notas": "v1: el lector con prisa no vio qué herramienta era; se nombró en la pantalla del Hook.\nNB: «no sé qué es un cuaderno» → completo P3: explicado en la pieza (slide 4: subí los 6 PDF a un cuaderno; la voz dice que es un cuaderno nuevo)"
   },
   "origen": {
     "fichas": [
@@ -1760,7 +1773,7 @@ el `Cta` y en el caption. Una entrada de `plan.json → piezas`:
     ]
   },
   "derivadoDe": null,
-  "caption": "Automatización con IA: mi primera tarea para la IA fue convertir 6 informes pendientes en un podcast.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+  "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
   "borrador": "lun-reel-pdfs-a-podcast.json",
   "estado": "planificado",
   "parametros": {
@@ -1799,7 +1812,7 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
 ```json
 {
   "name": "lun-reel-pdfs-a-podcast",
-  "angle": "la primera tarea que le pasé a la IA: de una pila de informes pendientes a un podcast que escucho caminando",
+  "angle": "mi primera tarea para la IA: le pregunté cómo me ayudaba con mis informes pendientes y ahora los escucho",
   "pillar": "trabajo",
   "pace": "gancho",
   "audio": "lima-01.mp3",
@@ -1808,11 +1821,10 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
     {
       "template": "Hook",
       "props": {
-        "title": "Mis 6 informes pendientes, en un podcast",
-        "highlight": "podcast",
-        "subtitle": "El truco es el prompt",
-        "resultado": "Resumen en audio listo: tus 6 informes pendientes.",
-        "app": "NotebookLM",
+        "title": "Mis 6 informes pendientes: ahora los escucho",
+        "highlight": "los escucho",
+        "resultado": "Resumen de audio listo: mis 6 informes pendientes.",
+        "app": "Gemini Notebook",
         "modo": "aviso"
       },
       "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
@@ -1820,39 +1832,37 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
     {
       "template": "Lead",
       "props": {
-        "text": "6 archivos, 1 cuaderno y cero horas frente a la pantalla.",
-        "highlight": "cero horas"
+        "text": "No sabía qué pedirle a la IA, así que le pregunté.",
+        "highlight": "le pregunté"
       },
-      "narracion": "Los informes que no alcanzaba a leer, los escuché caminando."
+      "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "Gemini Notebook",
+        "prompt": "¿Cómo me ayudas con estos 6 informes?",
+        "respuesta": "Puedo resumirlos en audio, hacerte tarjetas o responder citando cada informe."
+      },
+      "narracion": "Le escribí esto a Gemini Notebook, la herramienta de Google para estudiar tus documentos, y me ofreció tres caminos."
     },
     {
       "template": "Step",
       "props": {
         "step": "1",
-        "heading": "Sube tus PDFs a NotebookLM",
-        "body": "Entra a notebooklm.google.com, crea un cuaderno y arrastra los archivos."
+        "heading": "Subí mis informes a un cuaderno",
+        "body": "En notebook.google, con los 6 PDF."
       },
-      "narracion": "Primero los subí a NotebookLM: creé un cuaderno nuevo y ahí arrastré los seis archivos."
+      "narracion": "Primero creé un cuaderno nuevo y subí ahí los seis informes en PDF."
     },
     {
       "template": "Step",
       "props": {
         "step": "2",
-        "heading": "Pide el resumen en audio",
-        "bullets": [
-          "Toca resumen en audio",
-          "Prueba la versión corta"
-        ]
+        "heading": "Pedí el resumen de audio",
+        "body": "En español latinoamericano."
       },
-      "narracion": "Después le pedí el resumen en audio, y elegí la versión más corta."
-    },
-    {
-      "template": "Prompt",
-      "props": {
-        "heading": "Pega esto antes de generarlo",
-        "prompt": "Resume estos documentos con las 3 ideas clave y un ejemplo de cada una."
-      },
-      "narracion": "Y el truco: antes de generarlo pegué esto, para que vaya directo a tres ideas clave con un ejemplo de cada una."
+      "narracion": "Después elegí el español latinoamericano y pedí el resumen de audio. Lo escuché caminando."
     },
     {
       "template": "Cta",
@@ -1861,7 +1871,7 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
         "highlight": "PARTIR",
         "handle": "ia.punto.es",
         "cta": "Escríbeme PARTIR",
-        "source": "Fuente: notebooklm.google.com"
+        "source": "Fuente: notebook.google"
       },
       "narracion": "¿No sabes cuál sería tu primera tarea? Escríbeme y te cuento."
     }
