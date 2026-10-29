@@ -2636,6 +2636,7 @@ check("pivote: seriesDe usa config.series o SERIES_CALIDAD", () => {
 check("pivote: validarPieza — serie fuera de config.series nombra las válidas; falta serie desde paquete.desde", () => {
   const ser = (over: Record<string, unknown>) => validarPieza(pieza({ dia: "2026-11-04", ...over }), config3).filter((e) => /serie/.test(e));
   assertHas(ser({ serie: "hazlo-con-ia" }), /por-donde-partir, lo-que-construi/);
+  assert.ok(!ser({ serie: "hazlo-con-ia" }).some((e) => / o null/.test(e)), "con config.series ya no se ofrece null");
   assertNone(ser({ serie: "lo-que-construi" }));
   assertHas(ser({ serie: undefined }), /falta serie/);
   assertHas(ser({ serie: null, formato: "carrusel" }), /falta serie/);
@@ -2744,4 +2745,12 @@ check("calendario/validar: validarConfig — series debe ser una lista no vacía
   for (const malo of [[], "por-donde-partir", ["Por Donde Partir"], ["ok-slug", 3], {}]) {
     assertHas(validarConfig({ ...config3, series: malo, mix: MIX_6 }), /^series /);
   }
+});
+
+check("pivote: senal dm exigida desde cta.desde", () => {
+  const sen = (cfg: unknown, over: Record<string, unknown>) => validarPieza(pieza({ senal: "guardados", ...over }), cfg as any).filter((e) => /^senal /.test(e));
+  assertHas(sen(configCta, { dia: "2026-11-02" }), /desde el 2026-11-02 toda pieza va con senal "dm"/);
+  assertNone(sen(configCta, { dia: "2026-10-30" }));
+  assertNone(sen(config, { dia: "2026-11-02" }));
+  assertNone(sen(configCta, { dia: "2026-11-02", senal: "dm" }));
 });

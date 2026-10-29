@@ -985,6 +985,10 @@ function erroresDePieza(p, config) {
   if (!esTexto(p.arquetipo)) errs.push("falta arquetipo");
   if (p.senal === undefined || p.senal === null || p.senal === "") errs.push("falta senal (señal objetivo: sin señal no hay pieza)");
   else if (!SENALES.includes(p.senal)) errs.push(`senal ${q(p.senal)} inválida (usa: ${SENALES.join(", ")})`);
+  else {
+    const ctaP = ctaVigente(config, p.dia);
+    if (ctaP && p.senal !== "dm") errs.push(`senal ${q(p.senal)}: desde el ${ctaP.desde} toda pieza va con senal "dm" (el cierre es Escríbeme ${ctaP.palabra})`);
+  }
   const emo = p.emocion;
   if (!(esTexto(emo) || (Array.isArray(emo) && emo.length > 0 && emo.every(esTexto)))) errs.push("falta emocion (la emoción que busca la pieza)");
   if (!esTexto(p.entregable)) errs.push("falta entregable (qué se lleva el espectador)");
@@ -1019,7 +1023,7 @@ function erroresDePieza(p, config) {
     const validas = seriesDe(config);
     // Con `config.series` cada pieza lleva serie (reel o carrusel); sin él, la serie sigue siendo opcional.
     if (esObj(config) && config.series !== undefined && (p.serie === undefined || p.serie === null)) errs.push(`falta serie: desde el ${paqueteDe(config).desde} cada pieza lleva una de ${validas.join(", ")}`);
-    else if (p.serie !== undefined && p.serie !== null && !validas.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${validas.join(", ")} o null`);
+    else if (p.serie !== undefined && p.serie !== null && !validas.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${validas.join(", ")}${esObj(config) && config.series !== undefined ? "" : " o null"}`);
   } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));

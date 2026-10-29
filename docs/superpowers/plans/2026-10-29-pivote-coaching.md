@@ -243,9 +243,12 @@ voz nueva.
   lista los tests viejos que cambiaron y por qué, y cierra con la línea de Claude Code.
 - [ ] **Step 2:** Felipe corre `/codex:adversarial-review` y se atienden los hallazgos. Hace falta
   porque el cambio toca la publicación.
-- [ ] **Step 3 (después del merge):** correr `scripts/kb-calendario-install.sh`.
-  - En `knowledge/_calendario/config.json`, aplicar a mano los campos de la Task 3: mix, `series`,
-    `cta`, `paquete` y `hookVideoMaxSemana: 0`. Se conserva lo propio de la base.
+- [ ] **Step 3 (después del merge):**
+  - PRIMERO, en `knowledge/_calendario/config.json`, aplicar a mano los campos de la Task 3: mix,
+    `series`, `cta`, `paquete` y `hookVideoMaxSemana: 0`. Se conserva lo propio de la base. Hacerlo
+    en la misma sesión que la instalación: el instalador corre `--self-test` y falla con el config
+    viejo, y Obsidian commitea la bóveda cada pocos minutos (una instalación a medias podría subirse).
+  - DESPUÉS, correr `scripts/kb-calendario-install.sh`.
   - Commit y push en la base.
   - Run: `node knowledge/_calendario/validar.mjs --self-test`
   - Expected: 0.

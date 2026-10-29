@@ -682,6 +682,9 @@ async function onEcho(ev: DmEvent): Promise<void> {
 function startHttpServer(): void {
   const port = Number(process.env.KB_INBOX_PORT) || 8787;
   const rutas: HttpRoute[] = [];
+  if (!process.env.META_APP_SECRET?.trim()) {
+    console.warn("⚠️  META_APP_SECRET está vacío: el conteo de PARTIR usaría un hash sin secreto (y el webhook no arranca). Defínelo en .env.");
+  }
   const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN?.trim();
   if (verifyToken) {
     const appSecret = process.env.META_APP_SECRET?.trim();

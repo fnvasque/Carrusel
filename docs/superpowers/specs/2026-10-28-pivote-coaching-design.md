@@ -228,8 +228,10 @@ Las 4 notas que el pivote reemplaza llevan una primera línea «Reemplazado por
 ## Orden y despliegue
 
 1. PR con los puntos 1 a 6 (plantilla, validador, bot y tests) y revisión adversarial.
-2. Merge e instalación en la base con `scripts/kb-calendario-install.sh`. Después, `config.json` de
-   la base a mano y `node _calendario/validar.mjs --self-test`.
+2. Merge. Antes de instalar, editar a mano `knowledge/_calendario/config.json` (mix, series, cta,
+   paquete, `hookVideoMaxSemana: 0`), en la misma sesión: el instalador corre `--self-test` y falla
+   con el config viejo, y Obsidian commitea la bóveda cada pocos minutos (una instalación a medias
+   podría subirse). Luego `scripts/kb-calendario-install.sh` y `node _calendario/validar.mjs --self-test`.
 3. Desplegar el bot en GCP (el procedimiento habitual de `deploy/`).
 4. Puntos 7 y 8.
 5. **Límite: sábado 2026-10-31.** **Plan B:** si no se instala a tiempo, la semana 2026-11-02 se

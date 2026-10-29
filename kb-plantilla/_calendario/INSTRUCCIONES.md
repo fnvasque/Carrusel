@@ -107,7 +107,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
 6. **Cada pieza es de IA y la IA se ve.** Desde 2026-10-19, toda pieza trata
    de IA de una de estas dos formas, y "IA" o la herramienta aparece en el
    `Hook` (título, subtítulo o fondo):
-   - **Herramienta:** nombra una IA concreta (ChatGPT, Gemini, NotebookLM,
+   - **Herramienta:** nombra una IA concreta (ChatGPT, Gemini, Gemini Notebook (antes NotebookLM),
      CapCut…) y la muestra haciendo algo en al menos una escena del medio. Un
      tema de productividad, finanzas o marketing entra como "X **con**
      [herramienta]".
@@ -174,7 +174,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    oiga.
 10. **La IA se ve en pantalla (`Screen`).** Toda pieza de tipo herramienta
    (reel o carrusel) lleva al menos una slide `Screen` con la IA haciendo lo
-   que la pieza promete: `app` (ChatGPT, Gemini, NotebookLM…), `prompt` (lo
+   que la pieza promete: `app` (ChatGPT, Gemini, Gemini Notebook…), `prompt` (lo
    que la persona escribe, ≤ 30 palabras) y `respuesta` (lo que contesta, ≤ 45
    palabras). La respuesta sale de la referencia (lo que la sección "Qué se
    puede hacer" afirma que la herramienta devuelve) o es la respuesta real que
@@ -1217,7 +1217,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 
 `MythReality` es solo para **una creencia contra un dato**: `myth` es lo que la
 gente cree («Hay que saber editar audio») y `reality` el dato que la desmiente
-(«NotebookLM lo arma solo»). Ambos se dibujan como titular en mayúscula, así que
+(«Gemini Notebook lo arma solo»). Ambos se dibujan como titular en mayúscula, así que
 van cortos: ≤ 14 palabras cada uno (`MITO_REALIDAD_MAX_PALABRAS`, desde el
 2026-10-26, en carrusel y reel). Nunca lo uses para «lo que pides contra lo que
 sale»: tacha el pedido como si pedir fuera el error. Para el antes y después de
