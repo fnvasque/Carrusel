@@ -36,7 +36,8 @@ import { debeEscribirBucle, escribirBucle, marcaBucle } from "../calendario/bucl
 import { markSummaryNotified, newSummaries, registroPath, silenceAlert } from "./research.ts";
 import { sendDm } from "../meta/messages.ts";
 import { EXPIRY_WARN_DAYS, tokenDaysLeft } from "../meta/check.ts";
-import { dmAction, startHttp, webhookRoute, type DmEvent, type HttpRoute } from "./inbox.ts";
+import { manejarPartir, registrarPartir } from "./dms.ts";
+import { dmAction, esPedidoPartir, startHttp, webhookRoute, type DmEvent, type HttpRoute } from "./inbox.ts";
 import { recoverMissedDms } from "./recover.ts";
 import {
   escapeHtml, formatAnswer, formatAnswerText, formatFichaList, formatSaved, formatSavedText, handleInText, handleReply, HELP, HELP_CALENDARIO,
@@ -579,6 +580,15 @@ const dmLastLink = new Map<string, { url: string; user?: string; caption?: strin
 async function onDm(ev: DmEvent): Promise<void> {
   if (ev.isEcho) return onEcho(ev);
   if (!igAllowed.has(ev.senderId)) {
+    if (esPedidoPartir(ev)) {
+      // Cuenta el DM sin guardar IGSID ni texto y sin responder; la escritura va en la cola común.
+      await manejarPartir(ev, {
+        registrar: (h) => serial(() => registrarPartir(h)),
+        avisar: notifyAdmin,
+        secret: process.env.META_APP_SECRET?.trim() ?? "",
+      });
+      return;
+    }
     console.warn(`🚫 DM de un remitente no autorizado (IGSID ${ev.senderId}). Si eres tú, agrégalo a INBOX_ALLOWED_SENDERS en .env y reinicia.`);
     return;
   }

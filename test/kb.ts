@@ -4,7 +4,8 @@ import { findInstagramUrl, findInstagramUrls, isInstagramUrl, normalizeInstagram
 import { metaToPostMeta, resolveUser } from "../src/kb/instagram.ts";
 import { findYouTubeUrls, isYouTubeUrl, normalizeYouTubeUrl, pickSubtitle, vttToText, youtubeIdFromUrl } from "../src/kb/youtube.ts";
 import { hashtagsIn, mentionsIn, pickHashtags } from "../src/kb/discover.ts";
-import { dmAction, parseWebhook, validSignature } from "../src/kb/inbox.ts";
+import { dmAction, esPedidoPartir, hashRemitente, parseWebhook, validSignature, type DmEvent } from "../src/kb/inbox.ts";
+import { lineaDm, manejarPartir, yaContado } from "../src/kb/dms.ts";
 import { splitDm } from "../src/meta/messages.ts";
 import { missedMessages, type ConvMessage } from "../src/kb/recover.ts";
 import { createHmac } from "node:crypto";
@@ -1526,6 +1527,72 @@ check("validar: el agente no sobrescribe un resumen ya publicado", () => {
   ]);
   assert.equal(errs.length, 1);
   assert.match(errs[0], /2026-10-03\.md: no sobrescribas un resumen ya publicado/);
+});
+
+
+// --- DMs «PARTIR» de desconocidos ---
+
+const dmPartir = (text?: string): DmEvent => ({ mid: "m1", senderId: "123", text, attachments: [] });
+
+check("esPedidoPartir: acepta la palabra completa y rechaza parecidas", () => {
+  for (const t of ["partir", "PARTIR!", "Partir 🙏", "quiero partir con la IA"]) assert.equal(esPedidoPartir(dmPartir(t)), true, t);
+  for (const t of ["repartir", "compartir", "", undefined]) assert.equal(esPedidoPartir(dmPartir(t)), false, String(t));
+});
+
+check("hashRemitente: 16 caracteres, estable y sin el IGSID", () => {
+  const h = hashRemitente("123", "s");
+  assert.equal(h.length, 16);
+  assert.equal(h, hashRemitente("123", "s"));
+  assert.ok(!h.includes("123"));
+});
+
+check("lineaDm: sin IGSID ni texto del DM", () => {
+  const l = lineaDm("2026-11-03T02:30:00.000Z", hashRemitente("123", "s"));
+  assert.ok(l.endsWith("\n"));
+  assert.equal(JSON.parse(l).palabra, "PARTIR");
+  assert.ok(!l.includes("123") || l.includes(hashRemitente("123", "s")));
+  assert.deepEqual(Object.keys(JSON.parse(l)).sort(), ["fecha", "palabra", "remitente"]);
+});
+
+check("yaContado: cuenta por día de Chile", () => {
+  const r = hashRemitente("123", "s");
+  const c = lineaDm("2026-11-03T02:30:00.000Z", r); // en Chile aún es el 2 de noviembre
+  assert.equal(yaContado(c, r, "2026-11-02"), true);
+  assert.equal(yaContado(c, r, "2026-11-03"), false);
+  assert.equal(yaContado(c, "otro", "2026-11-02"), false);
+});
+
+checkAsync("manejarPartir: si registrar falla avisa igual y no lanza", async () => {
+  const avisos: string[] = [];
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    await manejarPartir(dmPartir("partir"), {
+      registrar: async () => { throw new Error("disco"); },
+      avisar: async (t) => { avisos.push(t); },
+      secret: "s",
+    });
+  } finally { console.error = orig; }
+  assert.equal(avisos.length, 1);
+});
+
+checkAsync("manejarPartir: repetido no avisa; otro texto no hace nada", async () => {
+  let reg = 0, av = 0;
+  const deps = { registrar: async () => { reg++; return "repetido" as const; }, avisar: async () => { av++; }, secret: "s" };
+  await manejarPartir(dmPartir("partir"), deps);
+  assert.deepEqual([reg, av], [1, 0]);
+  await manejarPartir(dmPartir("hola"), deps);
+  assert.deepEqual([reg, av], [1, 0]);
+});
+
+checkAsync("manejarPartir: nuevo avisa y registra solo el hash", async () => {
+  const vistos: string[] = [];
+  let av = 0;
+  await manejarPartir(dmPartir("partir"), {
+    registrar: async (h) => { vistos.push(h); return "nuevo"; }, avisar: async () => { av++; }, secret: "s",
+  });
+  assert.deepEqual(vistos, [hashRemitente("123", "s")]);
+  assert.equal(av, 1);
 });
 
 await asyncChain;

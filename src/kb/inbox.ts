@@ -251,3 +251,19 @@ export function startInbox(opts: InboxOptions): Server {
   console.log(`📬 Webhook de Instagram escuchando en http://localhost:${opts.port}/webhook`);
   return server;
 }
+
+/** Texto sin tildes, en minúsculas y sin puntuación (emojis incluidos), con espacios simples. */
+function normalizar(t: string): string {
+  return t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9ñ\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** ¿El DM pide la palabra del cierre («Escríbeme PARTIR»)? Palabra completa: «repartir» no cuenta. */
+export function esPedidoPartir(ev: DmEvent, palabra = "PARTIR"): boolean {
+  if (!ev.text) return false;
+  return normalizar(ev.text).split(" ").includes(normalizar(palabra));
+}
+
+/** Identificador anónimo del remitente: HMAC-SHA256 con el app secret, 16 hex. No se puede volver al IGSID. */
+export function hashRemitente(igsid: string, secret: string): string {
+  return createHmac("sha256", secret).update(igsid).digest("hex").slice(0, 16);
+}
