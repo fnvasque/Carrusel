@@ -9,7 +9,7 @@ import { leerRespuestasVisuales, leerVisual, resumenVisual, type RespuestaVisual
 import { antesDespues, leerReglas, type ComparacionRegla } from "./reglas.ts";
 import { escenaDeAbandono, escenasDeReel, type Abandono } from "./escenas.ts";
 import { resumirLectorFrio, type ResumenLector } from "./lector-causas.ts";
-import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, type SemanaLeida, type Senal } from "./plan.ts";
+import { calendarioDir, estadoEfectivo, leerSemana, listarSemanas, senalMedible, type SemanaLeida, type Senal } from "./plan.ts";
 import { addDays, horaOnlineALocal, localParts, weekMonday, ZONA_ONLINE_FOLLOWERS, zonaOnlineFollowers } from "./time.ts";
 
 /**
@@ -58,7 +58,7 @@ export interface Medicion {
   hookTexto?: string;
 }
 
-const SENALES: Senal[] = ["guardados", "envios", "comentarios", "retencion"];
+const SENALES: Senal[] = ["guardados", "envios", "comentarios", "retencion", "dm"];
 /** Variables de experimento fijas (R15); se suman las claves de `config.json → puerta`. */
 export const VARIABLES_FIJAS = ["tema", "arquetipo", "hora", "duracion", "hook"];
 const K_ENCOGIMIENTO = 3;
@@ -113,7 +113,7 @@ const claveDe = (x: Medicion): string => clavePieza(x.semana, x.piezaId);
 const comparables = (m: Medicion[]): Medicion[] => (Array.isArray(m) ? m : []).filter((x) => x && esNum(x.valor) && SENALES.includes(x.senal));
 
 /** ¿La cuenta ya cruzó el umbral de tasas? (alguna pieza, fuera de la retención, medida en `tasa`). */
-const cruzoUmbral = (m: Medicion[]): boolean => m.some((x) => x.senal !== "retencion" && x.modo === "tasa");
+const cruzoUmbral = (m: Medicion[]): boolean => m.some((x) => senalMedible(x.senal) !== "retencion" && x.modo === "tasa");
 
 /**
  * Mediciones que se pueden comparar entre sí, con su índice relativo (`rel`): el valor
@@ -128,9 +128,9 @@ const cruzoUmbral = (m: Medicion[]): boolean => m.some((x) => x.senal !== "reten
 function indices(m: Medicion[]): { m: Medicion; rel: number }[] {
   const validas = comparables(m);
   const cruzo = cruzoUmbral(validas);
-  const usadas = validas.filter((x) => x.senal === "retencion" || !cruzo || x.modo === "tasa");
+  const usadas = validas.filter((x) => senalMedible(x.senal) === "retencion" || !cruzo || x.modo === "tasa");
   const grupos = new Map<string, number[]>();
-  const g = (x: Medicion): string => `${x.senal}:${x.modo}`;
+  const g = (x: Medicion): string => `${senalMedible(x.senal)}:${x.modo}`;
   for (const x of usadas) grupos.set(g(x), [...(grupos.get(g(x)) ?? []), x.valor]);
   return usadas.map((x) => {
     const mg = media(grupos.get(g(x))!);
@@ -184,7 +184,7 @@ export function pesos(m: Medicion[], clave: "tema" | "arquetipo" | "hookCategori
 function medicionesGanadoras(m: Medicion[]): Medicion[] {
   const grupos = new Map<string, Medicion[]>();
   for (const x of comparables(m)) {
-    const g = `${x.senal}:${x.modo}`;
+    const g = `${senalMedible(x.senal)}:${x.modo}`;
     grupos.set(g, [...(grupos.get(g) ?? []), x]);
   }
   const out: Medicion[] = [];
@@ -475,7 +475,7 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     if (!senal || !piezaId || !Number.isFinite(pub) || !Number.isFinite(tomada)) continue;
     if (Math.abs(tomada - (pub + horasVentana * HORA_MS)) > DESVIO_COMPARABLE_MS) continue;
     const d = i.derivadas ?? {};
-    const valor = valorSenal(senal, i, d, umbral);
+    const valor = valorSenal(senalMedible(senal), i, d, umbral);
     if (!esNum(valor)) continue;
     vistos.add(i.mediaId);
     const semana = /^\d{4}-\d{2}-\d{2}$/.test(texto(r.semana)) ? texto(r.semana) : weekMonday(new Date(pub));
@@ -484,7 +484,7 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     claves.add(clavePieza(semana, piezaId));
     const m: Medicion = {
       piezaId, mediaId: i.mediaId, tema: texto(r.tema), arquetipo: texto(r.arquetipo), hookCategoria: texto(r.hookCategoria),
-      senal, valor, modo: senal === "retencion" ? "tasa" : modoComparacion(i.reach, umbral), semana, publicadoEn: new Date(pub).toISOString(),
+      senal, valor, modo: senalMedible(senal) === "retencion" ? "tasa" : modoComparacion(i.reach, umbral), semana, publicadoEn: new Date(pub).toISOString(),
     };
     const k = clavePieza(semana, piezaId);
     const p = params.get(k);

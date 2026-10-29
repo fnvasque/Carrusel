@@ -49,6 +49,8 @@ import {
   NADA_NUEVO_RE,
   MITO_REALIDAD_MAX_PALABRAS,
   DESDE_MITO_CORTO,
+  contienePalabraCta,
+  ctaDe,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -2571,4 +2573,66 @@ check("pivote: validarPlan — el mix calza por serie y marca la que no sigue", 
   const errs = serie(validarPlan(mk("por-donde-partir"), config3));
   assertHas(errs, /serie/);
   assertHas(errs, /lo-que-construi/);
+});
+
+// --- señal dm y cierre PARTIR ---
+
+const configCta = { ...config, cta: { palabra: "PARTIR", desde: "2026-11-02" } };
+const bDm = (cta: string, title = "Escríbeme PARTIR y te cuento") => {
+  const b = borrador();
+  b.slides[3].props = { title, cta, source: "Fuente: notebooklm.google.com" };
+  return b;
+};
+
+check("calendario/validar: contienePalabraCta — palabra completa y mayúsculas exactas", () => {
+  assert.equal(contienePalabraCta("Escríbeme PARTIR y te cuento", "PARTIR"), true);
+  assert.equal(contienePalabraCta("para compartir", "PARTIR"), false);
+  assert.equal(contienePalabraCta("escríbeme partir", "PARTIR"), false);
+  assert.equal(contienePalabraCta("Escríbeme PARTIRSE", "PARTIR"), false);
+});
+
+check("calendario/validar: ctaDe lee config.cta o devuelve null", () => {
+  assert.deepEqual(ctaDe(configCta), { palabra: "PARTIR", desde: "2026-11-02" });
+  assert.equal(ctaDe(config), null);
+  assert.equal(ctaDe({ cta: { palabra: "PARTIR", desde: "mañana" } }), null);
+});
+
+check("calendario/validar: señal dm — la pastilla debe pedir escribir", () => {
+  const p = pieza({ dia: "2026-11-02", senal: "dm" });
+  assertHas(vb(p, bDm("Guárdalo")), /no pide el gesto de la señal dm/);
+  assert.ok(!has(vb(p, bDm("Escríbeme PARTIR")), /no pide el gesto de la señal dm/));
+  assert.ok(!has(vb(p, bDm("Escríbeme PARTIR")), /senal .* inválida/));
+});
+
+check("calendario/validar: PARTIR no es sigla en el Cta, sí en otro slide", () => {
+  const b = bDm("Escríbeme PARTIR");
+  assert.ok(!has(reglasDeTexto(b, configCta), /PARTIR/));
+  const c = borrador();
+  c.slides[1].props.body = "Escríbeme PARTIR ahora.";
+  assertHas(reglasDeTexto(c, configCta), /sigla "PARTIR"/);
+  // antes de cta.desde sigue siendo sigla, incluso en el Cta
+  assertHas(reglasDeTexto(b, configCta, "reel", "2026-10-30"), /sigla "PARTIR"/);
+});
+
+check("calendario/validar: el caption debe pedir PARTIR desde cta.desde", () => {
+  const caption = (p: any) => validarCaption(p.caption, configCta, undefined, p.dia);
+  const conPartir = "Por dónde partir con IA.\n\nEscríbeme PARTIR.\n\n#ia #inteligenciaartificial #herramientasia";
+  const sin = pieza({ dia: "2026-11-02" });
+  assertHas(vb(sin, bDm("Escríbeme PARTIR"), configCta), /el caption debe pedir PARTIR/);
+  assertHas(caption(sin), /el caption debe pedir PARTIR/);
+  assert.ok(!has(vb(pieza({ dia: "2026-10-30" }), borrador(), configCta), /el caption debe pedir PARTIR/));
+  assert.ok(!has(vb(pieza({ dia: "2026-11-02", caption: conPartir }), bDm("Escríbeme PARTIR"), configCta), /el caption debe pedir PARTIR/));
+  // «compartir» no cuenta
+  assertHas(vb(pieza({ dia: "2026-11-02", caption: conPartir.replace("PARTIR.", "compartir.") }), bDm("Escríbeme PARTIR"), configCta), /el caption debe pedir PARTIR/);
+  // sin config.cta no hay error
+  assert.ok(!has(vb(sin, bDm("Escríbeme PARTIR"), config), /debe pedir PARTIR/));
+});
+
+check("calendario/validar: el Cta debe pedir PARTIR en título o pastilla desde cta.desde", () => {
+  const p = pieza({ dia: "2026-11-02", senal: "dm" });
+  assertHas(vb(p, bDm("Escríbeme", "Cuéntame tu caso"), configCta), /el Cta debe pedir PARTIR/);
+  assert.ok(!has(vb(p, bDm("Escríbeme", "Escríbeme PARTIR y te cuento"), configCta), /el Cta debe pedir PARTIR/));
+  assert.ok(!has(vb(p, bDm("Escríbeme PARTIR", "Cuéntame tu caso"), configCta), /el Cta debe pedir PARTIR/));
+  assert.ok(!has(vb(pieza({ dia: "2026-10-30", senal: "dm" }), bDm("Escríbeme", "Cuéntame tu caso"), configCta), /el Cta debe pedir PARTIR/));
+  assert.ok(!has(vb(p, bDm("Escríbeme", "Cuéntame tu caso"), config), /el Cta debe pedir PARTIR/));
 });

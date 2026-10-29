@@ -20,7 +20,9 @@ export declare const DESDE_MITO_CORTO: string;
 export declare function contarFondosIA(borradores: unknown[]): number;
 export declare function contarHookVideo(borradores: unknown[]): number;
 export declare function contarClips(borradores: unknown[]): number;
-export declare function validarCaption(caption: string, config: unknown, tema?: string): string[];
+export declare function validarCaption(caption: string, config: unknown, tema?: string, dia?: string): string[];
+export declare function ctaDe(config: unknown): { palabra: string; desde: string } | null;
+export declare function contienePalabraCta(texto: string, palabra: string): boolean;
 export declare const DESDE_CONFUSORES: string;
 export declare function confusoresDelExperimento(
   plan: unknown,

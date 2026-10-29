@@ -52,7 +52,31 @@ const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 /** Plantilla → prop donde debe aparecer su `highlight`. */
 const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title" };
 
-const SENALES = ["guardados", "envios", "comentarios", "retencion"];
+const SENALES = ["guardados", "envios", "comentarios", "retencion", "dm"];
+
+/**
+ * Cierre de las piezas por DM (`config.cta`): la palabra que la audiencia escribe por mensaje y
+ * el primer día en que se exige. Sin `cta` válido en el config, null (el validador no cambia).
+ */
+export function ctaDe(config) {
+  const c = esObj(config) ? config.cta : undefined;
+  if (!esObj(c) || !esTexto(c.palabra) || !fechaValida(c.desde)) return null;
+  return { palabra: c.palabra, desde: c.desde };
+}
+
+/** ¿El texto pide la palabra del cta? Palabra completa y en mayúsculas exactas, ignorando tildes ("compartir" no cuenta). */
+export function contienePalabraCta(texto, palabra) {
+  if (!esTexto(texto) || !esTexto(palabra)) return false;
+  const sinTildes = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const esc = sinTildes(palabra).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${esc}(?![\\p{L}\\p{N}])`, "u").test(sinTildes(texto));
+}
+
+/** ¿Rige el cierre por DM ese día? Devuelve el cta vigente o null. */
+const ctaVigente = (config, dia) => {
+  const c = ctaDe(config);
+  return c && typeof dia === "string" && dia >= c.desde ? c : null;
+};
 /** Veces que un tema puede salir en la semana sin ser derivado (con 2 reels por día no alcanzan los temas elegibles). */
 const MAX_PIEZAS_POR_TEMA = 2;
 /** Entradas del mix por día (piezas que se publican ese día). */
@@ -436,11 +460,13 @@ function textosDeLenguaje(props) {
 }
 
 /** Siglas no permitidas en un texto (y siglas con puntos). */
-function siglasProhibidas(texto, permitidas, enCta) {
+function siglasProhibidas(texto, permitidas, enCta, palabraCta) {
   const malas = [];
   let palabraClave = false;
   for (const m of texto.matchAll(SIGLA_RE)) {
     if (permitidas.has(m[1])) continue;
+    // La palabra del cta (p. ej. PARTIR) no es sigla dentro del Cta.
+    if (enCta && palabraCta && m[1] === palabraCta) continue;
     // Excepción única: una palabra en mayúsculas justo después de "Comenta", en el Cta.
     if (enCta && !palabraClave && ANTES_DE_PALABRA_CLAVE.test(normalizar(texto.slice(0, m.index)))) {
       palabraClave = true;
@@ -488,6 +514,9 @@ export function reglasDeTexto(borrador, config, formato, dia) {
     const claveCuerpo = esCarrusel ? "cuerpoMaxPalabrasCarrusel" : "cuerpoMaxPalabras";
     const permitidas = new Set(lista(puerta(config, "siglasPermitidas")));
     const relleno = lista(puerta(config, "relleno"));
+    // Antes de `cta.desde` la palabra del cta sigue siendo una sigla; sin día (uso suelto) rige.
+    const cta = ctaDe(config);
+    const palabraCta = cta && !(typeof dia === "string" && dia < cta.desde) ? cta.palabra : undefined;
     // Sin día (uso suelto) rige la regla vigente; con día, desde DESDE_MITO_CORTO.
     const mitoCorto = !(typeof dia === "string" && fechaValida(dia) && dia < DESDE_MITO_CORTO);
     const terminos = new Set();
@@ -524,7 +553,7 @@ export function reglasDeTexto(borrador, config, formato, dia) {
         } else if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.${claveCuerpo})`);
       }
       for (const [k, texto] of textosDeLenguaje(p)) {
-        for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta"))) {
+        for (const s of new Set(siglasProhibidas(texto, permitidas, slide.template === "Cta", palabraCta))) {
           errs.push(`${donde}: ${k} usa la sigla "${s}" (permitidas: ${[...permitidas].join(", ")}; puerta.siglasPermitidas; sin puntos)`);
         }
         for (const r of rellenoEn(texto, relleno)) errs.push(`${donde}: ${k} tiene relleno "${r}" (puerta.relleno)`);
@@ -564,7 +593,7 @@ export function reglasDeTexto(borrador, config, formato, dia) {
  * `config.hashtagsBase` + 0–2 del tema), en minúsculas y sin tildes, separados
  * por espacios; sin "primer comentario" ni relleno.
  */
-export function validarCaption(caption, config, tema) {
+export function validarCaption(caption, config, tema, dia) {
   return seguro(() => {
     if (!esTexto(caption)) return ["falta caption (texto)"];
     const errs = [];
@@ -593,6 +622,8 @@ export function validarCaption(caption, config, tema) {
     }
     if (contieneFrase(tokens(caption), "primer comentario")) errs.push('el caption no puede mandar al "primer comentario"');
     for (const r of rellenoEn(caption, lista(puerta(config, "relleno")))) errs.push(`el caption tiene relleno "${r}" (puerta.relleno)`);
+    const cta = ctaVigente(config, dia);
+    if (cta && !contienePalabraCta(caption, cta.palabra)) errs.push(`el caption debe pedir ${cta.palabra} (config.cta, desde el ${cta.desde})`);
     return errs;
   });
 }
@@ -992,7 +1023,7 @@ function erroresDePieza(p, config) {
   } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
-  errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined));
+  errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined, p.dia));
   return errs;
 }
 
@@ -1017,8 +1048,9 @@ const GESTO_PASTILLA = {
   envios: RAICES_ENVIAR,
   comentarios: ["comenta", "escribe", "responde"],
   retencion: [...RAICES_GUARDAR, ...RAICES_ENVIAR],
+  dm: ["escrib"],
 };
-const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo" };
+const SUGERIDA_PASTILLA = { guardados: "Guárdalo", envios: "Envíaselo a alguien", comentarios: "Comenta PALABRA", retencion: "Guárdalo", dm: "Escríbeme PARTIR" };
 
 /**
  * Errores de `handle` y de la pastilla (`cta`) del Cta. Sin `cta` el motor
@@ -1178,6 +1210,15 @@ function erroresDeBorrador(b, p, config) {
   if (plantillas[0] !== "Hook" && plantillas[0] !== "Clip") errs.push("la primera slide debe ser un Hook (la promesa va en la portada) o un Clip (el video es la portada)");
   if (plantillas.filter((t) => t === "Hook").length > 1) errs.push("solo puede haber un Hook");
   if (n >= 2 && plantillas[n - 1] !== "Cta") errs.push("la última slide debe ser un Cta (un solo gesto)");
+  const ctaV = ctaVigente(config, p.dia);
+  if (ctaV) {
+    for (const s of b.slides) {
+      if (!esObj(s) || s.template !== "Cta" || !esObj(s.props)) continue;
+      if (!contienePalabraCta(s.props.title, ctaV.palabra) && !contienePalabraCta(s.props.cta, ctaV.palabra)) {
+        errs.push(`el Cta debe pedir ${ctaV.palabra} (en el título o la pastilla; config.cta, desde el ${ctaV.desde})`);
+      }
+    }
+  }
   if (!hayFuente) errs.push("falta source: cita al pie la ficha o referencia de origen en alguna slide");
   return errs;
 }

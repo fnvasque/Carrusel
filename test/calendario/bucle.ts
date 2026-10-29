@@ -9,7 +9,7 @@ import { check, checkAsync } from "../_check.ts";
 import { derivar } from "../../src/insights/derive.ts";
 import type { Instantanea } from "../../src/insights/snapshots.ts";
 import { formatResumen, resumirSemana } from "../../src/insights/summary.ts";
-import type { Plan, SemanaLeida } from "../../src/calendario/plan.ts";
+import { senalMedible, type Plan, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
   aplicarSeparacion, compararParametro, fusionarGanadoresVistos, construirBucle, debeEscribirBucle, derivadosPendientes, diagnostico, escribirBucle, ganadores,
   horasDesdeOnline, medicionesDe, pesoEncogido, pesos, seguidoresPorPieza, type Medicion,
@@ -37,6 +37,15 @@ function sinNumerosRaros(v: unknown, ruta = "$"): void {
 }
 
 // --- pesoEncogido ---
+
+check("pesos: una medición con senal dm es comparable igual que retencion", () => {
+  const dm = [med({ tema: "A", senal: "dm", valor: 0.4, modo: "tasa" }), med({ tema: "A", senal: "retencion", valor: 0.4, modo: "tasa" }), med({ tema: "B", senal: "dm", valor: 0.2, modo: "tasa" })];
+  const p = pesos(dm, "tema");
+  assert.equal(p.A?.n, 2, "dm y retencion suman en el mismo grupo");
+  assert.equal(p.B?.n, 1);
+  assert.equal(senalMedible("dm"), "retencion");
+  assert.equal(senalMedible("guardados"), "guardados");
+});
 
 check("pesoEncogido: n < 3 → undefined", () => {
   assert.equal(pesoEncogido([10, 10], 2), undefined);
