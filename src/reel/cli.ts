@@ -17,6 +17,13 @@ import type { CarouselSpec } from "../templates/types.ts";
  *   npm run reel carousels/mi-carrusel.ts -- --seconds=3 --fade=0.5
  *   npm run reel carousels/mi-carrusel.ts -- --frames-only
  */
+
+try {
+  process.loadEnvFile?.();
+} catch {
+  // Sin .env: se usan las variables del entorno (VOZ_PROVEEDOR y las de ElevenLabs, si las hay).
+}
+
 function numFlag(name: string): number | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
   if (!hit) return undefined;
