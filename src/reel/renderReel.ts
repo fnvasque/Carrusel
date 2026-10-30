@@ -33,7 +33,8 @@ export interface RenderReelOptions {
    */
   logoEnCuadro0?: boolean;
   /**
-   * Voz de la narración (Kokoro) de las escenas con `narracion`; por defecto
+   * Voz de Kokoro de las escenas con `narracion` (también el respaldo si
+   * `VOZ_PROVEEDOR=elevenlabs` falla; ver voz.ts); por defecto
    * VOZ_DEFECTO. Con `false` no se narra (las escenas con `narracion` se
    * renderizan igual, sin voz ni subtítulo alargado).
    */
@@ -133,7 +134,8 @@ export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptio
 
   await mkdir(base, { recursive: true });
   const mp4 = join(base, "reel.mp4");
-  const vozTxt = voces.length ? `, ${voces.length} escenas narradas (${opts.voz ?? VOZ_DEFECTO})` : "";
+  const quien = narraciones.some((n) => n?.proveedor === "elevenlabs") ? "ElevenLabs" : `Kokoro ${opts.voz || VOZ_DEFECTO}`;
+  const vozTxt = voces.length ? `, ${voces.length} escenas narradas (${quien})` : "";
   console.log(`⏳ Animando "${spec.name}" (${timing.scenes.length} escenas, ${timing.total}s, ${timing.frames} cuadros, ritmo ${timing.pace}${vozTxt})…`);
   await captureReel(html, timing, mp4, { audio: opts.audio, voces, revision: opts.revision });
   console.log(`✓ Reel "${spec.name}" → ${mp4}  (${timing.total}s, 1080×1920${opts.audio || voces.length ? "" : ", sin audio"})`);
