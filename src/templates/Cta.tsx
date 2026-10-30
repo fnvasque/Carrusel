@@ -59,31 +59,36 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
   const keep = frasesNowrap(highlight, undefined, cursiva);
   // Reel: escala mayor que llena el 9:16 (el post queda con sus medidas fijas).
   const post = { title: theme.fontSize.title, icon: 104, reason: 44, pill: 40, handle: 30, gap: 44, k: 1 };
-  const sc = reel
-    ? pickFill(
-        [1.45, 1.35, 1.25, 1.15, 1.05, 1.0].map((s) => ({
-          title: Math.round(theme.fontSize.title * s),
-          icon: Math.min(144, Math.round(104 * s)),
-          reason: s >= 1.2 ? 54 : 48,
-          pill: s >= 1.2 ? 48 : 44,
-          handle: s >= 1.2 ? 36 : 32,
-          gap: Math.round(44 * Math.min(1.3, s)),
-          k: Math.min(1.25, s),
-        })),
-        (c) => {
-          let h = c.gap + displayHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: true, keep }), displayLineHeight(title, 0.98), undefined, true, keep);
-          if (dm) h += c.gap + dmHeight(c.k);
-          else {
-            h += c.icon + c.gap;
-            if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
-            h += c.gap + c.pill * 1.2 + 44;
+  // Reel: escalas mayores que llenan el 9:16. Post: solo se achica si el titular, la caja y una
+  // fuente larga no caben (si no, el handle choca con la fuente al pie).
+  const escalas = reel ? [1.45, 1.35, 1.25, 1.15, 1.05, 1.0] : [1, 0.92, 0.85, 0.78, 0.72];
+  const sc = pickFill(
+    escalas.map((s) =>
+      reel
+        ? {
+            title: Math.round(theme.fontSize.title * s),
+            icon: Math.min(144, Math.round(104 * s)),
+            reason: s >= 1.2 ? 54 : 48,
+            pill: s >= 1.2 ? 48 : 44,
+            handle: s >= 1.2 ? 36 : 32,
+            gap: Math.round(44 * Math.min(1.3, s)),
+            k: Math.min(1.25, s),
           }
-          return h + (handle ? c.gap + c.handle * 1.3 : 0);
-        },
-        contentHeight(format, base.source, base.narracion),
-        format,
-      )
-    : post;
+        : { title: Math.round(post.title * s), icon: Math.round(post.icon * s), reason: post.reason, pill: post.pill, handle: post.handle, gap: Math.round(post.gap * Math.max(s, 0.85)), k: s },
+    ),
+    (c) => {
+      let h = c.gap + displayHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: reel, keep }), displayLineHeight(title, 0.98), undefined, true, keep);
+      if (dm) h += c.gap + dmHeight(c.k);
+      else {
+        h += c.icon + c.gap;
+        if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
+        h += c.gap + c.pill * 1.2 + 44;
+      }
+      return h + (handle ? c.gap + c.handle * 1.3 : 0);
+    },
+    contentHeight(format, base.source, base.narracion),
+    format,
+  );
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", flex: 1, gap: sc.gap }}>
