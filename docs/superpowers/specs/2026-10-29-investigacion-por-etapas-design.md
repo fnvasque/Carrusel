@@ -112,16 +112,19 @@ copia de forma explícita una vez, con la autorización de Felipe.
 Es el mismo principio del lector frío del planificador: el que escribe no se pone nota.
 
 - Archivo nuevo del usuario, `_investigacion/lector-aprendiz.md` (protegido, igual que el manual).
-  Contiene el perfil del público de arriba y tres preguntas:
+  Contiene el perfil del público de arriba y cuatro preguntas:
   1. ¿Qué entendiste, en tus palabras?
   2. ¿Qué harías esta semana después de leerlo?
-  3. ¿Qué palabra o frase no entendiste?
+  3. ¿Qué palabra o frase del texto no entendiste?
+  4. ¿Qué te faltaría saber para hacerlo de verdad? (no bloquea; ajuste del 2026-10-29 tras la
+     primera corrida, donde las 17 notas se cayeron por dudas prácticas como «dónde se abre Gemini»
+     aunque las respuestas 1 y 2 mostraban que se habían entendido)
   Respuesta en JSON, como el lector frío.
 - `node _investigacion/validar.mjs --aprendiz <slug>` imprime el mensaje exacto para el subagente:
   el perfil, las preguntas y solo el texto de `Dicho simple` y `Qué se puede hacer`, sin `[n]`,
   nombre de archivo ni tema.
 - Criterio de paso, que evalúa el agente: (1) coincide con la idea de la nota, (2) nombra una acción
-  concreta, (3) no hay palabras que no entendió. Si no pasa, se reescriben esos rótulos, hasta 3
+  concreta, (3) no nombra una palabra del texto que no entendió. Si no pasa, se reescriben esos rótulos, hasta 3
   intentos. Al tercero que falla, la nota no se sube (se descarta lo escrito en esa corrida) y se
   nombra en el resumen.
 - Registro: frontmatter `aprendiz: <HOY>` (la fecha en que pasó). Desde `DESDE_ETAPAS` el validador

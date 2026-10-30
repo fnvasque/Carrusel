@@ -1141,7 +1141,9 @@ check("validar: preguntas de las sesiones y responde:", () => {
 check("validar: mensaje del lector aprendiz — solo Dicho simple y Qué se puede hacer, sin citas ni fuentes", () => {
   const lector = readFileSync("kb-plantilla/_investigacion/lector-aprendiz.md", "utf8");
   assert.match(lector, /## Para el lector/);
-  for (const p of ["Qué entendiste", "Qué harías esta semana", "Qué palabra o frase no entendiste"]) assert.match(lector, new RegExp(p));
+  for (const p of ["Qué entendiste", "Qué harías esta semana", "Qué palabra o frase del texto no entendiste", "Qué te faltaría saber"]) assert.match(lector, new RegExp(p));
+  // Las dudas prácticas (respuesta 4) no bloquean: solo una palabra que no entendió (respuesta 3).
+  assert.match(lector, /La respuesta 4[\s\S]*\*\*no bloquea\*\*/);
   const m = mensajeAprendiz(REF_ETAPAS, lector);
   assert.match(m, /la IA te ayuda más en lo que ya sabes revisar/);
   assert.match(m, /mandar un aviso cuando llega un correo/);
