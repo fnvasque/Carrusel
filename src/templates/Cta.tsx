@@ -14,7 +14,7 @@ export interface CtaProps extends BaseSlideProps {
   highlight?: string;
   /** Frase del título en Instrument Serif cursiva (como en el Hook). */
   cursiva?: string;
-  /** Razón concreta (ej. "Cada semana. Sin hype."). En la caja de mensaje es la pista bajo la burbuja. */
+  /** Razón concreta (ej. "Cada semana. Sin hype."). Va bajo el título (también con la caja de mensaje). */
   reason?: string;
   /** Handle de la cuenta (sin @). */
   handle?: string;
@@ -41,7 +41,7 @@ export function pideDm(...textos: (string | undefined)[]): boolean {
   return textos.some((t) => t !== undefined && /\bPARTIR\b/.test(t));
 }
 
-/** Pista bajo la burbuja cuando la pieza no trae `reason`. */
+/** Pista bajo la burbuja: siempre pide escribir (la `reason`, si hay, va en su propia línea bajo el título). */
 export const DM_PISTA = "Escríbeme esto por mensaje y te respondo yo.";
 
 /**
@@ -81,7 +81,10 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
     ),
     (c) => {
       let h = c.gap + displayHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: reel, keep }), displayLineHeight(title, 0.98), undefined, true, keep);
-      if (dm) h += c.gap + dmHeight(c.k);
+      if (dm) {
+        if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
+        h += c.gap + dmHeight(c.k);
+      }
       else {
         h += c.icon + c.gap;
         if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
@@ -111,15 +114,15 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
         >
           {highlightText(title, highlight, theme.colors.accent, undefined, theme.colors.ink, cursiva)}
         </h2>
+        {reason && (
+          <p data-anim="rise" style={{ margin: 0, maxWidth: 840, fontFamily: theme.fonts.body, fontSize: sc.reason, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
+            {reason}
+          </p>
+        )}
         {dm ? (
-          <DmBox k={sc.k} pista={reason ?? DM_PISTA} />
+          <DmBox k={sc.k} pista={DM_PISTA} />
         ) : (
           <>
-            {reason && (
-              <p data-anim="rise" style={{ margin: 0, maxWidth: 840, fontFamily: theme.fonts.body, fontSize: sc.reason, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
-                {reason}
-              </p>
-            )}
             <span
               data-anim="rise"
               style={{

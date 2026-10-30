@@ -11,7 +11,7 @@ import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.t
 import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts";
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
 import { readFileSync } from "node:fs";
-import { pillContent } from "../src/templates/Cta.tsx";
+import { pillContent, DM_PISTA } from "../src/templates/Cta.tsx";
 import { frasesNowrap, highlightText } from "../src/templates/highlight.tsx";
 import { parrafos, parrafosHeight } from "../src/templates/parrafos.tsx";
 import { contentHeight, sourceLines, wrapLines, firmaReserve } from "../src/templates/layout.ts";
@@ -304,6 +304,15 @@ check("aire: tarjetas y burbujas con relleno 44 × 52 en post; burbujas ≤ 80 %
   // Gap del Lead y del Hook: 40 y 36 × 1,4.
   assert.match(renderToStaticMarkup(createElement(Lead, { text: "Una frase corta." })), /flex:1;gap:56px/);
   assert.match(renderToStaticMarkup(createElement(Hook, { title: "Un titular corto" })), /flex:1;gap:50px/);
+});
+
+check("Cta PARTIR con reason: se ven la razón y la pista «Escríbeme…» (post y reel)", () => {
+  for (const format of ["post", "reel"] as const) {
+    const html = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR", reason: "RAZON_VISIBLE", format }));
+    assert.ok(html.includes("RAZON_VISIBLE"), `${format}: razón`);
+    assert.ok(html.includes(DM_PISTA), `${format}: pista`);
+    assert.ok(html.indexOf("RAZON_VISIBLE") < html.indexOf('data-cta="dm"'), `${format}: la razón va bajo el título, antes de la caja`);
+  }
 });
 
 check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
@@ -890,7 +899,8 @@ check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastill
   assert.match(dm, /Escríbeme esto por mensaje y te respondo yo\./);
   const conPista = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "PARTIR", reason: "Te respondo con un primer paso." }));
   assert.match(conPista, /Te respondo con un primer paso\./);
-  assert.doesNotMatch(conPista, /Escríbeme esto por mensaje/);
+  // La razón va en su línea bajo el título; la pista que pide escribir se queda siempre bajo la burbuja.
+  assert.match(conPista, /Escríbeme esto por mensaje y te respondo yo\./);
   // PARTIR en el título también activa la caja; el título se deja como está escrito.
   const enTitulo = renderToStaticMarkup(createElement(Cta, { title: "Escríbeme PARTIR", cta: "Link en bio" }));
   assert.match(enTitulo, /data-cta="dm"/);

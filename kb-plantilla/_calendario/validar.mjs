@@ -42,7 +42,7 @@ export const PLANTILLAS = new Set(Object.keys(CATALOGO));
 
 /**
  * Props comunes que el agente sí puede poner. El resto de las de marca (color,
- * fuente, formato, índice…) las fija el motor: el look lima no se toca.
+ * fuente, formato, índice…) las fija el motor: el look papel no se toca.
  */
 const PROPS_BASE = new Set(["source", "pillar"]);
 
@@ -133,7 +133,7 @@ const CAMPOS_TITULO = ["title", "heading"];
 /** Props con texto de cuerpo (límite `cuerpoMaxPalabras`). */
 const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "note"];
 /**
- * `myth` y `reality` de MythReality se dibujan como titular (Anton mayúscula), no como
+ * `myth` y `reality` de MythReality se dibujan como titular (Inter 700 grande), no como
  * cuerpo: desde `DESDE_MITO_CORTO` tienen tope propio, `MITO_REALIDAD_MAX_PALABRAS`, en
  * carrusel y reel. Antes de esa fecha siguen con el tope de cuerpo (las semanas viejas
  * no ganan errores nuevos). Carrusel del 2026-10-27: una «realidad» de 26 palabras.
@@ -1237,7 +1237,7 @@ function erroresDeBorrador(b, p, config) {
       const bg = s.background;
       if (!esObj(bg)) errs.push(`${donde} (${t}): background debe ser un objeto { ai }`);
       else {
-        for (const k of Object.keys(bg)) if (!CAMPOS_FONDO.has(k)) errs.push(`${donde} (${t}): background.${k} no permitido (solo fondos ai; el look lima pone el resto)`);
+        for (const k of Object.keys(bg)) if (!CAMPOS_FONDO.has(k)) errs.push(`${donde} (${t}): background.${k} no permitido (solo fondos ai; el look papel pone el resto)`);
         if (!esTexto(bg.ai)) errs.push(`${donde} (${t}): background.ai debe ser un texto (la descripción de la imagen)`);
         else if (t !== "Hook" && t !== "Cta") errs.push(`${donde} (${t}): fondo ai solo en Hook o Cta`);
         if (bg.brandStyle !== undefined && bg.brandStyle !== true) errs.push(`${donde} (${t}): brandStyle ${q(bg.brandStyle)} no permitido (el fondo ai siempre lleva el estilo de marca)`);
@@ -1484,6 +1484,11 @@ export function textoPastilla(cta) {
   return String(raw).replace(EMOJI_PASTILLA, "").replace(/\s+/g, " ").trim();
 }
 
+/** Pista bajo la burbuja del Cta con «PARTIR» (`DM_PISTA` de `src/templates/Cta.tsx`). */
+const DM_PISTA = "Escríbeme esto por mensaje y te respondo yo.";
+/** COPIA de `pideDm` de `src/templates/Cta.tsx`: el Cta pide «PARTIR» (en la pastilla o en el título) y se pinta como mensaje directo. */
+const pideDmLector = (...textos) => textos.some((t) => typeof t === "string" && /\bPARTIR\b/.test(t));
+
 /** Texto de una prop si es texto no vacío (o un número, como un `step` 1). */
 const txt = (v) => (typeof v === "number" && Number.isFinite(v) ? String(v) : typeof v === "string" && v.trim() ? v.trim() : undefined);
 
@@ -1522,7 +1527,8 @@ function lineasSlide(template, p, prisa, formato) {
   switch (template) {
     case "Hook":
       if (!prisa) add(p.eyebrow);
-      if (txt(p.resultado)) add(`${txt(p.app) ?? "IA"} (${p.modo === "respuesta" ? "respuesta" : "aviso, ahora"}): ${txt(p.resultado)}`);
+      // En reel el Hook no pinta la tarjeta de respuesta (src/templates/Hook.tsx): el lector no la ve.
+      if (formato !== "reel" && txt(p.resultado)) add(`${txt(p.app) ?? "IA"} (${p.modo === "respuesta" ? "respuesta" : "aviso, ahora"}): ${txt(p.resultado)}`);
       add(conDestacado(txt(p.title), p.highlight));
       if (!prisa) {
         add(p.subtitle);
@@ -1562,6 +1568,13 @@ function lineasSlide(template, p, prisa, formato) {
       break;
     case "Cta":
       add(conDestacado(txt(p.title), p.highlight));
+      // Con «PARTIR» se pinta la caja de mensaje: título, razón, burbuja «PARTIR» y la pista; ni pastilla ni @handle.
+      if (pideDmLector(textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.title))) {
+        if (!prisa) add(p.reason);
+        add("PARTIR");
+        if (!prisa) add(DM_PISTA);
+        break;
+      }
       if (!prisa) add(p.reason, textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.handle) ? `@${txt(p.handle)}` : undefined);
       break;
     default:

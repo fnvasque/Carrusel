@@ -63,7 +63,7 @@ import { NADA_NUEVO_RE as NADA_NUEVO_LECTOR } from "../../src/calendario/lector-
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
-import { pillContent } from "../../src/templates/Cta.tsx";
+import { pillContent, DM_PISTA } from "../../src/templates/Cta.tsx";
 
 /**
  * Tests del validador del planificador (`kb-plantilla/_calendario/validar.mjs`).
@@ -1391,6 +1391,31 @@ check("calendario/validar (lector): textoPastilla es copia de pillContent (Cta.t
 /** Texto visible de un componente renderizado (sin etiquetas HTML). */
 const textoRender = (el: any) =>
   renderToStaticMarkup(el).replace(/<[^>]+>/g, "\n").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+
+check("calendario/validar (lector): en reel el Hook no muestra `resultado`; en carrusel sí", () => {
+  const b: any = { slides: [{ template: "Hook", props: { title: "Pídele a la IA que revise", resultado: "RESULTADO_X", app: "ChatGPT" } }] };
+  assert.ok(!textosLector(b, "reel").completo.includes("RESULTADO_X"));
+  assert.ok(!textosLector(b, "reel").conPrisa.includes("RESULTADO_X"));
+  assert.ok(textosLector(b, "carrusel").completo.includes("RESULTADO_X"));
+});
+
+check("calendario/validar (lector): el Cta con PARTIR lee título, razón, PARTIR y la pista; sin pastilla ni @handle (lo que pinta Cta.tsx)", () => {
+  const props = { title: "Tu primer paso con IA", reason: "RAZON_X", handle: "ia.punto.es", cta: "Escríbeme PARTIR" };
+  const b: any = { slides: [{ template: "Cta", props }] };
+  const { completo, conPrisa } = textosLector(b, "carrusel");
+  for (const x of ["Tu primer paso con IA", "RAZON_X", "\nPARTIR\n", DM_PISTA]) assert.ok(completo.includes(x), `falta ${x} en ${completo}`);
+  assert.ok(!completo.includes("Escríbeme PARTIR") && !completo.includes("@ia.punto.es"), completo);
+  assert.ok(conPrisa.includes("PARTIR") && !conPrisa.includes("RAZON_X") && !conPrisa.includes("Escríbeme esto"), conPrisa);
+  // Lo que se lee es lo que pinta el componente.
+  const pintado = textoRender(createElement(Cta, { ...props, format: "post" } as any));
+  for (const x of ["Tu primer paso con IA", "RAZON_X", "PARTIR", DM_PISTA]) assert.ok(pintado.includes(x), x);
+  // (la firma de la caja ya dice la cuenta; la prop `handle` no se pinta suelta y la pastilla tampoco)
+  assert.ok(!pintado.includes("Escríbeme PARTIR"));
+  assert.ok(!pintado.includes('data-cta="handle"'));
+  // PARTIR en el título también cuenta (igual que pideDm).
+  const t: any = { slides: [{ template: "Cta", props: { title: "Escribe PARTIR", cta: "Guárdalo", handle: "ia.punto.es" } }] };
+  assert.ok(!textosLector(t).completo.includes("@ia.punto.es") && textosLector(t).completo.includes(DM_PISTA));
+});
 
 check("calendario/validar (lector): etiquetas por defecto de MythReality leídas del componente; mythLabel \"\" da etiqueta vacía", () => {
   const html = textoRender(createElement(MythReality, { myth: "MITO_X", reality: "REAL_Y" }));
