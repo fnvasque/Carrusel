@@ -26,8 +26,8 @@ import {
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import {
-  autoZoneOf, DESDE_NOVEDAD, outsideAgentZones, parseFrontmatter, parseNameStatus, validateAlcance, validateAudiencia, validateReferencia, validateResumen, validateTopicBlock,
-  zoneErrors,
+  autoZoneOf, cobertura, DESDE_ETAPAS, DESDE_NOVEDAD, dichoSimple, ETAPAS, MAX_DICHO, mensajeAprendiz, outsideAgentZones, parseFrontmatter, parseNameStatus, parsePreguntas,
+  slugDeEnlace, TIPOS, validateAlcance, validateAudiencia, validateReferencia, validateResumen, validateTopicBlock, zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
 import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
 import { execFileSync } from "node:child_process";
@@ -1028,6 +1028,135 @@ check("validar: alcance.json — listas de temas sin repetir; el agente no toca 
   assert.match(zoneErrors([{ status: "M", path: "_investigacion/alcance.json" }]).join(), /son del usuario/);
   assert.match(zoneErrors([{ status: "M", path: "_investigacion/pedidos.md" }]).join(), /son del usuario/);
   assert.match(zoneErrors([{ status: "A", path: "_calendario/candidatos.json" }]).join(), /no puede modificar/);
+});
+
+// --- investigación por etapas (2026-10-29) ---
+const AUD_NUEVA =
+  "## Para la audiencia\n- **Dicho simple:** la IA te ayuda más en lo que ya sabes revisar; prueba esta semana con una tarea que repites [1].\n- **Por qué importa:** conecta apps sin programar [1].\n- **Qué se puede hacer:** mandar un aviso cuando llega un correo [2].\n- **Lo que no sabe quien está empezando:** no hace falta programar para armar un flujo [1].\n- **Para quién:** quien repite tareas en la oficina.\n- **Límites:** la nube es de pago [1].\n";
+const REF_ETAPAS = REF_OK
+  .replace("revisado: 2026-10-12", "revisado: 2026-10-30\netapa: [adoptar]\naprendiz: 2026-10-30")
+  .replace(/## Para la audiencia\n[\s\S]*?\n\n## Mis notas/, `${AUD_NUEVA}\n## Mis notas`);
+
+check("validar: desde DESDE_ETAPAS — etapa, aprendiz, Dicho simple y rótulo de quien empieza", () => {
+  assert.equal(DESDE_ETAPAS, "2026-10-28");
+  assert.deepEqual(ETAPAS, ["perder-el-miedo", "adoptar", "liderar", "revalorizarse"]);
+  const ctx = { etapas: ETAPAS };
+  const errs = (t: string, c: object | undefined = ctx) => validateReferencia(t, c).join(" | ");
+  assert.deepEqual(validateReferencia(REF_ETAPAS, ctx), []);
+  assert.match(dichoSimple(REF_ETAPAS.split("\n---\n")[1]) ?? "", /^la IA te ayuda más/);
+  assert.match(errs(REF_ETAPAS.replace("etapa: [adoptar]\n", "")), /etapa/);
+  assert.match(errs(REF_ETAPAS.replace("etapa: [adoptar]", "etapa: [aprender]")), /aprender/);
+  assert.doesNotMatch(errs(REF_ETAPAS.replace("etapa: [adoptar]", "etapa: [aprender]"), {}), /aprender/);
+  assert.deepEqual(validateReferencia(REF_ETAPAS.replace("etapa: [adoptar]", "etapa: liderar"), ctx), []);
+  assert.match(errs(REF_ETAPAS.replace("aprendiz: 2026-10-30\n", "")), /aprendiz/);
+  assert.match(errs(REF_ETAPAS.replace("aprendiz: 2026-10-30", "aprendiz: 2026-10-29")), /aprendiz/);
+  assert.match(errs(REF_ETAPAS.replace("una tarea que repites [1].", "una tarea que repites.")), /Dicho simple/);
+  assert.equal(MAX_DICHO, 400);
+  assert.match(errs(REF_ETAPAS.replace("la IA te ayuda", `${"x".repeat(400)} la IA te ayuda`)), /400/);
+  assert.match(errs(REF_ETAPAS.replace("Lo que no sabe quien está empezando", "Lo que no sabe un usuario frecuente")), /quien está empezando/);
+  const noAplica = REF_ETAPAS.replace("etapa: [adoptar]\naprendiz: 2026-10-30\n", "").replace(/## Para la audiencia\n[\s\S]*?\n\n## Mis notas/, "## Para la audiencia\nNo aplica a la cuenta: es una pastelería.\n\n## Mis notas");
+  assert.deepEqual(validateReferencia(noAplica, ctx), []);
+  // Una nota vieja (revisado antes del corte) sigue con las reglas de antes.
+  const vieja = REF_OK.replace("revisado: 2026-10-12", "revisado: 2026-10-25").replace("- **Para quién:**", "- **Lo que no sabe un usuario frecuente:** el plan gratis ya incluye la API [1].\n- **Para quién:**");
+  assert.deepEqual(validateReferencia(vieja, ctx), []);
+});
+
+check("validar: alcance.json — etapas y los dos temas nuevos en dentro", () => {
+  const a = JSON.parse(readFileSync("kb-plantilla/_investigacion/alcance.json", "utf8"));
+  for (const t of ["Desarrollo de habilidades y carrera profesional", "Ingeniería de agentes de IA"]) assert.ok(a.dentro.includes(t), t);
+  assert.match(a.enfoqueIA["Desarrollo de habilidades y carrera profesional"], /IA/);
+  assert.deepEqual(Object.keys(a.etapas).filter((k) => k !== "_nota"), ETAPAS);
+  assert.match(validateAlcance(JSON.stringify({ dentro: [], despues: [], fuera: [], etapas: { "X Y": "" } })).join(), /etapas/);
+  assert.deepEqual(validateAlcance(JSON.stringify({ dentro: [], despues: [], fuera: [] })), []);
+});
+
+const CONEXION_OK = `---
+tipo: conexion
+nombre: La IA ayuda más en lo que ya sabes revisar
+temas: ["[[Productividad y gestión del tiempo]]"]
+revisado: 2026-10-30
+etapa: [adoptar]
+aprendiz: 2026-10-30
+conecta: ["[[a]]", "[[b]]", "[[c]]"]
+fuentes:
+  - https://www.hbs.edu/estudio
+  - https://arxiv.org/abs/1
+tags: [kb/referencia]
+---
+
+## Qué es
+Con IA terminas antes lo que sabes revisar [1].
+
+## Datos clave
+- Un estudio con consultores lo midió [1]; otro con equipos de P&G también [2].
+
+## Cómo se conectan
+Los dos miden lo mismo desde lados distintos [1][2].
+
+${AUD_NUEVA}
+## Mis notas
+`;
+
+check("validar: conexiones — ≥ 3 referencias existentes, ≥ 2 dominios y «Cómo se conectan»", () => {
+  assert.ok(TIPOS.has("conexion"));
+  assert.equal(slugDeEnlace("[[a-b|A B]]"), "a-b");
+  assert.equal(slugDeEnlace("'[[b]]'"), "b");
+  const ctx = { etapas: ETAPAS, slugs: new Set(["a", "b", "c"]), slugPropio: "la-ia-ayuda" };
+  const errs = (t: string) => validateReferencia(t, ctx).join(" | ");
+  assert.deepEqual(validateReferencia(CONEXION_OK, ctx), []);
+  assert.match(errs(CONEXION_OK.replace(', "[[c]]"', "")), /3/);
+  assert.match(errs(CONEXION_OK.replace('"[[c]]"', '"[[zeta]]"')), /zeta/);
+  assert.match(errs(CONEXION_OK.replace("https://arxiv.org/abs/1", "https://hbs.edu/otro")), /dominios/);
+  assert.match(errs(CONEXION_OK.replace("## Cómo se conectan", "## Otra cosa")), /Cómo se conectan/);
+  assert.deepEqual(validateReferencia(CONEXION_OK.replace('["[[a]]", "[[b]]", "[[c]]"]', `["[[a|A]]", "'[[b]]'", "[[c]]"]`), ctx), []);
+  assert.match(errs(CONEXION_OK.replace('"[[c]]"', '"[[la-ia-ayuda]]"')), /sí misma/);
+  // Sin contexto no se comprueba que existan, pero sí la cantidad.
+  assert.deepEqual(validateReferencia(CONEXION_OK.replace('"[[c]]"', '"[[zeta]]"')), []);
+});
+
+check("validar: preguntas de las sesiones y responde:", () => {
+  const txt = "# Preguntas\n\n- AAAA-MM-DD · <etapa> · <pregunta>\n- 2026-10-30 · perder-el-miedo · ¿qué es un agente?\n- 2026-13-01 · adoptar · mala fecha\n- sin formato\n";
+  assert.deepEqual(parsePreguntas(txt), ["2026-10-30 · perder-el-miedo · ¿qué es un agente?"]);
+  assert.deepEqual(parsePreguntas(""), []);
+  const con = REF_ETAPAS.replace("aprendiz: 2026-10-30", 'aprendiz: 2026-10-30\nresponde: ["2026-10-30 · perder-el-miedo · ¿qué es un agente?"]');
+  assert.deepEqual(validateReferencia(con, { etapas: ETAPAS, preguntas: parsePreguntas(txt) }), []);
+  assert.match(validateReferencia(con, { etapas: ETAPAS, preguntas: [] }).join(), /responde/);
+});
+
+check("validar: mensaje del lector aprendiz — solo Dicho simple y Qué se puede hacer, sin citas ni fuentes", () => {
+  const lector = readFileSync("kb-plantilla/_investigacion/lector-aprendiz.md", "utf8");
+  assert.match(lector, /## Para el lector/);
+  for (const p of ["Qué entendiste", "Qué harías esta semana", "Qué palabra o frase no entendiste"]) assert.match(lector, new RegExp(p));
+  const m = mensajeAprendiz(REF_ETAPAS, lector);
+  assert.match(m, /la IA te ayuda más en lo que ya sabes revisar/);
+  assert.match(m, /mandar un aviso cuando llega un correo/);
+  assert.match(m, /=== FIN ===/);
+  assert.doesNotMatch(m, /\[\d\]|https?:|n8n|Automatización con IA|conecta apps/);
+});
+
+check("validar: cobertura por etapa y archivos protegidos nuevos", () => {
+  const root = mkdtempSync(joinPath(tmpdir(), "kb-cobertura-"));
+  try {
+    mkdirSync(joinPath(root, "referencias"), { recursive: true });
+    mkdirSync(joinPath(root, "_investigacion"), { recursive: true });
+    writeFileSync(joinPath(root, "_investigacion", "alcance.json"), readFileSync("kb-plantilla/_investigacion/alcance.json"));
+    writeFileSync(joinPath(root, "referencias", "a.md"), REF_ETAPAS.replace("aprendiz: 2026-10-30", 'aprendiz: 2026-10-30\nresponde: ["2026-10-30 · adoptar · ¿respondida?"]'));
+    writeFileSync(joinPath(root, "referencias", "vieja.md"), REF_ETAPAS.replace(/2026-10-30/g, "2026-08-01"));
+    writeFileSync(joinPath(root, "referencias", "b.md"), REF_ETAPAS);
+    writeFileSync(joinPath(root, "referencias", "c.md"), REF_ETAPAS);
+    writeFileSync(joinPath(root, "referencias", "con.md"), CONEXION_OK);
+    writeFileSync(joinPath(root, "_investigacion", "preguntas.md"), "- 2026-10-30 · adoptar · ¿respondida?\n- 2026-10-30 · liderar · ¿pendiente?\n");
+    const c = cobertura(root, "2026-10-31");
+    const adoptar = c.etapas.find((e) => e.etapa === "adoptar");
+    assert.deepEqual(adoptar, { etapa: "adoptar", referencias: 3, conexiones: 1, falta: true });
+    assert.equal(c.etapas.length, 4);
+    assert.deepEqual(c.preguntasPendientes, ["2026-10-30 · liderar · ¿pendiente?"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  for (const f of ["_investigacion/lector-aprendiz.md", "_investigacion/preguntas.md"]) {
+    assert.match(zoneErrors([{ status: "M", path: f }]).join(), /son del usuario/);
+  }
 });
 
 check("validar: referencias inválidas", () => {

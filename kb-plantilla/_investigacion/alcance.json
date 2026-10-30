@@ -7,7 +7,9 @@
     "Productividad y gestión del tiempo",
     "Liderazgo y gestión de equipos",
     "Modelos mentales y pensamiento crítico",
-    "Psicología del comportamiento y toma de decisiones"
+    "Psicología del comportamiento y toma de decisiones",
+    "Desarrollo de habilidades y carrera profesional",
+    "Ingeniería de agentes de IA"
   ],
   "despues": [
     "Emprendimiento y startups",
@@ -31,6 +33,14 @@
     "Liderazgo y gestión de equipos": "cómo la IA cambia liderar y coordinar equipos: delegar en IA, feedback y reuniones con IA, qué habilidades del líder pesan más, y qué pasa con tu rol y tus habilidades cuando la IA hace parte del trabajo",
     "Modelos mentales y pensamiento crítico": "pensar mejor con IA y frente a la IA: usarla para contrastar decisiones, sesgos que amplifica, cuándo no confiar en su respuesta",
     "Psicología del comportamiento y toma de decisiones": "hábitos y decisiones con IA: formar o mantener hábitos con ayuda de una IA, qué pasa con la atención, la motivación y el juicio cuando la IA decide o recuerda por ti",
-    "Productividad y gestión del tiempo": "productividad con IA: qué tareas absorbe la IA, cómo cambia planificar el día y la semana, cuánto tiempo ahorra de verdad según estudios, y qué pasa con tu rol y tus habilidades cuando la IA hace parte del trabajo"
+    "Productividad y gestión del tiempo": "productividad con IA: qué tareas absorbe la IA, cómo cambia planificar el día y la semana, cuánto tiempo ahorra de verdad según estudios, y qué pasa con tu rol y tus habilidades cuando la IA hace parte del trabajo",
+    "Desarrollo de habilidades y carrera profesional": "qué habilidades suben o bajan de valor cuando la IA hace parte del trabajo, y cómo se desarrollan: qué aprender, qué dejar de hacer a mano y cómo se ve tu perfil en cinco años"
+  },
+  "etapas": {
+    "_nota": "Del usuario (2026-10-29). El camino de coaching de @ia.punto.es, en orden. Cada referencia que aplica a la cuenta lleva una o más en su frontmatter `etapa:`; la investigación llena primero la etapa con menos cobertura (validar.mjs --cobertura).",
+    "perder-el-miedo": "el primer paso de quien nunca usó la IA más allá de una pregunta suelta: qué es un agente dicho con palabras de oficina, pedirle a la IA que te diga cómo puede ayudarte, la primera tarea que conviene delegar",
+    "adoptar": "qué partes del trabajo hace bien la IA y cuáles no, con casos de oficina contados enteros: qué delegar, cómo revisar lo que entrega y cuánto tiempo ahorra de verdad",
+    "liderar": "cómo cambia coordinar un equipo cuando ejecutar sale barato: delegar en IA, feedback y reuniones con IA, qué decide el líder y qué pesa más en su rol",
+    "revalorizarse": "qué habilidades suben de valor a cinco años y cómo desarrollarlas: criterio, juicio, aprender con IA sin desentrenarse, cómo se ve un perfil que vale más"
   }
 }
