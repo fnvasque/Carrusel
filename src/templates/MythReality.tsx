@@ -53,7 +53,7 @@ export function MythReality({ myth, reality, highlight, mythLabel = ETIQUETA_MIT
   const size = pickFill(
     [96, 88, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44, 40].filter((s) => s <= max),
     (s) => mythH(s) + gap + realH(s),
-    contentHeight(format, base.source, base.narracion),
+    contentHeight(format, base.source, base.narracion, base.subtitulos),
     format,
   );
   return (

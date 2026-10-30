@@ -39,7 +39,7 @@ const ETIQUETA_H = 29 + 10;
  */
 export function Screen({ app, prompt, respuesta, heading, nota, accent: _accent, format = "post", ...base }: ScreenProps) {
   const reel = format === "reel";
-  const available = contentHeight(format, base.source, base.narracion);
+  const available = contentHeight(format, base.source, base.narracion, base.subtitulos);
   // De la más grande a la más chica: texto de los mensajes y título.
   const candidates = [
     // Reel: el 9:16 es alto; las burbujas suben de tamaño para no dejar media pantalla vacía.

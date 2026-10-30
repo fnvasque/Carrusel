@@ -27,7 +27,9 @@ la palabra clave y una firma visible en cada lámina.
 | Pie (post) | fuente en mono | firma (círculo tinta con iniciales «ia» en serif cursiva lima + «@ia.punto.es») a la izquierda, `n/total` en serif cursiva a la derecha; la fuente queda encima de la firma |
 | Chat (`Screen`) | ventana oscura | burbujas: «Tú» tinta con texto blanco a la derecha, «La IA» blanca a la izquierda |
 | Cierre (`Cta`) con PARTIR | pastilla lima | caja de mensaje directo: cabecera con la firma, burbuja tinta «PARTIR», la `reason` como pista |
-| Subtítulo del reel | blanco con sombra negra | blanco sobre píldora tinta al 88 % |
+| Subtítulo del reel | blanco con sombra negra | **apagado por defecto** (decisión de Felipe 2026-10-29); con `subtitulos: true` / `--subtitulos`, blanco sobre píldora tinta al 88 % |
+| Portada (`Hook`) del reel | tarjeta de `resultado` arriba del titular | **sin tarjeta** (decisión de Felipe 2026-10-29): solo titular; la respuesta de la IA va en la escena 2 (`Screen`). En el post la tarjeta sigue |
+| Aire | gaps ~28–40 px, tarjetas con ~36–40 px de relleno, el bloque llena el alto (reel 88 %) | gaps ~40 % mayores, tarjetas y burbujas con ~52 × 44 px de relleno en post, el bloque ocupa a lo sumo ~72 % del alto en reel y ~85 % en post (decisión de Felipe 2026-10-29: «dale más aire») |
 | Barra de progreso del reel | lima | tinta |
 
 Firma: `@ia.punto.es`, iniciales `ia`, línea `Te ayudo a partir con la IA en tu trabajo`
@@ -36,6 +38,23 @@ Firma: `@ia.punto.es`, iniciales `ia`, línea `Te ayudo a partir con la IA en tu
 Series (de `config.json → series[].serie` y `plan.piezas[].serie`):
 `por-donde-partir` → «Por dónde partir», `lo-que-construi` → «Lo que construí».
 Sin serie, la cabecera izquierda queda vacía (no vuelve el pilar).
+
+### Decisiones de Felipe al revisar el reel real (2026-10-29)
+
+«Hay demasiado texto y poco aire.» Tres cambios, regla `reel-sin-subtitulos` en
+`reglas.json` (desde 2026-11-02):
+
+1. **Sin subtítulos quemados por defecto.** La voz se sigue sintetizando y
+   mezclando igual y la escena dura lo que dura la voz; solo deja de pintarse la
+   píldora, y el contenido usa la altura que reservaba. Interruptor:
+   `_calendario/config.json → subtitulos` (`false`), `npm run reel -- --subtitulos`.
+2. **Hook del reel sin tarjeta de respuesta.** La prop `resultado` se ignora en
+   reel (en post sigue); el validador deja de exigirla en reels desde
+   2026-11-02, y la IA se ve en la escena 2 (`Screen`) antes del segundo 5.
+3. **Más aire** en todas las escenas del reel y láminas del carrusel: más
+   separación entre bloques, más relleno en tarjetas y burbujas, y un tope de
+   alto para que siempre quede papel arriba y abajo (texto un poco más chico,
+   cuerpo ≥ 40 px en post).
 
 ## Qué no cambia
 

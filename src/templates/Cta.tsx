@@ -88,7 +88,7 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
       }
       return h + (verHandle ? c.gap + c.handle * 1.3 : 0);
     },
-    contentHeight(format, base.source, base.narracion),
+    contentHeight(format, base.source, base.narracion, base.subtitulos),
     format,
   );
   return (

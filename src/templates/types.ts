@@ -83,10 +83,17 @@ export interface BaseSlideProps {
   format?: Format;
   /**
    * Reel: lo que la voz dice mientras se ve esta escena (6–18 palabras). El
-   * motor la sintetiza (Kokoro), alarga la escena hasta que quepa y la pinta
-   * como subtítulo abajo. Las plantillas no la dibujan; en el carrusel se ignora.
+   * motor la sintetiza (Kokoro) y alarga la escena hasta que quepa. Las
+   * plantillas no la dibujan; en el carrusel se ignora.
    */
   narracion?: string;
+  /**
+   * Reel: pinta la narración como subtítulo quemado abajo (y el contenido le
+   * deja su espacio). Por defecto apagado desde 2026-11-02 (pedido de Felipe:
+   * demasiado texto); lo enciende `npm run reel -- --subtitulos` o
+   * `_calendario/config.json → subtitulos: true`.
+   */
+  subtitulos?: boolean;
 }
 
 /** Un slide = una plantilla + sus props. */

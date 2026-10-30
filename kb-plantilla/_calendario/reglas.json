@@ -156,6 +156,13 @@
       "fuente": "auditoría de plantillas 2026-10-29; spec docs/superpowers/specs/2026-10-29-look-papel-design.md"
     },
     {
+      "id": "reel-sin-subtitulos",
+      "desde": "2026-11-02",
+      "formato": "reel",
+      "descripcion": "Reels sin subtítulos quemados (solo voz y titular por escena) y portada sin tarjeta de respuesta de la IA",
+      "fuente": "pedido de Felipe 2026-10-29 al revisar el look papel"
+    },
+    {
       "id": "revision-visual-fase3",
       "desde": "2026-11-09",
       "pendiente": true,

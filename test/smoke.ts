@@ -239,6 +239,22 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
 });
 
+check("scoreReel: desde 2026-11-02 el Hook del reel va sin tarjeta; la Screen en la escena 2 vale como el resultado del primer cuadro", () => {
+  const pieza = JSON.parse(readFileSync(new URL("./calendario/fixtures/reel-narrado-pivote.json", import.meta.url), "utf8")) as VariationDraft & { pace?: string };
+  const hook = (d: VariationDraft) => scoreReel(d as never).dimensions.find((x) => x.name === "Hook")!.score;
+  const conTarjeta = hook(pieza);
+  const sinTarjeta = structuredClone(pieza);
+  for (const k of ["resultado", "app", "modo"]) delete (sinTarjeta.slides[0].props as Record<string, unknown>)[k];
+  // La Screen de la pieza (escena 4) pasa a la escena 2, justo después del Hook.
+  const [screen] = sinTarjeta.slides.splice(3, 1);
+  sinTarjeta.slides.splice(1, 0, screen);
+  assert.equal(hook(sinTarjeta), conTarjeta, "Screen en la escena 2 = resultado + app en la portada");
+  // Sin tarjeta y con la Screen tarde, el Hook pierde esos puntos.
+  const tarde = structuredClone(pieza);
+  for (const k of ["resultado", "app", "modo"]) delete (tarde.slides[0].props as Record<string, unknown>)[k];
+  assert.ok(hook(tarde) < conTarjeta);
+});
+
 check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
   const d = validateDraft({ name: "x", angle: "a", pillar: "herramienta", slides: [
     { template: "Clip", props: { title: "Tu idea en video con 1 frase", archivo: "a.mp4" } },

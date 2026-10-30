@@ -37,6 +37,7 @@ export function Frame({
   format = "post",
   firmaLinea = false,
   narracion,
+  subtitulos = false,
   oscuro = false,
   style,
   children,
@@ -56,8 +57,10 @@ export function Frame({
   format?: Format;
   /** Post: la firma del pie lleva debajo `theme.firma.linea`; reel: lo mismo en la firma de la cabecera (la story). */
   firmaLinea?: boolean;
-  /** Reel: la escena lleva subtítulo de narración; el contenido deja su espacio (`SUBTITULO_RESERVA`). */
+  /** Reel: narración de la escena; con `subtitulos` el contenido deja el espacio del subtítulo (`SUBTITULO_RESERVA`). */
   narracion?: string;
+  /** Reel: subtítulos quemados encendidos (por defecto apagados). */
+  subtitulos?: boolean;
   /** Escena sobre negro (se mezcla con video en blend lighten: Clip, Hook con hookVideo): fondo negro, texto, cabecera, firma y fuente en claro; la barra de progreso va blanca mientras dura. */
   oscuro?: boolean;
   style?: CSSProperties;
@@ -121,7 +124,7 @@ export function Frame({
           )}
         </div>
         {/* Contenido del slide */}
-        <div data-content="" style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + firmaReserve(format) + subtituloReserve(format, narracion) + opticalLift(format) }}>
+        <div data-content="" style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0, paddingTop: CONTENT_GAP_TOP, paddingBottom: sourceReserve(source) + firmaReserve(format) + subtituloReserve(format, narracion, subtitulos) + opticalLift(format) }}>
           {children}
         </div>
         {/* Marca: fuente al pie (encima de la firma en el post) */}

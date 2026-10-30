@@ -25,7 +25,8 @@ export interface HookProps extends BaseSlideProps {
   swipe?: boolean;
   /**
    * El resultado en el primer cuadro (pivote 2026-10-17): lo que la IA ya hizo,
-   * tal como se ve en pantalla, en una tarjeta blanca arriba del titular. `modo`
+   * tal como se ve en pantalla, en una tarjeta blanca arriba del titular. Solo
+   * en el post: en el reel se ignora (desde 2026-11-02 la IA se ve en la escena 2). `modo`
    * "aviso" dibuja una notificación del celular (app + "ahora" + texto);
    * "respuesta", una burbuja de chat con la respuesta de la IA. Con
    * `resultado` el titular se achica y va debajo, como pie de foto.
@@ -59,7 +60,10 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
   const reel = format === "reel";
   // Con hookVideo el reel mezcla un video debajo (lighten): escena negra con texto claro.
   const oscuro = base.oscuro === true;
-  const conResultado = typeof resultado === "string" && resultado.trim().length > 0;
+  // Reel (desde 2026-11-02, pedido de Felipe: demasiado texto en la portada): la tarjeta
+  // de resultado no se pinta; la respuesta de la IA aparece en la escena siguiente (Screen).
+  // En el post se mantiene.
+  const conResultado = !reel && typeof resultado === "string" && resultado.trim().length > 0;
   const cardW = CONTENT_WIDTH;
   const cardH = conResultado ? resultadoHeight(resultado, reel, cardW) + (reel ? 48 : 36) : 0;
   const keep = frasesNowrap(highlight, mark, cursiva);
@@ -73,8 +77,7 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
     (reel
       ? reelTitle(
           pickFill(
-            // Con resultado el titular es pie de foto: ≤ 124 px, la tarjeta manda.
-            conResultado ? [124, 116, 108, 100, 92, 84] : [180, 168, 156, 148, 140, 132, 124, 116],
+            [180, 168, 156, 148, 140, 132, 124, 116],
             (m) => {
               const s = reelTitle(m);
               let h = displayHeight(title, s, lh, undefined, true, keep) + cardH;
@@ -82,7 +85,7 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
               if (subtitle) h += 36 + interHeight(subtitle, subSize, 820, 1.3);
               return h;
             },
-            contentHeight(format, base.source, base.narracion),
+            contentHeight(format, base.source, base.narracion, base.subtitulos),
             format,
           ),
         )

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { check, checkAsync } from "../_check.ts";
 import { parsePlan, semanaDir, urlPublica, type Pieza, type RenderEntry, type SemanaLeida } from "../../src/calendario/plan.ts";
 import {
-  ErrorClipFaltante, ErrorContenido, MANIFIESTO, avisosVisualesNuevos, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, pendientes, procesar, topeDuracion,
+  ErrorClipFaltante, ErrorContenido, MANIFIESTO, avisosVisualesNuevos, clonKbCalendario, copiarCalibracion, crearEscritorRender, dirMediosValido, fondosIaQuitados, leerBorradorSeguro, leerPuerta, leerSubtitulos, pendientes, procesar, topeDuracion,
   olvidarAvisosVisuales, sincronizarPendiente, tomarCandado,
   type Deps, type PiezaPendiente,
 } from "../../src/calendario/render.ts";
@@ -581,6 +581,22 @@ await checkAsync("leerBorradorSeguro: rechaza rutas fuera de la carpeta de la se
       await assert.rejects(leerBorradorSeguro(SEMANA, malo), /borrador/, malo);
     }
     await assert.rejects(leerBorradorSeguro(SEMANA, "falta.json"), /no existe/i);
+  }),
+);
+
+await checkAsync("leerSubtitulos: config.json → subtitulos; apagados por defecto (solo `true` los enciende)", () =>
+  conBase(async (dir) => {
+    assert.equal(await leerSubtitulos(), false, "sin config");
+    mkdirSync(join(dir, "_calendario"), { recursive: true });
+    const cfg = (v: unknown) => writeFileSync(join(dir, "_calendario", "config.json"), JSON.stringify({ subtitulos: v }));
+    cfg(true);
+    assert.equal(await leerSubtitulos(), true);
+    cfg(false);
+    assert.equal(await leerSubtitulos(), false);
+    cfg("si");
+    assert.equal(await leerSubtitulos(), false, "un valor no booleano no los enciende");
+    writeFileSync(join(dir, "_calendario", "config.json"), "{roto");
+    assert.equal(await leerSubtitulos(), false);
   }),
 );
 

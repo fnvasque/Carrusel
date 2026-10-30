@@ -1824,6 +1824,18 @@ check("calendario/validar: narracion — obligatoria en cada escena del reel des
   assertHas(vb(carrusel, bc), /narracion solo va en reels/);
 });
 
+check("calendario/validar: desde 2026-11-02 el Hook del reel no exige resultado (la IA se ve en la escena 2, Screen); antes sí", () => {
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  assertHas(vb(pieza({ dia: "2026-10-26" }), b), /slide 1 \(Hook\): falta resultado/);
+  const nov = vb(pieza({ dia: "2026-11-02" }), b);
+  assert.ok(!nov.some((e: string) => /falta resultado/.test(e)), nov.join("\n"));
+  // Si viene, se sigue validando su forma (el post de la misma pieza la muestra).
+  const malo = clone(b);
+  Object.assign(malo.slides[0].props, { resultado: "x ".repeat(25).trim(), app: "NotebookLM" });
+  assertHas(vb(pieza({ dia: "2026-11-02" }), malo), /resultado tiene 25 palabras/);
+});
+
 check("calendario/validar: narracion alarga la escena como el motor (voz + margen) y cuenta para el tope de duración", () => {
   const b = borrador();
   const base = segundosEscenas(b.slides, "ensenar");

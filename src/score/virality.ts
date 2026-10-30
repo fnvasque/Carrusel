@@ -245,12 +245,16 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
   } else {
     const p = hs.props;
     const title = txt(p.title);
+    // Desde 2026-11-02 el Hook del reel va sin tarjeta: una Screen completa justo
+    // después del Hook (escena 2) muestra la IA antes del segundo 5 y vale lo mismo.
+    const s2 = slides[slides.indexOf(hs) + 1];
+    const screen2 = !!s2 && /screen/i.test(s2.template) && !!txt(s2.props.app).trim() && palabras(s2.props.respuesta) >= 2;
     const nRes = palabras(p.resultado);
-    if (nRes >= 2 && nRes <= 20) hook += 8;
-    else { hookNotes.push(nRes ? `resultado de ${nRes} palabras (2 a 20)` : "sin resultado en el primer cuadro"); suggestions.push("Pon en `resultado` lo que la IA ya hizo, tal cual se ve en pantalla (2 a 20 palabras)."); }
+    if ((nRes >= 2 && nRes <= 20) || (!nRes && screen2)) hook += 8;
+    else { hookNotes.push(nRes ? `resultado de ${nRes} palabras (2 a 20)` : "sin resultado en el primer cuadro ni Screen en la escena 2"); suggestions.push("Muestra la IA en la escena 2 (Screen con app, prompt y respuesta) o pon en `resultado` lo que la IA ya hizo (2 a 20 palabras)."); }
     const app = txt(p.app).trim();
     const modo = txt(p.modo);
-    if (app && (modo === "aviso" || modo === "respuesta")) hook += 5;
+    if ((app && (modo === "aviso" || modo === "respuesta")) || (!nRes && screen2)) hook += 5;
     else { hookNotes.push("sin app + modo en la tarjeta"); suggestions.push("Indica `app` (la IA) y `modo` (aviso | respuesta) en el Hook."); }
     if (txt(p.highlight).trim()) hook += 4; else { hookNotes.push("sin palabra clave en lima"); suggestions.push("Define `highlight` para resaltar 1-2 palabras del titular."); }
     const nTit = palabras(title);

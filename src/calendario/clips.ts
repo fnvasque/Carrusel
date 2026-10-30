@@ -32,7 +32,9 @@ export const CLIP_SOMBRA_MIN = 0.3;
  * zona del subtítulo (`SUBTITULO_ZONA_ALTO` px de un reel de 1920, escalados al
  * alto real) con una rampa de CLIP_SOMBRA_ABAJO_RAMPA px hacia arriba. En blend
  * lighten la píldora tinta del subtítulo no se ve sobre un video: solo queda el
- * texto blanco, y necesita un video oscuro debajo para leerse.
+ * texto blanco, y necesita un video oscuro debajo para leerse. Se aplica también
+ * con los subtítulos apagados (por defecto desde 2026-11-02): la franja cubre la
+ * fuente al pie del Clip, que es texto blanco sobre el video y se lee mejor así.
  */
 export const CLIP_SOMBRA_ABAJO_MIN = 0.3;
 export const CLIP_SOMBRA_ABAJO_RAMPA = 100;

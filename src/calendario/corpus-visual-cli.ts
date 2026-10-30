@@ -31,7 +31,7 @@ process.env.CARRUSEL_AI_SOLO_CACHE = "1";
 process.env.CARRUSEL_AI_CACHE_DIR ??= join(homedir(), "Documents", "Claude", "Carrusel-render", ".cache", "ai");
 
 const { leerSemana, semanaDir } = await import("./plan.ts");
-const { ErrorClipFaltante, ErrorContenido, leerPuerta, leerVoz, renderPieza } = await import("./render.ts");
+const { ErrorClipFaltante, ErrorContenido, leerPuerta, leerSubtitulos, leerVoz, renderPieza } = await import("./render.ts");
 
 // Las pistas (promo/audio) no se versionan: viven en el clon del render del Mac, de solo lectura.
 const audioLocal = join(process.cwd(), "promo", "audio");
@@ -44,6 +44,7 @@ const avisar = async (t: string): Promise<void> => void console.warn(`⚠️  ${
 
 const puerta = await leerPuerta();
 const voz = await leerVoz(avisar);
+const subtitulos = await leerSubtitulos();
 const resultados: ResultadoCorpus[] = [];
 
 for (const semana of semanasPedidas) {
@@ -60,7 +61,7 @@ for (const semana of semanasPedidas) {
     let r: ResultadoCorpus;
     try {
       await renderPieza({ semana, pieza, borradorPath: join(semanaDir(semana), pieza.borrador) }, tmp, {
-        audioDir, puerta, voz, avisar, clipsDir, omitirScore: true,
+        audioDir, puerta, voz, subtitulos, avisar, clipsDir, omitirScore: true,
       });
       r = { semana, id: pieza.id, estado: "limpia", motivos: [] };
     } catch (e) {

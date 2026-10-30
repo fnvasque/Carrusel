@@ -37,7 +37,7 @@ export function Lead({ kicker, text, highlight, cursiva, accent: _accent, format
   const size = pickFill(
     [116, 108, 100, 92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
     (s) => (lines(s) > maxLines ? Infinity : (kicker ? 56 + 40 : 0) + lines(s) * s * lh),
-    contentHeight(format, base.source, base.narracion),
+    contentHeight(format, base.source, base.narracion, base.subtitulos),
     format,
   );
   return (

@@ -116,6 +116,9 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
      pieza cuenta **cómo la IA cambia ese tema** según su ángulo, con el dato
      de una referencia ("Los equipos que usan IA hacen reuniones más cortas: el
      dato", "Qué le pasa a tu memoria si la IA te recuerda todo").
+   **En reels, desde 2026-11-02, la IA se ve en la escena 2 (`Screen`) antes
+   del segundo 5:** la portada del reel ya no pinta la tarjeta de `resultado`;
+   la escena que sigue al `Hook` muestra a la IA respondiendo.
    Si el ángulo se sostiene sin la IA (el mito de los 21 días, lenguaje
    corporal, presupuesto 50-30-20), no es para esta cuenta: elige otro. Motivo:
    en la semana del 2026-10-12 la mitad de las piezas no trataba de IA y la
@@ -160,12 +163,20 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    de visionado medio, un título sobre fondo negro no retiene a nadie; una
    pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
    no se anuncia).
+   **Desde 2026-11-02 el `Hook` del reel va sin tarjeta** (pedido del usuario:
+   demasiado texto en la portada): `resultado`, `app` y `modo` dejan de ser
+   obligatorios en reels y, si vienen, no se pintan en el reel (sí en el post).
+   La IA se ve en la escena 2: pon una `Screen` justo después del `Hook`, con la
+   respuesta que antes iba en la tarjeta. El `title` sigue siendo la promesa
+   (≤ 7 palabras, mejor 6).
 9. **Todo reel se narra.** Desde 2026-10-19, cada slide de un reel lleva
    `narracion` (fuera de `props`, como `background`): lo que dice la voz
    mientras se ve esa escena, 3 a 24 palabras, en español neutro y hablado
    («Esto lo hizo ChatGPT solo, cada mes», no «ChatGPT: recordatorio
-   mensual»). La voz la pone el Mac (Kokoro, `config.json → voz`) y el texto
-   sale como subtítulo abajo; la escena dura lo que dura la voz. La narración
+   mensual»). La voz la pone el Mac (Kokoro, `config.json → voz`); desde el
+   2026-11-02 el texto **no** sale como subtítulo (`config.json → subtitulos`:
+   `false`), así que la voz completa lo que el titular no dice. La escena dura
+   lo que dura la voz. La narración
    del `Hook` dice el resultado en la primera frase; la del `Cta` pide el
    gesto. No repite palabra por palabra el texto en pantalla: lo explica.
    Ver "Narración" en el Paso 5. Motivo: los 15 reels de texto mudo sobre
@@ -217,7 +228,9 @@ Lee, en este orden (lo que no exista, sáltalo; las primeras semanas no habrá
 métricas):
 
 1. `_calendario/config.json` (mix, horas, pilares, hashtags, parámetros de la
-   puerta en `puerta`, `terminosTecnicos`, `audios`), `_calendario/lector-frio.md`
+   puerta en `puerta`, `terminosTecnicos`, `audios`, `voz` y `subtitulos`: la
+   voz de Kokoro y si el reel pinta la narración como subtítulo; `false` por
+   defecto desde el 2026-11-02, lo cambia solo el usuario), `_calendario/lector-frio.md`
    y las dos guías: `_calendario/guia-redaccion.md` (cómo se escribe cada
    escena) y `_calendario/guia-hooks.md` (qué está en juego para el público,
    los patrones de hook y el juez). Las dos son obligatorias en el Paso 5.
@@ -923,7 +936,8 @@ Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
 
 - **Hablada, no leída**: frases cortas de 3 a 24 palabras, con verbos, sin
   dos puntos ni listas. Se oye con la voz de `config.json → voz` (Kokoro, voz
-  masculina en español) y se ve como subtítulo abajo.
+  masculina en español). Desde el 2026-11-02 no se ve como subtítulo
+  (`config.json → subtitulos: false`): solo se oye.
 - **Dice más de lo que se ve.** El título de la escena es la idea; la voz la
   explica o da el detalle que no cabe en pantalla. Nunca lee el título tal
   cual.
@@ -1097,7 +1111,8 @@ Cuando el contenido **es** un video hecho con IA (serie `lo-probe-por-ti`:
 en Seedance", "tu idea en 10 segundos"), el reel no lo cuenta: lo muestra. La
 slide `Clip` reserva una escena entera para un clip a pantalla completa; el
 motor pinta solo el texto (titular arriba, `label` con el modelo y el costo,
-subtítulo de la narración abajo) y el Mac mezcla el video después del render.
+y, si `config.json → subtitulos` está encendido, el subtítulo de la narración
+abajo) y el Mac mezcla el video después del render.
 
 **Desde el 2026-10-26 el video con IA no es tema** (la producción de contenido
 automatizado salió del alcance): `Clip` sigue permitido como imagen dentro de
@@ -1155,7 +1170,8 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
 **Reel narrado** (`scoreReel`): mide las reglas duras 7 a 10.
 
 - **Hook (25)**: `resultado` de 2 a 20 palabras (8); `app` + `modo`
-  (`aviso` | `respuesta`) (5); `highlight` (4); titular con **pregunta,
+  (`aviso` | `respuesta`) (5) — sin `resultado`, una `Screen` completa en la
+  escena 2 da esos 13 puntos (desde 2026-11-02 el reel va así); `highlight` (4); titular con **pregunta,
   número o tensión** («sin», «no», «error», «nunca»; también «gratis», pero
   ya no es gancho para este público) (5); titular de 2 a 8 palabras (3).
 - **Narración (20)**: **todas** las escenas con `narracion` de 3 a 24 palabras
@@ -1219,7 +1235,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 
 | Plantilla | Obligatorias | Opcionales | Para qué |
 |---|---|---|---|
-| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `cursiva`, `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (obligatorios en reels, regla 8) | Portada: el resultado en el primer cuadro y la promesa debajo |
+| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `cursiva`, `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (tarjeta solo en el post; en reels obligatorios hasta el 2026-11-01, regla 8) | Portada: la promesa (en el post, con el resultado encima) |
 | `Lead` | `text` | `kicker`, `highlight`, `cursiva` | Una frase grande que abre o sostiene la tensión |
 | `Step` | `heading` | `step`, `highlight`, `cursiva`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
 | `Prompt` | `heading`, `prompt` | `note` | El prompt copiable (entregable) |

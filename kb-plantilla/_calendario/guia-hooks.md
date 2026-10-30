@@ -1,8 +1,9 @@
 # Guía de hooks
 
 Para el planificador (Paso 5 de `INSTRUCCIONES.md`). El hook es la portada: el
-título y el subtítulo del `Hook` y, en reels, el `resultado` que se ve en el
-primer cuadro. Decide si alguien se queda. Esta guía te dice qué le importa al
+título y el subtítulo del `Hook` (en reels hasta el 2026-11-01, también el
+`resultado` que se veía en el primer cuadro; desde el 2026-11-02 la portada del
+reel va sin tarjeta y la IA se ve en la escena 2). Decide si alguien se queda. Esta guía te dice qué le importa al
 público, qué patrones usar, cómo escribir los candidatos y qué hacer con la
 respuesta del juez. La última sección, «Para el juez», la copia el código en el
 mensaje del juez (`node _calendario/validar.mjs --juez <semana> <id>`): no le
@@ -106,10 +107,10 @@ calidad de lo que produce la IA encabeza las habilidades humanas, con 50 %).
   «saber cuándo firmar lo que hizo la IA»), no solo una función de la app.
 - **La IA se nombra en el `Hook`** (regla dura 6): «IA» o la herramienta en el
   título, el subtítulo o el fondo.
-- **Reels**: el título va debajo de la tarjeta, como pie de foto, y se lee en
-  3 s en ritmo gancho: **≤ 7 palabras, mejor 6**, sin subtítulo. El
-  `resultado` (≤ 20 palabras) es la prueba en pantalla: lo que la IA ya
-  respondió, tal cual. La promesa entera cabe en título + resultado.
+- **Reels**: el título se lee en 3 s en ritmo gancho: **≤ 7 palabras, mejor
+  6**, sin subtítulo. Desde el 2026-11-02 la portada del reel va sin tarjeta
+  de `resultado` (si viene, no se pinta en el reel): la prueba en pantalla es
+  la `Screen` de la escena 2, con lo que la IA respondió, tal cual.
 - **Carruseles**: título ≤ 12 palabras (`tituloMaxPalabras`) con la palabra
   clave al inicio; el subtítulo da la promesa si el título es pregunta o dato.
 - **Sin relleno ni hype** (`config.json → puerta.relleno`: «increíble», «muy»,

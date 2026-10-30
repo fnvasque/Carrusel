@@ -92,16 +92,24 @@ firma de la cuenta (`@ia.punto.es`; con la línea «Te ayudo a partir con la IA 
 En un reel, cada slide puede llevar `narracion`: lo que dice la voz mientras se
 ve esa escena. El motor la sintetiza en local con **Kokoro-82M** (voz en
 español, gratis; instala el venv con `scripts/kokoro-install.sh`), alarga la
-escena hasta que quepa la voz, la pinta como subtítulo sobre la fuente al pie y
-la mezcla con la música, que baja mientras se habla. Caché en `.cache/voz/`.
+escena hasta que quepa la voz y la mezcla con la música, que baja mientras se
+habla. Caché en `.cache/voz/`. **Sin subtítulos quemados por defecto** (desde el
+2026-11-02, pedido de Felipe: demasiado texto): cada escena muestra solo su
+titular y el contenido usa la altura que antes ocupaba la píldora. Con
+`--subtitulos` (o `subtitulos: true` en las props) la narración se pinta como
+píldora sobre la fuente al pie, un trozo a la vez al ritmo de la voz.
 
 ```bash
 npm run reel carousels/demo-chatgpt-pagos.ts -- --pace=gancho --audio=promo/audio/digital-clouds.mp3
 # --voz=em_alex|em_santa|ef_dora (por defecto em_alex) · --sin-voz para omitir la narración
+# --subtitulos para pintar la narración como subtítulo (por defecto apagado)
 ```
 
-En el calendario, la voz se elige en `_calendario/config.json → voz` y el
-planificador escribe `narracion` en cada slide del reel (manual: regla 9).
+En el calendario, la voz se elige en `_calendario/config.json → voz`, los
+subtítulos en `_calendario/config.json → subtitulos` (`false` por defecto; solo
+`true` los enciende) y el planificador escribe `narracion` en cada slide del
+reel (manual: regla 9). En el reel el `Hook` no pinta la tarjeta de
+`resultado` (en el post sí): la respuesta de la IA se ve en la escena 2.
 
 ### Marca (sistema visual ia.es)
 
@@ -114,7 +122,7 @@ Definido en `src/theme.ts` y `.context/design-brand.md`:
   iniciales de la firma. En la cabecera va la **serie** de la pieza; en el pie, la **firma** (`@ia.punto.es`, círculo
   tinta con «ia» en serif cursiva lima) y `n/total`. El cierre **PARTIR** se dibuja como un mensaje directo.
   Los reels con video de gancho (`hookVideo`) y los slides `Clip` van **sobre negro** (Hook oscuro, texto claro) para
-  mezclarse con el video; el subtítulo del reel es una pastilla y la barra de progreso es de tinta.
+  mezclarse con el video; el subtítulo del reel (apagado por defecto) es una pastilla y la barra de progreso es de tinta.
 - **Tipografía**: titulares en **Inter 700** (sin mayúsculas forzadas, tracking −0,04 em), frases en **Instrument
   Serif cursiva** (`cursiva`, `n/total`, iniciales), cuerpo en Inter y prompts en JetBrains Mono. Anton ya no se usa en las plantillas de marca (el archivo queda solo para la plantilla original Quote).
   Archivos en `src/fonts/`; logos en `src/assets/`.

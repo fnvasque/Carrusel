@@ -170,7 +170,8 @@ async function gsapScript(file: string): Promise<string> {
 
 /**
  * Arma la página única del reel: todas las escenas apiladas (una por slide, en
- * formato reel), la barra de progreso, GSAP + SplitText inline, los tiempos y
+ * formato reel; el subtítulo de la narración solo si la escena trae
+ * `subtitulos: true`), la barra de progreso, GSAP + SplitText inline, los tiempos y
  * el runtime que expone `window.__reel`. Los fondos `ai` deben venir ya resueltos.
  */
 export async function buildReelPage(spec: CarouselSpec, timing: ReelTiming, opts: { voces?: (VozEscena | undefined)[] } = {}): Promise<string> {
@@ -179,7 +180,9 @@ export async function buildReelPage(spec: CarouselSpec, timing: ReelTiming, opts
     .map((slide, i) => {
       const props = { ...spec.defaults, ...slide.props, format: "reel" as const };
       const markup = renderToStaticMarkup(createElement(slide.template, props));
-      return `<div data-scene="${i}" data-plantilla="${slide.template.name}" style="position:absolute;left:0;top:0;width:${width}px;height:${height}px;overflow:hidden;">${markup}${subtitulo(props.narracion, props.source, opts.voces?.[i])}</div>`;
+      // Subtítulo quemado solo con `subtitulos: true` (por defecto apagado: la voz va igual, sin texto abajo).
+      const sub = props.subtitulos === true ? subtitulo(props.narracion, props.source, opts.voces?.[i]) : "";
+      return `<div data-scene="${i}" data-plantilla="${slide.template.name}" style="position:absolute;left:0;top:0;width:${width}px;height:${height}px;overflow:hidden;">${markup}${sub}</div>`;
     })
     .join("");
   const [gsap, split, runtime] = await Promise.all([

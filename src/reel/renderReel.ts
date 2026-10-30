@@ -46,6 +46,12 @@ export interface RenderReelOptions {
   revision?: ModoRevision;
   /** Ritmo de lectura: alarga las escenas narradas hasta que se alcancen a leer (calendario). */
   lectura?: Lectura;
+  /**
+   * Subtítulos quemados de la narración (por defecto false desde 2026-11-02): con
+   * true cada escena narrada pinta su píldora y el contenido le deja espacio. No
+   * cambia la voz ni los tiempos.
+   */
+  subtitulos?: boolean;
 }
 
 /** Resultado del render: ruta del MP4 (o del directorio de escenas) y duración del reel. */
@@ -108,7 +114,8 @@ export async function renderReelResult(spec: CarouselSpec, opts: RenderReelOptio
       spec.slides.map(async (s) => {
         const props = { ...spec.defaults, ...s.props };
         const logo = opts.logoEnCuadro0 === false ? { logoEnCuadro0: false } : {};
-        return { ...s, props: { ...s.props, ...logo, background: await resolveBackground(props.background) } };
+        const subs = opts.subtitulos === true ? { subtitulos: true } : {};
+        return { ...s, props: { ...s.props, ...logo, ...subs, background: await resolveBackground(props.background) } };
       }),
     ),
   };

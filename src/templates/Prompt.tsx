@@ -31,7 +31,7 @@ const FILA = 29 + 20;
  */
 export function Prompt({ heading, prompt, note, accent: _accent, format = "post", ...base }: PromptProps) {
   const reel = format === "reel";
-  const available = contentHeight(format, base.source, base.narracion);
+  const available = contentHeight(format, base.source, base.narracion, base.subtitulos);
   // De la más grande a la más chica: las primeras llenan el área con un prompt
   // corto (heading mayor, tarjeta con más líneas de alto mínimo); las últimas
   // achican el código para que un prompt largo quepa.

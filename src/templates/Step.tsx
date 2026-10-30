@@ -104,7 +104,7 @@ export function Step({ step, heading, highlight, cursiva, body, bullets, accent:
   const hasBullets = !!bullets && bullets.length > 0;
   const reel = format === "reel";
   const keep = frasesNowrap(highlight, undefined, cursiva);
-  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, cursiva, body, bullets }, reel), contentHeight(format, base.source, base.narracion), format, STEP_REEL_FILL);
+  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, cursiva, body, bullets }, reel), contentHeight(format, base.source, base.narracion, base.subtitulos), format, STEP_REEL_FILL);
   const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 3, tight: reel, keep });
   return (
     <Frame format={format} {...base}>

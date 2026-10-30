@@ -42,6 +42,7 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["revision-visual-fase2", "2026-10-23"],
     ["pivote-coaching", "2026-11-02"],
     ["look-papel", "2026-11-02"],
+    ["reel-sin-subtitulos", "2026-11-02"],
     ["revision-visual-fase3", "2026-11-09"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));

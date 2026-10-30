@@ -1084,15 +1084,22 @@ function erroresDePastilla(props, senal) {
 /** Palabras máximas del `resultado` del Hook (una notificación o una respuesta corta, legible en 1 s). */
 const RESULTADO_MAX_PALABRAS = 20;
 const MODOS_RESULTADO = ["aviso", "respuesta"];
+/**
+ * Desde esta semana el Hook del reel va sin tarjeta de resultado (la plantilla la
+ * ignora en reel) y sin subtítulos quemados: la IA se ve en la escena 2 (`Screen`).
+ * Regla `reel-sin-subtitulos` de reglas.json (pedido de Felipe, 2026-10-29).
+ */
+export const DESDE_REEL_SIN_TARJETA = "2026-11-02";
 
 /**
  * `resultado` del Hook (el resultado en el primer cuadro): en reels, obligatorio
- * desde DESDE_NARRACION, con `app`; ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta.
+ * desde DESDE_NARRACION hasta antes de DESDE_REEL_SIN_TARJETA, con `app`;
+ * ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta. Si viene, siempre se valida.
  */
 function erroresDeResultado(props, p) {
   const errs = [];
   const r = props.resultado;
-  const exigido = p.formato === "reel" && typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION;
+  const exigido = p.formato === "reel" && typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION && p.dia < DESDE_REEL_SIN_TARJETA;
   if (r === undefined) return exigido ? [`falta resultado: desde el ${DESDE_NARRACION} el Hook del reel muestra en el primer cuadro lo que la IA ya hizo (resultado + app)`] : [];
   if (!esTexto(r)) errs.push("resultado debe ser un texto no vacío (lo que se ve en pantalla cuando la IA terminó)");
   else if (palabras(r).length > RESULTADO_MAX_PALABRAS) errs.push(`resultado tiene ${palabras(r).length} palabras (máximo ${RESULTADO_MAX_PALABRAS}: se lee de un vistazo)`);

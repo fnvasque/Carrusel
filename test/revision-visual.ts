@@ -192,8 +192,10 @@ try {
   });
   await caso("transición: reel de 2 escenas con strike y subtítulos no da transicion ni zona", async () => {
     const [myth, screen] = [smoke.slides.find((x) => x.template.name === "MythReality")!, smoke.slides.find((x) => x.template.name === "Screen")!];
+    // Con el interruptor `subtitulos` encendido (desde 2026-11-02 van apagados por defecto).
     const spec = {
       ...smoke,
+      defaults: { ...smoke.defaults, subtitulos: true },
       slides: [
         { ...myth, props: { ...myth.props, narracion: "La IA no piensa sola, hace lo que tú le pides." } },
         { ...screen, props: { ...screen.props, narracion: "Le escribes esto una vez y te lo recuerda todos los meses." } },
@@ -207,7 +209,8 @@ try {
   await caso("zona: Hook de habitos-no-son-21-dias (reel) no saca el subtítulo de la zona segura", async () => {
     const b = fixture("mie-reel-habitos-no-son-21-dias");
     const spec = borradorASpec(b, { format: "reel" });
-    const offline = { ...spec, defaults: flat(spec.defaults as any), slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
+    // Con el interruptor `subtitulos` encendido: es la zona del subtítulo la que se prueba.
+    const offline = { ...spec, defaults: { ...flat(spec.defaults as any), subtitulos: true }, slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
     const h = await reelDe(offline, specTiming(spec, { pace: b.pace }));
     assert.deepEqual(h, [], JSON.stringify(h));
   });

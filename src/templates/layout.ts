@@ -106,21 +106,24 @@ export function pickFill<T>(candidates: T[], height: (c: T) => number, available
 /**
  * Alto (px) que el subtítulo de la narración ocupa sobre la fuente al pie en el
  * reel (pastilla de ≤ 2 líneas a 44 px + separación): el contenido se centra
- * por encima para no pisarlo. Solo cuando la escena lleva `narracion`.
+ * por encima para no pisarlo. Solo con subtítulos encendidos y `narracion`.
  */
 export const SUBTITULO_RESERVA = 170;
 
-/** Reserva del subtítulo para una escena (0 en post o sin narración). */
-export function subtituloReserve(format: Format = "post", narracion?: string): number {
-  return format === "reel" && typeof narracion === "string" && narracion.trim() ? SUBTITULO_RESERVA : 0;
+/**
+ * Reserva del subtítulo para una escena: 0 en post, sin narración o con los
+ * subtítulos apagados (por defecto desde 2026-11-02: el contenido usa esa altura).
+ */
+export function subtituloReserve(format: Format = "post", narracion?: string, subtitulos = false): number {
+  return subtitulos === true && format === "reel" && typeof narracion === "string" && narracion.trim() ? SUBTITULO_RESERVA : 0;
 }
 
 /** Alto disponible para el bloque de contenido (descontando cabecera, fuente, firma, subtítulo y alza óptica). */
-export function contentHeight(format: Format = "post", source?: string, narracion?: string): number {
+export function contentHeight(format: Format = "post", source?: string, narracion?: string, subtitulos = false): number {
   const h = FORMATS[format].height;
   const padTop = format === "reel" ? REEL_SAFE_TOP : POST_PAD_Y;
   const padBottom = format === "reel" ? REEL_SAFE_BOTTOM : POST_PAD_Y;
-  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - firmaReserve(format) - subtituloReserve(format, narracion) - opticalLift(format);
+  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - firmaReserve(format) - subtituloReserve(format, narracion, subtitulos) - opticalLift(format);
 }
 
 /**
