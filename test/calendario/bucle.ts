@@ -573,6 +573,20 @@ check("construirBucle: `lectorFrio` agrupa los fallos del lector por causa, con 
   assert.deepEqual(construirBucle({ ahora: AHORA, instantaneas: [], registro: [], semanas: [], cuenta: {}, config: {} }).lectorFrio.causas, []);
 });
 
+check("construirBucle: `variante` llega a la fila desde el plan o, si el plan no la trae, desde el registro", () => {
+  const plan: Plan = {
+    semana: "2026-10-12", zona: "America/Santiago", experimento: null,
+    piezas: [{ id: "pz-1", formato: "carrusel", variante: "explicativo" } as unknown as Plan["piezas"][number]],
+  };
+  const semanas: SemanaLeida[] = [{ semana: "2026-10-12", plan, render: {}, estado: {} }];
+  const ii = [inst("1"), inst("2"), inst("3")];
+  const reg = [regl("1"), regl("2", { variante: "explicativo" }), regl("3")];
+  const b = construirBucle({ ahora: AHORA, instantaneas: ii, registro: reg, semanas, cuenta: {}, config: {} });
+  const v = Object.fromEntries(b.piezas.map((p) => [p.mediaId, p.variante]));
+  assert.deepEqual(v, { "1": "explicativo", "2": "explicativo", "3": undefined });
+  assert.ok(!JSON.stringify(b).includes('"variante":null'));
+});
+
 check("construirBucle: `piezas` trae la fila completa de 7 d de cada pieza medida, con hook y seguidores del día siguiente", () => {
   const plan: Plan = {
     semana: "2026-10-12", zona: "America/Santiago", experimento: null,

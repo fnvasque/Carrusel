@@ -33,6 +33,8 @@ export interface Medicion {
   arquetipo: string;
   hookCategoria: string;
   senal: Senal;
+  /** Variante de la pieza (`explicativo`), del plan o del registro; sin ella, la pieza es la normal de su formato. */
+  variante?: string;
   /** Valor de la señal objetivo en la ventana de medición (`valorSenal`): conteo o tasa según `modo`. Siempre finito. */
   valor: number;
   /** Con qué escala se midió `valor` (la retención siempre es razón: "tasa"). */
@@ -451,6 +453,7 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
   const params = new Map<string, Record<string, unknown>>();
   const hooks = new Map<string, string>();
   const formatos = new Map<string, string>();
+  const variantes = new Map<string, string>();
   for (const s of semanas) {
     for (const p of s.plan?.piezas ?? []) {
       if (!esObj(p)) continue;
@@ -458,6 +461,7 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
       if (esObj(p.parametros)) params.set(k, p.parametros);
       if (esObj(p.hook) && texto(p.hook.texto)) hooks.set(k, p.hook.texto);
       if (texto(p.formato)) formatos.set(k, p.formato);
+      if (texto(p.variante)) variantes.set(k, texto(p.variante));
     }
   }
 
@@ -493,6 +497,8 @@ export function medicionesDe(inst: Instantanea[], registro: Record<string, unkno
     if (hook) m.hookTexto = hook;
     const formato = formatos.get(k) ?? texto(r.formato);
     if (formato) m.formato = formato;
+    const variante = variantes.get(k) ?? texto(r.variante);
+    if (variante) m.variante = variante;
     if (esNum(r.predictedScore)) m.predictedScore = r.predictedScore;
     if (esNum(d.retencion)) m.retencion = d.retencion;
     if (esNum(i.reach)) m.reach = i.reach;
@@ -583,6 +589,8 @@ export interface PiezaBucle {
   mediaId?: string;
   publicadoEn?: string;
   formato?: string;
+  /** `explicativo` en el carrusel de láminas Concepto (para comparar carruseles con y sin ella). */
+  variante?: string;
   tema: string;
   arquetipo: string;
   senal: Senal;
@@ -801,7 +809,7 @@ export function construirBucle(e: EntradasBucle): BucleJson {
     .sort((a, b) => texto(a.publicadoEn).localeCompare(texto(b.publicadoEn)))
     .map((x) => {
       const fila: PiezaBucle = {
-        piezaId: x.piezaId, semana: x.semana, mediaId: x.mediaId, publicadoEn: x.publicadoEn, formato: x.formato,
+        piezaId: x.piezaId, semana: x.semana, mediaId: x.mediaId, publicadoEn: x.publicadoEn, formato: x.formato, variante: x.variante,
         tema: sinCorchetes(x.tema), arquetipo: x.arquetipo, senal: x.senal, hookCategoria: x.hookCategoria, hookTexto: x.hookTexto,
         predictedScore: x.predictedScore, valor: r4(x.valor), modo: x.modo,
         reach: x.reach, saved: x.saved, shares: x.shares, comments: x.comments, views: x.views, likes: x.likes, avgWatchMs: x.avgWatchMs,

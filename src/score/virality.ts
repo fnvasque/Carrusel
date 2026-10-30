@@ -42,6 +42,7 @@ const CONTENT_KEYS = [
   "title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker",
   "quote", "author", "myth", "reality", "reason", "note", "cta",
   "value", "label", "context", "prompt", "respuesta", "nota", "app", "resultado",
+  "titulo", "idea", "contraste", "enSimple",
 ];
 
 function templateName(slide: SlideSpec): string {
@@ -101,7 +102,8 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   const n = slides.length;
   if (n >= 6 && n <= 8) struct += 7;
   else { struct += n === 5 || n === 9 ? 3 : 0; structNotes.push(`${n} slides (ideal 6-8)`); if (n < 6) suggestions.push("Súbelo a 6-8 slides: da más valor guardable."); }
-  const hasReframe = slides.some((s) => /lead|mythreality/i.test(templateName(s)));
+  // Un Concepto con `contraste` (la distinción en negrita del carrusel explicativo) también replantea.
+  const hasReframe = slides.some((s) => /lead|mythreality/i.test(templateName(s)) || (/concepto/i.test(templateName(s)) && typeof (s.props as Record<string, unknown>).contraste === "string"));
   if (hasReframe) struct += 4; else { structNotes.push("sin reframe del dolor"); suggestions.push("Añade un slide de reframe (Lead/MythReality): dispara el compartir."); }
   const hasCta = slides.some((s) => /cta/i.test(templateName(s)));
   if (hasCta) struct += 4; else { structNotes.push("sin CTA"); suggestions.push("Cierra con un slide Cta (guardar/compartir)."); }
@@ -109,8 +111,9 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
   // --- Accionable + específico (20) ---
   const actNotes: string[] = [];
   let act = 0;
-  // Stat cuenta como slide de desarrollo (con número); Screen muestra la IA haciéndolo (prompt + respuesta).
-  const devSlides = slides.filter((s) => /step|prompt|stat|screen/i.test(templateName(s)));
+  // Stat cuenta como slide de desarrollo (con número); Screen muestra la IA haciéndolo (prompt + respuesta);
+  // Concepto es la lámina del carrusel explicativo (su `enSimple` lleva la acción).
+  const devSlides = slides.filter((s) => /step|prompt|stat|screen|concepto/i.test(templateName(s)));
   const actionable = devSlides.filter((s) => has(contentText(s), ACTION) || (/screen/i.test(templateName(s)) && typeof (s.props as Record<string, unknown>).prompt === "string")).length;
   const actScore = Math.min(8, actionable * 3);
   act += actScore;
@@ -136,6 +139,7 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
     const p = s.props as Record<string, unknown>;
     return (
       (typeof p.step === "string" && p.step) ||
+      (typeof p.numero === "string" && p.numero) ||
       (typeof p.mythLabel === "string" && /\d/.test(String(p.mythLabel))) ||
       (/stat/i.test(templateName(s)) && typeof p.value === "string" && /\d/.test(p.value))
     );

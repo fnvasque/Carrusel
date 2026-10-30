@@ -539,7 +539,7 @@ async function sinConfirmar(deps: SchedulerDeps, t: Tarea, f: Fila | undefined, 
   }
 }
 
-/** Línea `publicado` de registro.jsonl (T3; R23 agrega señal, tema, arquetipo, hookCategoria y formato). */
+/** Línea `publicado` de registro.jsonl (T3; R23 agrega señal, tema, arquetipo, hookCategoria y formato; `variante` si la pieza la trae). */
 async function lineaPublicado(
   deps: SchedulerDeps, semana: string, p: Pieza, mediaId: string, publicadoEn: string, render?: RenderEntry,
 ): Promise<Record<string, unknown>> {
@@ -549,6 +549,7 @@ async function lineaPublicado(
     ...(duracionMs !== undefined ? { duracionMs } : {}),
     ...(await datosDelBorrador(deps, semana, p)),
     senal: p.senal, tema: p.tema, arquetipo: p.arquetipo, hookCategoria: p.hook.categoria, formato: p.formato,
+    ...(p.variante ? { variante: p.variante } : {}),
   };
 }
 

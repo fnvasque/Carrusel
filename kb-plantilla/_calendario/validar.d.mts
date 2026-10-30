@@ -17,6 +17,11 @@ export declare function validarBorrador(pieza: unknown, borrador: unknown, confi
 export declare function reglasDeTexto(borrador: unknown, config: unknown, formato?: "reel" | "carrusel", dia?: string): string[];
 export declare const MITO_REALIDAD_MAX_PALABRAS: number;
 export declare const DESDE_MITO_CORTO: string;
+export declare const CONCEPTO_MAX_PALABRAS: { titulo: number; idea: number; enSimple: number; contraste: number };
+export declare const CONCEPTO_LAMINA_MAX_PALABRAS: number;
+export declare const CONCEPTO_POR_PIEZA: [number, number];
+export declare const VARIANTES: string[];
+export declare function semanaExplicativa(lunes: string, config: unknown): boolean;
 export declare function contarFondosIA(borradores: unknown[]): number;
 export declare function contarHookVideo(borradores: unknown[]): number;
 export declare function contarClips(borradores: unknown[]): number;

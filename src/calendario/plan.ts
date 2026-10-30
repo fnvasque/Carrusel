@@ -35,6 +35,8 @@ export interface Pieza {
   origen: { fichas: string[]; referencias: string[] };
   derivadoDe: string | null;
   serie?: string | null;
+  /** Variante de formato de la pieza (`explicativo`: carrusel de láminas Concepto); la valida validar.mjs. */
+  variante?: string;
   caption: string;
   borrador: string;
   estado: Estado;
@@ -126,6 +128,7 @@ const PiezaSchema = z.object({
   derivadoDe: z.string().nullable().default(null),
   /** Serie fija del reel (pivote 2026-10-17): hazlo-con-ia, criterio, lo-probe-por-ti desde 2026-10-26 (antes también gratis-vs-pago); validar.mjs decide cuáles valen. */
   serie: z.string().nullable().optional(),
+  variante: z.string().optional(),
   caption: z.string(),
   borrador: z.string(),
   estado: estadoEnum.default("planificado"),

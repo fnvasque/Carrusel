@@ -4,7 +4,7 @@ import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { htmlShell } from "../src/render/htmlShell.ts";
 import { findChromium } from "../src/render/renderSlide.ts";
-import { Hook, Lead, Step, Stat, Prompt, Screen, MythReality, Cta } from "../src/templates/index.ts";
+import { Hook, Lead, Step, Stat, Prompt, Screen, MythReality, Cta, Concepto } from "../src/templates/index.ts";
 import { FORMATS, type CarouselSpec, type Format } from "../src/templates/types.ts";
 import { REEL_SAFE_BOTTOM, REEL_SAFE_TOP } from "../src/templates/layout.ts";
 import smoke from "../carousels/_smoke-plantillas.ts";
@@ -13,6 +13,7 @@ import mentiras from "../carousels/mentiras-ia.ts";
 import video3 from "../carousels/video-3-segundos.ts";
 import escalera from "../carousels/escalera-dopamina.ts";
 import voz from "../carousels/voz-subtitulos-gratis.ts";
+import explicativo from "../carousels/ejemplo-explicativo.ts";
 
 /**
  * Límites del layout en Chromium real (sin ffmpeg), en post y reel: ningún
@@ -48,6 +49,9 @@ const stress: { name: string; template: ComponentType<any>; props: Record<string
   { name: "step-cita-3", template: Step, props: { step: "3", heading: "Cómo lo quieres", body: "«Directo y cercano, máximo 120 palabras.» Si tienes un correo anterior que te gustó, pégalo y pide que lo siga." } },
   { name: "screen-correo", template: Screen, props: { app: "Claude", heading: "Los 3 tips juntos, en un solo pedido", prompt: "Soy jefa de operaciones y escribo a mis 12 supervisores. Avisa que desde el lunes los turnos rotan cada dos semanas. Usa el estilo de este correo: [pegas tu correo]", respuesta: "Asunto: Rotación de turnos desde el lunes\nHola, equipo:\nDesde el lunes los turnos rotan cada dos semanas. Si tienen dudas, escríbanme antes del viernes.\nGracias,\nPaula", source: "Fuente: Anthropic, Claude 101 y guía de prompts; OpenAI y Google, guías de prompts" } },
   { name: "stat-contexto-cita", template: Stat, props: { value: "47%", label: "lo dice la encuesta", context: "«Reviso todo lo que me entrega la IA.»\nEs lo que más pesa, según Microsoft." } },
+  // Carrusel explicativo: lámina algo por sobre el tope del validador (63 palabras; máx. 60) y fuente de 2 líneas.
+  { name: "concepto-tope", template: Concepto, props: { index: 3, total: 7, numero: "3", titulo: "Pregúntale primero cómo puede ayudarte", highlight: "cómo puede ayudarte", idea: "No sabes qué pedirle, así que no le pides nada y sigues haciendo todo a mano.", contraste: "No necesitas saber qué pedirle. Necesitas contarle qué haces y qué te cuesta.", enSimple: "Yo le escribí: «Soy jefe de área. ¿En qué tareas de mi semana me puedes ayudar?». Copia esa pregunta con tu cargo y elige una de su lista.", source: SRC2 } },
+  { name: "concepto-sin-numero", template: Concepto, props: { titulo: "La IA no sabe quién eres", idea: "Te responde genérico.", enSimple: "Cuéntale tu cargo antes de preguntar.", rotulo: "" } },
   { name: "cta-emoji", template: Cta, props: { title: "Guárdalo antes de editar", highlight: "Guárdalo", reason: "Tu checklist para los primeros 3 segundos.", handle: "ia.punto.es", cta: "Guardar 🔖" } },
 ];
 
@@ -86,7 +90,7 @@ function offline(props: Record<string, any>): Record<string, any> {
 }
 
 const cases: { name: string; template: ComponentType<any>; props: Record<string, unknown> }[] = [...stress];
-for (const spec of [smoke, estudiar, mentiras, video3, escalera, voz] as CarouselSpec[]) {
+for (const spec of [smoke, estudiar, mentiras, video3, escalera, voz, explicativo] as CarouselSpec[]) {
   spec.slides.forEach((s, i) => cases.push({ name: `${spec.name} #${i + 1}`, template: s.template, props: offline({ ...spec.defaults, ...s.props }) }));
 }
 
