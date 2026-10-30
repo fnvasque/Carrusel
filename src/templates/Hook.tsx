@@ -57,6 +57,8 @@ const TITLE_LH = 1.0;
  */
 export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, titleSize, swipe = true, resultado, app, modo = "aviso", format, accent: _accent, firmaLinea, ...base }: HookProps) {
   const reel = format === "reel";
+  // Con hookVideo el reel mezcla un video debajo (lighten): escena negra con texto claro.
+  const oscuro = base.oscuro === true;
   const conResultado = typeof resultado === "string" && resultado.trim().length > 0;
   const cardW = CONTENT_WIDTH;
   const cardH = conResultado ? resultadoHeight(resultado, reel, cardW) + (reel ? 48 : 36) : 0;
@@ -91,7 +93,7 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
   return (
     <Frame format={format} firmaLinea={firmaLinea ?? !reel} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 36 }}>
-        {eyebrow && <Kicker anim="rise">{eyebrow}</Kicker>}
+        {eyebrow && <Kicker anim="rise" style={oscuro ? { color: "rgba(255,255,255,0.85)" } : undefined}>{eyebrow}</Kicker>}
         {conResultado && (
           // Visible desde el cuadro 0 (sin data-anim): el resultado es lo primero que se ve.
           <div
@@ -123,15 +125,16 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
           data-anim="words"
           style={{
             ...titular,
+            ...(oscuro ? { color: "#FFFFFF" } : {}),
             fontSize: titleFont,
             lineHeight: lh,
             textWrap: "balance",
           }}
         >
-          {highlightText(title, highlight, theme.colors.accent, mark, theme.colors.ink, cursiva)}
+          {highlightText(title, highlight, theme.colors.accent, mark, oscuro ? theme.colors.pink : theme.colors.ink, cursiva)}
         </h1>
         {subtitle && (
-          <p data-anim="rise" style={{ margin: 0, maxWidth: 820, fontFamily: theme.fonts.body, fontWeight: 400, fontSize: subSize, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
+          <p data-anim="rise" style={{ margin: 0, maxWidth: 820, fontFamily: theme.fonts.body, fontWeight: 400, fontSize: subSize, lineHeight: 1.3, color: oscuro ? "rgba(255,255,255,0.85)" : theme.colors.textSoft, textWrap: "pretty" }}>
             {subtitle}
           </p>
         )}

@@ -21,6 +21,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const SUBTITULO_BOTTOM = REEL_SAFE_BOTTOM + 60;
 /** Tamaño (px) del subtítulo y palabras / caracteres máximos por trozo (como en el cine: una frase, ≤ 2 líneas). */
 export const SUBTITULO_SIZE = 54;
+/** Relleno vertical (px) de la píldora. */
+export const SUBTITULO_PILDORA_PAD = 10;
+/** Alto (px) de la píldora de 2 líneas: 2 × interlineado + relleno vertical (ver `subtitulo`). */
+export const SUBTITULO_PILDORA_ALTO = Math.round(SUBTITULO_SIZE * 1.2 * 2) + 2 * SUBTITULO_PILDORA_PAD;
+/**
+ * Zona del subtítulo medida desde abajo (px de 1920): hasta el techo de la píldora
+ * de 2 líneas más un margen; la mezcla de Clip oscurece el video ahí (`clips.ts`),
+ * porque en blend lighten la píldora tinta no se ve sobre un video.
+ */
+export const SUBTITULO_ZONA_ALTO = SUBTITULO_BOTTOM + SUBTITULO_PILDORA_ALTO + 60;
 export const SUBTITULO_MAX_PALABRAS = 10;
 export const SUBTITULO_MAX_CHARS = 48;
 
@@ -137,7 +147,7 @@ export function subtitulo(narracion: unknown, source?: unknown, voz?: VozEscena)
   if (typeof narracion !== "string" || !narracion.trim()) return "";
   const bottom = SUBTITULO_BOTTOM + sourceReserve(typeof source === "string" ? source : undefined);
   const estilo =
-    `position:absolute;left:0;right:0;margin:0 auto;width:fit-content;max-width:960px;box-sizing:border-box;padding:10px 32px;border-radius:44px;` +
+    `position:absolute;left:0;right:0;margin:0 auto;width:fit-content;max-width:960px;box-sizing:border-box;padding:${SUBTITULO_PILDORA_PAD}px 32px;border-radius:44px;` +
     `background:rgba(17,17,17,0.88);` +
     `font-family:${theme.fonts.body},system-ui,sans-serif;font-weight:600;font-size:${SUBTITULO_SIZE}px;line-height:1.2;color:#FFFFFF;` +
     `text-align:center;text-wrap:balance;letter-spacing:-0.005em;`;

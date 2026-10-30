@@ -3,9 +3,11 @@ import { check } from "../_check.ts";
 import { reelTiming } from "../../src/reel/timing.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { Clip, Step, Cta } from "../../src/templates/index.ts";
+import { Clip, Hook, Step, Cta } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
-import { ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, CLIP_SOMBRA_ALTO, CLIP_SOMBRA_MIN, archivoClipError, clipsFaltantes, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
+import { SUBTITULO_BOTTOM, SUBTITULO_ZONA_ALTO } from "../../src/reel/page.ts";
+import { borradorASpec } from "../../src/calendario/draft.ts";
+import { CLIP_SOMBRA_ABAJO_MIN, CLIP_SOMBRA_ABAJO_RAMPA, ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, CLIP_SOMBRA_ALTO, CLIP_SOMBRA_MIN, archivoClipError, clipsFaltantes, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -95,4 +97,34 @@ check("Clip: fondo negro (el blend lighten lo necesita) y cabecera, firma y titu
   const serie = /data-brand="serie"[^>]*style="([^"]*)"/.exec(h)![1];
   assert.ok(serie.includes("color:#FFFFFF"), "serie en blanco sobre el video");
   assert.ok(/data-brand="firma".*?color:#FFFFFF/s.test(h), "nombre de la firma en blanco");
+});
+
+check("filtroClips: la máscara también oscurece la franja del subtítulo (derivada de las constantes del reel)", () => {
+  const f = filtroClips([{ escena: 0, archivo: "a.mp4", inicio: 0, fin: 2 }], DIM);
+  const y0 = 1920 - SUBTITULO_ZONA_ALTO;
+  assert.ok(SUBTITULO_ZONA_ALTO > SUBTITULO_BOTTOM, "la franja cubre la píldora, no solo su base");
+  assert.ok(f.includes(`gt(Y,${y0}),${CLIP_SOMBRA_ABAJO_MIN}`), "bajo y0 el clip se multiplica por el mínimo");
+  assert.ok(f.includes(`gt(Y,${y0 - CLIP_SOMBRA_ABAJO_RAMPA})`), "con rampa hacia arriba");
+  // A media escala (540×960) la franja se escala con el alto.
+  const m = filtroClips([{ escena: 0, archivo: "a.mp4", inicio: 0, fin: 2 }], { width: 540, height: 960, fps: 30 });
+  assert.ok(m.includes(`gt(Y,${960 - Math.round(SUBTITULO_ZONA_ALTO / 2)}),`));
+});
+
+check("Hook con hookVideo en el reel va oscuro (el video se mezcla debajo en lighten); sin hookVideo o en carrusel, papel", () => {
+  const b: any = {
+    name: "t", serie: "por-donde-partir",
+    slides: [
+      { template: "Hook", props: { title: "Esto cambia tu trabajo", highlight: "trabajo" } },
+      { template: "Cta", props: { title: "Guárdalo", reason: "Para después", handle: "@x" } },
+    ],
+    hookVideo: { prompt: "a".repeat(60) },
+  };
+  const reel = borradorASpec(b, { format: "reel" });
+  assert.equal(reel.slides[0].props.oscuro, true);
+  assert.equal(reel.slides[1].props.oscuro, undefined);
+  const h = renderToStaticMarkup(createElement(Hook, reel.slides[0].props as any));
+  assert.ok(h.includes("data-oscuro") && h.includes("background-color:#000000"));
+  assert.equal(borradorASpec(b, { format: "post" }).slides[0].props.oscuro, undefined);
+  const { hookVideo: _h, ...sin } = b;
+  assert.equal(borradorASpec(sin, { format: "reel" }).slides[0].props.oscuro, undefined);
 });

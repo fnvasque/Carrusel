@@ -70,6 +70,11 @@ export interface BaseSlideProps {
    * acepta para que los borradores y el calendario antiguos sigan validando.
    */
   logoEnCuadro0?: boolean;
+  /**
+   * Reel: la escena va sobre fondo negro con texto claro porque un video se mezcla debajo en
+   * blend `lighten` (Clip; el Hook de un reel con `hookVideo`). Lo marca el calendario, no el usuario.
+   */
+  oscuro?: boolean;
   /** Serie de la pieza (`por-donde-partir`, `lo-que-construi`): su nombre va en la cabecera izquierda. */
   serie?: string;
   /** Post: la firma del pie lleva debajo la línea de la cuenta (`theme.firma.linea`). Por defecto false. */

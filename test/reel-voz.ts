@@ -173,11 +173,12 @@ check("voz: VOZ_DEFECTO es em_alex, parseVoz acepta las 3 de Kokoro y rechaza el
   assert.equal(segundosEstimados("Hola"), 1.0, "mínimo 1 s");
 });
 
-await done();
-
 check("applyBrandStyle: el fondo IA pide papel gris cálido claro, no el casi negro del look lima", () => {
   const p = applyBrandStyle("escritorio");
   assert.ok(p.includes("light warm grey paper"), "papel gris cálido claro");
   assert.ok(!/near-black|#06060A/i.test(p), "sin el fondo casi negro");
   assert.equal(applyBrandStyle("escritorio", false), "escritorio");
 });
+
+await done();
+

@@ -31,7 +31,7 @@ export function Clip({ title, highlight, label, archivo, accent, format, ...base
   const lime = accent ?? theme.colors.accent;
   const size = fitDisplaySize(title, 150, { maxLines: 3, tight: true, keep: frasesNowrap(highlight) });
   return (
-    <Frame format={format} {...base} oscuro color="#FFFFFF" style={{ backgroundColor: "#000000" }}>
+    <Frame format={format} {...base} oscuro>
       <div data-clip={archivo} style={{ display: "flex", flexDirection: "column", justifyContent: "flex-start", flex: 1, gap: 28, paddingTop: 120 }}>
         {label && (
           <MonoLabel anim="rise" color={lime}>

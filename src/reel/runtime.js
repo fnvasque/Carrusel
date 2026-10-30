@@ -401,6 +401,17 @@ document.fonts.ready.then(function () {
       const real = function (at) { return offset + at / scale; };
       const end = s.start + s.dur;
       ctx.post.forEach(function (place) { place(real, end, offset); });
+      // Escena oscura (Clip, hook con video): el video se mezcla en lighten y se tragaría
+      // la barra tinta; mientras dura la escena la barra va blanca.
+      if (scene.querySelector("[data-oscuro]")) {
+        const barra = document.querySelector("[data-reel-progress]");
+        if (barra) {
+          master.set(barra, { backgroundColor: "#FFFFFF" }, i === 0 ? 0 : +s.start.toFixed(4));
+          // Si la escena siguiente también es oscura, la barra sigue blanca (el solape no la pisa).
+          const sig = scenes[i + 1];
+          if (!(sig && sig.querySelector("[data-oscuro]"))) master.set(barra, { backgroundColor: "#111111" }, +end.toFixed(4));
+        }
+      }
       // Cursor: oculto hasta que termina de escribirse; luego on/off cada
       // CARET_BLINK s hasta el fin de la escena (sets: sin easing).
       ctx.carets.forEach(function (c) {

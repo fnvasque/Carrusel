@@ -58,7 +58,7 @@ export function Frame({
   firmaLinea?: boolean;
   /** Reel: la escena lleva subtítulo de narración; el contenido deja su espacio (`SUBTITULO_RESERVA`). */
   narracion?: string;
-  /** Escena sobre fondo oscuro (Clip, que se mezcla con video): la cabecera, la firma y la fuente van en claro. */
+  /** Escena sobre negro (se mezcla con video en blend lighten: Clip, Hook con hookVideo): fondo negro, texto, cabecera, firma y fuente en claro; la barra de progreso va blanca mientras dura. */
   oscuro?: boolean;
   style?: CSSProperties;
   children: ReactNode;
@@ -69,6 +69,7 @@ export function Frame({
   const pagina = typeof index === "number" && typeof total === "number" ? `${index}/${total}` : undefined;
   return (
     <div
+      {...(oscuro ? { "data-oscuro": "" } : {})}
       style={{
         position: "relative",
         width: dim.width,
@@ -82,8 +83,8 @@ export function Frame({
         // En Reel, reserva la zona segura inferior (UI de IG) sin tapar el contenido.
         paddingBottom: reel ? REEL_SAFE_BOTTOM : POST_PAD_Y,
         fontFamily: fontFamily ?? theme.fontFamily,
-        color: color ?? theme.colors.text,
-        backgroundColor: theme.colors.bg,
+        color: color ?? (oscuro ? "#FFFFFF" : theme.colors.text),
+        backgroundColor: oscuro ? "#000000" : theme.colors.bg,
         // En Reel el fondo va en una capa animable (data-anim="bg"); en post, en la raíz.
         ...(reel ? {} : backgroundStyle(background)),
         ...style,

@@ -6,7 +6,7 @@ import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GAN
 import { findChromium } from "../src/render/renderSlide.ts";
 import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
 import { forceCaretsOn } from "../src/reel/capture.ts";
-import { Stat, Step, Hook, Screen } from "../src/templates/index.ts";
+import { Stat, Step, Hook, Screen, Clip } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import spec from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
@@ -701,6 +701,32 @@ try {
     await g.close();
     assert.equal(GANCHO.arranque, 0.2);
     console.log(`✓ ritmo gancho: hook ≤ 3 s en movimiento desde el cuadro 0, transición 0.3, cierre lento (${t.total}s)`);
+  }
+
+  // Barra de progreso: tinta sobre el papel, blanca mientras dura una escena oscura (Clip o Hook con video,
+  // que se mezclan en lighten y se tragarían la tinta).
+  {
+    const spec = {
+      name: "_barra-oscura",
+      slides: [
+        { template: Hook, props: { title: "Primero", highlight: "Primero", oscuro: true } },
+        { template: Clip, props: { title: "Un clip", archivo: "a.mp4" } },
+        { template: Hook, props: { title: "Último", highlight: "Último" } },
+      ],
+    } as unknown as CarouselSpec;
+    const { page: b, timing: tb } = await open(browser, spec);
+    const color = (t: number) =>
+      b.evaluate((x) => {
+        (window as any).__reel.seek(x);
+        return getComputedStyle(document.querySelector("[data-reel-progress]")!).backgroundColor;
+      }, t);
+    const sc = tb.scenes;
+    assert.equal(await color(0.5), "rgb(255, 255, 255)", "sobre el Hook oscuro, blanca");
+    assert.equal(await color(sc[1].start + 0.01), "rgb(255, 255, 255)", "en el solape Hook oscuro → Clip sigue blanca");
+    assert.equal(await color(sc[1].start + sc[1].dur / 2), "rgb(255, 255, 255)", "sobre el Clip, blanca");
+    assert.equal(await color(sc[2].start + sc[2].dur / 2), "rgb(17, 17, 17)", "de vuelta en papel, tinta");
+    await b.close();
+    console.log("✓ barra de progreso: tinta sobre papel y blanca sobre escenas oscuras");
   }
 
   // logoEnCuadro0: false ya no tiene efecto (sin wordmark): el reel renderiza igual, sin logo.

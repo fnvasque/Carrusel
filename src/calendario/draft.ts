@@ -162,7 +162,9 @@ export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): Caro
     // La narración solo tiene sentido en el reel (voz + subtítulo); el carrusel la ignora.
     const n = validated.slides[i].narracion;
     const narracion = opts.format === "reel" && typeof n === "string" && n.trim() ? { narracion: n.replace(/\s+/g, " ").trim() } : {};
-    return { ...s, props: { ...s.props, ...handle, ...narracion, ...(background ? { background } : {}) } };
+    // Con `hookVideo`, el Hook del reel va oscuro: el video se mezcla debajo en blend lighten.
+    const oscuro = opts.format === "reel" && i === 0 && b.hookVideo !== undefined ? { oscuro: true } : {};
+    return { ...s, props: { ...s.props, ...handle, ...narracion, ...oscuro, ...(background ? { background } : {}) } };
   });
   return {
     name: slugify(validated.name),
