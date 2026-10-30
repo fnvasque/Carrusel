@@ -39,9 +39,19 @@ nueva: es ver a alguien como él dar el primer paso y saber cuál sería el suyo
 Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
 Donde esta sección choque con el resto de la guía, manda esta.
 
-- **Primera persona singular.** Habla quien ya pasó por eso: «yo partí por
-  aquí», «a mí me pasó», «armé». Nunca «tú deberías» ni la voz de experto que
-  enseña desde arriba.
+- **La portada le habla al lector; el cuerpo va en primera persona** (desde el
+  2026-10-31). El título nombra la situación o el resultado **del lector**
+  («tu informe al jefe», «tu primera tarea con IA»), en «tú» o impersonal, y
+  la IA que lo hace; «te muestro» vale. Desde la escena 2 habla quien ya dio
+  el paso: «le pedí», «pegué mis notas», «armé». Nunca una confesión sin
+  resultado en el título («Nunca supe qué pedirle a la IA», «Corregía a la IA
+  en cada chat»): el lector con prisa ve solo el título y no sabe qué gana. Ni
+  «tú deberías» ni la voz de experto que enseña desde arriba.
+- **La promesa va en el título, no en el subtítulo.** El lector con prisa
+  (pregunta 7 del lector frío) y la pregunta 3 del juez miran solo el título:
+  tiene que decir **qué consigues y con qué IA**. El subtítulo amplía (cómo,
+  cuánto), no carga la promesa. Y promete solo lo que la pieza muestra: si
+  muestra un truco, no prometas «todo lo que la IA puede hacer por ti».
 - **Nivel cero.** Como máximo **un** término técnico en la portada, y la pieza
   lo explica. Si el hook necesita saber qué es un agente, un prompt o una API,
   reescríbelo.
@@ -49,21 +59,28 @@ Donde esta sección choque con el resto de la guía, manda esta.
   «pregúntale a la IA cómo ayudarte»: el primer paso es pequeño y se puede dar
   hoy.
 - **Por serie:** en `por-donde-partir` el hook nombra el primer paso concreto
-  y lo que se consigue con él; en `lo-que-construi` cuenta una decisión o un
-  error real del sistema que arma esta cuenta, con su número honesto, y lo que
-  te llevas es lo que se aprendió.
-- **La regla dura 8 sigue:** el título o el `resultado` dicen qué te llevas.
+  y lo que el lector consigue con él; en `lo-que-construi` la pieza cuenta una
+  decisión o un error real del sistema que arma esta cuenta, con su número
+  honesto, pero la portada promete la lección **para el trabajo del lector**,
+  no la historia del sistema.
+- **La regla dura 8 sigue:** el título dice qué te llevas y con qué IA.
 
-Tres hooks de ejemplo (los dos primeros son reels, ≤ 7 palabras; el tercero,
-carrusel, ≤ 12):
+Hooks de ejemplo (reels publicados el 2026-10-31 y el 2026-11-01; título
+≤ 7 palabras, título + subtítulo ≤ 12):
 
-- «Mis 6 informes pendientes: ahora los escucho» (`por-donde-partir`,
-  `resultado` «Resumen de audio listo: mis 6 informes pendientes.», app Gemini
-  Notebook).
-- «Armé agentes que publican solos: 1 guardado» (`lo-que-construi`: 27 piezas
-  publicadas y 1 guardado, y lo que eso enseñó).
-- «No sabía qué era un agente hasta que le pregunté a la IA»
-  (`por-donde-partir`: la pregunta que hizo clic, con lo que respondió).
+- «ChatGPT elige tu primera tarea con IA» + «Solo responde 3 preguntas»
+  (`por-donde-partir`: le pides a ChatGPT que te haga 3 preguntas y te dice
+  por dónde partir).
+- «Informe al jefe: ChatGPT ordena tus notas» + «En logros, trabas y pedidos»
+  (`por-donde-partir`: pegas tus notas de la semana y ChatGPT las ordena).
+
+Y los que el usuario rechazó el 2026-10-30 aunque el juez les dio 8:
+
+- **Mal:** «Nunca supe qué pedirle a la IA» + «Así partí: que me preguntara».
+  Es mi confesión, no tu promesa: solo con el título no sabes qué ganas.
+- **Mal:** «“¿Cómo va tu área?” Informe listo» + «Mis notas, ordenadas por
+  ChatGPT». «Informe listo» no dice qué informe ni con qué: la promesa quedó en
+  el subtítulo.
 
 **Lo que ya no va:**
 
@@ -107,8 +124,10 @@ calidad de lo que produce la IA encabeza las habilidades humanas, con 50 %).
   «saber cuándo firmar lo que hizo la IA»), no solo una función de la app.
 - **La IA se nombra en el `Hook`** (regla dura 6): «IA» o la herramienta en el
   título, el subtítulo o el fondo.
-- **Reels**: el título se lee en 3 s en ritmo gancho: **≤ 7 palabras, mejor
-  6**, sin subtítulo. Desde el 2026-11-02 la portada del reel va sin tarjeta
+- **Reels**: título **≤ 7 palabras, mejor 6**. Con voz (ritmo gancho, hook de
+  3 s) va sin subtítulo; sin voz (`config.voz` false, ritmo ensenar, hook de
+  5 s) el subtítulo amplía la promesa y título + subtítulo suman ≤ 12
+  palabras. Desde el 2026-11-02 la portada del reel va sin tarjeta
   de `resultado` (si viene, no se pinta en el reel): la prueba en pantalla es
   la `Screen` de la escena 2, con lo que la IA respondió, tal cual.
 - **Carruseles**: título ≤ 12 palabras (`tituloMaxPalabras`) con la palabra
@@ -129,7 +148,9 @@ calidad de lo que produce la IA encabeza las habilidades humanas, con 50 %).
    al mismo contenido.
 3. Cada candidato es la **portada completa** que vería el lector:
    - carrusel: `title` y, si lo usa, `subtitle`;
-   - reel: `title` y `resultado` (sin `subtitle`);
+   - reel: `title` y, si lo usa, `subtitle` (el `resultado` ya no se pinta en
+     el reel y el juez no lo ve; igual va en el candidato porque el post sí lo
+     muestra);
    - reel con portada `Clip`: solo `title` (el video es el resultado).
 4. Todos cumplen las reglas de arriba: si ganara cualquiera, se publicaría tal
    cual. No metas un candidato «de relleno» que no publicarías.
@@ -144,7 +165,7 @@ calidad de lo que produce la IA encabeza las habilidades humanas, con 50 %).
    `title`, `subtitle` y `resultado`, letra por letra. El validador los
    compara.
 
-Si el juez no le da 8 o más a ninguno, escribe **una ronda más** de 8 a 10
+Si la nota del juez queda bajo `puerta.hookUmbral`, escribe **una ronda más** de 8 a 10
 candidatos nuevos con lo que aprendiste de sus respuestas (qué no paró el
 pulgar, qué creyó que se llevaba). Esa ronda cuenta como una vuelta de
 `reescriturasMax`. Si tampoco pasa, la pieza se quita y queda el hueco, como
@@ -305,16 +326,17 @@ te llevas; el 1 es claro pero plano. Así se ve el resultado en `plan.json`
 
 Eres el juez de los hooks de una cuenta de Instagram sobre IA aplicada al trabajo. Tu lector es un profesional de cargo medio (jefe de área, coordinador, gerente de primera línea), no programador, que nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde partir. No sabe qué es un agente ni qué pedirle a la IA, y le da algo de miedo quedarse atrás en su trabajo. Le sirve ver un primer paso concreto que puede dar hoy; la jerga, las listas de herramientas y el alarmismo no.
 
-Verás una lista numerada de candidatos de hook (título, a veces subtítulo y resultado en pantalla). No sabes de dónde salieron ni qué patrón siguen. Para CADA candidato responde tres preguntas, como ese lector yendo con el pulgar por el feed:
+Verás una lista numerada de candidatos de hook: el título y, si lo hay, el subtítulo, tal como se ven en la portada. No sabes de dónde salieron ni qué patrón siguen. Para CADA candidato responde cuatro preguntas, como ese lector yendo con el pulgar por el feed:
 
 1. ¿Pararías el pulgar?
 2. ¿Te importa para tu trabajo?
-3. ¿Qué crees que te llevas?
+3. Mira **solo el título**, sin el subtítulo: solo con lo que dice, ¿qué consigues y con qué IA? No completes ni supongas lo que no está escrito. Si el título no dice qué consigues, responde exactamente "no sé".
+4. Con título y subtítulo, ¿qué crees que te llevas?
 
-Luego elige el mejor y ponle una nota de 0 a 10 (un hook que no pararía el pulgar de ese lector no pasa de 7).
+Luego elige el mejor y ponle una nota de 0 a 10. No puedes elegir un candidato que no pararía el pulgar ni uno con "no sé" en la pregunta 3. Si ninguno cumple las dos cosas, elige el menos malo y ponle 0.
 
 Responde SOLO con JSON, sin texto antes ni después ni cercos de código:
 
-{ "elegido": n, "nota": 0-10, "porCandidato": { "1": { "pulgar": "sí|no", "importa": "sí|no", "teLlevas": "…" } } }
+{ "elegido": n, "nota": 0-10, "porCandidato": { "1": { "pulgar": "sí|no", "importa": "sí|no", "soloTitulo": "…", "teLlevas": "…" } } }
 
 `elegido` es el número del candidato tal como aparece en la lista (el primero es 1, no 0); se guarda tal cual en `hook.juez.elegido`. No abras ni busques ningún archivo.
