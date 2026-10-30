@@ -32,15 +32,17 @@ function displayEm(ch: string): number {
 
 /**
  * Ancho estimado (px) de `word` en Inter 700 a `size` px, con 4 % de holgura. Con
- * `tight` (lo usa el reel) se estima más ajustado (−5 %), más cerca del ancho
- * medido: en el 9:16 sobra alto y la holgura del post dejaba bloques chicos.
- * Excepción: entre palabras, `estimateLines` con `tight` no usa este −5 % para el
- * espacio sino su ancho medido, `DISPLAY_ESPACIO_EM`.
+ * `tight` (lo usa el reel) la holgura baja a 3 %: medido en Chromium contra el
+ * corte real de 17 titulares a 72–180 px (2026-10-29), la tabla de `displayEm`
+ * acierta en promedio (real/estimado 1,01, ±7 % por palabra) y con −5 % (el
+ * valor de cuando el titular era Anton) el reel subestimaba 15 de 102 casos en
+ * una línea; con +3 %, ninguno. El espacio entre palabras con `tight` se toma
+ * con su ancho medido, `DISPLAY_ESPACIO_EM`, sin holgura.
  */
 function wordWidth(word: string, size: number, tight = false): number {
   let em = 0;
   for (const ch of word) em += displayEm(ch);
-  return em * size * (tight ? 0.95 : 1.04);
+  return em * size * (tight ? 1.03 : 1.04);
 }
 
 /** Ancho medido (em) del espacio de Inter 700 con −0,04 em, para la estimación ajustada del reel. */
@@ -75,7 +77,7 @@ export function estimateLines(text: string, size: number, width: number = CONTEN
   const ws = words(text, tight ? keep : undefined);
   if (ws.length === 0) return 0;
   // El espacio se usa con su ancho medido (no −5 %): con «tight» una línea que no cabía parecía
-  // caber (corpus 2026-10-23, «POR QUÉ LOS», cuando el titular aún era Anton).
+  // caber (corpus 2026-10-23, «POR QUÉ LOS»).
   const space = tight ? DISPLAY_ESPACIO_EM * size : wordWidth(" ", size);
   let lines = 1;
   let x = 0;
@@ -116,41 +118,41 @@ export function fitDisplaySize(
 }
 
 /**
- * Interlineado mínimo de un titular Anton con tildes (Á É Í Ó Ú Ü Ñ). Medido en
- * Chromium: la tilde sube 1,101 em sobre la línea base; con 0,04 em de aire
- * no pisa la línea de arriba.
+ * Interlineado de los titulares Inter 700 (look papel). Medido en Chromium
+ * (headless shell 1248) con Inter-700.woff2 e InstrumentSerif-400-italic.woff2,
+ * en em: la tilde de una mayúscula (Á É Í Ó Ú Ü Ñ) sube 0,949 sobre la línea
+ * base y la de una minúscula 0,767; bajan de la línea base g 0,216, p q j 0,204,
+ * y 0,208, @ 0,209, la coma y el punto y coma 0,193 y el paréntesis 0,136. La
+ * frase en serif cursiva (×1,13) baja hasta 0,216 × 1,13 = 0,244 (g, Q, y).
+ *
+ * - Minúscula con tilde bajo un descendente de la serif: 0,767 + 0,244 = 1,011,
+ *   así que con tildes el interlineado no baja de `INTER_LH_ACENTO` (1,03).
+ * - Mayúscula con tilde bajo un descendente: 0,949 + 0,216 = 1,165 →
+ *   `INTER_LH_ACENTO_MAYUS` (1,18) deja ~0,015 em de aire. Solo cuenta si la
+ *   mayúscula no va en la primera palabra (la primera palabra siempre está en la
+ *   primera línea: no tiene nada encima) y si el texto tiene algo que baje.
  */
-export const ANTON_LH_ACENTO = 1.14;
+export const INTER_LH_ACENTO = 1.03;
+export const INTER_LH_ACENTO_MAYUS = 1.18;
+/** Lo que baja de la línea base en Inter 700 (y en la serif cursiva) lo bastante para tocar una tilde mayúscula. */
+export const INTER_DESCENDENTE = /[gjpqyQ,;(@ç]/;
 
-/**
- * Con una Q en el texto, su cola baja ~0,09 em bajo la línea base y puede tocar
- * la tilde de la línea siguiente («QUE TÚ…»). Medido: a 1,18 aún se tocan, a
- * 1,19 no; 1,20 deja 0,01 em de aire.
- */
-export const ANTON_LH_ACENTO_Q = 1.2;
-
-/**
- * Puntuación que baja de la línea base en Anton (medido en Chromium, en em): la coma
- * 0,115, los paréntesis 0,092 y la @ 0,077. El punto y coma no baja (0), así que no
- * cuenta. Una coma justo encima de una tilde la toca hasta 1,21 (1,101 + 0,115 =
- * 1,216); `ANTON_LH_ACENTO_COLA` deja ~0,02 em de aire con el peor caso, la coma.
- */
-export const ANTON_COLA_PUNTUACION = /[,()@]/;
-export const ANTON_LH_ACENTO_COLA = 1.24;
-
-/** ¿Lleva `text` tilde, diéresis o Ñ (lo que sube sobre la caja de la línea en Anton)? */
+/** ¿Lleva `text` tilde, diéresis o Ñ? */
 export function tieneAcento(text: string): boolean {
   return /[ÁÉÍÓÚÜÑáéíóúüñ]/.test(text);
 }
 
 /**
- * Interlineado de un texto Anton: `base`, o `ANTON_LH_ACENTO` si el texto lleva
- * tilde/diéresis/Ñ. Si además lleva algo que baja de la línea base y puede caer
- * justo encima de la tilde, sube más: `ANTON_LH_ACENTO_COLA` con coma, paréntesis
- * o @; `ANTON_LH_ACENTO_Q` con Q. Estilo y estimador de alto deben usar el mismo valor.
+ * Interlineado de un titular Inter 700: `base`, o más si el texto lleva tildes
+ * (ver `INTER_LH_ACENTO` e `INTER_LH_ACENTO_MAYUS`). Con `mayusculas` (titular
+ * con text-transform: uppercase) toda tilde cuenta como de mayúscula. Estilo y
+ * estimador de alto deben usar el mismo valor.
  */
-export function displayLineHeight(text: string, base: number): number {
+export function displayLineHeight(text: string, base: number, mayusculas = false): number {
   if (!tieneAcento(text)) return base;
-  if (ANTON_COLA_PUNTUACION.test(text)) return Math.max(base, ANTON_LH_ACENTO_COLA);
-  return Math.max(base, /q/i.test(text) ? ANTON_LH_ACENTO_Q : ANTON_LH_ACENTO);
+  const t = mayusculas ? text.toLocaleUpperCase("es") : text;
+  // Sin la primera palabra (y la puntuación que la abre): esa va siempre en la primera línea.
+  const resto = t.trim().replace(/^\S+/, "");
+  if (/[ÁÉÍÓÚÜÑ]/.test(resto) && INTER_DESCENDENTE.test(t)) return Math.max(base, INTER_LH_ACENTO_MAYUS);
+  return Math.max(base, INTER_LH_ACENTO);
 }

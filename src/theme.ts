@@ -2,18 +2,18 @@ import type { Pillar } from "./templates/types.ts";
 
 /**
  * Valores de diseño por defecto, reutilizables por las plantillas.
- * Fuente única de tokens de marca: look "lima" (spec 2026-10-05, tomado de
- * promo/reel-biblioteca/reel.html): fondo casi negro con grilla lima tenue y
- * viñeta, acento lima + violeta + rosa, tipografía Anton/Inter/JetBrainsMono.
+ * Fuente única de tokens de marca: look «papel con presencia» (A3, spec
+ * 2026-10-29): papel claro liso, tinta, marcador lima detrás de la palabra
+ * clave, titulares Inter 700 con frases en Instrument Serif cursiva.
  * Cambia aquí para ajustar el "look" global, o sobreescribe por slide vía props.
  */
 export const theme = {
-  // Pila de fallback si no hay Inter-*.woff2 en src/fonts/. Los titulares usan
-  // Anton vía las plantillas; el cuerpo, Inter.
+  // Pila de fallback si no hay Inter-*.woff2 en src/fonts/. Titulares y cuerpo
+  // usan Inter (titulares a 700, tracking −0,04 em, tal como se escriben).
   fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   /** Familias de marca. Deben coincidir con el nombre de archivo en src/fonts/ (Familia-Peso.ext). */
   fonts: {
-    display: "Anton", // titulares (Anton en MAYÚSCULAS hasta migrar las plantillas; luego Inter 700)
+    display: "Inter", // titulares: Inter 700, sin mayúsculas forzadas, tracking −0,04 em
     serif: "InstrumentSerif", // frases en cursiva, n/total e iniciales de la firma
     body: "Inter", // cuerpo
     mono: "JetBrainsMono", // etiquetas, prompts y código
@@ -54,22 +54,22 @@ export const theme = {
     iniciales: "FV",
     linea: "Te ayudo a partir con la IA en tu trabajo",
   },
-  /** Radio de las tarjetas (el look papel usa 28; las plantillas lo migran en las tareas siguientes). */
-  radius: 40,
+  /** Radio de las tarjetas (blancas, sin borde). */
+  radius: 28,
   /** Escala tipográfica en px, pensada para un lienzo de 1080x1350. */
   fontSize: {
-    display: 150, // Hook (Anton), máximo
-    stat: 300, // número de Stat (Anton), máximo
-    stepNumber: 168, // número de paso (Anton)
-    title: 124, // Cta (Anton), máximo
-    heading: 100, // Step/Prompt (Anton), máximo
-    myth: 68, // texto de mito/realidad (Anton)
-    kicker: 40,
+    display: 124, // Hook (Inter 700), máximo en post
+    stat: 260, // valor de Stat (Inter 700 con marcador), máximo
+    stepNumber: 92, // cifra del paso (serif cursiva, en el cuadro lima de 110 px)
+    title: 124, // Cta, máximo
+    heading: 84, // Step/Prompt/Screen (Inter 700), máximo en post
+    myth: 72, // texto de la realidad (el mito va a 1,1× en serif)
+    kicker: 48, // antetítulo en serif cursiva
     code: 36, // prompt / código (JetBrains Mono)
-    lead: 68, // promesa (Inter 600)
-    body: 42, // cuerpo, mínimo 40 en post
+    lead: 84, // promesa (Inter 700), máximo en post
+    body: 44, // cuerpo, mínimo 40 en post
     caption: 32,
-    label: 28, // etiquetas mono (cabecera, eyebrow, fuente)
+    label: 24, // etiquetas (Inter 700 en mayúsculas: «Tú», «Copia esto», mito/realidad)
   },
   /** Margen interior estándar del lienzo. */
   padding: 96,

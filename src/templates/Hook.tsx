@@ -1,32 +1,34 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
-import { contentHeight, antonHeight, interHeight, pickFill, CHAR_EM } from "./layout.ts";
-import { MonoLabel } from "./ui.tsx";
+import { contentHeight, displayHeight, interHeight, pickFill, CHAR_EM } from "./layout.ts";
+import { Kicker, titular } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
-import { theme, monoText } from "../theme.ts";
+import { theme } from "../theme.ts";
 
 export interface HookProps extends BaseSlideProps {
-  /** Texto pequeño superior (ej. "QUÉ SE LANZÓ"). */
+  /** Texto pequeño superior (ej. "Qué se lanzó"), en serif cursiva. */
   eyebrow?: string;
   /** Titular que detiene el scroll. ≤9 palabras. */
   title: string;
-  /** Palabra(s) del titular a resaltar en lima (1-2 palabras). */
+  /** Palabra(s) del titular con el marcador lima detrás (1-2 palabras). */
   highlight?: string;
-  /** Palabra del titular con caja de color detrás (rosa), estilo "NINGUNO.". */
+  /** Frase del titular (2-4 palabras, idealmente el inicio) en Instrument Serif cursiva. */
+  cursiva?: string;
+  /** Palabra del titular en una caja tinta con texto claro, estilo "NINGUNO.". */
   mark?: string;
   /** Gancho secundario breve. */
   subtitle?: string;
   /** Tamaño del titular en px. Por defecto se calcula según la longitud. */
   titleSize?: number;
-  /** Muestra "DESLIZA →" abajo-derecha (solo la portada). Por defecto true. */
+  /** Muestra "Desliza →" abajo-derecha (solo la portada del carrusel). Por defecto true. */
   swipe?: boolean;
   /**
    * El resultado en el primer cuadro (pivote 2026-10-17): lo que la IA ya hizo,
-   * tal como se ve en pantalla, en una tarjeta arriba del titular. `modo`
+   * tal como se ve en pantalla, en una tarjeta blanca arriba del titular. `modo`
    * "aviso" dibuja una notificación del celular (app + "ahora" + texto);
    * "respuesta", una burbuja de chat con la respuesta de la IA. Con
-   * `resultado` el titular se achica (≤ 150 px) y va debajo, como pie de foto.
+   * `resultado` el titular se achica y va debajo, como pie de foto.
    */
   resultado?: string;
   /** Nombre de la IA que produce el resultado (ChatGPT, NotebookLM…). Va en la tarjeta. */
@@ -43,33 +45,38 @@ function resultadoHeight(texto: string, reel: boolean, width: number): number {
   return 44 + 2 * 36 + 16 + interHeight(texto, size, width - 2 * 40, 1.28, CHAR_EM.interSemibold);
 }
 
+/** Interlineado base del titular (maqueta A3: 1,0). */
+const TITLE_LH = 1.0;
+
 /**
- * Rol 1 — Portada / Hook (stop-scroll). Titular Anton gigante anclado abajo
- * (centrado en el reel), con la palabra clave en lima y, opcional, una palabra
- * con caja rosa (`mark`). El tamaño se ajusta a la longitud del titular.
- * Único slide con "DESLIZA →" (solo post).
+ * Rol 1 — Portada / Hook (stop-scroll). Titular Inter 700 grande centrado, con
+ * la palabra clave sobre el marcador lima (`highlight`), una frase opcional en
+ * serif cursiva (`cursiva`) y, opcional, una palabra en caja tinta (`mark`).
+ * El tamaño se ajusta a la longitud del titular. En el post la firma del pie
+ * lleva la línea de la cuenta y, abajo a la derecha, "Desliza →".
  */
-export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swipe = true, resultado, app, modo = "aviso", format, accent, ...base }: HookProps) {
-  const lime = accent ?? theme.colors.accent;
+export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, titleSize, swipe = true, resultado, app, modo = "aviso", format, accent: _accent, firmaLinea, ...base }: HookProps) {
   const reel = format === "reel";
   const conResultado = typeof resultado === "string" && resultado.trim().length > 0;
   const cardW = CONTENT_WIDTH;
   const cardH = conResultado ? resultadoHeight(resultado, reel, cardW) + (reel ? 48 : 36) : 0;
+  const keep = frasesNowrap(highlight, mark, cursiva);
+  const lh = displayLineHeight(title, TITLE_LH);
   // Reel: bloque centrado y más grande; el titular toma el mayor tamaño (hasta
-  // 220 px, ≤ 6 líneas) con el que el bloque llena el área útil sin desbordar.
-  const subSize = reel ? 52 : 44;
-  const reelTitle = (max: number) => fitDisplaySize(title, max, { maxLines: 6, tight: true, keep: frasesNowrap(highlight, mark) });
+  // 180 px, ≤ 6 líneas) con el que el bloque llena el área útil sin desbordar.
+  const subSize = reel ? 48 : 40;
+  const reelTitle = (max: number) => fitDisplaySize(title, max, { maxLines: 6, tight: true, keep });
   const titleFont =
     titleSize ??
     (reel
       ? reelTitle(
           pickFill(
-            // Con resultado el titular es pie de foto: ≤ 150 px, la tarjeta manda.
-            (conResultado ? [150, 140, 130, 120, 110, 100] : [220, 208, 196, 184, 172, 160, 148, 136]),
+            // Con resultado el titular es pie de foto: ≤ 124 px, la tarjeta manda.
+            conResultado ? [124, 116, 108, 100, 92, 84] : [180, 168, 156, 148, 140, 132, 124, 116],
             (m) => {
               const s = reelTitle(m);
-              let h = antonHeight(title, s, displayLineHeight(title, 0.98), undefined, true, frasesNowrap(highlight, mark)) + cardH;
-              if (eyebrow) h += 34 + 36;
+              let h = displayHeight(title, s, lh, undefined, true, keep) + cardH;
+              if (eyebrow) h += 56 + 36;
               if (subtitle) h += 36 + interHeight(subtitle, subSize, 820, 1.3);
               return h;
             },
@@ -77,42 +84,37 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
             format,
           ),
         )
-      : fitDisplaySize(title, conResultado ? 110 : theme.fontSize.display, { maxLines: 4 }));
+      : fitDisplaySize(title, conResultado ? 96 : theme.fontSize.display, { maxLines: 4 }));
   const resultadoSize = reel ? RESULTADO_SIZE.reel : RESULTADO_SIZE.post;
-  // "DESLIZA →" solo tiene sentido en carrusel; en Reel (video) se oculta.
+  // "Desliza →" solo tiene sentido en carrusel; en Reel (video) se oculta.
   const showSwipe = swipe !== false && !reel;
   return (
-    <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: reel ? "center" : "flex-end", flex: 1, gap: 36 }}>
-        {eyebrow && (
-          <MonoLabel anim="rise" color={lime}>
-            {eyebrow}
-          </MonoLabel>
-        )}
+    <Frame format={format} firmaLinea={firmaLinea ?? !reel} {...base}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 36 }}>
+        {eyebrow && <Kicker anim="rise">{eyebrow}</Kicker>}
         {conResultado && (
           // Visible desde el cuadro 0 (sin data-anim): el resultado es lo primero que se ve.
           <div
             data-resultado={modo}
             style={{
               width: cardW,
-              borderRadius: 32,
+              borderRadius: theme.radius,
               overflow: "hidden",
-              backgroundColor: modo === "aviso" ? "#1B1B24" : theme.colors.card,
-              border: `2px solid ${modo === "aviso" ? "#2E2E3A" : theme.colors.line}`,
-              boxShadow: "0 28px 70px rgba(0,0,0,0.55)",
+              backgroundColor: theme.colors.card,
+              boxShadow: "0 18px 48px rgba(17,17,17,0.10)",
               ...(modo === "respuesta" ? { borderBottomLeftRadius: 10 } : {}),
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "28px 40px 0" }}>
-              <span style={{ width: 44, height: 44, borderRadius: modo === "aviso" ? 12 : "50%", backgroundColor: lime, display: "inline-flex", alignItems: "center", justifyContent: "center", color: theme.colors.onAccent, fontFamily: theme.fonts.display, fontSize: 28 }}>
+              <span style={{ width: 44, height: 44, borderRadius: modo === "aviso" ? 12 : "50%", backgroundColor: theme.colors.ink, display: "inline-flex", alignItems: "center", justifyContent: "center", color: theme.colors.accent, fontFamily: theme.fonts.serif, fontStyle: "italic", fontSize: 30 }}>
                 {(app ?? "IA").trim().charAt(0).toUpperCase()}
               </span>
-              <span style={{ ...monoText, fontSize: 28, letterSpacing: "0.06em", color: theme.colors.text }}>{app ?? "IA"}</span>
-              <span style={{ marginLeft: "auto", ...monoText, fontSize: 24, letterSpacing: "0.12em", textTransform: "uppercase", color: theme.colors.textMuted }}>
+              <span style={{ fontFamily: theme.fonts.body, fontWeight: 700, fontSize: 28, color: theme.colors.ink }}>{app ?? "IA"}</span>
+              <span style={{ marginLeft: "auto", fontFamily: theme.fonts.body, fontSize: 24, color: theme.colors.textMuted }}>
                 {modo === "aviso" ? "ahora" : "respuesta"}
               </span>
             </div>
-            <p style={{ margin: 0, padding: "16px 40px 36px", fontFamily: theme.fonts.body, fontWeight: 600, fontSize: resultadoSize, lineHeight: 1.28, color: theme.colors.text, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+            <p style={{ margin: 0, padding: "16px 40px 36px", fontFamily: theme.fonts.body, fontWeight: 600, fontSize: resultadoSize, lineHeight: 1.28, color: theme.colors.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
               {resultado}
             </p>
           </div>
@@ -120,27 +122,23 @@ export function Hook({ eyebrow, title, highlight, mark, subtitle, titleSize, swi
         <h1
           data-anim="words"
           style={{
-            margin: 0,
-            fontFamily: theme.fonts.display,
-            fontWeight: 400,
+            ...titular,
             fontSize: titleFont,
-            lineHeight: displayLineHeight(title, 0.98),
-            textTransform: "uppercase",
-            letterSpacing: "0.005em",
+            lineHeight: lh,
             textWrap: "balance",
           }}
         >
-          {highlightText(title, highlight, lime, mark)}
+          {highlightText(title, highlight, theme.colors.accent, mark, theme.colors.ink, cursiva)}
         </h1>
         {subtitle && (
-          <p data-anim="rise" style={{ margin: 0, maxWidth: 820, fontFamily: theme.fonts.body, fontSize: subSize, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
+          <p data-anim="rise" style={{ margin: 0, maxWidth: 820, fontFamily: theme.fonts.body, fontWeight: 400, fontSize: subSize, lineHeight: 1.3, color: theme.colors.textSoft, textWrap: "pretty" }}>
             {subtitle}
           </p>
         )}
         {showSwipe && (
-          <MonoLabel color={theme.colors.text} style={{ alignSelf: "flex-end", marginTop: 4 }}>
-            Desliza <span style={{ color: lime }}>→</span>
-          </MonoLabel>
+          <span style={{ alignSelf: "flex-end", marginTop: 4, fontFamily: theme.fonts.body, fontWeight: 700, fontSize: 28, color: theme.colors.ink }}>
+            Desliza →
+          </span>
         )}
       </div>
     </Frame>

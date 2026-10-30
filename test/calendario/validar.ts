@@ -1304,8 +1304,9 @@ check("calendario/validar (lector): con prisa ve el prompt completo y las etique
   assert.ok(conPrisa.includes(prompt), conPrisa);
   assert.ok(completo.includes(prompt));
   for (const t of [conPrisa, completo]) {
-    assert.ok(t.includes("El mito: Necesitas pagar para tener un podcast"), t);
-    assert.ok(t.includes("La realidad: NotebookLM lo hace gratis"), t);
+    // Etiquetas por defecto del look papel (spec 2026-10-29): «Lo que se cree» / «Lo que pasa».
+    assert.ok(t.includes("Lo que se cree: Necesitas pagar para tener un podcast"), t);
+    assert.ok(t.includes("Lo que pasa: NotebookLM lo hace gratis"), t);
     assert.ok(t.includes("Lo que crees: Hay que saber editar audio"), t);
     assert.ok(t.includes("Lo que pasa: Lo arma solo"), t);
     assert.ok(/10 min\ndura el resumen/.test(t), t);
@@ -1341,11 +1342,11 @@ check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, no
   b.slides[5].props.handle = "ia.punto.es";
   b.slides[5].props.cta = "Guárdalo 🔖";
   const { completo, conPrisa } = textosLector(b, "carrusel");
-  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "Copia este prompt", "Copiar", "Desliza →"]) {
+  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "Copia esto", "Desliza →"]) {
     assert.ok(completo.includes(x), `falta ${JSON.stringify(x)} en:\n${completo}`);
   }
   assert.ok(!completo.includes("🔖"));
-  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "Copia este prompt"]) assert.ok(!conPrisa.includes(x), x);
+  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "Copia esto"]) assert.ok(!conPrisa.includes(x), x);
   assert.ok(!textosLector(b, "reel").completo.includes("Desliza"), "en reel no hay Desliza");
   b.slides[0].props.swipe = false;
   assert.ok(!textosLector(b, "carrusel").completo.includes("Desliza"));
@@ -1624,14 +1625,15 @@ check("calendario/validar: INSTRUCCIONES.md trae los textos sugeridos de la past
 
 // --- 2026-10-07 (2): ventana del Prompt legible y notas NB del lector frío ---
 
-check("calendario/validar (lector): la ventana del Prompt dice \"Copia este prompt\" (no un nombre de archivo con guiones)", () => {
+// Look papel (spec 2026-10-29): la tarjeta del Prompt se rotula «Copia esto» (antes «Copia este prompt»).
+check("calendario/validar (lector): la tarjeta del Prompt dice \"Copia esto\" (no un nombre de archivo con guiones)", () => {
   for (const format of ["post", "reel"] as const) {
     const html = textoRender(createElement(Prompt, { heading: "Pega esto", prompt: "Resume esto.", format }));
-    assert.ok(html.includes("Copia este prompt"), format);
-    assert.ok(!html.includes("copia-este-prompt"), format);
+    assert.ok(html.includes("Copia esto"), format);
+    assert.ok(!html.includes("copia-esto"), format);
   }
   const { completo } = textosLector(EJEMPLO_VIEJO.borrador);
-  assert.ok(completo.includes("Copia este prompt") && !completo.includes("copia-este-prompt"), completo);
+  assert.ok(completo.includes("Copia esto") && !completo.includes("copia-esto"), completo);
 });
 
 check("calendario/validar: lectorFrio.notas — cada duda no bloqueante en formato NB: «cita» → regla", () => {

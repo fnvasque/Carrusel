@@ -1,125 +1,105 @@
 import { Frame } from "./Frame.tsx";
-import { Card } from "./ui.tsx";
-import { CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
-import { contentHeight, antonHeight, pickFill } from "./layout.ts";
+import { Card, Etiqueta, titular } from "./ui.tsx";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
+import { CONTENT_WIDTH, displayLineHeight, estimateLines } from "./fit.ts";
+import { contentHeight, displayHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
-import { theme, monoText } from "../theme.ts";
+import { theme } from "../theme.ts";
 
 export interface MythRealityProps extends BaseSlideProps {
-  /** El mito / lo que se cree. */
+  /** Lo que se cree. */
   myth: string;
-  /** La realidad / lo que de verdad pasa. */
+  /** Lo que de verdad pasa. */
   reality: string;
-  /** Etiqueta del bloque mito. Por defecto "EL MITO". */
+  /** Palabra(s) de `reality` con el marcador lima detrás. */
+  highlight?: string;
+  /** Etiqueta del bloque del mito. Por defecto "Lo que se cree". */
   mythLabel?: string;
-  /** Etiqueta del bloque realidad. Por defecto "LA REALIDAD". */
+  /** Etiqueta del bloque de la realidad. Por defecto "Lo que pasa". */
   realityLabel?: string;
 }
 
+/** Etiquetas por defecto (el lector frío de validar.mjs las copia; un test las compara). */
+export const ETIQUETA_MITO = "Lo que se cree";
+export const ETIQUETA_REALIDAD = "Lo que pasa";
+
+/** La serif cursiva del mito es más angosta que Inter 700: se estima con el ancho de Inter × esto. */
+const SERIF_ANCHO = 0.82;
+/** Padding de la tarjeta de la realidad (vertical, horizontal). */
+const PAD = { y: 44, x: 52 } as const;
+/** Interlineados del mito (serif) y de la realidad (Inter 700). */
+const MYTH_LH = 1.12;
+const REAL_LH = 1.08;
+
+/** Alto de la fila de la etiqueta (ícono 44 px) + su separación del texto. */
+const FILA = 44 + 20;
+
 /**
- * Rol — Mito vs Realidad (pilar Curiosidad, anti-hype). Dos tarjetas: el mito
- * apagado y tachado en rosa (línea estática en post, animada por línea en el
- * reel), la realidad con borde lima y texto blanco.
+ * Rol — Mito vs Realidad (anti-hype). Arriba, lo que se cree: en serif cursiva
+ * gris, con un ✕ gris, sobre el papel (sin tachado). Abajo, lo que pasa: en una
+ * tarjeta blanca, Inter 700 tinta con el marcador en el `highlight` y un ✓ en
+ * círculo lima. La realidad es la que pesa; el mito queda apagado.
  */
-export function MythReality({
-  myth,
-  reality,
-  mythLabel = "El mito",
-  realityLabel = "La realidad",
-  format,
-  accent,
-  ...base
-}: MythRealityProps) {
-  const lime = accent ?? theme.colors.accent;
+export function MythReality({ myth, reality, highlight, mythLabel = ETIQUETA_MITO, realityLabel = ETIQUETA_REALIDAD, format, accent: _accent, ...base }: MythRealityProps) {
   const reel = format === "reel";
-  // Mayor tamaño (con tope) que deja las dos tarjetas dentro del área útil.
-  const max = reel ? 104 : 76;
-  const textW = CONTENT_WIDTH - 104 - 6;
-  const cardH = (t: string, size: number) => 44 + 52 + 6 + 44 + 24 + antonHeight(t, size, displayLineHeight(t, 1.08), textW, reel);
+  const keep = frasesNowrap(highlight);
+  // Mayor tamaño (con tope) que deja los dos bloques dentro del área útil. El
+  // mito va a 1,1× el tamaño de la realidad (la serif se ve más chica).
+  const max = reel ? 96 : theme.fontSize.myth;
+  const textW = CONTENT_WIDTH - 2 * PAD.x;
+  const mythH = (size: number) => FILA + estimateLines(myth, size * 1.1 * SERIF_ANCHO, CONTENT_WIDTH) * size * 1.1 * MYTH_LH;
+  const realH = (size: number) => 2 * PAD.y + FILA + displayHeight(reality, size, displayLineHeight(reality, REAL_LH), textW, reel, keep);
+  const gap = reel ? 56 : 44;
   const size = pickFill(
-    [104, 96, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44].filter((s) => s <= max),
-    (s) => cardH(myth, s) + cardH(reality, s) + 28,
+    [96, 88, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44, 40].filter((s) => s <= max),
+    (s) => mythH(s) + gap + realH(s),
     contentHeight(format, base.source, base.narracion),
     format,
   );
   return (
     <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 28 }}>
-        <Panel kind="myth" label={mythLabel} text={myth} size={size} reel={reel} lime={lime} />
-        <Panel kind="reality" label={realityLabel} text={reality} size={size} reel={reel} lime={lime} />
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap }}>
+        <div data-anim="rise" data-mito="" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <Fila tipo="mito" label={mythLabel} />
+          <p style={{ margin: 0, fontFamily: theme.fonts.serif, fontStyle: "italic", fontWeight: 400, fontSize: Math.round(size * 1.1), lineHeight: MYTH_LH, letterSpacing: "-0.01em", color: theme.colors.textMuted, textWrap: "pretty" }}>
+            {myth}
+          </p>
+        </div>
+        <Card anim="rise" style={{ padding: `${PAD.y}px ${PAD.x}px`, display: "flex", flexDirection: "column", gap: 20 }}>
+          <Fila tipo="realidad" label={realityLabel} />
+          <p data-realidad="" style={{ ...titular, fontSize: size, lineHeight: displayLineHeight(reality, REAL_LH), textWrap: "pretty" }}>
+            {highlightText(reality, highlight, theme.colors.accent)}
+          </p>
+        </Card>
       </div>
     </Frame>
   );
 }
 
-function Panel({ kind, label, text, size, reel, lime }: { kind: "myth" | "reality"; label: string; text: string; size: number; reel: boolean; lime: string }) {
-  const myth = kind === "myth";
-  const tone = myth ? theme.colors.pink : lime;
-  const p = (
-    <p
-      style={{
-        margin: 0,
-        fontFamily: theme.fonts.display,
-        fontWeight: 400,
-        fontSize: size,
-        lineHeight: displayLineHeight(text, 1.08),
-        textTransform: "uppercase",
-        color: myth ? theme.colors.textMuted : theme.colors.text,
-        // Post: tachado rosa estático (sigue cada línea). En el reel lo dibuja el runtime.
-        ...(myth && !reel
-          ? { textDecorationLine: "line-through", textDecorationColor: theme.colors.pink, textDecorationThickness: 6 }
-          : {}),
-      }}
-    >
-      {text}
-    </p>
-  );
+/** Ícono (✕ gris o ✓ en lima) + etiqueta. Sin etiqueta (""), solo el ícono. */
+function Fila({ tipo, label }: { tipo: "mito" | "realidad"; label: string }) {
+  const mito = tipo === "mito";
   return (
-    <Card
-      anim="rise"
-      borderColor={myth ? theme.colors.line : lime}
-      style={{
-        padding: "44px 52px 52px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 24,
-        ...(myth ? { backgroundColor: "#0E0E14" } : { borderWidth: 3, boxShadow: "0 24px 60px rgba(0,0,0,0.45), 0 0 0 8px rgba(198,255,61,0.06)" }),
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-        <span
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: "50%",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: myth ? "transparent" : lime,
-            border: myth ? `3px solid ${tone}` : "none",
-            boxSizing: "border-box",
-          }}
-        >
-          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={myth ? tone : theme.colors.onAccent} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
-            {myth ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="m5 12 5 5 9-10" />}
-          </svg>
-        </span>
-        <span style={{ ...monoText, fontSize: theme.fontSize.label, letterSpacing: "0.16em", textTransform: "uppercase", color: tone }}>
-          {label}
-        </span>
-      </div>
-      {/* El wrapper solo existe con strike (reel) para no alterar el DOM del post. */}
-      {myth && reel ? (
-        <div style={{ position: "relative" }}>
-          {p}
-          <div
-            data-anim="strike"
-            style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 8, marginTop: -4, backgroundColor: theme.colors.pink, transformOrigin: "left center" }}
-          />
-        </div>
-      ) : (
-        p
-      )}
-    </Card>
+    <div style={{ display: "flex", alignItems: "center", gap: 16, height: 44 }}>
+      <span
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: "50%",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          boxSizing: "border-box",
+          backgroundColor: mito ? "transparent" : theme.colors.accent,
+          border: mito ? `3px solid ${theme.colors.textMuted}` : "none",
+        }}
+      >
+        <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={mito ? theme.colors.textMuted : theme.colors.onAccent} strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
+          {mito ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="m5 12 5 5 9-10" />}
+        </svg>
+      </span>
+      {label && <Etiqueta color={mito ? theme.colors.textMuted : theme.colors.ink}>{label}</Etiqueta>}
+    </div>
   );
 }

@@ -155,7 +155,8 @@
       if (comprobar.indexOf("tilde") >= 0) {
         var vistas = {};
         lista.forEach(function (c, i) {
-          if (!c.rect || !c.anton || !ACENTO.test(c.fuente)) return;
+          // Toda fuente (antes solo Anton): con el look papel los titulares son Inter 700 y la serif cursiva.
+          if (!c.rect || !ACENTO.test(c.ch)) return;
           var g = geometria(c);
           var tope = g.base - g.m.tintaArriba * g.s;
           var pisa = visibles.some(function (o) {

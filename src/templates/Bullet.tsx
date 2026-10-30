@@ -26,7 +26,7 @@ export function Bullet({
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 36 }}>
         {step && (
-          <span style={{ fontSize: theme.fontSize.heading, fontWeight: 800, color: accent ?? theme.colors.accent }}>
+          <span style={{ fontSize: theme.fontSize.heading, fontWeight: 800, color: accent ?? theme.colors.ink }}>
             {step}
           </span>
         )}
@@ -40,7 +40,7 @@ export function Bullet({
           <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 20 }}>
             {bullets.map((item, i) => (
               <li key={i} style={{ display: "flex", gap: 20, fontSize: theme.fontSize.body, lineHeight: 1.35 }}>
-                <span style={{ color: accent ?? theme.colors.accent, fontWeight: 800 }}>•</span>
+                <span style={{ color: accent ?? theme.colors.ink, fontWeight: 800 }}>•</span>
                 <span style={{ color: theme.colors.textMuted }}>{item}</span>
               </li>
             ))}

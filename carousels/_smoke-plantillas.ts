@@ -3,7 +3,7 @@ import type { CarouselSpec } from "../src/templates/types.ts";
 
 /**
  * Carrusel de prueba (smoke) para ejercitar las 7 plantillas de marca con el
- * look lima por defecto. No es el gold-standard; sirve para verificar el
+ * look papel por defecto (incluye `cursiva`, `highlight` y `mark`). No es el gold-standard; sirve para verificar el
  * render de todas las plantillas en una pasada.
  */
 const carousel: CarouselSpec = {
@@ -15,6 +15,7 @@ const carousel: CarouselSpec = {
         pillar: "noticia",
         eyebrow: "Qué se lanzó",
         title: "OpenAI acaba de cambiar cómo trabajas",
+        cursiva: "OpenAI acaba",
         highlight: "cambiar",
         mark: "trabajas",
         subtitle: "Te lo explico en 30 segundos.",
@@ -22,11 +23,11 @@ const carousel: CarouselSpec = {
     },
     {
       template: Lead,
-      props: { pillar: "noticia", kicker: "En 30 segundos", text: "En 1 frase: ahora entiende imágenes y responde al instante.", highlight: "imágenes" },
+      props: { pillar: "noticia", kicker: "En 30 segundos", text: "En 1 frase: ahora entiende imágenes y responde al instante.", highlight: "imágenes", cursiva: "En 1 frase:" },
     },
     {
       template: Step,
-      props: { pillar: "noticia", index: 3, total: 7, step: "01", heading: "Qué cambió", highlight: "cambió", body: "Antes solo leía texto. Ahora entiende fotos y pantallazos.", bullets: ["Le mandas una imagen", "Responde al instante"] },
+      props: { pillar: "noticia", index: 3, total: 7, step: "01", heading: "Qué cambió", highlight: "cambió", cursiva: "Qué", body: "Antes solo leía texto. Ahora entiende fotos y pantallazos.", bullets: ["Le mandas una imagen", "Responde al instante"] },
     },
     {
       template: Stat,
@@ -46,7 +47,7 @@ const carousel: CarouselSpec = {
     },
     {
       template: MythReality,
-      props: { pillar: "curiosidad", index: 6, total: 7, myth: "La IA piensa y decide sola.", reality: "Hace lo que tú le pides. Tú revisas y decides." },
+      props: { pillar: "curiosidad", index: 6, total: 7, myth: "La IA piensa y decide sola.", reality: "Hace lo que tú le pides. Tú revisas y decides.", highlight: "Tú revisas" },
     },
     {
       template: Screen,

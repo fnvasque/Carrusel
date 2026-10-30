@@ -16,7 +16,7 @@ export interface QuoteProps extends BaseSlideProps {
  * Inter, no en Anton, para que las frases largas se lean bien.
  */
 export function Quote({ quote, author, accent, ...base }: QuoteProps) {
-  const cyan = accent ?? theme.colors.accent;
+  const cyan = accent ?? theme.colors.ink;
   return (
     <Frame {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", gap: 32 }}>

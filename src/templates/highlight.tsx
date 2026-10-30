@@ -12,7 +12,7 @@ import { theme } from "../theme.ts";
  * (`data-cursiva`). Precedencia si se solapan: highlight > mark > cursiva
  * (la que pierde se descarta).
  * Opcionalmente, `mark` es otra palabra que va con una caja de color detrás
- * (`markColor`, rosa por defecto) y texto oscuro, estilo "NINGUNO.".
+ * (`markColor`; el Hook pasa tinta) y texto claro (papel), estilo "NINGUNO.".
  * Búsqueda case-insensitive. Si no hay coincidencias, devuelve el texto tal cual.
  * Un resaltado de varias palabras sale como un span `pop` por palabra (ver abajo).
  */
@@ -126,12 +126,13 @@ export function highlightText(
             style={{
               color: theme.colors.bg,
               backgroundColor: markColor,
-              // inline-block con interlineado propio: la caja abraza la altura de
-              // las mayúsculas y no pisa las líneas vecinas (un inline pintaría
-              // todo el alto de la fuente, más que el interlineado 0.98 del titular).
+              // inline-block con interlineado propio: la caja abraza la tinta de
+              // Inter (mayúsculas 0,73 em, tildes 0,95, descendentes 0,22) sin
+              // pisar las líneas vecinas, y el texto claro no se sale de ella.
               display: "inline-block",
-              lineHeight: 0.9,
-              padding: "0.07em 0.1em 0.01em",
+              lineHeight: 1.0,
+              padding: "0.02em 0.12em 0.06em",
+              borderRadius: "0.12em",
               whiteSpace: "nowrap",
             }}
           >
@@ -149,7 +150,7 @@ export function highlightText(
 
 /**
  * Lo que se pinta en nowrap y por eso se estima como una sola «palabra» al ajustar
- * el titular (`fitDisplaySize`/`antonHeight` con `keep`): el resaltado solo si es
+ * el titular (`fitDisplaySize`/`displayHeight` con `keep`): el resaltado solo si es
  * una palabra (si son varias, se parte entre ellas) y el `mark` siempre (su caja no
  * se parte). La `cursiva` se trata como el resaltado. Su ancho se estima con
  * Inter (el estimador de fit.ts), conservador: la serif es más angosta.

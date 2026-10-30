@@ -158,8 +158,8 @@ export function interHeight(text: string, size: number, width: number, lineHeigh
   return wrapLines(text, size * em, width) * size * lineHeight;
 }
 
-/** Alto (px) de un titular Anton a `size` con `lineHeight`, en `width`. */
-export function antonHeight(text: string, size: number, lineHeight: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
+/** Alto (px) de un titular Inter 700 a `size` con `lineHeight`, en `width` (estimador de fit.ts). */
+export function displayHeight(text: string, size: number, lineHeight: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
   return estimateLines(text, size, width, tight, keep) * size * lineHeight;
 }
 

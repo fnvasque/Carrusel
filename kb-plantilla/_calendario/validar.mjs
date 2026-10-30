@@ -1429,10 +1429,10 @@ export function validarCandidatos(data, semana, alcance) {
 // --- lector frío ------------------------------------------------------------
 
 /** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`; un test las compara). */
-const ETIQUETA_MITO = "El mito";
-const ETIQUETA_REALIDAD = "La realidad";
-/** Ventana de `Prompt`: título mono y botón (`src/templates/Prompt.tsx`). */
-const VENTANA_PROMPT = ["Copia este prompt", "Copiar"];
+const ETIQUETA_MITO = "Lo que se cree";
+const ETIQUETA_REALIDAD = "Lo que pasa";
+/** Etiqueta de la tarjeta de `Prompt` (`ETIQUETA_PROMPT` de `src/templates/Prompt.tsx`). */
+const VENTANA_PROMPT = ["Copia esto"];
 /** Etiqueta del mensaje de la persona en `Screen` (`src/templates/Screen.tsx`). */
 const ETIQUETA_TU = "Tú";
 /** "DESLIZA →" del Hook, solo en carrusel (`src/templates/Hook.tsx`). */

@@ -397,30 +397,17 @@ try {
     const r = await checkSplitHeights(p, t.total, s.name);
     splits.push(`${s.name}: ${r.split} divididos, ${r.fallback} respaldo`);
 
-    // Tachado: una barra por línea del mito, centrada en la línea y de su ancho.
-    const strikes = await p.evaluate((x) => {
+    // Look papel (spec 2026-10-29): el mito ya no se tacha. No hay marcas strike ni barras
+    // del runtime, y el mito (serif cursiva) queda visible al final de su escena.
+    const mitos = await p.evaluate((x) => {
       (window as any).__reel.seek(x);
-      return Array.from(document.querySelectorAll('[data-anim="strike"]')).map((m) => {
-        const wrap = m.parentElement!;
-        const range = document.createRange();
-        range.selectNodeContents(wrap.querySelector("p")!);
-        const lines = Array.from(range.getClientRects()).map((r) => ({ mid: (r.top + r.bottom) / 2, left: r.left, width: r.width }));
-        const bars = Array.from(wrap.querySelectorAll("[data-reel-strike]")).map((b) => {
-          const r = b.getBoundingClientRect();
-          return { mid: (r.top + r.bottom) / 2, left: r.left, width: r.width };
-        });
-        return { markerHidden: getComputedStyle(m).display === "none", lines, bars };
-      });
+      return {
+        strikes: document.querySelectorAll('[data-anim="strike"], [data-reel-strike]').length,
+        mitos: Array.from(document.querySelectorAll("[data-mito]")).map((m) => getComputedStyle(m).opacity),
+      };
     }, t.total);
-    for (const st of strikes) {
-      assert.ok(st.markerHidden, `${s.name}: el marcador strike queda oculto`);
-      assert.equal(st.bars.length, st.lines.length, `${s.name}: una barra por línea (${st.lines.length})`);
-      st.bars.forEach((b, j) => {
-        const l = st.lines[j];
-        assert.ok(Math.abs(b.mid - l.mid) <= 2 && Math.abs(b.left - l.left) <= 2 && Math.abs(b.width - l.width) <= 2, `${s.name}: barra ${j} sobre su línea`);
-      });
-    }
-    if (s === mentiras) assert.ok(strikes.some((st) => st.lines.length >= 2), "mentiras-ia tiene un mito de 2+ líneas");
+    assert.equal(mitos.strikes, 0, `${s.name}: sin tachado`);
+    if (s === mentiras) assert.ok(mitos.mitos.length >= 1 && mitos.mitos.every((o) => o === "1"), `${s.name}: mitos visibles al final ${JSON.stringify(mitos.mitos)}`);
     await p.close();
   }
   // count con prefijos, sufijos, miles y decimales: texto final idéntico y

@@ -32,7 +32,7 @@ export function Cover({
               letterSpacing: 4,
               textTransform: "uppercase",
               fontWeight: 600,
-              color: accent ?? theme.colors.accent,
+              color: accent ?? theme.colors.ink,
             }}
           >
             {eyebrow}

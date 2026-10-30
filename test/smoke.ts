@@ -601,8 +601,10 @@ check("plantillas: marcas data-anim en formato reel", () => {
   assert.equal((hook.match(/data-anim="rise"/g) ?? []).length, 2);
   const step = renderToStaticMarkup(createElement(Step, { heading: "Paso", bullets: ["a", "b"], format: "reel" }));
   assert.match(step, /<ul[^>]*data-anim="stagger"/);
+  // Look papel: el mito ya no se tacha (spec 2026-10-29); entra con rise, apagado en serif cursiva.
   const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R", format: "reel" }));
-  assert.match(myth, /data-anim="strike"/);
+  assert.doesNotMatch(myth, /data-anim="strike"/);
+  assert.match(myth, /data-anim="rise" data-mito=""/);
 });
 
 check("plantillas: sin highlight (o no encontrado) no hay pop", () => {
@@ -700,10 +702,10 @@ check("layout: firmaReserve reserva el pie solo en el post", () => {
   assert.equal(contentHeight("post"), 1350 - 2 * 72 - 44 - 40 - 40 - firmaReserve("post"), "el contenido descuenta la firma");
 });
 
-check("Hook: mark pinta la palabra con caja rosa sin pop", () => {
+check("Hook: mark pinta la palabra con caja tinta sin pop", () => {
   const h = renderToStaticMarkup(createElement(Hook, { title: "No encuentras ninguno.", highlight: "encuentras", mark: "ninguno.", format: "reel" }));
   assert.match(h, /data-anim="pop"[^>]*>encuentras</);
-  assert.match(h, /data-mark=""[^>]*background-color:#FF3D7F[^>]*>ninguno\.</);
+  assert.match(h, /data-mark=""[^>]*background-color:#111111[^>]*>ninguno\.</);
   assert.equal((h.match(/data-anim="pop"/g) ?? []).length, 1);
 });
 
@@ -875,7 +877,8 @@ check("Step: el body con cita inicial o \\n sale en párrafos separados (post y 
   for (const format of ["post", "reel"] as const) {
     const h = renderToStaticMarkup(createElement(Step, { step: "1", heading: "Quién eres y quién lo lee", body, format }));
     assert.match(h, /data-parrafos="2"[^>]*gap:\d+px/, format);
-    assert.match(h, /<p style="margin:0">«Soy jefa de operaciones; el correo va a mis 12 supervisores\.»<\/p><p style="margin:0">La IA no conoce/, format);
+    // La cita «…» lleva el borde lima a la izquierda (look papel); la explicación, no.
+    assert.match(h, /<p style="margin:0;border-left:6px solid #C6FF3D;padding-left:32px">«Soy jefa de operaciones; el correo va a mis 12 supervisores\.»<\/p><p style="margin:0">La IA no conoce/, format);
     const n = renderToStaticMarkup(createElement(Step, { heading: "H", body: "Primera línea.\nSegunda línea.", format }));
     assert.match(n, /<p style="margin:0">Primera línea\.<\/p><p style="margin:0">Segunda línea\.<\/p>/, format);
   }
@@ -906,7 +909,9 @@ check("plantillas: formato post sin capa bg ni strike", () => {
   const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R" }));
   assert.doesNotMatch(hook, /data-anim="bg"/);
   assert.doesNotMatch(myth, /data-anim="strike"/);
-  assert.match(myth, /text-decoration-line:line-through/, "en post, tachado rosa estático");
+  // Look papel: sin tachado; el mito va en serif cursiva gris.
+  assert.doesNotMatch(myth, /line-through/);
+  assert.match(myth, /font-family:InstrumentSerif;font-style:italic[^"]*color:#6B6B6B[^>]*>M</);
 });
 
 // --- StoryCover y logo tardío ---

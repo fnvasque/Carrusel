@@ -40,11 +40,10 @@ export function Clip({ title, highlight, label, archivo, accent, format, ...base
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
-            fontWeight: 400,
+            fontWeight: 700, // Inter 700 tal como se escribe: lo que mide fit.ts
             fontSize: size,
             lineHeight: displayLineHeight(title, 0.98),
-            textTransform: "uppercase",
-            letterSpacing: "0.005em",
+            letterSpacing: "-0.04em",
             textWrap: "balance",
             textShadow: "0 6px 28px rgba(0,0,0,0.9)",
           }}

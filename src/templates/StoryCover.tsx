@@ -1,7 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText } from "./highlight.tsx";
 import { fitDisplaySize, displayLineHeight } from "./fit.ts";
-import { contentHeight, antonHeight, pickFill } from "./layout.ts";
+import { contentHeight, displayHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -43,7 +43,7 @@ export function StoryCover({ title, highlight, rotulo = STORY_ROTULO, accent, fo
   const titleFont = fit(
     pickFill(
       [230, 216, 204, 192, 180, 168, 156, 144, 132],
-      (m) => antonHeight(title, fit(m), displayLineHeight(title, TITLE_LH)),
+      (m) => displayHeight(title, fit(m), displayLineHeight(title, TITLE_LH)),
       available,
       "reel",
     ),
@@ -56,11 +56,10 @@ export function StoryCover({ title, highlight, rotulo = STORY_ROTULO, accent, fo
             style={{
               margin: 0,
               fontFamily: theme.fonts.display,
-              fontWeight: 400,
+              fontWeight: 700, // Inter 700 tal como se escribe: lo que mide fit.ts
               fontSize: titleFont,
               lineHeight: displayLineHeight(title, TITLE_LH),
-              textTransform: "uppercase",
-              letterSpacing: "0.005em",
+              letterSpacing: "-0.04em",
               textAlign: "center",
               textWrap: "balance",
             }}

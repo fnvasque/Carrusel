@@ -1,51 +1,51 @@
 import { Frame } from "./Frame.tsx";
-import { highlightText } from "./highlight.tsx";
-import { MonoLabel } from "./ui.tsx";
-import { CONTENT_WIDTH } from "./fit.ts";
-import { contentHeight, wrapLines, pickFill, CHAR_EM } from "./layout.ts";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
+import { Kicker, titular } from "./ui.tsx";
+import { estimateLines, displayLineHeight } from "./fit.ts";
+import { contentHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
 export interface LeadProps extends BaseSlideProps {
-  /** Etiqueta superior opcional (ej. "EN 30 SEGUNDOS"). */
+  /** Antetítulo opcional en serif cursiva (ej. "En 30 segundos"). */
   kicker?: string;
   /** La promesa en 1 frase. ≤2 líneas. */
   text: string;
-  /** Palabra de la frase a resaltar en lima. */
+  /** Palabra de la frase con el marcador lima detrás. */
   highlight?: string;
+  /** Frase (2-4 palabras) en Instrument Serif cursiva. */
+  cursiva?: string;
 }
 
+/** Interlineado base de la frase (algo más abierto que el Hook: suele ir en 3-5 líneas). */
+const LEAD_LH = 1.06;
+
 /**
- * Rol 2 — Contexto / promesa. Una sola frase grande (Inter 600) con la palabra
- * clave en lima, precedida de una barra lima corta y un kicker mono.
+ * Rol 2 — Contexto / promesa. Una sola frase grande en Inter 700 (la escala de
+ * los titulares) con la palabra clave sobre el marcador y, opcional, una frase
+ * en serif cursiva; encima, un antetítulo en serif cursiva.
  */
-export function Lead({ kicker, text, highlight, accent, format, ...base }: LeadProps) {
-  const lime = accent ?? theme.colors.accent;
+export function Lead({ kicker, text, highlight, cursiva, accent: _accent, format, ...base }: LeadProps) {
   const reel = format === "reel";
   // Frase grande: el mayor tamaño (con tope) que cabe en ≤ 5 líneas (6 en el
   // reel, más alto) y en el área útil.
-  const max = reel ? 116 : 84;
+  const max = reel ? 116 : theme.fontSize.lead;
   const maxLines = reel ? 6 : 5;
-  const lines = (s: number) => wrapLines(text, s * CHAR_EM.interSemibold, CONTENT_WIDTH);
+  const keep = frasesNowrap(highlight, undefined, cursiva);
+  const lh = displayLineHeight(text, LEAD_LH);
+  const lines = (s: number) => estimateLines(text, s, undefined, reel, keep);
   const size = pickFill(
     [116, 108, 100, 92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
-    (s) => (lines(s) > maxLines ? Infinity : 48 + lines(s) * s * 1.18),
+    (s) => (lines(s) > maxLines ? Infinity : (kicker ? 56 + 40 : 0) + lines(s) * s * lh),
     contentHeight(format, base.source, base.narracion),
     format,
   );
   return (
     <Frame format={format} {...base}>
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 40 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <div data-anim="rise" style={{ width: 72, height: 8, borderRadius: 4, backgroundColor: lime }} />
-          {kicker && (
-            <MonoLabel anim="rise" color={lime}>
-              {kicker}
-            </MonoLabel>
-          )}
-        </div>
-        <p data-anim="words" style={{ margin: 0, fontFamily: theme.fonts.body, fontSize: size, fontWeight: 600, lineHeight: 1.18, letterSpacing: "-0.02em", textWrap: "pretty" }}>
-          {highlightText(text, highlight, lime)}
+        {kicker && <Kicker anim="rise">{kicker}</Kicker>}
+        <p data-anim="words" style={{ ...titular, fontSize: size, lineHeight: lh, textWrap: "pretty" }}>
+          {highlightText(text, highlight, theme.colors.accent, undefined, undefined, cursiva)}
         </p>
       </div>
     </Frame>
