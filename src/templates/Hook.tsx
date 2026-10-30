@@ -1,7 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
-import { contentHeight, displayHeight, interHeight, pickFill, CHAR_EM } from "./layout.ts";
+import { aire, CARD_PAD, contentHeight, displayHeight, interHeight, pickFill, CHAR_EM } from "./layout.ts";
 import { Kicker, titular } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
@@ -43,11 +43,13 @@ const RESULTADO_SIZE = { reel: 50, post: 42 } as const;
 /** Alto estimado (px) de la tarjeta de resultado: cabecera + padding + texto. */
 function resultadoHeight(texto: string, reel: boolean, width: number): number {
   const size = reel ? RESULTADO_SIZE.reel : RESULTADO_SIZE.post;
-  return 44 + 2 * 36 + 16 + interHeight(texto, size, width - 2 * 40, 1.28, CHAR_EM.interSemibold);
+  return 44 + 2 * CARD_PAD.y + 16 + interHeight(texto, size, width - 2 * CARD_PAD.x, 1.28, CHAR_EM.interSemibold);
 }
 
 /** Interlineado base del titular (maqueta A3: 1,0). */
 const TITLE_LH = 1.0;
+/** Separación entre bloques de la portada (eyebrow ↔ tarjeta ↔ titular ↔ subtítulo). */
+const GAP = aire(36);
 
 /**
  * Rol 1 — Portada / Hook (stop-scroll). Titular Inter 700 grande centrado, con
@@ -77,12 +79,13 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
     (reel
       ? reelTitle(
           pickFill(
-            [180, 168, 156, 148, 140, 132, 124, 116],
+            // Con aire (Felipe 2026-10-29): tope 148 px (antes 180); el titular no tapa la escena.
+            [148, 140, 132, 124, 116, 108, 100],
             (m) => {
               const s = reelTitle(m);
               let h = displayHeight(title, s, lh, undefined, true, keep) + cardH;
-              if (eyebrow) h += 56 + 36;
-              if (subtitle) h += 36 + interHeight(subtitle, subSize, 820, 1.3);
+              if (eyebrow) h += 56 + GAP;
+              if (subtitle) h += GAP + interHeight(subtitle, subSize, 820, 1.3);
               return h;
             },
             contentHeight(format, base.source, base.narracion, base.subtitulos),
@@ -95,7 +98,7 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
   const showSwipe = swipe !== false && !reel;
   return (
     <Frame format={format} firmaLinea={firmaLinea ?? !reel} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 36 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: GAP }}>
         {eyebrow && <Kicker anim="rise" style={oscuro ? { color: "rgba(255,255,255,0.85)" } : undefined}>{eyebrow}</Kicker>}
         {conResultado && (
           // Visible desde el cuadro 0 (sin data-anim): el resultado es lo primero que se ve.
@@ -110,7 +113,7 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
               ...(modo === "respuesta" ? { borderBottomLeftRadius: 10 } : {}),
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "28px 40px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, padding: `${CARD_PAD.y}px ${CARD_PAD.x}px 0` }}>
               <span style={{ width: 44, height: 44, borderRadius: modo === "aviso" ? 12 : "50%", backgroundColor: theme.colors.ink, display: "inline-flex", alignItems: "center", justifyContent: "center", color: theme.colors.accent, fontFamily: theme.fonts.serif, fontStyle: "italic", fontSize: 30 }}>
                 {(app ?? "IA").trim().charAt(0).toUpperCase()}
               </span>
@@ -119,7 +122,7 @@ export function Hook({ eyebrow, title, highlight, cursiva, mark, subtitle, title
                 {modo === "aviso" ? "ahora" : "respuesta"}
               </span>
             </div>
-            <p style={{ margin: 0, padding: "16px 40px 36px", fontFamily: theme.fonts.body, fontWeight: 600, fontSize: resultadoSize, lineHeight: 1.28, color: theme.colors.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+            <p style={{ margin: 0, padding: `16px ${CARD_PAD.x}px ${CARD_PAD.y}px`, fontFamily: theme.fonts.body, fontWeight: 600, fontSize: resultadoSize, lineHeight: 1.28, color: theme.colors.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
               {resultado}
             </p>
           </div>

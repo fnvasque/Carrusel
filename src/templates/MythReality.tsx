@@ -2,7 +2,7 @@ import { Frame } from "./Frame.tsx";
 import { Card, Etiqueta, titular } from "./ui.tsx";
 import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { CONTENT_WIDTH, displayLineHeight, estimateLines } from "./fit.ts";
-import { contentHeight, displayHeight, pickFill } from "./layout.ts";
+import { aire, cardPad, contentHeight, displayHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -25,8 +25,6 @@ export const ETIQUETA_REALIDAD = "Lo que pasa";
 
 /** La serif cursiva del mito es más angosta que Inter 700: se estima con el ancho de Inter × esto. */
 const SERIF_ANCHO = 0.82;
-/** Padding de la tarjeta de la realidad (vertical, horizontal). */
-const PAD = { y: 44, x: 52 } as const;
 /** Interlineados del mito (serif) y de la realidad (Inter 700). */
 const MYTH_LH = 1.12;
 const REAL_LH = 1.08;
@@ -42,6 +40,7 @@ const FILA = 44 + 20;
  */
 export function MythReality({ myth, reality, highlight, mythLabel = ETIQUETA_MITO, realityLabel = ETIQUETA_REALIDAD, format, accent: _accent, ...base }: MythRealityProps) {
   const reel = format === "reel";
+  const PAD = cardPad(format);
   const keep = frasesNowrap(highlight);
   // Mayor tamaño (con tope) que deja los dos bloques dentro del área útil. El
   // mito va a 1,1× el tamaño de la realidad (la serif se ve más chica).
@@ -49,7 +48,7 @@ export function MythReality({ myth, reality, highlight, mythLabel = ETIQUETA_MIT
   const textW = CONTENT_WIDTH - 2 * PAD.x;
   const mythH = (size: number) => FILA + estimateLines(myth, size * 1.1 * SERIF_ANCHO, CONTENT_WIDTH) * size * 1.1 * MYTH_LH;
   const realH = (size: number) => 2 * PAD.y + FILA + displayHeight(reality, size, displayLineHeight(reality, REAL_LH), textW, reel, keep);
-  const gap = reel ? 56 : 44;
+  const gap = aire(reel ? 56 : 44);
   const size = pickFill(
     [96, 88, 80, 76, 72, 68, 64, 60, 56, 52, 48, 44, 40].filter((s) => s <= max),
     (s) => mythH(s) + gap + realH(s),

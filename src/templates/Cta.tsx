@@ -1,7 +1,7 @@
 import { Frame } from "./Frame.tsx";
 import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, displayLineHeight } from "./fit.ts";
-import { contentHeight, displayHeight, interHeight, pickFill } from "./layout.ts";
+import { aire, CARD_PAD, contentHeight, displayHeight, interHeight, pickFill } from "./layout.ts";
 import { Firma } from "./Frame.tsx";
 import { BookmarkIcon, PillIcon, titular, type PillIconName } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
@@ -60,10 +60,10 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
   const reel = format === "reel";
   const keep = frasesNowrap(highlight, undefined, cursiva);
   // Reel: escala mayor que llena el 9:16 (el post queda con sus medidas fijas).
-  const post = { title: theme.fontSize.title, icon: 104, reason: 44, pill: 40, handle: 30, gap: 44, k: 1 };
+  const post = { title: theme.fontSize.title, icon: 104, reason: 44, pill: 40, handle: 30, gap: aire(44), k: 1 };
   // Reel: escalas mayores que llenan el 9:16. Post: solo se achica si el titular, la caja y una
   // fuente larga no caben (si no, el handle choca con la fuente al pie).
-  const escalas = reel ? [1.45, 1.35, 1.25, 1.15, 1.05, 1.0] : [1, 0.92, 0.85, 0.78, 0.72];
+  const escalas = reel ? [1.45, 1.35, 1.25, 1.15, 1.05, 1.0] : [1, 0.96, 0.92, 0.88, 0.85, 0.82, 0.78, 0.75, 0.72];
   const sc = pickFill(
     escalas.map((s) =>
       reel
@@ -73,10 +73,11 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
             reason: s >= 1.2 ? 54 : 48,
             pill: s >= 1.2 ? 48 : 44,
             handle: s >= 1.2 ? 36 : 32,
-            gap: Math.round(44 * Math.min(1.3, s)),
+            gap: aire(44 * Math.min(1.3, s)),
             k: Math.min(1.25, s),
           }
-        : { title: Math.round(post.title * s), icon: Math.round(post.icon * s), reason: post.reason, pill: post.pill, handle: post.handle, gap: Math.round(post.gap * Math.max(s, 0.85)), k: s },
+        : // Post: solo se achican el titular y el aire; la caja DM queda a tamaño pleno (su pista es texto chico).
+          { title: Math.round(post.title * s), icon: Math.round(post.icon * s), reason: post.reason, pill: post.pill, handle: post.handle, gap: Math.round(post.gap * Math.max(s, 0.85)), k: 1 },
     ),
     (c) => {
       let h = c.gap + displayHeight(title, fitDisplaySize(title, c.title, { maxLines: 4, tight: reel, keep }), displayLineHeight(title, 0.98), undefined, true, keep);
@@ -151,7 +152,7 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
 
 /** Alto estimado (px) de la caja de mensaje, a escala `k`: relleno + cabecera + burbuja + pista. */
 function dmHeight(k: number): number {
-  return Math.round(k * (2 * 40 + 60 + 28 + (46 * 1.2 + 44) + 18 + 26 * 1.3));
+  return Math.round(k * (2 * CARD_PAD.y + 60 + 28 + (46 * 1.2 + 44) + 18 + 26 * 1.3));
 }
 
 /** Caja de mensaje directo: tarjeta blanca, firma arriba, burbuja tinta «PARTIR» a la derecha, pista debajo. */
@@ -161,7 +162,7 @@ function DmBox({ k, pista }: { k: number; pista: string }) {
     <div
       data-cta="dm"
       data-anim="rise"
-      style={{ backgroundColor: theme.colors.card, borderRadius: 40, padding: n(40), width: n(760), maxWidth: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", marginTop: n(12) }}
+      style={{ backgroundColor: theme.colors.card, borderRadius: 40, padding: `${n(CARD_PAD.y)}px ${n(CARD_PAD.x)}px`, width: n(760), maxWidth: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", marginTop: n(12) }}
     >
       <div style={{ marginBottom: n(28) }}>
         <Firma circulo={n(60)} nombre={n(30)} />

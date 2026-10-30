@@ -2,7 +2,7 @@ import { Frame } from "./Frame.tsx";
 import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { Kicker, titular } from "./ui.tsx";
 import { estimateLines, displayLineHeight } from "./fit.ts";
-import { contentHeight, pickFill } from "./layout.ts";
+import { aire, contentHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -36,13 +36,13 @@ export function Lead({ kicker, text, highlight, cursiva, accent: _accent, format
   const lines = (s: number) => estimateLines(text, s, undefined, reel, keep);
   const size = pickFill(
     [116, 108, 100, 92, 88, 84, 80, 76, 72, 68, 64, 60, 56, 52].filter((s) => s <= max),
-    (s) => (lines(s) > maxLines ? Infinity : (kicker ? 56 + 40 : 0) + lines(s) * s * lh),
+    (s) => (lines(s) > maxLines ? Infinity : (kicker ? 56 + aire(40) : 0) + lines(s) * s * lh),
     contentHeight(format, base.source, base.narracion, base.subtitulos),
     format,
   );
   return (
     <Frame format={format} {...base}>
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: 40 }}>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, gap: aire(40) }}>
         {kicker && <Kicker anim="rise">{kicker}</Kicker>}
         <p data-anim="words" style={{ ...titular, fontSize: size, lineHeight: lh, textWrap: "pretty" }}>
           {highlightText(text, highlight, theme.colors.accent, undefined, undefined, cursiva)}

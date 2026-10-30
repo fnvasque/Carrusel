@@ -3,7 +3,7 @@ import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { Parrafos, parrafos, esCita, PARRAFO_GAP_EM } from "./parrafos.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
 import { CheckCircle, titular } from "./ui.tsx";
-import { contentHeight, displayHeight, interHeight, pickFill } from "./layout.ts";
+import { aire, contentHeight, displayHeight, interHeight, pickFill } from "./layout.ts";
 import type { BaseSlideProps, Format } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -24,9 +24,9 @@ export interface StepProps extends BaseSlideProps {
 
 /**
  * Fill del reel para Step: su estimador sobreestima algo (viñetas), así que
- * pide más para terminar ocupando ~75-85 % real del alto útil.
+ * pide un poco más que REEL_FILL para terminar ocupando ~70 % real del alto útil.
  */
-const STEP_REEL_FILL = 0.96;
+const STEP_REEL_FILL = 0.8;
 
 /** Interlineado base del heading (maqueta A3: 1,03). */
 const HEADING_LH = 1.03;
@@ -61,7 +61,7 @@ function scales(format: Format): StepScale[] {
     headingMax: Math.min(reel ? 124 : theme.fontSize.heading, Math.round((reel ? 104 : theme.fontSize.heading) * s)),
     body: Math.max(40, Math.min(reel ? 54 : theme.fontSize.body, Math.round((reel ? 48 : theme.fontSize.body) * s))),
     gap: Math.round(30 * s),
-    blockGap: Math.round(40 * Math.min(1.2, s)),
+    blockGap: aire(40 * Math.min(1.2, s)),
     check: s >= 0.9 ? 52 : 44,
   }));
   // Últimos recursos: cuerpo 38 y 36 px para no cortar texto.
@@ -104,7 +104,7 @@ export function Step({ step, heading, highlight, cursiva, body, bullets, accent:
   const hasBullets = !!bullets && bullets.length > 0;
   const reel = format === "reel";
   const keep = frasesNowrap(highlight, undefined, cursiva);
-  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, cursiva, body, bullets }, reel), contentHeight(format, base.source, base.narracion, base.subtitulos), format, STEP_REEL_FILL);
+  const sc = pickFill(scales(format), (c) => stepHeight(c, { step, heading, highlight, cursiva, body, bullets }, reel), contentHeight(format, base.source, base.narracion, base.subtitulos), format, reel ? STEP_REEL_FILL : undefined);
   const headingSize = fitDisplaySize(heading, sc.headingMax, { maxLines: 3, tight: reel, keep });
   return (
     <Frame format={format} {...base}>

@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { fitDisplaySize, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
-import { contentHeight, displayHeight, wrapLines, pickFill, CHAR_EM, REEL_FILL } from "./layout.ts";
+import { aire, cardPad, contentHeight, displayHeight, wrapLines, pickFill, CHAR_EM, POST_FILL, REEL_FILL } from "./layout.ts";
 import { Card, Etiqueta, titular } from "./ui.tsx";
 import { parrafos, parrafosHeight, PARRAFO_GAP_EM } from "./parrafos.tsx";
 import type { BaseSlideProps } from "./types.ts";
@@ -20,8 +20,7 @@ export const ETIQUETA_PROMPT = "Copia esto";
 
 /** Interlineado base del heading. */
 const HEADING_LH = 1.03;
-/** Tarjeta: padding (vertical, horizontal) y alto de la fila de la etiqueta con su aire. */
-const PAD = { y: 40, x: 48 } as const;
+/** Alto de la fila de la etiqueta de la tarjeta con su aire. */
 const FILA = 29 + 20;
 
 /**
@@ -31,6 +30,7 @@ const FILA = 29 + 20;
  */
 export function Prompt({ heading, prompt, note, accent: _accent, format = "post", ...base }: PromptProps) {
   const reel = format === "reel";
+  const PAD = cardPad(format);
   const available = contentHeight(format, base.source, base.narracion, base.subtitulos);
   // De la más grande a la más chica: las primeras llenan el área con un prompt
   // corto (heading mayor, tarjeta con más líneas de alto mínimo); las últimas
@@ -45,7 +45,7 @@ export function Prompt({ heading, prompt, note, accent: _accent, format = "post"
       headingMax: Math.round((reel ? 104 : theme.fontSize.heading) * Math.min(1, code / 36)),
       gap: reel ? 52 : 44,
     })),
-  ];
+  ].map((c) => ({ ...c, gap: aire(c.gap) }));
   const codeW = CONTENT_WIDTH - 2 * PAD.x;
   const explicitLines = prompt.split("\n").length;
   const codeLines = (code: number) => wrapLines(prompt, code * CHAR_EM.mono, codeW);
@@ -59,7 +59,7 @@ export function Prompt({ heading, prompt, note, accent: _accent, format = "post"
   // no hay, el mayor que cabe (un comando partido es peor que un punto menos).
   // (Solo si ese tamaño sigue siendo legible: un prompt en prosa sí puede partirse.)
   const sc =
-    candidates.find((c) => c.code >= 34 && height(c) <= available * (reel ? REEL_FILL : 1) && codeLines(c.code) === explicitLines) ??
+    candidates.find((c) => c.code >= 34 && height(c) <= available * (reel ? REEL_FILL : POST_FILL) && codeLines(c.code) === explicitLines) ??
     candidates.find((c) => c.code >= 34 && height(c) <= available && codeLines(c.code) === explicitLines) ??
     pickFill(candidates, height, available, format);
   const codeSize = sc.code;

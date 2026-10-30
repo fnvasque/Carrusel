@@ -85,21 +85,44 @@ export function opticalLift(format: Format = "post"): number {
  * Fracción máxima del alto útil que ocupa el bloque en el reel cuando hay
  * escalas de sobra: el 9:16 es alto y un bloque al tamaño del post deja una
  * franja vacía, así que las escaleras del reel suben más que las del post; este
- * tope deja aire arriba y abajo. En post se llena hasta el 100 %.
+ * tope deja papel arriba y abajo («más aire», Felipe 2026-10-29: antes 0,88).
  */
-export const REEL_FILL = 0.88;
+export const REEL_FILL = 0.72;
+/**
+ * Tope equivalente del post: el bloque prefiere ocupar a lo sumo el 85 % del
+ * alto útil (texto un poco más chico con aire antes que grande y apretado).
+ */
+export const POST_FILL = 0.85;
 
 /**
- * Como `pickFit`, pero en el reel prefiere la mayor escala que ocupa a lo sumo
- * `fill` (por defecto `REEL_FILL`) del alto útil, y si ninguna cabe ahí, la
- * mayor que cabe en el alto completo. Una plantilla cuyo estimador sobreestima
- * (Step: tarjeta + viñetas) puede pedir un `fill` mayor.
+ * Aire entre bloques (titular ↔ tarjeta/cita/burbujas ↔ cuerpo): los gaps de
+ * las plantillas se multiplican por esto (Felipe 2026-10-29: ~40 % más).
  */
-export function pickFill<T>(candidates: T[], height: (c: T) => number, available: number, format: Format = "post", fill: number = REEL_FILL): T {
-  if (format === "reel") {
-    const c = candidates.find((x) => height(x) <= available * fill);
-    if (c !== undefined) return c;
-  }
+export const AIRE = 1.4;
+/** Separación entre bloques escalada por `AIRE`, redondeada. */
+export function aire(px: number): number {
+  return Math.round(px * AIRE);
+}
+/** Relleno de tarjetas y burbujas en el post (horizontal, vertical); el reel lo escala. */
+export const CARD_PAD = { x: 52, y: 44 } as const;
+/** Escala del relleno de tarjetas en el reel (texto más grande, mismo aire relativo). */
+export const CARD_PAD_REEL = 1.15;
+/** Relleno de tarjeta para un formato. */
+export function cardPad(format: Format = "post"): { x: number; y: number } {
+  const k = format === "reel" ? CARD_PAD_REEL : 1;
+  return { x: Math.round(CARD_PAD.x * k), y: Math.round(CARD_PAD.y * k) };
+}
+
+/**
+ * Como `pickFit`, pero prefiere la mayor escala que ocupa a lo sumo `fill` del
+ * alto útil (`REEL_FILL` en el reel, `POST_FILL` en el post), y si ninguna cabe
+ * ahí, la mayor que cabe en el alto completo. Una plantilla cuyo estimador
+ * sobreestima (Step: viñetas) puede pedir un `fill` mayor.
+ */
+export function pickFill<T>(candidates: T[], height: (c: T) => number, available: number, format: Format = "post", fill?: number): T {
+  const tope = fill ?? (format === "reel" ? REEL_FILL : POST_FILL);
+  const c = candidates.find((x) => height(x) <= available * tope);
+  if (c !== undefined) return c;
   return pickFit(candidates, height, available);
 }
 

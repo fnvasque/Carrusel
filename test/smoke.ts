@@ -15,6 +15,7 @@ import { pillContent } from "../src/templates/Cta.tsx";
 import { frasesNowrap, highlightText } from "../src/templates/highlight.tsx";
 import { parrafos, parrafosHeight } from "../src/templates/parrafos.tsx";
 import { contentHeight, sourceLines, wrapLines, firmaReserve } from "../src/templates/layout.ts";
+import * as layout from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
@@ -253,6 +254,39 @@ check("scoreReel: desde 2026-11-02 el Hook del reel va sin tarjeta; la Screen en
   const tarde = structuredClone(pieza);
   for (const k of ["resultado", "app", "modo"]) delete (tarde.slides[0].props as Record<string, unknown>)[k];
   assert.ok(hook(tarde) < conTarjeta);
+});
+
+// --- más aire (Felipe 2026-10-29): gaps ~40 % mayores, tarjetas 52 × 44, tope de llenado ---
+check("aire: el bloque llena a lo sumo 72 % del alto en reel y 85 % en post; gaps × 1,4", () => {
+  assert.equal(layout.REEL_FILL, 0.72);
+  assert.equal((layout as Record<string, unknown>).POST_FILL, 0.85);
+  assert.equal((layout as Record<string, unknown>).AIRE, 1.4);
+  // pickFill en post: prefiere la escala que cabe en el 85 % (antes llenaba el 100 %).
+  assert.equal(layout.pickFill([100, 90, 80], (x) => x, 100, "post"), 80);
+  assert.equal(layout.pickFill([100, 70, 60], (x) => x, 100, "reel"), 70);
+  // Si ninguna cabe en el tope, la mayor que cabe en el alto completo.
+  assert.equal(layout.pickFill([100, 95, 90], (x) => x, 100, "post"), 100);
+});
+
+check("aire: tarjetas y burbujas con relleno 44 × 52 en post; burbujas ≤ 80 % del ancho útil y ≥ 32 px entre ellas", () => {
+  const pad = (h: string, attr: string) => new RegExp(`${attr}[^>]*style="[^"]*padding:(\\d+)px (\\d+)px`).exec(h)?.slice(1).map(Number);
+  const scr = renderToStaticMarkup(createElement(Screen, { app: "Claude", prompt: "Resume esta planilla para mi gerente.", respuesta: "La de devoluciones no está en la planilla." }));
+  for (const lado of ["tu", "ia"]) {
+    assert.deepEqual(pad(scr, `data-chat="${lado}"`), [44, 52], `burbuja ${lado}`);
+    const ancho = Number(new RegExp(`data-chat="${lado}"[^>]*max-width:(\\d+)px`).exec(scr)![1]);
+    assert.ok(ancho <= Math.round((1080 - 2 * theme.padding) * 0.8), `burbuja ${lado} de ${ancho} px`);
+  }
+  const gapChat = Number(/<div style="display:flex;flex-direction:column;justify-content:center;flex:1;gap:(\d+)px">/.exec(scr)![1]);
+  assert.ok(gapChat >= 32, `gap entre burbujas ${gapChat}`);
+  const myth = renderToStaticMarkup(createElement(MythReality, { myth: "La IA piensa sola.", reality: "Hace lo que le pides.", highlight: "le pides" }));
+  assert.match(myth, /padding:44px 52px/, "tarjeta de la realidad");
+  const prompt = renderToStaticMarkup(createElement(Prompt, { heading: "Pídelo así", prompt: "Resume en 3 puntos." }));
+  assert.match(prompt, /padding:44px 52px/, "tarjeta del prompt");
+  const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", highlight: "empezar", cta: "Escríbeme PARTIR" }));
+  assert.match(dm, /data-cta="dm"[^>]*padding:44px 52px/, "caja DM a tamaño pleno en post");
+  // Gap del Lead y del Hook: 40 y 36 × 1,4.
+  assert.match(renderToStaticMarkup(createElement(Lead, { text: "Una frase corta." })), /flex:1;gap:56px/);
+  assert.match(renderToStaticMarkup(createElement(Hook, { title: "Un titular corto" })), /flex:1;gap:50px/);
 });
 
 check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
@@ -821,7 +855,11 @@ check("Cta (post): con una fuente larga el titular se achica para no pisarla", (
   const corta = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es" }));
   const larga = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es", source: fuente }));
   assert.ok(tam(corta) > 0 && tam(larga) > 0, "se lee el tamaño del titular");
-  assert.ok(tam(larga) < tam(corta), `con fuente larga el titular debe achicarse (${tam(larga)} vs ${tam(corta)})`);
+  // Con el tope de llenado del post (POST_FILL 0,85, «más aire» 2026-10-29) la versión sin fuente ya deja
+  // 15 % libre: con 2 líneas de fuente el titular puede quedar igual (nunca mayor); con 3 líneas sí se achica.
+  assert.ok(tam(larga) <= tam(corta), `con fuente larga el titular no crece (${tam(larga)} vs ${tam(corta)})`);
+  const muyLarga = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es", source: `${fuente}; Microsoft, guía de Copilot para equipos de trabajo` }));
+  assert.ok(tam(muyLarga) < tam(corta), `con fuente de 3 líneas el titular debe achicarse (${tam(muyLarga)} vs ${tam(corta)})`);
 });
 
 check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastilla tinta", () => {

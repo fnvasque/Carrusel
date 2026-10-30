@@ -1,6 +1,6 @@
 import { Frame } from "./Frame.tsx";
 import { fitDisplaySize, estimateLines, CONTENT_WIDTH, displayLineHeight } from "./fit.ts";
-import { contentHeight, displayHeight, pickFill } from "./layout.ts";
+import { aire, contentHeight, displayHeight, pickFill } from "./layout.ts";
 import { titular } from "./ui.tsx";
 import { Parrafos, parrafosHeight } from "./parrafos.tsx";
 import type { BaseSlideProps } from "./types.ts";
@@ -37,7 +37,7 @@ function scales(reel: boolean): StatScale[] {
     valueMax: Math.min(reel ? 420 : Infinity, Math.round((reel ? 340 : theme.fontSize.stat) * s)),
     labelMax: Math.round((reel ? 92 : 72) * Math.min(reel ? 1.35 : 1.1, s)),
     body: Math.max(40, Math.min(reel ? 56 : 46, Math.round((reel ? 48 : theme.fontSize.body) * s))),
-    gap: Math.round(36 * Math.min(reel ? 1.4 : 1.1, s)),
+    gap: aire(36 * Math.min(reel ? 1.4 : 1.1, s)),
   }));
 }
 
