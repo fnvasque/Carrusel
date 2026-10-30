@@ -22,7 +22,7 @@ export const REEL_SAFE_TOP = 150;
 export const MARGEN_LATERAL = 60;
 /** Margen vertical del post (arriba y abajo). */
 export const POST_PAD_Y = theme.padding - 24;
-/** Alto de la cabecera de marca (etiqueta + wordmark). */
+/** Alto de la cabecera de marca (serie a la izquierda, firma compacta a la derecha en el reel). */
 export const HEADER_HEIGHT = 44;
 /** Aire entre la cabecera y el contenido. */
 export const CONTENT_GAP_TOP = 40;
@@ -39,7 +39,18 @@ export function franjaSegura(w: number, h: number): [number, number] {
     return [(REEL_SAFE_TOP + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, (H - REEL_SAFE_BOTTOM) / H];
   }
   const H = FORMATS.post.height;
-  return [(POST_PAD_Y + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, 1 - POST_PAD_Y / H];
+  return [(POST_PAD_Y + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, 1 - (POST_PAD_Y + firmaReserve("post")) / H];
+}
+/** Círculo de la firma del pie del post (px). */
+export const FIRMA_SIZE = 84;
+/** Aire entre la firma del pie y lo que va encima (fuente o contenido). */
+const FIRMA_GAP = 28;
+/**
+ * Alto reservado abajo para la firma del post (círculo + aire). En el reel la
+ * firma va en la cabecera: no reserva nada.
+ */
+export function firmaReserve(format: Format = "post"): number {
+  return format === "reel" ? 0 : FIRMA_SIZE + FIRMA_GAP;
 }
 /** Fuente al pie: mono 24 px, interlineado 1.35. */
 export const SOURCE_SIZE = 24;
@@ -104,12 +115,12 @@ export function subtituloReserve(format: Format = "post", narracion?: string): n
   return format === "reel" && typeof narracion === "string" && narracion.trim() ? SUBTITULO_RESERVA : 0;
 }
 
-/** Alto disponible para el bloque de contenido (descontando cabecera, pie, subtítulo y alza óptica). */
+/** Alto disponible para el bloque de contenido (descontando cabecera, fuente, firma, subtítulo y alza óptica). */
 export function contentHeight(format: Format = "post", source?: string, narracion?: string): number {
   const h = FORMATS[format].height;
   const padTop = format === "reel" ? REEL_SAFE_TOP : POST_PAD_Y;
   const padBottom = format === "reel" ? REEL_SAFE_BOTTOM : POST_PAD_Y;
-  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - subtituloReserve(format, narracion) - opticalLift(format);
+  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - firmaReserve(format) - subtituloReserve(format, narracion) - opticalLift(format);
 }
 
 /**

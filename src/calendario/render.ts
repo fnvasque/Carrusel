@@ -677,6 +677,8 @@ export async function renderPieza(
   } catch (e) {
     throw new ErrorContenido([razon(e)]);
   }
+  // La serie de la pieza (plan) manda en la cabecera si el borrador no la trae.
+  if (b.serie === undefined && p.pieza.serie) b.serie = p.pieza.serie;
   // Tope de fondos ai: los que sobran vuelven al fondo por defecto del look lima.
   const quitar = [...((await fondosIaQuitados(p.semana)).get(p.pieza.id) ?? [])];
   for (const q of opts.quitarFondos ?? []) {

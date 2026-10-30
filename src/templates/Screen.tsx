@@ -40,6 +40,8 @@ export function Screen({ app, prompt, respuesta, heading, nota, accent, format =
     { text: 36, headingMax: 100, gap: 40, pad: 28 },
     { text: 32, headingMax: 92, gap: 36, pad: 26 },
     { text: 30, headingMax: 84, gap: 32, pad: 24 },
+    // Último recurso: con la firma del pie, un chat muy largo ya no cabía a 30.
+    { text: 28, headingMax: 76, gap: 28, pad: 22 },
   ];
   const height = (c: (typeof candidates)[number]) => {
     let h = 84; // barra de la ventana

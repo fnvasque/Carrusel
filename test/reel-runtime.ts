@@ -244,26 +244,12 @@ try {
   const back = await hook(0);
   assert.equal(back.pop, back.parent, "la palabra clave vuelve al color del titular al volver a 0");
 
-  // Grilla: deriva diagonal continua (x sube, y baja) igual en todas las
-  // escenas, envuelta dentro de una celda y determinista hacia atrás.
-  const grid = (t: number) =>
-    page.evaluate((x) => {
-      (window as any).__reel.seek(x);
-      return Array.from(document.querySelectorAll("[data-grid]")).map((g) => {
-        const m = new DOMMatrix(getComputedStyle(g).transform);
-        return { x: m.e, y: m.f, cell: parseFloat(getComputedStyle(g).backgroundSize) };
-      });
-    }, t);
-  const g0 = await grid(0);
-  assert.ok(g0.length === timing.scenes.length, `una grilla por escena: ${g0.length}`);
-  assert.ok(g0.every((g) => g.x === 0 && g.y === 0), `grilla sin desplazar en el cuadro 0: ${JSON.stringify(g0)}`);
-  const g1 = await grid(1);
-  assert.ok(g1.every((g) => g.x === g1[0].x && g.y === g1[0].y), "todas las grillas se mueven igual");
-  assert.ok(g1[0].x > 0 && g1[0].y < 0 && Math.abs(g1[0].x + g1[0].y) < 1e-3, `deriva diagonal: ${g1[0].x}, ${g1[0].y}`);
-  const gEnd = await grid(timing.total);
-  assert.ok(gEnd.every((g) => g.x >= 0 && g.x < g.cell && g.y <= 0 && g.y > -g.cell), "la deriva queda dentro de una celda (sin bordes vacíos)");
-  const g1b = await grid(1);
-  assert.deepEqual(g1b, g1, "grilla determinista al volver atrás");
+  // Look papel: sin grilla (el runtime tolera su ausencia: seek no falla y no hay capas [data-grid]).
+  const sinGrilla = await page.evaluate(() => {
+    (window as any).__reel.seek(1);
+    return document.querySelectorAll("[data-grid]").length;
+  });
+  assert.equal(sinGrilla, 0, "el look papel no pinta grilla");
 
   // Barra de progreso: lineal de 0 a 100% del ancho en todo el reel.
   const progress = (t: number) =>
@@ -730,36 +716,24 @@ try {
     console.log(`✓ ritmo gancho: hook ≤ 3 s en movimiento desde el cuadro 0, transición 0.3, cierre lento (${t.total}s)`);
   }
 
-  // Logo tardío (logoEnCuadro0: false): el wordmark de la escena 0 está oculto
-  // hasta los 3 s y entra en 0.4 s; por defecto se ve desde el cuadro 0.
+  // logoEnCuadro0: false ya no tiene efecto (sin wordmark): el reel renderiza, sin logo ni capa «late».
   {
-    const logoSpec = (late: boolean) =>
-      ({
-        name: "_logo-tardio",
-        slides: [
-          { template: Hook, props: { title: "Logo después del hook", highlight: "Logo", ...(late ? { logoEnCuadro0: false } : {}) } },
-          { template: Hook, props: { title: "Segunda escena del reel", highlight: "escena", ...(late ? { logoEnCuadro0: false } : {}) } },
-        ],
-      }) as unknown as CarouselSpec;
-    const logoAt = (p: Page, t: number) =>
-      p.evaluate((x) => {
-        (window as any).__reel.seek(x);
-        const logo = document.querySelector('[data-scene="0"] [data-brand="logo"]') as HTMLElement;
-        return { opacity: Number(getComputedStyle(logo).opacity), late: logo.getAttribute("data-anim") === "late" };
-      }, t);
-    const { page: d } = await open(browser, logoSpec(false));
-    const d0 = await logoAt(d, 0);
-    assert.deepEqual(d0, { opacity: 1, late: false }, "por defecto, wordmark visible en el cuadro 0");
-    await d.close();
-    const { page: l } = await open(browser, logoSpec(true));
-    await hookGoals(l, "logo tardío");
-    for (const t of [0, 1.5, 2.95]) assert.equal((await logoAt(l, t)).opacity, 0, `logo tardío: oculto a los ${t} s`);
-    const mid = (await logoAt(l, 3.2)).opacity;
-    assert.ok(mid > 0 && mid < 1, `logo tardío: entrando a los 3.2 s (${mid})`);
-    assert.equal((await logoAt(l, 3.45)).opacity, 1, "logo tardío: completo a los 3.4 s");
-    assert.equal((await logoAt(l, 0)).opacity, 0, "logo tardío: seek hacia atrás lo vuelve a ocultar");
+    const spec = {
+      name: "_logo-tardio",
+      slides: [
+        { template: Hook, props: { title: "Logo después del hook", highlight: "Logo", logoEnCuadro0: false } },
+        { template: Hook, props: { title: "Segunda escena del reel", highlight: "escena", logoEnCuadro0: false } },
+      ],
+    } as unknown as CarouselSpec;
+    const { page: l } = await open(browser, spec);
+    await hookGoals(l, "logoEnCuadro0 sin efecto");
+    const marcas = await l.evaluate(() => {
+      (window as any).__reel.seek(3.2);
+      return { logo: document.querySelectorAll('[data-brand="logo"]').length, late: document.querySelectorAll('[data-anim="late"]').length, firma: document.querySelectorAll('[data-scene="0"] [data-brand="firma"]').length };
+    });
+    assert.deepEqual(marcas, { logo: 0, late: 0, firma: 1 }, "sin wordmark ni capa late; la firma compacta va en la cabecera");
     await l.close();
-    console.log("✓ logo tardío: wordmark oculto hasta 3 s, entra en 0.4 s; por defecto desde el cuadro 0");
+    console.log("✓ logoEnCuadro0: sin efecto; el reel no tiene wordmark y lleva la firma compacta");
   }
 
   // Carrusel del martes 2026-10-27: la respuesta de la IA (un correo) con saltos de línea

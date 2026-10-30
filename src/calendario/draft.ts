@@ -33,6 +33,8 @@ export interface Borrador extends VariationDraft {
   audio?: string;
   /** Reel: wordmark desde el cuadro 0 (por defecto true; false = experimento logo tardío). */
   logoEnCuadro0?: boolean;
+  /** Serie de la pieza (`plan.piezas[].serie`): su nombre va en la cabecera de cada lámina. */
+  serie?: string;
   /** Reel: clip de video IA detrás del hook (lo aplica `hook-video.ts` después del render). */
   hookVideo?: HookVideo;
   /**
@@ -118,6 +120,7 @@ export function parseBorrador(text: string): Borrador {
   });
   if (data.pace !== undefined) parsePace(data.pace, "el campo `pace` del borrador");
   if (data.audio !== undefined && (typeof data.audio !== "string" || !data.audio.trim())) throw new Error("El campo `audio` debe ser el nombre de una pista (texto).");
+  if (data.serie !== undefined && (typeof data.serie !== "string" || !data.serie.trim())) throw new Error("El campo `serie` debe ser el nombre de una serie (texto).");
   if (data.logoEnCuadro0 !== undefined && typeof data.logoEnCuadro0 !== "boolean") throw new Error("El campo `logoEnCuadro0` debe ser true o false.");
   if (data.hookVideo !== undefined) {
     const err = hookVideoError(data.hookVideo);
@@ -164,7 +167,7 @@ export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): Caro
   return {
     name: slugify(validated.name),
     ...(b.pace !== undefined ? { pace: b.pace } : {}),
-    defaults: { ...spec.defaults, ...(opts.format ? { format: opts.format } : {}) },
+    defaults: { ...spec.defaults, ...(validated.serie ? { serie: validated.serie } : {}), ...(opts.format ? { format: opts.format } : {}) },
     slides,
   };
 }
@@ -182,7 +185,7 @@ export function storySpec(b: Borrador): CarouselSpec {
   const highlight = typeof hook.props.highlight === "string" ? hook.props.highlight : undefined;
   return {
     name: `${slugify(validated.name)}-story`,
-    defaults: { pillar: validated.pillar },
+    defaults: { pillar: validated.pillar, ...(validated.serie ? { serie: validated.serie } : {}) },
     slides: [
       {
         template: StoryCover,

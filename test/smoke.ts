@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { pillContent } from "../src/templates/Cta.tsx";
 import { frasesNowrap } from "../src/templates/highlight.tsx";
 import { parrafos, parrafosHeight } from "../src/templates/parrafos.tsx";
-import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
+import { contentHeight, sourceLines, wrapLines, firmaReserve } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
@@ -643,17 +643,15 @@ check("plantillas: checklist con un check por viñeta y cursor del Prompt", () =
   assert.match(prompt, /data-anim="type"[^>]*>hola<span data-anim="caret"/);
 });
 
-check("Frame: grilla data-grid solo en reel, etiqueta NN / PILAR y tokens lima", () => {
+check("Frame: papel liso, sin grilla, viñeta ni wordmark; la marca no lleva data-anim", () => {
   const reel = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7, format: "reel" }));
   const post = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7 }));
-  assert.match(reel, /data-grid=""/);
-  assert.doesNotMatch(post, /data-grid/);
-  assert.match(post, /rgba\(198,255,61,0\.07\)/, "grilla lima al 7 %");
-  assert.match(post, /background-color:#ECECEA/);
-  assert.match(post, new RegExp(`color:${theme.colors.violet}">03</span>`), "número en color del pilar");
-  assert.match(post, />NOTICIA</);
-  // Logo, etiqueta y fuente no llevan data-anim.
-  const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", pillar: "noticia", index: 3, format: "reel" }));
+  for (const h of [reel, post]) {
+    assert.doesNotMatch(h, /data-grid|rgba\(198,255,61,0\.07\)|radial-gradient|data-brand="logo"|data-brand="label"|NOTICIA/);
+    assert.match(h, /background-color:#ECECEA/);
+  }
+  // Firma y fuente no llevan data-anim.
+  const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", serie: "lo-que-construi", index: 3, total: 7, format: "reel" }));
   for (const b of withSrc.match(/<[^>]*data-brand="[^"]*"[^>]*>/g) ?? []) assert.doesNotMatch(b, /data-anim/);
 });
 
@@ -662,6 +660,44 @@ check("theme: serieLabel traduce la serie al rótulo de cabecera", () => {
   assert.equal(serieLabel("lo-que-construi"), "Lo que construí");
   assert.equal(serieLabel(undefined), undefined);
   assert.equal(serieLabel("otra-cosa"), undefined);
+});
+
+check("Frame (post): serie en la cabecera, firma y n/total en el pie", () => {
+  const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "por-donde-partir", index: 2, total: 6, source: "Fuente: X", pillar: "noticia" }));
+  assert.match(h, /data-brand="serie"[^>]*>Por dónde partir</);
+  assert.match(h, /data-brand="firma"/);
+  assert.match(h, /Felipe Vásquez/);
+  assert.match(h, /data-brand="pagina"[^>]*>2\/6</);
+  assert.match(h, />FV</);
+  assert.doesNotMatch(h, /NOTICIA|data-brand="logo"|data-brand="label"|data-grid|undefined/);
+  // La firma no lleva la línea salvo que se pida.
+  assert.doesNotMatch(h, /Te ayudo a partir/);
+  const conLinea = renderToStaticMarkup(createElement(Step, { heading: "Paso", index: 1, total: 6, firmaLinea: true }));
+  assert.match(conLinea, /Te ayudo a partir con la IA en tu trabajo/);
+});
+
+check("Frame: sin serie la cabecera izquierda queda vacía (ni pilar ni undefined)", () => {
+  const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "herramienta", index: 2, total: 6 }));
+  assert.doesNotMatch(h, /data-brand="serie"|HERRAMIENTA|undefined/);
+  const desconocida = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "otra-cosa", index: 2, total: 6 }));
+  assert.doesNotMatch(desconocida, /data-brand="serie"|undefined/);
+});
+
+check("Frame (reel): firma compacta en la cabecera y nada en el pie", () => {
+  const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "lo-que-construi", index: 2, total: 6, format: "reel", source: "Fuente: X" }));
+  assert.match(h, /data-brand="serie"[^>]*>Lo que construí</);
+  assert.match(h, /data-brand="firma"/);
+  assert.doesNotMatch(h, /data-brand="pagina"/);
+  // La firma va antes que el contenido (cabecera), no después (pie).
+  assert.ok(h.indexOf('data-brand="firma"') < h.indexOf("data-content"), "firma del reel en la cabecera");
+  const post = renderToStaticMarkup(createElement(Step, { heading: "Paso", index: 2, total: 6 }));
+  assert.ok(post.indexOf('data-brand="firma"') > post.indexOf("data-content"), "firma del post en el pie");
+});
+
+check("layout: firmaReserve reserva el pie solo en el post", () => {
+  assert.ok(firmaReserve("post") > 0);
+  assert.equal(firmaReserve("reel"), 0);
+  assert.equal(contentHeight("post"), 1350 - 2 * 72 - 44 - 40 - 40 - firmaReserve("post"), "el contenido descuenta la firma");
 });
 
 check("Hook: mark pinta la palabra con caja rosa sin pop", () => {
@@ -857,7 +893,7 @@ check("plantillas: formato post sin capa bg ni strike", () => {
 check("StoryCover: rótulo \"Nuevo en el feed\", wordmark y titular con palabra clave", () => {
   const h = renderToStaticMarkup(createElement(StoryCover, { title: "3 IAs gratis", highlight: "gratis", format: "reel" }));
   assert.match(h, /Nuevo en el feed ↑/);
-  assert.match(h, /data-brand="logo"/, "lleva el wordmark");
+  assert.doesNotMatch(h, /data-brand="logo"/, "el wordmark ya no se pinta");
   assert.match(h, /<h1[^>]*>.*data-anim="pop"[^>]*>gratis<\/span>/);
   assert.match(h, /width:1080px;height:1920px/, "lienzo 9:16");
   const otro = renderToStaticMarkup(createElement(StoryCover, { title: "Hola", rotulo: "Ya en el feed", format: "reel" }));
@@ -865,19 +901,15 @@ check("StoryCover: rótulo \"Nuevo en el feed\", wordmark y titular con palabra 
   assert.doesNotMatch(otro, /Nuevo en el feed/);
 });
 
-check("Frame: logoEnCuadro0 por defecto no cambia el markup; false marca el wordmark como late (solo reel)", () => {
+check("Frame: logoEnCuadro0 y showLogo se aceptan sin efecto (ya no hay wordmark)", () => {
   for (const format of ["post", "reel"] as const) {
     const props = { title: "La IA cambió todo", highlight: "cambió", format };
     const def = renderToStaticMarkup(createElement(Hook, props));
-    assert.equal(renderToStaticMarkup(createElement(Hook, { ...props, logoEnCuadro0: true })), def, `${format}: true = por defecto`);
-    assert.doesNotMatch(def, /data-anim="late"/);
-    assert.doesNotMatch(def, /logoEnCuadro0/i);
+    for (const extra of [{ logoEnCuadro0: true }, { logoEnCuadro0: false }, { showLogo: false }]) {
+      assert.equal(renderToStaticMarkup(createElement(Hook, { ...props, ...extra })), def, `${format}: ${JSON.stringify(extra)} no cambia el markup`);
+    }
+    assert.doesNotMatch(def, /data-anim="late"|data-brand="logo"/);
   }
-  const reel = renderToStaticMarkup(createElement(Hook, { title: "T", format: "reel", logoEnCuadro0: false }));
-  assert.match(reel, /data-brand="logo" data-anim="late"|data-anim="late" data-brand="logo"/);
-  // En el carrusel no hay tiempo: el logo queda estático.
-  const post = renderToStaticMarkup(createElement(Hook, { title: "T", logoEnCuadro0: false }));
-  assert.doesNotMatch(post, /data-anim="late"/);
 });
 
 // --- reel: página única ---

@@ -78,7 +78,7 @@ check("R16: negro puro y #06060A liso son pantalla negra; pieza lima con texto c
 
 check("franjaSegura: sale de las constantes de layout, bajo la cabecera, en fracciones de cualquier escala", () => {
   const reel: [number, number] = [(150 + 44 + 40) / 1920, 1480 / 1920];
-  const post: [number, number] = [(72 + 44 + 40) / 1350, 1 - 72 / 1350];
+  const post: [number, number] = [(72 + 44 + 40) / 1350, 1 - (72 + 112) / 1350];
   assert.deepEqual(franjaSegura(540, 960), reel);
   assert.deepEqual(franjaSegura(1080, 1920), reel);
   assert.deepEqual(franjaSegura(1080, 1350), post);
