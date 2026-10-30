@@ -53,7 +53,7 @@ export function Frame({
   /** Acepta el prop del calendario; no tiene efecto (ya no se pinta el wordmark). */
   logoEnCuadro0?: boolean;
   format?: Format;
-  /** Post: la firma del pie lleva debajo `theme.firma.linea`. */
+  /** Post: la firma del pie lleva debajo `theme.firma.linea`; reel: lo mismo en la firma de la cabecera (la story). */
   firmaLinea?: boolean;
   /** Reel: la escena lleva subtítulo de narración; el contenido deja su espacio (`SUBTITULO_RESERVA`). */
   narracion?: string;
@@ -112,7 +112,7 @@ export function Frame({
           {/* El círculo (56) es más alto que la cabecera (44): arranca arriba y se asoma al aire de abajo, sin pasar la zona segura. */}
           {reel && (
             <div style={{ alignSelf: "flex-start" }}>
-              <Firma circulo={56} nombre={28} />
+              <Firma circulo={56} nombre={28} linea={firmaLinea} />
             </div>
           )}
         </div>
@@ -156,7 +156,7 @@ export function Frame({
 }
 
 /** Firma de la cuenta: círculo tinta con las iniciales en serif cursiva lima y el nombre (y, opcional, la línea). */
-function Firma({ circulo, nombre, linea = false }: { circulo: number; nombre: number; linea?: boolean }) {
+export function Firma({ circulo, nombre, linea = false }: { circulo: number; nombre: number; linea?: boolean }) {
   return (
     <div data-brand="firma" style={{ display: "flex", alignItems: "center", gap: Math.round(circulo * 0.24), flexShrink: 0 }}>
       <div

@@ -789,6 +789,37 @@ check("Cta: la pastilla quita emoji y usa ícono SVG", () => {
   assert.match(html, />Guardar<svg/);
 });
 
+check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastilla tinta", () => {
+  const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" }));
+  assert.match(dm, /data-cta="dm"/);
+  const burbuja = dm.match(/<span data-cta="burbuja"[^>]*>([^<]*)<\/span>/);
+  assert.equal(burbuja?.[1], "PARTIR", "la burbuja lleva solo la palabra");
+  assert.equal((dm.match(/PARTIR/g) ?? []).length, 1, "PARTIR aparece una sola vez");
+  assert.match(dm, /Felipe Vásquez/);
+  assert.match(dm, />FV</);
+  assert.match(dm, /Escríbeme esto por mensaje y te respondo yo\./);
+  const conPista = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "PARTIR", reason: "Te respondo con un primer paso." }));
+  assert.match(conPista, /Te respondo con un primer paso\./);
+  assert.doesNotMatch(conPista, /Escríbeme esto por mensaje/);
+  // PARTIR en el título también activa la caja; el título se deja como está escrito.
+  const enTitulo = renderToStaticMarkup(createElement(Cta, { title: "Escríbeme PARTIR", cta: "Link en bio" }));
+  assert.match(enTitulo, /data-cta="dm"/);
+  assert.match(enTitulo, /<span data-cta="burbuja"[^>]*>PARTIR<\/span>/);
+  const sin = renderToStaticMarkup(createElement(Cta, { title: "Guárdalo", cta: "Guárdalo 🔖" }));
+  assert.doesNotMatch(sin, /data-cta="dm"/);
+  assert.match(sin, />Guárdalo<svg/);
+  const reel = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "Escríbeme PARTIR", format: "reel" }));
+  assert.match(reel, /data-cta="dm"[^>]*data-anim="rise"|data-anim="rise"[^>]*data-cta="dm"/, "la caja se anima en el reel");
+  const cur = renderToStaticMarkup(createElement(Cta, { title: "No sabes por dónde empezar", cursiva: "No sabes" }));
+  assert.match(cur, /data-cursiva/);
+});
+
+check("StoryCover: firma con la línea de la cuenta, también en el reel", () => {
+  const h = renderToStaticMarkup(createElement(StoryCover, { title: "3 IAs gratis", format: "reel" }));
+  assert.match(h, /Felipe Vásquez/);
+  assert.match(h, /Te ayudo a partir con la IA en tu trabajo/);
+});
+
 check("layout: la fuente al pie reserva su alto real y Step/Stat se ajustan al área", () => {
   const long = "Fuente: un informe con un nombre muy largo, publicado por una organización con un nombre igual de largo, 2026";
   assert.equal(sourceLines("Fuente: X"), 1);

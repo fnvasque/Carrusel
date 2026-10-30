@@ -1,7 +1,8 @@
 import { Frame } from "./Frame.tsx";
-import { highlightText } from "./highlight.tsx";
+import { highlightText, frasesNowrap } from "./highlight.tsx";
 import { fitDisplaySize, displayLineHeight } from "./fit.ts";
 import { contentHeight, displayHeight, pickFill } from "./layout.ts";
+import { titular } from "./ui.tsx";
 import type { BaseSlideProps } from "./types.ts";
 import { theme } from "../theme.ts";
 
@@ -10,14 +11,16 @@ export interface StoryCoverProps extends BaseSlideProps {
   title: string;
   /** Palabra(s) del titular a resaltar en lima (el `highlight` del Hook). */
   highlight?: string;
-  /** Texto de la píldora lima de abajo. Por defecto "Nuevo en el feed ↑". */
+  /** Frase del titular en Instrument Serif cursiva (como en el Hook). */
+  cursiva?: string;
+  /** Texto de la píldora tinta de abajo. Por defecto "Nuevo en el feed ↑". */
   rotulo?: string;
 }
 
 /** Rótulo por defecto: la story avisa que hay una pieza nueva en el feed. */
 export const STORY_ROTULO = "Nuevo en el feed ↑";
 
-/** Píldora del rótulo: Inter 700 a 46 px, mismo estilo que la del Cta. */
+/** Píldora del rótulo: tinta con texto blanco, Inter 700 a 46 px, mismo estilo que la del Cta. */
 const PILL = { size: 46, padY: 24, padX: 44, gap: 56 };
 const PILL_HEIGHT = Math.round(PILL.size * 1.2) + 2 * PILL.padY;
 /**
@@ -29,42 +32,39 @@ const TITLE_LH = 1.12;
 
 /**
  * Portada de la story (1080×1920, siempre 9:16): el hook de la pieza en el look
- * lima, titular Anton centrado y grande (franja ~15–75 % del alto) y, abajo, una
- * píldora lima con el rótulo, por encima de la zona segura inferior (440 px, la
+ * papel, titular Inter 700 con marcador lima, centrado y grande (franja ~15–75 % del alto) y, abajo, una
+ * píldora tinta con el rótulo, por encima de la zona segura inferior (440 px, la
  * reserva `Frame`). Es una imagen fija: no lleva marcas `data-anim` de entrada.
  * Solo la usa el motor del calendario; no está en el catálogo del remix.
  */
-export function StoryCover({ title, highlight, rotulo = STORY_ROTULO, accent, format: _format, ...base }: StoryCoverProps) {
-  const lime = accent ?? theme.colors.accent;
+export function StoryCover({ title, highlight, rotulo = STORY_ROTULO, cursiva, accent: _accent, format: _format, ...base }: StoryCoverProps) {
+  const keep = frasesNowrap(highlight, undefined, cursiva);
   const available = contentHeight("reel", base.source) - PILL_HEIGHT - PILL.gap;
   // Estimación holgada (sin `tight`): con titulares largos la ajustada del reel
   // contaba una línea de menos y el bloque empujaba la píldora.
-  const fit = (max: number) => fitDisplaySize(title, max, { maxLines: 5 });
+  const fit = (max: number) => fitDisplaySize(title, max, { maxLines: 5, keep });
   const titleFont = fit(
     pickFill(
       [230, 216, 204, 192, 180, 168, 156, 144, 132],
-      (m) => displayHeight(title, fit(m), displayLineHeight(title, TITLE_LH)),
+      (m) => displayHeight(title, fit(m), displayLineHeight(title, TITLE_LH), undefined, false, keep),
       available,
       "reel",
     ),
   );
   return (
-    <Frame format="reel" {...base}>
+    <Frame format="reel" firmaLinea {...base}>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, alignItems: "center" }}>
         <div style={{ display: "flex", flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center", width: "100%" }}>
           <h1
             style={{
-              margin: 0,
-              fontFamily: theme.fonts.display,
-              fontWeight: 700, // Inter 700 tal como se escribe: lo que mide fit.ts
+              ...titular,
               fontSize: titleFont,
               lineHeight: displayLineHeight(title, TITLE_LH),
-              letterSpacing: "-0.04em",
               textAlign: "center",
               textWrap: "balance",
             }}
           >
-            {highlightText(title, highlight, lime)}
+            {highlightText(title, highlight, theme.colors.accent, undefined, theme.colors.ink, cursiva)}
           </h1>
         </div>
         <span
@@ -75,8 +75,8 @@ export function StoryCover({ title, highlight, rotulo = STORY_ROTULO, accent, fo
             fontSize: PILL.size,
             lineHeight: 1.2,
             fontWeight: 700,
-            color: theme.colors.onAccent,
-            backgroundColor: lime,
+            color: theme.colors.card,
+            backgroundColor: theme.colors.ink,
             padding: `${PILL.padY}px ${PILL.padX}px`,
             borderRadius: 999,
             whiteSpace: "nowrap",
