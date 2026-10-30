@@ -1306,25 +1306,27 @@ function dentroDeBase(base, r) {
   }
 }
 
-/** Frontmatter mínimo de una referencia: `revisado` y la lista `temas` (en línea o con guiones). */
+/** Frontmatter mínimo de una referencia: `revisado`, `aprendiz` y la lista `temas` (en línea o con guiones). */
 function frontmatterReferencia(text) {
   const m = String(text).replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return undefined;
   const lineas = m[1].split("\n");
   const quitar = (v) => v.trim().replace(/^(['"])(.*)\1$/, "$2");
   let revisado;
+  let aprendiz;
   const temas = [];
   for (let i = 0; i < lineas.length; i++) {
     const kv = lineas[i].match(/^([\p{L}\w-]+):\s*(.*)$/u);
     if (!kv) continue;
     if (kv[1] === "revisado") revisado = quitar(kv[2]);
+    if (kv[1] === "aprendiz") aprendiz = quitar(kv[2].replace(/\s#.*$/, ""));
     if (kv[1] === "temas") {
       const v = kv[2].trim();
       if (v.startsWith("[") && v.endsWith("]")) temas.push(...v.slice(1, -1).split(/,(?![^\[]*\]\])/).map(quitar).filter(Boolean));
       else for (let j = i + 1; j < lineas.length && /^\s*-\s+/.test(lineas[j]); j++) temas.push(quitar(lineas[j].replace(/^\s*-\s+/, "")));
     }
   }
-  return { revisado, temas, body: m[2] };
+  return { revisado, aprendiz, temas, body: m[2] };
 }
 
 /** Texto de `## Para la audiencia` hasta la siguiente sección `## ` (undefined si no está). */
@@ -1339,7 +1341,8 @@ function paraLaAudiencia(body) {
 /**
  * Por qué una referencia NO está lista para una pieza del tema `tema` en la semana
  * `semana` (undefined = lista): con el tema en `temas`, `revisado` de hace ≤ 60 días
- * y `## Para la audiencia` que no dice "No aplica a la cuenta".
+ * y `## Para la audiencia` que no dice "No aplica a la cuenta". Una nota con
+ * `aprendiz: pendiente` (el lector aprendiz no entendió su idea) tampoco está lista.
  */
 export function motivoReferenciaNoLista(text, tema, semana) {
   const fm = frontmatterReferencia(text);
@@ -1350,6 +1353,7 @@ export function motivoReferenciaNoLista(text, tema, semana) {
   const s = paraLaAudiencia(fm.body);
   if (s === undefined || !s.trim()) return 'no tiene "## Para la audiencia"';
   if (/^No aplica a la cuenta\b/m.test(s)) return 'su "## Para la audiencia" dice que no aplica a la cuenta';
+  if (fm.aprendiz === "pendiente") return "aprendiz: pendiente (el lector aprendiz no entendió su idea; la investigación la completa en otra corrida)";
   return undefined;
 }
 

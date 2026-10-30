@@ -1463,6 +1463,9 @@ check("calendario/validar: referencia lista — tema, revisado ≤ 60 d y Para l
   assert.match(motivoReferenciaNoLista("---\ntemas: [\"[[Automatización con IA]]\"]\nrevisado: 2026-10-09\n---\n## Qué es\nx\n", T, "2026-10-12")!, /Para la audiencia/);
   const lista = "---\ntemas:\n  - '[[Automatización con IA]]'\nrevisado: '2026-10-09'\n---\n## Para la audiencia\n- **Por qué importa:** x [1]\n";
   assert.equal(motivoReferenciaNoLista(lista, T, "2026-10-12"), undefined, "temas en columna y fecha entre comillas");
+  // El lector aprendiz no entendió la idea: la nota está en la base, pero no sirve para piezas todavía.
+  assert.match(motivoReferenciaNoLista(lista.replace("revisado: '2026-10-09'", "revisado: '2026-10-09'\naprendiz: pendiente"), T, "2026-10-12")!, /aprendiz: pendiente/);
+  assert.equal(motivoReferenciaNoLista(lista.replace("revisado: '2026-10-09'", "revisado: '2026-10-09'\naprendiz: 2026-10-09"), T, "2026-10-12"), undefined);
 
   const { root, dir, p } = semanaTemporal();
   try {

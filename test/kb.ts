@@ -26,7 +26,7 @@ import {
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import {
-  autoZoneOf, cobertura, DESDE_ETAPAS, DESDE_NOVEDAD, dichoSimple, ETAPAS, lineasPreguntas, MAX_DICHO, mensajeAprendiz, outsideAgentZones, parseFrontmatter, parseNameStatus, parsePreguntas,
+  APRENDIZ_PENDIENTE, autoZoneOf, cobertura, DESDE_ETAPAS, DESDE_NOVEDAD, dichoSimple, ETAPAS, lineasPreguntas, MAX_DICHO, mensajeAprendiz, outsideAgentZones, parseFrontmatter, parseNameStatus, parsePreguntas,
   slugDeEnlace, TIPOS, validateAlcance, validateAudiencia, validateReferencia, validateResumen, validateTopicBlock, zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
 import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
@@ -1050,6 +1050,9 @@ check("validar: desde DESDE_ETAPAS — etapa, aprendiz, Dicho simple y rótulo d
   assert.deepEqual(validateReferencia(REF_ETAPAS.replace("etapa: [adoptar]", "etapa: liderar"), ctx), []);
   assert.match(errs(REF_ETAPAS.replace("aprendiz: 2026-10-30\n", "")), /aprendiz/);
   assert.match(errs(REF_ETAPAS.replace("aprendiz: 2026-10-30", "aprendiz: 2026-10-29")), /aprendiz/);
+  // Modo editor: si el lector no entendió la idea, la nota se sube igual con «pendiente».
+  assert.equal(APRENDIZ_PENDIENTE, "pendiente");
+  assert.deepEqual(validateReferencia(REF_ETAPAS.replace("aprendiz: 2026-10-30", "aprendiz: pendiente"), ctx), []);
   assert.match(errs(REF_ETAPAS.replace("una tarea que repites [1].", "una tarea que repites.")), /Dicho simple/);
   assert.equal(MAX_DICHO, 400);
   assert.match(errs(REF_ETAPAS.replace("la IA te ayuda", `${"x".repeat(400)} la IA te ayuda`)), /400/);
@@ -1143,7 +1146,11 @@ check("validar: mensaje del lector aprendiz — solo Dicho simple y Qué se pued
   assert.match(lector, /## Para el lector/);
   for (const p of ["Qué entendiste", "Qué harías esta semana", "Qué palabra o frase del texto no entendiste", "Qué te faltaría saber"]) assert.match(lector, new RegExp(p));
   // Las dudas prácticas (respuesta 4) no bloquean: solo una palabra que no entendió (respuesta 3).
-  assert.match(lector, /La respuesta 4[\s\S]*\*\*no bloquea\*\*/);
+  // El lector es editor: nunca descarta notas; solo la respuesta 1 decide la marca.
+  assert.match(lector, /Ninguna nota se descarta/);
+  assert.match(lector, /aprendiz: pendiente/);
+  assert.match(lector, /Máximo \*\*2 lectores\*\*/);
+  assert.doesNotMatch(lector, /git checkout -- referencias/);
   const m = mensajeAprendiz(REF_ETAPAS, lector);
   assert.match(m, /la IA te ayuda más en lo que ya sabes revisar/);
   assert.match(m, /mandar un aviso cuando llega un correo/);
@@ -1164,6 +1171,8 @@ check("validar: cobertura por etapa y archivos protegidos nuevos", () => {
     writeFileSync(joinPath(root, "referencias", "vieja.md"), REF_ETAPAS.replace(/2026-10-30/g, "2026-08-01"));
     writeFileSync(joinPath(root, "referencias", "b.md"), REF_ETAPAS);
     writeFileSync(joinPath(root, "referencias", "c.md"), REF_ETAPAS);
+    // Una nota con aprendiz pendiente está en la base pero no cuenta como lista.
+    writeFileSync(joinPath(root, "referencias", "pendiente.md"), REF_ETAPAS.replace("aprendiz: 2026-10-30", "aprendiz: pendiente"));
     // Declarar varias etapas no infla la cobertura: cuenta en la primera.
     writeFileSync(joinPath(root, "referencias", "varias.md"), REF_ETAPAS.replace("etapa: [adoptar]", "etapa: [liderar, adoptar, adoptar]"));
     writeFileSync(joinPath(root, "referencias", "con.md"), CONEXION_OK);

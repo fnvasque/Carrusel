@@ -117,7 +117,8 @@ audiencia`, actualizar `revisado` a `<HOY>` y sumar fuentes si hacen falta. Todo
 lo demás de este manual sigue igual (zonas, citas, validar, registro, resumen).
 Al completar una nota con `revisado` anterior a 2026-10-28 se le suma lo nuevo
 (etapa, `Dicho simple`, el rótulo «Lo que no sabe quien está empezando» en vez de
-«Lo que no sabe un usuario frecuente», lector aprendiz y `aprendiz`). Si la lista
+«Lo que no sabe un usuario frecuente», lector aprendiz y `aprendiz`). Una nota
+con `aprendiz: pendiente` también se completa: se vuelve a pasar por el lector. Si la lista
 pide **conexiones** de una etapa, armas solo conexiones (Paso 3, punto 7) con
 referencias de esa etapa; si una referencia que necesitas no está lista (sin
 etapa, sin `Dicho simple` o vencida), la completas en la misma corrida antes de
@@ -343,13 +344,15 @@ Por qué juntas dicen algo que solas no dicen [1][2][3].
    `(propuesta, sin fuente)`. Si no encuentras una conexión que se sostenga, no
    la fuerces: es mejor ninguna que una inventada.
 
-8. **Lector aprendiz.** Toda nota que escribes o actualizas y que aplica a la
-   cuenta (también las conexiones) pasa por el lector aprendiz antes de subirse,
-   como manda `_investigacion/lector-aprendiz.md`: un subagente con contexto
-   limpio (herramienta Agent/Task) que recibe **tal cual** el mensaje de
-   `node _investigacion/validar.mjs --aprendiz <slug>`, con el criterio de paso y
-   el máximo de 3 intentos de ese archivo. Cuando pasa, escribes
-   `aprendiz: <HOY>` en el frontmatter. Si al tercero no pasa, la nota no se sube.
+8. **Lector aprendiz (editor).** Toda nota que escribes o actualizas y que
+   aplica a la cuenta (también las conexiones) pasa por el lector aprendiz antes
+   de subirse, como manda `_investigacion/lector-aprendiz.md`: un subagente con
+   contexto limpio (herramienta Agent/Task) que recibe **tal cual** el mensaje de
+   `node _investigacion/validar.mjs --aprendiz <slug>`. Usas su respuesta para
+   mejorar la nota (palabras que no entendió, dudas que puedes responder con
+   fuente). **Nunca descartas una nota por el lector:** si entendió la idea,
+   `aprendiz: <HOY>`; si después de un segundo lector sigue sin entenderla,
+   `aprendiz: pendiente` (se sube, pero el planificador no la usa todavía).
 
 ## Paso 4 — Registro y resumen
 
@@ -361,7 +364,7 @@ Por qué juntas dicen algo que solas no dicen [1][2][3].
   simple), las conexiones nuevas, las preguntas que respondiste y una línea con la
   cobertura que dejaste (corre `--cobertura` de nuevo: `adoptar 6/8 · 2/3`…). Es lo
   que el usuario recibe por Telegram. Nombra también las notas que no pasaron el
-  lector aprendiz.
+  lector aprendiz (las que quedaron con `aprendiz: pendiente`).
 - Si hay temas `fuera` (o fuera de toda lista) con fichas nuevas, cierra el
   resumen con una línea corta: `¿Investigo <Tema> (<n> fichas nuevas)? Pídelo en
   _investigacion/pedidos.md.` Es la única forma en que esos temas se investigan.
