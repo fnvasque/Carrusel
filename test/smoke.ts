@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip, Screen } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
-import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
+import { fitDisplaySize, estimateLines, CONTENT_WIDTH } from "../src/templates/fit.ts";
 import { theme, serieLabel } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys, TEMPLATE_CATALOG, catalogoRemix } from "../src/remix/templates-catalog.ts";
@@ -313,6 +313,15 @@ check("Cta PARTIR con reason: se ven la razón y la pista «Escríbeme…» (pos
     assert.ok(html.includes(DM_PISTA), `${format}: pista`);
     assert.ok(html.indexOf("RAZON_VISIBLE") < html.indexOf('data-cta="dm"'), `${format}: la razón va bajo el título, antes de la caja`);
   }
+});
+
+check("Screen (post): una respuesta larga ensancha la burbuja (≤ 90 %) y mantiene el texto ≥ 36 px", () => {
+  const props = {"app": "Claude", "heading": "Los 3 tips juntos, en un solo pedido", "prompt": "Soy jefa de operaciones; escribo a 12 supervisores. Avisa: desde el lunes los turnos rotan cada dos semanas; dudas, antes del viernes. Con este estilo, máximo 120 palabras: [tu correo]", "respuesta": "Asunto: Rotación de turnos desde el lunes\nHola, equipo:\nDesde el lunes los turnos rotan cada dos semanas.\nSi tienen dudas, escríbanme antes del viernes y las resolvemos.\nGracias,\nPaula"};
+  const html = renderToStaticMarkup(createElement(Screen, { ...props, format: "post" }));
+  const tam = Number(html.match(/data-anim="words" style="[^"]*font-size:(\d+)px/)?.[1]);
+  assert.ok(tam >= 36, `texto ${tam}px`);
+  const anchos = [...html.matchAll(/data-chat="(?:tu|ia)" style="[^"]*max-width:(\d+)px/g)].map((m) => Number(m[1]));
+  assert.ok(anchos.length === 2 && anchos.every((a) => a <= Math.round(CONTENT_WIDTH * 0.9)), String(anchos));
 });
 
 check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
