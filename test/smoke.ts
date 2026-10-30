@@ -789,6 +789,25 @@ check("Cta: la pastilla quita emoji y usa ícono SVG", () => {
   assert.match(html, />Guardar<svg/);
 });
 
+check("Cta: con la caja de mensaje directo no se pinta el handle suelto (solo cabecera de la caja y firma)", () => {
+  const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR", handle: "ia.punto.es" }));
+  assert.doesNotMatch(dm, /data-cta="handle"/);
+  assert.equal((dm.match(/@ia\.punto\.es/g) ?? []).length, 2, "caja DM + firma, nada más");
+  // Con la pastilla normal el handle sigue yendo.
+  const pill = renderToStaticMarkup(createElement(Cta, { title: "Guárdalo", cta: "Guárdalo", handle: "ia.punto.es" }));
+  assert.match(pill, /data-cta="handle"[^>]*>@ia\.punto\.es</);
+});
+
+check("Cta (post): con una fuente larga el titular se achica para no pisarla", () => {
+  const titulo = "¿No sabes por dónde empezar con la IA en tu trabajo?";
+  const fuente = "Fuente: Anthropic, Claude 101 y guía de prompts; OpenAI y Google, guías de prompts";
+  const tam = (h: string) => Number(h.match(/<h2[^>]*font-size:(\d+)px/)?.[1]);
+  const corta = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es" }));
+  const larga = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es", source: fuente }));
+  assert.ok(tam(corta) > 0 && tam(larga) > 0, "se lee el tamaño del titular");
+  assert.ok(tam(larga) < tam(corta), `con fuente larga el titular debe achicarse (${tam(larga)} vs ${tam(corta)})`);
+});
+
 check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastilla tinta", () => {
   const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" }));
   assert.match(dm, /data-cta="dm"/);

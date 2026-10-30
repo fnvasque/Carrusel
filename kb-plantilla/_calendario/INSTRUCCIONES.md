@@ -1124,7 +1124,7 @@ que a las demás.
 **Estructura que pasa el score** (6 slides, ≤ 19 s con la voz real):
 `Clip` (portada) → `Step` (qué se le dio) → `Clip` (segundo resultado o
 variante) → `Step` (el prompt exacto, entre comillas: el entregable) →
-`Stat` (modelo, créditos, minutos) → `Cta` (guardar, con `handle` y `source`).
+`Stat` (modelo, créditos, minutos) → `Cta` (guardar, con `handle` y `source`; en un Cta PARTIR no pongas `handle`: la caja de mensaje ya muestra @ia.punto.es).
 La voz de la portada no lee el titular y nombra a quién le sirve («si vendes
 por Instagram…»); algún `Clip` lleva `label` y alguna slide, `source`.
 
@@ -1243,7 +1243,7 @@ de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
 "Escríbeme PARTIR" para `dm` (la señal de toda pieza desde el 2026-11-02),
 "Guárdalo" para `guardados`, "Envíaselo a alguien" para `envios`,
 "Comenta PALABRA" para `comentarios` y "Guárdalo" o "Envíaselo a alguien" para
-`retencion`. `handle` va sin @: el motor la agrega (`"ia.punto.es"`, nunca
+`retencion`. En el Cta de cierre PARTIR no pongas `handle`: la caja de mensaje y la firma ya muestran @ia.punto.es (la prop sigue siendo válida para los demás Cta). `handle` va sin @: el motor la agrega (`"ia.punto.es"`, nunca
 `"@ia.punto.es"`).
 
 ### Caption
@@ -1883,7 +1883,6 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
       "props": {
         "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
         "highlight": "empezar",
-        "handle": "ia.punto.es",
         "cta": "Escríbeme PARTIR",
         "source": "Fuente: notebook.google"
       },

@@ -1608,7 +1608,8 @@ check("calendario/validar: handle con @ inicial → error \"sin @: el motor la a
   assertHas(vb(pieza(), b), /handle "@ia\.punto\.es" sin @: el motor la agrega/);
   b.slides[3].props.handle = "ia.punto.es";
   assertNone(vb(pieza(), b));
-  assert.equal(EJEMPLO.borrador.slides[5].props.handle, "ia.punto.es");
+  // El ejemplo cierra con PARTIR: la caja de mensaje ya muestra la cuenta, así que no lleva handle.
+  assert.equal(EJEMPLO.borrador.slides[5].props.handle, undefined);
 });
 
 check("calendario/validar: el Cta exige cta explícito y coherente con la señal", () => {

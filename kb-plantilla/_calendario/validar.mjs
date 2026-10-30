@@ -2484,7 +2484,6 @@ export const EJEMPLO = {
         "props": {
           "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
           "highlight": "empezar",
-          "handle": "ia.punto.es",
           "cta": "Escríbeme PARTIR",
           "source": "Fuente: notebook.google"
         },

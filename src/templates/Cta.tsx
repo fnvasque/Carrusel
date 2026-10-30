@@ -55,6 +55,8 @@ export const DM_PISTA = "Escríbeme esto por mensaje y te respondo yo.";
 export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, accent: _accent, format, ...base }: CtaProps) {
   const pill = pillContent(cta, ctaIcon);
   const dm = pideDm(pill.text, title);
+  // Con la caja de mensaje directo el remitente ya dice @ia.punto.es: no se repite el handle suelto.
+  const verHandle = Boolean(handle) && !dm;
   const reel = format === "reel";
   const keep = frasesNowrap(highlight, undefined, cursiva);
   // Reel: escala mayor que llena el 9:16 (el post queda con sus medidas fijas).
@@ -84,7 +86,7 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
         if (reason) h += c.gap + interHeight(reason, c.reason, 840, 1.3);
         h += c.gap + c.pill * 1.2 + 44;
       }
-      return h + (handle ? c.gap + c.handle * 1.3 : 0);
+      return h + (verHandle ? c.gap + c.handle * 1.3 : 0);
     },
     contentHeight(format, base.source, base.narracion),
     format,
@@ -137,8 +139,8 @@ export function Cta({ title, highlight, cursiva, reason, handle, cta, ctaIcon, a
             </span>
           </>
         )}
-        {handle && (
-          <span data-anim="rise" style={{ ...monoText, fontSize: sc.handle, letterSpacing: "0.04em", color: theme.colors.textMuted }}>
+        {verHandle && (
+          <span data-anim="rise" data-cta="handle" style={{ ...monoText, fontSize: sc.handle, letterSpacing: "0.04em", color: theme.colors.textMuted }}>
             @{handle}
           </span>
         )}
