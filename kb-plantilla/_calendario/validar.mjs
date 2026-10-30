@@ -1580,7 +1580,7 @@ export function textoPastilla(cta) {
 }
 
 /** Pista bajo la burbuja del Cta con «PARTIR» (`DM_PISTA` de `src/templates/Cta.tsx`). */
-const DM_PISTA = "Escríbeme esto por mensaje y te respondo yo.";
+const DM_PISTA = "Por mensaje o en comentarios. Te respondo yo.";
 /** COPIA de `pideDm` de `src/templates/Cta.tsx`: el Cta pide «PARTIR» (en la pastilla o en el título) y se pinta como mensaje directo. */
 const pideDmLector = (...textos) => textos.some((t) => typeof t === "string" && /\bPARTIR\b/.test(t));
 
@@ -2294,7 +2294,7 @@ export const EJEMPLO = {
           ]
         },
         "derivadoDe": null,
-        "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+        "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
         "borrador": "lun-reel-pdfs-a-podcast.json",
         "estado": "planificado",
         "parametros": {
@@ -2416,7 +2416,7 @@ export const EJEMPLO = {
           ]
         },
         "derivadoDe": null,
-        "caption": "Automatización con IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+        "caption": "Automatización con IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
         "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
         "estado": "planificado",
         "parametros": {
@@ -2541,7 +2541,7 @@ export const EJEMPLO = {
           ]
         },
         "derivadoDe": null,
-        "caption": "Liderazgo con IA: no sabía qué pedirle a ChatGPT como jefe y partí con 3 pedidos de la guía de OpenAI.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+        "caption": "Liderazgo con IA: no sabía qué pedirle a ChatGPT como jefe y partí con 3 pedidos de la guía de OpenAI.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
         "borrador": "vie-carrusel-mis-3-primeros-pedidos.json",
         "estado": "planificado",
         "parametros": {
@@ -2631,8 +2631,8 @@ export const EJEMPLO = {
       {
         "template": "Cta",
         "props": {
-          "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
-          "highlight": "empezar",
+          "title": "¿Qué informes tienes pendientes? Te ayudo con los tuyos",
+          "highlight": "pendientes",
           "cta": "Escríbeme PARTIR",
           "source": "Fuente: notebook.google"
         },

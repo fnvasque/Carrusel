@@ -210,9 +210,18 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    («Escríbeme PARTIR») y en el `caption`, en mayúsculas, y el caption dice qué
    recibe quien escribe. El `title` del `Cta` **no** repite PARTIR: la
    plantilla lo pinta en una burbuja de mensaje directo, y ahí la palabra
-   aparece una sola vez. El título es la pregunta que invita a escribir
-   («¿No sabes por dónde empezar con la IA en tu trabajo?»). Texto base del caption: «Escríbeme PARTIR y te cuento por dónde empezar en tu
-   caso» (promete una respuesta humana: la da el autor, a mano). La pastilla
+   aparece una sola vez. El título es una pregunta sobre **el caso del
+   lector** que sigue a lo que la pieza acaba de mostrar, y dice qué recibe si
+   responde, y termina con la instrucción **«Escribe esta palabra y te
+   ayudo»** («¿Cuál sería tu primera tarea? Escribe esta palabra y te ayudo»,
+   «¿Qué informe te pesa más? Escribe esta palabra y te ayudo»): la burbuja de
+   abajo muestra PARTIR y el lector con prisa no lee la pista. Nunca una
+   oferta que la pieza ya cumplió («¿Te digo por dónde empezar?» después de
+   mostrar por dónde empezar). Motivo: el 2026-10-30, ocho lectores fríos no
+   sabían qué hacer con un PARTIR suelto y respondían «guardar». Desde el
+   2026-10-31 se puede responder por mensaje o en comentarios (la pista lo
+   dice). Texto base del caption:
+   «Escríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso» (promete una respuesta humana: la da el autor, a mano). La pastilla
    dice «Escríbeme PARTIR». La narración del `Cta` pide lo mismo con palabras
    habladas. El validador lo exige; la palabra y la fecha salen de
    `config.json → cta`. Motivo: la meta del experimento son las
@@ -760,9 +769,9 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
 - **Siguen las reglas duras 6, 8 y 10.** Para `lo-que-construi`, el
   «resultado» de la regla 8 es lo que se aprendió construyendo (con el número
   honesto, también si no funcionó).
-- **Cierre PARTIR** (regla dura 11): `Cta` y caption con «Escríbeme PARTIR y
-  te cuento por dónde empezar en tu caso» o una variante que diga qué recibe
-  quien escribe.
+- **Cierre PARTIR** (regla dura 11): `Cta` con una pregunta sobre el caso del
+  lector que sigue a la pieza, y caption con «Escríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso» o una
+  variante que diga qué recibe quien escribe.
 
 Detalle y ejemplos: «Desde 2026-11-02» en `guia-redaccion.md` y `guia-hooks.md`.
 
@@ -1479,7 +1488,7 @@ horas son las del mix de tu `config.json`:
         ]
       },
       "derivadoDe": null,
-      "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+      "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
       "borrador": "lun-reel-pdfs-a-podcast.json",
       "estado": "planificado",
       "parametros": {
@@ -1601,7 +1610,7 @@ horas son las del mix de tu `config.json`:
         ]
       },
       "derivadoDe": null,
-      "caption": "Automatización con IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+      "caption": "Automatización con IA: armé un sistema que planifica y publica esta cuenta. 27 piezas, 1 guardado, y lo que aprendí.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
       "estado": "planificado",
       "parametros": {
@@ -1726,7 +1735,7 @@ horas son las del mix de tu `config.json`:
         ]
       },
       "derivadoDe": null,
-      "caption": "Liderazgo con IA: no sabía qué pedirle a ChatGPT como jefe y partí con 3 pedidos de la guía de OpenAI.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
+      "caption": "Liderazgo con IA: no sabía qué pedirle a ChatGPT como jefe y partí con 3 pedidos de la guía de OpenAI.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia",
       "borrador": "vie-carrusel-mis-3-primeros-pedidos.json",
       "estado": "planificado",
       "parametros": {
@@ -1878,7 +1887,7 @@ herramienta se llama Gemini Notebook). Una entrada de `plan.json → piezas`:
     ]
   },
   "derivadoDe": null,
-  "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR y te cuento por dónde empezar en tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
+  "caption": "Aprendizaje con IA: no sabía qué pedirle a la IA, le pregunté cómo me ayudaba y ahora escucho mis 6 informes pendientes.\n\nEscríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso.\n\n#ia #inteligenciaartificial #herramientasia #notebooklm",
   "borrador": "lun-reel-pdfs-a-podcast.json",
   "estado": "planificado",
   "parametros": {
@@ -1972,8 +1981,8 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
     {
       "template": "Cta",
       "props": {
-        "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
-        "highlight": "empezar",
+        "title": "¿Qué informes tienes pendientes? Te ayudo con los tuyos",
+        "highlight": "pendientes",
         "cta": "Escríbeme PARTIR",
         "source": "Fuente: notebook.google"
       },

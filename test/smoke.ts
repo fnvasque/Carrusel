@@ -905,11 +905,11 @@ check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastill
   assert.equal((dm.match(/PARTIR/g) ?? []).length, 1, "PARTIR aparece una sola vez");
   assert.match(dm, /@ia\.punto\.es/);
   assert.match(dm, />ia</);
-  assert.match(dm, /Escríbeme esto por mensaje y te respondo yo\./);
+  assert.match(dm, /Por mensaje o en comentarios\. Te respondo yo\./);
   const conPista = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "PARTIR", reason: "Te respondo con un primer paso." }));
   assert.match(conPista, /Te respondo con un primer paso\./);
   // La razón va en su línea bajo el título; la pista que pide escribir se queda siempre bajo la burbuja.
-  assert.match(conPista, /Escríbeme esto por mensaje y te respondo yo\./);
+  assert.match(conPista, /Por mensaje o en comentarios\. Te respondo yo\./);
   // PARTIR en el título también activa la caja; el título se deja como está escrito.
   const enTitulo = renderToStaticMarkup(createElement(Cta, { title: "Escríbeme PARTIR", cta: "Link en bio" }));
   assert.match(enTitulo, /data-cta="dm"/);
