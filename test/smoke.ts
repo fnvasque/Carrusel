@@ -263,6 +263,10 @@ check("scoreReel: desde 2026-11-02 el Hook del reel va sin tarjeta; la Screen en
   const [screen] = sinTarjeta.slides.splice(3, 1);
   sinTarjeta.slides.splice(1, 0, screen);
   assert.equal(hook(sinTarjeta), conTarjeta, "Screen en la escena 2 = resultado + app en la portada");
+  // «Screen completa»: sin prompt no cuenta como la IA en pantalla.
+  const sinPrompt = structuredClone(sinTarjeta);
+  (sinPrompt.slides[1].props as Record<string, unknown>).prompt = "";
+  assert.ok(hook(sinPrompt) < conTarjeta, "una Screen sin prompt no reemplaza la tarjeta");
   // Sin tarjeta y con la Screen tarde, el Hook pierde esos puntos.
   const tarde = structuredClone(pieza);
   for (const k of ["resultado", "app", "modo"]) delete (tarde.slides[0].props as Record<string, unknown>)[k];

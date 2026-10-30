@@ -1092,6 +1092,23 @@ const MODOS_RESULTADO = ["aviso", "respuesta"];
 export const DESDE_REEL_SIN_TARJETA = "2026-11-02";
 
 /**
+ * Reel con Hook de portada desde DESDE_REEL_SIN_TARJETA: la slide 2 (la que sigue al
+ * Hook) es una `Screen` con `app`, `prompt` y `respuesta`: reemplaza a la tarjeta de
+ * resultado (la IA se ve antes del segundo 5). Con un Clip de portada no aplica (el
+ * video ya es la IA haciéndolo).
+ */
+function erroresDeScreenTrasHook(b, p) {
+  if (p.formato !== "reel" || typeof p.dia !== "string" || !fechaValida(p.dia) || p.dia < DESDE_REEL_SIN_TARJETA) return [];
+  const [s1, s2] = b.slides;
+  if (!esObj(s1) || s1.template !== "Hook") return [];
+  const pide = `desde el ${DESDE_REEL_SIN_TARJETA} la slide 2 del reel es una Screen (justo después del Hook) con app, prompt y respuesta: la portada ya no muestra la tarjeta de resultado y la IA tiene que verse antes del segundo 5`;
+  if (!esObj(s2) || s2.template !== "Screen") return [`slide 2: ${pide}; mueve o agrega la Screen ahí (es ${q(esObj(s2) ? s2.template : s2)})`];
+  const props = esObj(s2.props) ? s2.props : {};
+  const faltan = ["app", "prompt", "respuesta"].filter((k) => !esTexto(props[k]));
+  return faltan.length ? [`slide 2: ${pide}; a la Screen le falta ${faltan.join(", ")}`] : [];
+}
+
+/**
  * `resultado` del Hook (el resultado en el primer cuadro): en reels, obligatorio
  * desde DESDE_NARRACION hasta antes de DESDE_REEL_SIN_TARJETA, con `app`;
  * ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta. Si viene, siempre se valida.
@@ -1228,6 +1245,7 @@ function erroresDeBorrador(b, p, config) {
       }
     }
   });
+  errs.push(...erroresDeScreenTrasHook(b, p));
   const plantillas = b.slides.map((s) => (esObj(s) ? s.template : undefined));
   if (plantillas[0] !== "Hook" && plantillas[0] !== "Clip") errs.push("la primera slide debe ser un Hook (la promesa va en la portada) o un Clip (el video es la portada)");
   if (plantillas.filter((t) => t === "Hook").length > 1) errs.push("solo puede haber un Hook");
@@ -2452,14 +2470,6 @@ export const EJEMPLO = {
         "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
       },
       {
-        "template": "Lead",
-        "props": {
-          "text": "No sabía qué pedirle a la IA, así que le pregunté.",
-          "highlight": "le pregunté"
-        },
-        "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
-      },
-      {
         "template": "Screen",
         "props": {
           "app": "Gemini Notebook",
@@ -2467,6 +2477,14 @@ export const EJEMPLO = {
           "respuesta": "Puedo resumirlos en audio, hacerte tarjetas o responder citando cada informe."
         },
         "narracion": "Le escribí esto a Gemini Notebook, la herramienta de Google para estudiar tus documentos, y me ofreció tres caminos."
+      },
+      {
+        "template": "Lead",
+        "props": {
+          "text": "No sabía qué pedirle a la IA, así que le pregunté.",
+          "highlight": "le pregunté"
+        },
+        "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
       },
       {
         "template": "Step",

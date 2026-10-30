@@ -1836,6 +1836,38 @@ check("calendario/validar: desde 2026-11-02 el Hook del reel no exige resultado 
   assertHas(vb(pieza({ dia: "2026-11-02" }), malo), /resultado tiene 25 palabras/);
 });
 
+check("calendario/validar: desde 2026-11-02 la slide 2 del reel (tras el Hook) es una Screen completa; antes rige resultado", () => {
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  const nov = pieza({ dia: "2026-11-02" });
+  const re = /slide 2: desde el 2026-11-02 la slide 2 del reel es una Screen/;
+  // Sin Screen en la slide 2 (es un Step): falla, con o sin resultado en el Hook.
+  assertHas(vb(nov, b), re);
+  const conRes = clone(b);
+  Object.assign(conRes.slides[0].props, { app: "NotebookLM", modo: "respuesta", resultado: "Resumen en audio listo: 10 minutos." });
+  assertHas(vb(nov, conRes), re);
+  // Con una Screen completa en la slide 2: pasa esa regla.
+  const ok = clone(b);
+  ok.slides.splice(1, 0, { template: "Screen", props: { app: "NotebookLM", prompt: "Haz un resumen en audio de estos PDFs.", respuesta: "Listo: resumen de 10 minutos." }, narracion: "Le pides el resumen en audio y te lo hace." });
+  const errsOk = vb(nov, ok);
+  assert.ok(!errsOk.some((e: string) => re.test(e) || /falta resultado/.test(e)), errsOk.join("\n"));
+  // Screen incompleta (sin prompt): falla igual, diciendo qué falta.
+  const incompleta = clone(ok);
+  incompleta.slides[1].props.prompt = "  ";
+  assertHas(vb(nov, incompleta), /Screen[^"]*falta prompt/);
+  // Antes del 2026-11-02: no se exige la Screen en la slide 2; sigue la regla del resultado.
+  const oct = vb(pieza({ dia: "2026-10-26" }), b);
+  assert.ok(!oct.some((e: string) => re.test(e)), oct.join("\n"));
+  assertHas(oct, /slide 1 \(Hook\): falta resultado/);
+  // Carrusel: no aplica.
+  const carrusel = pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-11-06", id: "vie-carrusel-x", borrador: "vie-carrusel-x.json" });
+  const bc = clone(borrador());
+  bc.name = "vie-carrusel-x";
+  delete bc.pace;
+  delete bc.audio;
+  assert.ok(!vb(carrusel, bc).some((e: string) => re.test(e)));
+});
+
 check("calendario/validar: narracion alarga la escena como el motor (voz + margen) y cuenta para el tope de duración", () => {
   const b = borrador();
   const base = segundosEscenas(b.slides, "ensenar");

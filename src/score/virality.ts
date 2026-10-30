@@ -252,7 +252,7 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
     // Desde 2026-11-02 el Hook del reel va sin tarjeta: una Screen completa justo
     // después del Hook (escena 2) muestra la IA antes del segundo 5 y vale lo mismo.
     const s2 = slides[slides.indexOf(hs) + 1];
-    const screen2 = !!s2 && /screen/i.test(s2.template) && !!txt(s2.props.app).trim() && palabras(s2.props.respuesta) >= 2;
+    const screen2 = !!s2 && /screen/i.test(s2.template) && !!txt(s2.props.app).trim() && palabras(s2.props.prompt) >= 1 && palabras(s2.props.respuesta) >= 2;
     const nRes = palabras(p.resultado);
     if ((nRes >= 2 && nRes <= 20) || (!nRes && screen2)) hook += 8;
     else { hookNotes.push(nRes ? `resultado de ${nRes} palabras (2 a 20)` : "sin resultado en el primer cuadro ni Screen en la escena 2"); suggestions.push("Muestra la IA en la escena 2 (Screen con app, prompt y respuesta) o pon en `resultado` lo que la IA ya hizo (2 a 20 palabras)."); }

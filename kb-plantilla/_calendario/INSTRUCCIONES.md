@@ -118,7 +118,8 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
      dato", "Qué le pasa a tu memoria si la IA te recuerda todo").
    **En reels, desde 2026-11-02, la IA se ve en la escena 2 (`Screen`) antes
    del segundo 5:** la portada del reel ya no pinta la tarjeta de `resultado`;
-   la escena que sigue al `Hook` muestra a la IA respondiendo.
+   la slide 2, justo después del `Hook`, es una `Screen` completa (obligatoria,
+   ver regla 8).
    Si el ángulo se sostiene sin la IA (el mito de los 21 días, lenguaje
    corporal, presupuesto 50-30-20), no es para esta cuenta: elige otro. Motivo:
    en la semana del 2026-10-12 la mitad de las piezas no trataba de IA y la
@@ -137,7 +138,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    te entregó la IA», «saber cuándo firmar lo que hizo la IA»), no solo una
    función de la app. Una
    pregunta o una curiosidad puede ir en el título solo si el `subtitle` da esa
-   promesa. La segunda escena (`Lead`) confirma la promesa, no la esconde
+   promesa. La escena siguiente (`Lead`; en reels desde 2026-11-02, la 3, tras la `Screen`) confirma la promesa, no la esconde
    detrás de un acertijo. El caption abre con la misma promesa. Desde el
    2026-10-26 el hook sale de 8 a 10 candidatos y lo elige un juez separado
    (Paso 5, `guia-hooks.md`); la regla 8 sigue valiendo para todos.
@@ -166,9 +167,12 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    **Desde 2026-11-02 el `Hook` del reel va sin tarjeta** (pedido del usuario:
    demasiado texto en la portada): `resultado`, `app` y `modo` dejan de ser
    obligatorios en reels y, si vienen, no se pintan en el reel (sí en el post).
-   La IA se ve en la escena 2: pon una `Screen` justo después del `Hook`, con la
-   respuesta que antes iba en la tarjeta. El `title` sigue siendo la promesa
-   (≤ 7 palabras, mejor 6).
+   **Obligatorio (el validador lo exige):** en todo reel con `Hook` de portada,
+   la slide 2 es una `Screen` con `app`, `prompt` y `respuesta`, justo después
+   del `Hook`, con la respuesta que antes iba en la tarjeta (la IA se ve antes
+   del segundo 5). El `Lead` que confirma la promesa pasa a la escena 3. Con un
+   `Clip` de portada no aplica. El `title` sigue siendo la promesa (≤ 7
+   palabras, mejor 6).
 9. **Todo reel se narra.** Desde 2026-10-19, cada slide de un reel lleva
    `narracion` (fuera de `props`, como `background`): lo que dice la voz
    mientras se ve esa escena, 3 a 24 palabras, en español neutro y hablado
@@ -1862,14 +1866,6 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
       "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
     },
     {
-      "template": "Lead",
-      "props": {
-        "text": "No sabía qué pedirle a la IA, así que le pregunté.",
-        "highlight": "le pregunté"
-      },
-      "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
-    },
-    {
       "template": "Screen",
       "props": {
         "app": "Gemini Notebook",
@@ -1877,6 +1873,14 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
         "respuesta": "Puedo resumirlos en audio, hacerte tarjetas o responder citando cada informe."
       },
       "narracion": "Le escribí esto a Gemini Notebook, la herramienta de Google para estudiar tus documentos, y me ofreció tres caminos."
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "No sabía qué pedirle a la IA, así que le pregunté.",
+        "highlight": "le pregunté"
+      },
+      "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
     },
     {
       "template": "Step",
