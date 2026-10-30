@@ -154,7 +154,8 @@ nuevo» bloquea. Antes de escribir, nombra en una línea lo que un usuario
 frecuente de ChatGPT o Claude **no sabe** de este tema (desde el 2026-11-02:
 lo que no sabe alguien que nunca ha usado IA más allá de una pregunta suelta): un límite, un error
 común, el matiz de un estudio, una forma de pedir que cambia el resultado.
-Sale de la referencia («Lo que no sabe un usuario frecuente», «Límites»,
+Sale de la referencia («Lo que no sabe quien está empezando», o «Lo que no sabe
+un usuario frecuente» en notas anteriores al 2026-10-28, «Límites»,
 «Evidencia», «Novedades»), con su cita. Esa línea es el centro de la pieza, no
 un dato al pasar.
 

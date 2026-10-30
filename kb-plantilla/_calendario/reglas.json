@@ -155,6 +155,13 @@
       "formato": null,
       "descripcion": "Corrección automática acotada: con precisión del revisor ≥ 0,8 y ≥ 30 respuestas, el Mac quita el fondo ai de la slide marcada y re-renderiza antes de la hora",
       "fuente": "PR de la fase 3 de la revisión visual (docs/superpowers/specs/2026-10-23-revision-visual-design.md)"
+    },
+    {
+      "id": "investigacion-por-etapas",
+      "desde": "2026-11-02",
+      "formato": null,
+      "descripcion": "La investigación escribe por etapas del coaching con Dicho simple, lector aprendiz y conexiones; el planificador prefiere etapas perder-el-miedo/adoptar y conexiones para por-donde-partir y redacta desde el Dicho simple. Entra con el paquete del pivote",
+      "fuente": "docs/superpowers/specs/2026-10-29-investigacion-por-etapas-design.md; PR de la investigación por etapas"
     }
   ]
 }

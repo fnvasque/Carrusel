@@ -2281,8 +2281,8 @@ check("ejemplo: los temas de las 3 piezas están en el alcance de la plantilla y
     const errs = validarSemana(dir, CONFIG_EJEMPLO, { score: () => 90, avisos: [] });
     // Los borradores prestados no son los de cada pieza: solo cuentan los errores de tema, alcance y referencia.
     assertNone(errs.filter((e: string) => /alcance|referencia|tema/.test(e)));
-    // Un tema fuera del alcance (el de la versión anterior del ejemplo) sí se rechaza.
-    assertHas(erroresDeReferencias({ ...EJEMPLO.plan.piezas[1], tema: "[[Ingeniería de agentes de IA]]" }, root, EJEMPLO.plan.semana, alcance), /no está en "dentro" ni "despues"/);
+    // Un tema fuera del alcance sí se rechaza (Ingeniería de agentes de IA, el de la versión anterior del ejemplo, entró a dentro el 2026-10-29).
+    assertHas(erroresDeReferencias({ ...EJEMPLO.plan.piezas[1], tema: "[[Herramientas de desarrollo open source]]" }, root, EJEMPLO.plan.semana, alcance), /no está en "dentro" ni "despues"/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

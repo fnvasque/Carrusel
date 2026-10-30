@@ -1159,6 +1159,20 @@ check("validar: cobertura por etapa y archivos protegidos nuevos", () => {
   }
 });
 
+check("investigación por etapas: manual, instalador, planificador y reglas.json", () => {
+  const manual = readFileSync("kb-plantilla/_investigacion/INSTRUCCIONES.md", "utf8");
+  for (const x of ["--aprendiz", "--cobertura", "preguntas.md", "tipo: conexion", "Dicho simple", "Lo que no sabe quien está empezando", "lector-aprendiz.md", "Agent/Task"]) {
+    assert.ok(manual.includes(x), x);
+  }
+  assert.ok(!manual.includes("ya paga Claude o ChatGPT"), "público viejo en el manual");
+  const instalar = readFileSync("scripts/kb-research-install.sh", "utf8");
+  assert.match(instalar, /cp "\$HERE\/kb-plantilla\/_investigacion\/lector-aprendiz\.md"/);
+  assert.match(instalar, /for f in alcance\.json pedidos\.md preguntas\.md; do/);
+  assert.match(readFileSync("kb-plantilla/_calendario/INSTRUCCIONES.md", "utf8"), /parte del `Dicho simple`/);
+  const reglas = JSON.parse(readFileSync("kb-plantilla/_calendario/reglas.json", "utf8")).reglas as { id: string; desde: string }[];
+  assert.equal(reglas.find((r) => r.id === "investigacion-por-etapas")?.desde, "2026-11-02");
+});
+
 check("validar: referencias inválidas", () => {
   const errs = (t: string) => validateReferencia(t).join(" | ");
   assert.match(errs("sin frontmatter"), /frontmatter/);
