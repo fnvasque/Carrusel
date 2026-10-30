@@ -62,29 +62,30 @@ export default carousel;
 `ai` se **cachean** en `.cache/ai/` por prompt: repetir no vuelve a llamar a la API.
 
 A cada fondo `ai` se le **anexa automáticamente el estilo visual de la marca**
-(casi negro `#06060A` con luz de acento lima `#C6FF3D`, editorial), para que todos los fondos generados sean
-consistentes. Para desactivarlo en un fondo concreto: `{ ai: "...", brandStyle: false }`.
+(papel gris cálido claro `#ECECEA`, fotografía editorial calmada con mucho espacio libre y un toque suave de lima
+`#C6FF3D`), para que todos los fondos generados sean consistentes. Los fondos `ai` son excepción: el look base es papel liso. Para desactivarlo en un fondo concreto: `{ ai: "...", brandStyle: false }`.
 
 ### Plantillas
 
 Plantillas de marca (sistema visual **ia.es**, ver más abajo), una por rol de slide:
 
-- **Hook** — portada stop-scroll: `eyebrow`, `title`, `highlight`, `subtitle`, `swipe`
-- **Lead** — promesa en 1 frase: `kicker`, `text`, `highlight`
-- **Step** — paso del desarrollo: `step`, `heading`, `highlight`, `body`, `bullets[]`
+- **Hook** — portada stop-scroll: `eyebrow`, `title`, `highlight`, `cursiva`, `mark`, `subtitle`, `swipe`
+- **Lead** — promesa en 1 frase: `kicker`, `text`, `highlight`, `cursiva`
+- **Step** — paso del desarrollo: `step`, `heading`, `highlight`, `cursiva`, `body`, `bullets[]`
 - **Prompt** — prompt copiable (mono): `heading`, `prompt`, `note`
 - **Screen** — la IA en pantalla (ventana de chat): `app`, `prompt` (se teclea en el reel), `respuesta`, `heading`, `nota`
-- **MythReality** — mito vs realidad: `myth`, `reality`, `mythLabel`, `realityLabel`
+- **MythReality** — mito vs realidad: `myth`, `reality`, `highlight`, `mythLabel`, `realityLabel`
 - **Stat** — dato grande con contexto: `value`, `label`, `context` (el número cuenta desde 0 en el reel)
 - **Clip** — video generado con IA a pantalla completa (solo reel): `title`, `highlight`, `label`, `archivo` (el .mp4 en la caché del Mac; el calendario lo mezcla tras el render, ver "Reel con video generado")
-- **Cta** — funnel al newsletter: `title`, `highlight`, `reason`, `handle`, `cta`
+- **Cta** — cierre con un solo gesto: `title`, `highlight`, `cursiva`, `reason`, `handle`, `cta`. Con `cta` = «Escríbeme PARTIR» se dibuja como una caja de mensaje directo (burbuja con la palabra, remitente `@ia.punto.es`); el `title` no repite PARTIR
 
-`highlight` resalta esa palabra del titular en lima (la "palabra clave" de la marca).
+`highlight` pone el marcador lima detrás de esa palabra del titular (la "palabra clave" de la marca); `cursiva` (2–4 palabras del inicio del titular) la pinta en serif cursiva.
 Plantillas originales **Cover** / **Bullet** / **Quote** siguen disponibles.
 
 Props comunes a todas (en `src/templates/types.ts`): `background`, `fontFamily`,
-`color`, `accent`, y los elementos de marca que pinta `Frame`: `pillar` (chip de
-color), `index`/`total` (progreso `NN/MM`), `source` (fuente al pie), `showLogo`.
+`color`, `accent`, y los elementos de marca que pinta `Frame`: `serie` (nombre de la serie en la cabecera,
+sale de la pieza del plan), `index`/`total` (`n/total` en serif cursiva en el pie), `source` (fuente al pie, en mono) y la
+firma de la cuenta (`@ia.punto.es`; con la línea «Te ayudo a partir con la IA en tu trabajo» solo en el Hook y en la story).
 
 ### Reels con voz (narración)
 
@@ -106,12 +107,16 @@ planificador escribe `narracion` en cada slide del reel (manual: regla 9).
 
 Definido en `src/theme.ts` y `.context/design-brand.md`:
 
-- **Look lima**: fondo casi negro `#06060A`, acento **lima `#C6FF3D`**, violeta `#7C5CFF` y rosa
-  `#FF3D7F`; texto `#F4F4F6` y apagado `#8A8A99`; tarjetas `#13131A` con línea `#23232E`.
-  Encima va una **grilla lima** al 7 % (líneas de 2 px, celda de 120 px) y una viñeta radial.
-  Regla 60-30-10: la palabra clave del titular siempre en lima. Chips por pilar: herramienta y
-  prompt en lima, noticia en violeta, curiosidad en rosa, trabajo en ámbar. En el reel la grilla deriva despacio.
-- **Tipografía**: Anton (titulares MAYÚS), Inter (cuerpo), JetBrains Mono (prompts).
+- **Look papel con presencia** (desde el 2026-11-02, spec `docs/superpowers/specs/2026-10-29-look-papel-design.md`):
+  fondo **papel liso `#ECECEA`**, sin grilla ni viñeta; texto en **tinta `#111111`** (secundario `#555555`, apagado
+  `#6B6B6B`); tarjetas **blancas `#FFFFFF`** sin borde. El acento **lima `#C6FF3D`** ya no es fondo ni texto: es un
+  **marcador** que se pone detrás de la palabra clave del titular (`highlight`), y color de la pastilla y de las
+  iniciales de la firma. En la cabecera va la **serie** de la pieza; en el pie, la **firma** (`@ia.punto.es`, círculo
+  tinta con «ia» en serif cursiva lima) y `n/total`. El cierre **PARTIR** se dibuja como un mensaje directo.
+  Los reels con video de gancho (`hookVideo`) y los slides `Clip` van **sobre negro** (Hook oscuro, texto claro) para
+  mezclarse con el video; el subtítulo del reel es una pastilla y la barra de progreso es de tinta.
+- **Tipografía**: titulares en **Inter 700** (sin mayúsculas forzadas, tracking −0,04 em), frases en **Instrument
+  Serif cursiva** (`cursiva`, `n/total`, iniciales), cuerpo en Inter y prompts en JetBrains Mono. Anton ya no se usa en las plantillas de marca (el archivo queda solo para la plantilla original Quote).
   Archivos en `src/fonts/`; logos en `src/assets/`.
 - **Pilares** (`pillar`; el color del chip sale del pilar): `herramienta` · `noticia` · `prompt` · `curiosidad`.
 
@@ -226,7 +231,7 @@ npm run remix -- --caption="el texto del post" --image=slide1.png --image=slide2
 - **Binarios opcionales**: `ffmpeg` (frames de reels) y `yt-dlp` (solo para `--scrape`) se
   detectan en runtime; sin ellos, el remix sigue funcionando con menos alcance.
 - **Imágenes similares**: cada variación trae prompts `ai` que reproducen el tema/composición
-  del original re-skineados al look lima de la marca (se renderizan con `generate`/`reel`).
+  del original re-skineados al look papel de la marca (se renderizan con `generate`/`reel`).
 - **Loop de calidad**: cada variación se puntúa con el indicador de viralidad y, si está
   bajo el umbral (75), se **re-genera con el feedback del score** hasta pasarlo o agotar los
   intentos (`--max-tries`, default 3); se emite siempre el mejor resultado. Ajusta el objetivo
@@ -510,8 +515,8 @@ En la terminal, el espejo de `/metricas`: `npm run insights` (también `-- --des
 ### Reglas del sistema que conviene saber
 
 - **QA de luminancia**: el cuadro 0 de un reel/story no puede ser casi negro. Pasa si la luminancia
-  media es mayor a 3 % y al menos 0,5 % de los píxeles es claro. El fondo de marca `#06060A` ronda el
-  2,4 %, así que "mayor a 12 %" de la spec original no se puede exigir; un MP4 negro sigue fallando.
+  media es mayor a 3 % y al menos 0,5 % de los píxeles es claro. Con el fondo papel `#ECECEA` los cuadros normales
+  pasan de sobra; solo las escenas oscuras (Hook con video de gancho, Clip) se acercan al piso. Un MP4 negro sigue fallando.
 - **URL caída**: si ngrok cae a la hora de publicar, el reintento llega hasta 30 minutos después de la
   hora. Pasado eso, `fallido`. Un post puede salir hasta 30 min tarde por esa causa, nunca más.
 - **Fondos con IA**: máximo 3 por semana, solo en Hook o Cta. El Mac quita los que sobran o están en otra
@@ -563,7 +568,7 @@ sin tocar red, OpenAI ni binarios externos. Junto a `npm run typecheck` es el ga
 
 Convierte cualquier carrusel en un Reel vertical (1080×1920, 30 fps) **animado** con GSAP:
 los títulos entran palabra por palabra, la palabra clave se resalta, los bullets aparecen escalonados
-y las escenas se cruzan con un empuje vertical. Una barra de progreso lima crece en el borde
+y las escenas se cruzan con un empuje vertical. Una barra de progreso de tinta crece en el borde
 superior durante todo el reel y el primer cuadro (miniatura) ya muestra el hook entrando.
 Reutiliza las mismas plantillas del carrusel.
 
@@ -659,8 +664,9 @@ Para un reel por semana (p. ej. el del domingo), se puede poner un clip generado
 scripts/reel-hook-video.sh <reel.mp4> <clip.mp4> <salida.mp4> [segundos=5] [brillo=0.45]
 ```
 
-El clip se oscurece y se mezcla con el reel en modo *lighten*: como el fondo del reel es casi
-negro, el clip queda detrás, y el texto blanco y el acento lima quedan encima. El clip se
+El clip se oscurece y se mezcla con el reel en modo *lighten*: el Hook con video de gancho se
+dibuja sobre negro (texto claro, versión «oscuro» de la plantilla), así el clip queda detrás y el texto
+blanco y el marcador lima quedan encima. El clip se
 desvanece en su último medio segundo y desde ahí el reel es idéntico al original. El audio
 se copia tal cual.
 

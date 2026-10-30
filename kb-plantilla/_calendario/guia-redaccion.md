@@ -51,9 +51,12 @@ Donde esta sección choque con el resto de la guía, manda esta.
 - **`lo-que-construi`:** el «resultado» de la regla dura 8 es lo que se
   aprendió construyendo el sistema, con el número honesto (también lo que no
   funcionó: 27 piezas, 1 guardado).
-- **Cierre PARTIR (regla dura 11):** el `Cta` y el caption piden «escríbeme
-  PARTIR» y dicen qué recibe quien escribe. Texto base: «Escríbeme PARTIR y te
-  cuento por dónde empezar en tu caso». La voz del `Cta` pide lo mismo con
+- **Cierre PARTIR (regla dura 11):** la pastilla `cta` del `Cta` dice
+  «Escríbeme PARTIR» y el caption pide lo mismo y dice qué recibe quien
+  escribe. El `title` del `Cta` no repite PARTIR (la plantilla lo pinta en una
+  burbuja de mensaje directo): es la pregunta que invita a escribir, p. ej.
+  «¿No sabes por dónde empezar con la IA en tu trabajo?». Texto base del
+  caption: «Escríbeme PARTIR y te cuento por dónde empezar en tu caso». La voz del `Cta` pide lo mismo con
   palabras habladas («¿No sabes cuál sería tu primera tarea? Escríbeme y te
   cuento.»).
 

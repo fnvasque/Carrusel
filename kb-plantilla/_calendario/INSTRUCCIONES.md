@@ -188,9 +188,12 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    juvenil (ver `guia-redaccion.md`, «Lo que la IA responde en pantalla»).
 11. **Cierre PARTIR.** Desde el 2026-11-02 (`config.json → cta`), toda pieza
    lleva `"senal": "dm"` y cierra pidiendo que le escriban «PARTIR» por
-   mensaje: el `Cta` (en el `title` o en la pastilla `cta`) y el `caption`
-   contienen la palabra **PARTIR** en mayúsculas y dicen qué recibe quien
-   escribe. Texto base: «Escríbeme PARTIR y te cuento por dónde empezar en tu
+   mensaje: la palabra **PARTIR** va en la pastilla `cta` del `Cta`
+   («Escríbeme PARTIR») y en el `caption`, en mayúsculas, y el caption dice qué
+   recibe quien escribe. El `title` del `Cta` **no** repite PARTIR: la
+   plantilla lo pinta en una burbuja de mensaje directo, y ahí la palabra
+   aparece una sola vez. El título es la pregunta que invita a escribir
+   («¿No sabes por dónde empezar con la IA en tu trabajo?»). Texto base del caption: «Escríbeme PARTIR y te cuento por dónde empezar en tu
    caso» (promete una respuesta humana: la da el autor, a mano). La pastilla
    dice «Escríbeme PARTIR». La narración del `Cta` pide lo mismo con palabras
    habladas. El validador lo exige; la palabra y la fecha salen de
@@ -1199,21 +1202,32 @@ Si el repo de código sí está al lado, el validador calcula el score y lo exig
 
 ### Catálogo de plantillas
 
+**Look papel (desde el 2026-11-02).** Las plantillas se dibujan sobre fondo
+claro con Inter en negrita, un marcador lima detrás de la palabra clave
+(`highlight`) y una frase en serif cursiva (`cursiva`). `cursiva` es opcional:
+2 a 4 palabras del **inicio** del titular, tal cual aparecen en él (mismas
+tildes), en `Hook` (`title`), `Step` (`heading`), `Lead` (`text`) o `Cta`
+(`title`). `highlight` y `cursiva` pueden convivir en el mismo titular, pero
+sin pisarse. En `MythReality`, `highlight` marca palabras de la `reality`.
+La **serie** no se escribe en las slides: el motor la toma de la pieza del plan
+(`plan.json → serie`) y la pinta en la cabecera. La firma de la cuenta
+(@ia.punto.es) también la pone el motor.
+
 Copia de `TEMPLATE_CATALOG` (`src/remix/templates-catalog.ts`). Todas las props
 son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 (true/false).
 
 | Plantilla | Obligatorias | Opcionales | Para qué |
 |---|---|---|---|
-| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (obligatorios en reels, regla 8) | Portada: el resultado en el primer cuadro y la promesa debajo |
-| `Lead` | `text` | `kicker`, `highlight` | Una frase grande que abre o sostiene la tensión |
-| `Step` | `heading` | `step`, `highlight`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
+| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `cursiva`, `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (obligatorios en reels, regla 8) | Portada: el resultado en el primer cuadro y la promesa debajo |
+| `Lead` | `text` | `kicker`, `highlight`, `cursiva` | Una frase grande que abre o sostiene la tensión |
+| `Step` | `heading` | `step`, `highlight`, `cursiva`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
 | `Prompt` | `heading`, `prompt` | `note` | El prompt copiable (entregable) |
-| `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10) |
-| `MythReality` | `myth`, `reality` | `mythLabel`, `realityLabel` | Una creencia contra un dato (≤ 14 palabras cada uno; ver abajo) |
+| `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10); la burbuja de la IA muestra el nombre de la app (`app`) |
+| `MythReality` | `myth`, `reality` | `highlight`, `mythLabel`, `realityLabel` | Una creencia contra un dato (≤ 14 palabras cada uno; ver abajo) |
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Clip` | `title`, `archivo` | `highlight`, `label` | Video generado con IA a pantalla completa, solo reels (ver "Reel con video generado") |
-| `Cta` | `title` | `highlight`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
+| `Cta` | `title` | `highlight`, `cursiva`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
 
 `MythReality` es solo para **una creencia contra un dato**: `myth` es lo que la
 gente cree («Hay que saber editar audio») y `reality` el dato que la desmiente
@@ -1867,8 +1881,8 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
     {
       "template": "Cta",
       "props": {
-        "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
-        "highlight": "PARTIR",
+        "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
+        "highlight": "empezar",
         "handle": "ia.punto.es",
         "cta": "Escríbeme PARTIR",
         "source": "Fuente: notebook.google"

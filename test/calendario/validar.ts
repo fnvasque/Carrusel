@@ -223,6 +223,34 @@ check("calendario/validar: Hook sin highlight o con highlight fuera del título 
   assertNone(vb(pieza(), d));
 });
 
+check("calendario/validar: cursiva (Hook, Step, Lead, Cta) y highlight de MythReality son props válidas (look papel)", () => {
+  // Hook: cursiva = 2-4 palabras del inicio del titular.
+  const h = borrador();
+  h.slides[0].props.cursiva = "Convierte 6 PDFs";
+  assertNone(vb(pieza(), h));
+  // Step y Cta.
+  const s = borrador();
+  s.slides[1].props.cursiva = "Sube tus PDFs";
+  s.slides[3].props.cursiva = "Guárdalo para";
+  assertNone(vb(pieza(), s));
+  // Lead.
+  const l = borrador();
+  l.slides.splice(1, 0, { template: "Lead", props: { text: "Sin leer una página.", cursiva: "Sin leer" } });
+  assertNone(vb(pieza(), l));
+  // MythReality: highlight sobre la realidad.
+  const m = borrador();
+  m.slides.splice(1, 0, { template: "MythReality", props: { myth: "Necesitas pagar", reality: "NotebookLM lo hace gratis", highlight: "gratis" } });
+  assertNone(vb(pieza(), m));
+  // La cursiva debe aparecer tal cual en el titular, igual que el highlight.
+  const mal = borrador();
+  mal.slides[0].props.cursiva = "otra frase";
+  assertHas(vb(pieza(), mal), /cursiva/);
+  // En una plantilla que no la admite sigue siendo prop desconocida.
+  const sc = borrador();
+  sc.slides.splice(1, 0, { template: "Stat", props: { value: "10 min", label: "dura", cursiva: "10" } });
+  assertHas(vb(pieza(), sc), /cursiva/);
+});
+
 for (const campo of ["senal", "emocion", "entregable", "fraseAmigo"]) {
   check(`calendario/validar: pieza sin ${campo} → error`, () => {
     const p = pieza();

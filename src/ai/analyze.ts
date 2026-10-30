@@ -36,7 +36,7 @@ function getClient(): OpenAI {
  * en `scoreCarousel`.
  */
 const BRAND_RULES = `
-Marca ia.es (look papel): fondo papel gris cálido claro #ECECEA, texto en tinta #111111, sin grilla; el acento lima #C6FF3D va solo como marcador sobre la palabra clave. La palabra clave del titular SIEMPRE va sobre el marcador lima vía la prop "highlight" (1-2 palabras); una frase corta del titular (2-4 palabras) puede ir en serif cursiva vía "cursiva" (Hook, Lead, Step, MythReality, Cta); en el Hook puedes marcar otra palabra con caja tinta vía "mark".
+Marca ia.es (look papel): fondo papel gris cálido claro #ECECEA, texto en tinta #111111, sin grilla; el acento lima #C6FF3D va solo como marcador sobre la palabra clave. La palabra clave del titular SIEMPRE va sobre el marcador lima vía la prop "highlight" (1-2 palabras); una frase corta del titular (2-4 palabras) puede ir en serif cursiva vía "cursiva" (Hook, Lead, Step, Cta); en el Hook puedes marcar otra palabra con caja tinta vía "mark".
 Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad" | "trabajo" (cómo cambia el trabajo, el liderazgo o las decisiones con IA, con un estudio o dato con fuente).
 Reglas de viralidad (para maximizar guardados/compartidos):
 - El Hook (primer slide) debe tener un número concreto + un enemigo/tensión (no, deja de, mentira, gratis...) + un bucle abierto (#3, por qué, lo que nadie...). Define "highlight".

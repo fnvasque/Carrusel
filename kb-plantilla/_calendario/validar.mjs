@@ -26,15 +26,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * `StoryCover` no está: la usa solo el motor, nunca el agente.
  */
 export const CATALOGO = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
-  Lead: { required: ["text"], optional: ["kicker", "highlight"] },
-  Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "cursiva", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
+  Lead: { required: ["text"], optional: ["kicker", "highlight", "cursiva"] },
+  Step: { required: ["heading"], optional: ["step", "highlight", "cursiva", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
   Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
-  MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
+  MythReality: { required: ["myth", "reality"], optional: ["highlight", "mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
   Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
-  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
+  Cta: { required: ["title"], optional: ["highlight", "cursiva", "reason", "handle", "cta", "ctaIcon"] },
 };
 
 /** Plantillas que puede usar un borrador. */
@@ -50,7 +50,10 @@ const PROPS_BASE = new Set(["source", "pillar"]);
 const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 
 /** Plantilla → prop donde debe aparecer su `highlight`. */
-const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title" };
+const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title", MythReality: "reality" };
+
+/** Plantilla → prop donde debe aparecer su `cursiva` (frase del titular en serif cursiva). */
+const DONDE_CURSIVA = { Hook: "title", Step: "heading", Lead: "text", Cta: "title" };
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion", "dm"];
 
@@ -1195,6 +1198,14 @@ function erroresDeBorrador(b, p, config) {
     else if (campo && hl !== undefined && typeof s.props[campo] === "string" && typeof hl === "string") {
       if (!hl.trim() || !minus(s.props[campo]).includes(minus(hl))) {
         errs.push(`${donde} (${t}): el highlight ${q(hl)} no aparece tal cual en ${campo} (mismas tildes)`);
+      }
+    }
+    // cursiva: frase del titular en serif cursiva; el motor la busca igual que el highlight.
+    const campoCursiva = DONDE_CURSIVA[t];
+    const cu = s.props.cursiva;
+    if (campoCursiva && cu !== undefined && typeof s.props[campoCursiva] === "string" && typeof cu === "string") {
+      if (!cu.trim() || !minus(s.props[campoCursiva]).includes(minus(cu))) {
+        errs.push(`${donde} (${t}): la cursiva ${q(cu)} no aparece tal cual en ${campoCursiva} (mismas tildes)`);
       }
     }
     if (t === "Hook") errs.push(...erroresDeResultado(s.props, p).map((e) => `${donde} (Hook): ${e}`));
@@ -2471,8 +2482,8 @@ export const EJEMPLO = {
       {
         "template": "Cta",
         "props": {
-          "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
-          "highlight": "PARTIR",
+          "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
+          "highlight": "empezar",
           "handle": "ia.punto.es",
           "cta": "Escríbeme PARTIR",
           "source": "Fuente: notebook.google"

@@ -149,6 +149,13 @@
       "fuente": "informes/foresight-instagram-2026-10-28.md; PR del pivote"
     },
     {
+      "id": "look-papel",
+      "desde": "2026-11-02",
+      "formato": null,
+      "descripcion": "Look papel con presencia (A3): fondo claro, Inter + serif cursiva, marcador lima, serie en la cabecera, firma y cierre PARTIR como mensaje directo",
+      "fuente": "auditoría de plantillas 2026-10-29; spec docs/superpowers/specs/2026-10-29-look-papel-design.md"
+    },
+    {
       "id": "revision-visual-fase3",
       "desde": "2026-11-09",
       "pendiente": true,
