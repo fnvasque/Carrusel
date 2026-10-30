@@ -24,13 +24,13 @@ la palabra clave y una firma visible en cada lámina.
 | Tarjetas | `#13131A` con línea `#23232E` | blanco `#FFFFFF`, sin borde, radio 28 |
 | Cabecera izq. | `NN / PILAR` en mono | nombre de la serie en Inter 700 mayúsculas 26 px, tracking 0,08 em |
 | Cabecera der. | wordmark `ia.es` | vacío en post; firma compacta en reel |
-| Pie (post) | fuente en mono | firma (círculo tinta con iniciales serif cursiva lima + nombre) a la izquierda, `n/total` en serif cursiva a la derecha; la fuente queda encima de la firma |
+| Pie (post) | fuente en mono | firma (círculo tinta con iniciales «ia» en serif cursiva lima + «@ia.punto.es») a la izquierda, `n/total` en serif cursiva a la derecha; la fuente queda encima de la firma |
 | Chat (`Screen`) | ventana oscura | burbujas: «Tú» tinta con texto blanco a la derecha, «La IA» blanca a la izquierda |
 | Cierre (`Cta`) con PARTIR | pastilla lima | caja de mensaje directo: cabecera con la firma, burbuja tinta «PARTIR», la `reason` como pista |
 | Subtítulo del reel | blanco con sombra negra | blanco sobre píldora tinta al 88 % |
 | Barra de progreso del reel | lima | tinta |
 
-Firma: `Felipe Vásquez`, iniciales `FV`, línea `Te ayudo a partir con la IA en tu trabajo`
+Firma: `@ia.punto.es`, iniciales `ia`, línea `Te ayudo a partir con la IA en tu trabajo`
 (la línea solo en el Hook y en la story). Vive en `theme.firma`.
 
 Series (de `config.json → series[].serie` y `plan.piezas[].serie`):

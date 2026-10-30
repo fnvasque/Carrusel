@@ -50,8 +50,8 @@ export const theme = {
   marker: "linear-gradient(transparent 52%, #C6FF3D 52%, #C6FF3D 92%, transparent 92%)",
   /** Firma de la cuenta. La línea solo va en el Hook y en la story. */
   firma: {
-    nombre: "Felipe Vásquez",
-    iniciales: "FV",
+    nombre: "@ia.punto.es",
+    iniciales: "ia",
     linea: "Te ayudo a partir con la IA en tu trabajo",
   },
   /** Radio de las tarjetas (blancas, sin borde). */

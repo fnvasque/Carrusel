@@ -668,9 +668,9 @@ check("Frame (post): serie en la cabecera, firma y n/total en el pie", () => {
   const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "por-donde-partir", index: 2, total: 6, source: "Fuente: X", pillar: "noticia" }));
   assert.match(h, /data-brand="serie"[^>]*>Por dónde partir</);
   assert.match(h, /data-brand="firma"/);
-  assert.match(h, /Felipe Vásquez/);
+  assert.match(h, /@ia\.punto\.es/);
   assert.match(h, /data-brand="pagina"[^>]*>2\/6</);
-  assert.match(h, />FV</);
+  assert.match(h, />ia</);
   assert.doesNotMatch(h, /NOTICIA|data-brand="logo"|data-brand="label"|data-grid|undefined/);
   // La firma no lleva la línea salvo que se pida.
   assert.doesNotMatch(h, /Te ayudo a partir/);
@@ -795,8 +795,8 @@ check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastill
   const burbuja = dm.match(/<span data-cta="burbuja"[^>]*>([^<]*)<\/span>/);
   assert.equal(burbuja?.[1], "PARTIR", "la burbuja lleva solo la palabra");
   assert.equal((dm.match(/PARTIR/g) ?? []).length, 1, "PARTIR aparece una sola vez");
-  assert.match(dm, /Felipe Vásquez/);
-  assert.match(dm, />FV</);
+  assert.match(dm, /@ia\.punto\.es/);
+  assert.match(dm, />ia</);
   assert.match(dm, /Escríbeme esto por mensaje y te respondo yo\./);
   const conPista = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "PARTIR", reason: "Te respondo con un primer paso." }));
   assert.match(conPista, /Te respondo con un primer paso\./);
@@ -816,7 +816,7 @@ check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastill
 
 check("StoryCover: firma con la línea de la cuenta, también en el reel", () => {
   const h = renderToStaticMarkup(createElement(StoryCover, { title: "3 IAs gratis", format: "reel" }));
-  assert.match(h, /Felipe Vásquez/);
+  assert.match(h, /@ia\.punto\.es/);
   assert.match(h, /Te ayudo a partir con la IA en tu trabajo/);
 });
 
