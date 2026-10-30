@@ -4,31 +4,47 @@ import { theme } from "../theme.ts";
 export const CONTENT_WIDTH = 1080 - 2 * theme.padding;
 
 /**
- * Ancho aproximado de un carácter de Anton en MAYÚSCULAS, en em (medido en
- * Chromium: letras ~0.48, espacio ~0.2, I/1/signos ~0.3, M/W/% ~0.68).
+ * Ancho aproximado de un carácter del titular, en em: Inter 700 tal como se
+ * escribe (minúsculas y mayúsculas), con letter-spacing −0,04 em ya incluido.
+ * Medido una vez en Chromium (headless shell 1248) con Inter-700.woff2 a 1000 px:
+ * minúsculas ~0,55 (i l j 0,23 · t f r 0,33 · m 0,87 · w 0,81), tildes 0,51,
+ * mayúsculas ~0,66 (I 0,24 · J 0,54 · M 0,89 · W 1,00), dígitos 0,58 (el 1 0,39),
+ * espacio 0,20, signos . , : ; ! ' ¡ | 0,30, paréntesis 0,34, guion 0,43,
+ * ? ¿ 0,52, % y @ 0,98. La frase de prueba completa promedió 0,445 em por carácter.
  */
-function antonEm(ch: string): number {
-  if (ch === " " || ch === "\u0001") return 0.2;
-  if ("IJ1.,:;!'¡|".includes(ch)) return 0.3;
-  if ("MW%".includes(ch)) return 0.68;
-  return 0.48;
+function displayEm(ch: string): number {
+  if (ch === " " || ch === "\u0001") return DISPLAY_ESPACIO_EM;
+  if ("ilj".includes(ch) || ch === "I") return 0.24;
+  if (".,:;!'¡|()".includes(ch)) return 0.32;
+  if ("tfr".includes(ch)) return 0.33;
+  if (ch === "1") return 0.39;
+  if (ch === "-") return 0.43;
+  if ("?¿".includes(ch)) return 0.52;
+  if (ch === "J") return 0.54;
+  if (ch === "m") return 0.87;
+  if (ch === "w") return 0.81;
+  if ("MW".includes(ch)) return 0.95;
+  if ("%@".includes(ch)) return 0.98;
+  if (/[0-9]/.test(ch)) return 0.58;
+  if (/[A-ZÁÉÍÓÚÜÑ]/.test(ch)) return 0.66;
+  return 0.55;
 }
 
 /**
- * Ancho estimado (px) de `word` en Anton a `size` px, con 4 % de holgura. Con
+ * Ancho estimado (px) de `word` en Inter 700 a `size` px, con 4 % de holgura. Con
  * `tight` (lo usa el reel) se estima más ajustado (−5 %), más cerca del ancho
  * medido: en el 9:16 sobra alto y la holgura del post dejaba bloques chicos.
  * Excepción: entre palabras, `estimateLines` con `tight` no usa este −5 % para el
- * espacio sino su ancho medido, `ANTON_ESPACIO_EM`.
+ * espacio sino su ancho medido, `DISPLAY_ESPACIO_EM`.
  */
 function wordWidth(word: string, size: number, tight = false): number {
   let em = 0;
-  for (const ch of word.toUpperCase()) em += antonEm(ch);
+  for (const ch of word) em += displayEm(ch);
   return em * size * (tight ? 0.95 : 1.04);
 }
 
-/** Ancho medido (em) del espacio de Anton en el titular, para la estimación ajustada del reel. */
-export const ANTON_ESPACIO_EM = 0.24;
+/** Ancho medido (em) del espacio de Inter 700 con −0,04 em, para la estimación ajustada del reel. */
+export const DISPLAY_ESPACIO_EM = 0.2;
 
 /** Separador interno de una frase que no se corta (cuenta como un espacio). */
 const GLUE = "\u0001";
@@ -54,13 +70,13 @@ function words(text: string, keep?: (string | undefined)[]): string[] {
   return glue(text.trim(), keep).split(/\s+/).filter(Boolean);
 }
 
-/** Nº de líneas que ocupa `text` en Anton a `size` px dentro de `width` (corte por palabras). */
+/** Nº de líneas que ocupa `text` en Inter 700 a `size` px dentro de `width` (corte por palabras). */
 export function estimateLines(text: string, size: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
   const ws = words(text, tight ? keep : undefined);
   if (ws.length === 0) return 0;
-  // El espacio de Anton mide 0,239 em en Chromium (con el letter-spacing del titular): con «tight»
-  // (−5 %) quedaba en 0,19 y una línea que no cabía parecía caber (corpus 2026-10-23, «POR QUÉ LOS»).
-  const space = tight ? ANTON_ESPACIO_EM * size : wordWidth(" ", size);
+  // El espacio se usa con su ancho medido (no −5 %): con «tight» una línea que no cabía parecía
+  // caber (corpus 2026-10-23, «POR QUÉ LOS», cuando el titular aún era Anton).
+  const space = tight ? DISPLAY_ESPACIO_EM * size : wordWidth(" ", size);
   let lines = 1;
   let x = 0;
   for (const w of ws) {
@@ -76,7 +92,7 @@ export function estimateLines(text: string, size: number, width: number = CONTEN
 }
 
 /**
- * Tamaño de fuente para un titular Anton: el mayor tamaño ≤ `max` con el que
+ * Tamaño de fuente para un titular Inter 700: el mayor tamaño ≤ `max` con el que
  * el texto cabe en `maxLines` líneas del ancho útil y ninguna palabra se sale
  * del ancho. Así los titulares cortos se ven enormes y los largos no se cortan.
  * Nunca baja de `min`. Con `tight` (reel), las líneas se estiman ajustadas pero

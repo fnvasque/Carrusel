@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip, Screen } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
-import { theme } from "../src/theme.ts";
+import { theme, serieLabel } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys, TEMPLATE_CATALOG, catalogoRemix } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
@@ -649,12 +649,19 @@ check("Frame: grilla data-grid solo en reel, etiqueta NN / PILAR y tokens lima",
   assert.match(reel, /data-grid=""/);
   assert.doesNotMatch(post, /data-grid/);
   assert.match(post, /rgba\(198,255,61,0\.07\)/, "grilla lima al 7 %");
-  assert.match(post, /background-color:#06060A/);
+  assert.match(post, /background-color:#ECECEA/);
   assert.match(post, new RegExp(`color:${theme.colors.violet}">03</span>`), "número en color del pilar");
   assert.match(post, />NOTICIA</);
   // Logo, etiqueta y fuente no llevan data-anim.
   const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", pillar: "noticia", index: 3, format: "reel" }));
   for (const b of withSrc.match(/<[^>]*data-brand="[^"]*"[^>]*>/g) ?? []) assert.doesNotMatch(b, /data-anim/);
+});
+
+check("theme: serieLabel traduce la serie al rótulo de cabecera", () => {
+  assert.equal(serieLabel("por-donde-partir"), "Por dónde partir");
+  assert.equal(serieLabel("lo-que-construi"), "Lo que construí");
+  assert.equal(serieLabel(undefined), undefined);
+  assert.equal(serieLabel("otra-cosa"), undefined);
 });
 
 check("Hook: mark pinta la palabra con caja rosa sin pop", () => {
