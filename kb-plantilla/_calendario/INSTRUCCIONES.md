@@ -536,6 +536,15 @@ después busca el tema elegible (abajo) que la respalde. Ángulos de ejemplo:
   general. Un tema que no esté en `dentro` o `despues` de
   `_investigacion/alcance.json` no va, aunque la pieza hable de agentes.
 
+**Etapas y conexiones (desde 2026-11-02).** Las referencias traen `etapa:`
+(`perder-el-miedo`, `adoptar`, `liderar`, `revalorizarse`) y un `- **Dicho
+simple:**` en `## Para la audiencia`. Para `por-donde-partir`, prefiere
+referencias de `perder-el-miedo` o `adoptar`; si hay una nota `tipo: conexion`
+lista de esa etapa (junta 3 o más referencias), prefiérela: es la pieza más útil
+porque cruza fuentes. Al redactar, parte del `Dicho simple`: ya está escrito
+para quien está aprendiendo y pasó un lector aprendiz. Los datos que uses salen
+de `## Datos clave` con su contexto, como siempre.
+
 Siguen los requisitos de abajo (alcance y referencia lista, regla dura 5).
 Si un tema sale de la rotación vieja (finanzas, psicología, storytelling) y no
 responde la pregunta guía, no va aunque sea elegible.
