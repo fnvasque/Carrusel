@@ -40,12 +40,13 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["mito-realidad-corto", "2026-10-26"],
     ["revision-visual-fase1", "2026-10-23"],
     ["revision-visual-fase2", "2026-10-23"],
-    ["pivote-coaching", "2026-11-02"],
-    ["look-papel", "2026-11-02"],
-    ["reel-sin-subtitulos", "2026-11-02"],
+    ["pivote-coaching", "2026-10-31"],
+    ["look-papel", "2026-10-31"],
+    ["reel-sin-subtitulos", "2026-10-31"],
     ["revision-visual-fase3", "2026-11-09"],
     ["investigacion-por-etapas", "2026-11-02"],
     ["carrusel-explicativo", "2026-11-27"],
+    ["portada-al-lector", "2026-10-31"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));
 });

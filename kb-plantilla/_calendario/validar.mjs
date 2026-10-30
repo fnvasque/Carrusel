@@ -970,12 +970,32 @@ export function erroresDeHookJuez(p, borrador, config) {
       else {
         if (r.elegido !== j.elegido) errs.push(`hook.juez.respuestas: el elegido del juez (${q(r.elegido)}) no coincide con hook.juez.elegido (${q(j.elegido)})`);
         if (r.nota !== j.nota) errs.push(`hook.juez.respuestas: la nota del juez (${q(r.nota)}) no coincide con hook.juez.nota (${q(j.nota)})`);
+        if (typeof p.dia === "string" && p.dia >= DESDE_PORTADA_LECTOR) errs.push(...vetoDelJuez(r, j.elegido));
       }
     }
   }
   const el = candidatoElegido(h);
   if (el && esTexto(el.title) && h.texto !== el.title) errs.push(`hook.texto ${q(h.texto)} debe ser el título del candidato elegido (${q(el.title)})`);
   if (esObj(borrador)) errs.push(...erroresDeHookBorrador(p, borrador));
+  return errs;
+}
+
+/**
+ * Desde este día la portada le habla al lector y la promesa va en el título: el juez
+ * responde `soloTitulo` (qué consigues y con qué IA, leyendo solo el título) y no
+ * puede elegir un candidato con "no sé" ahí ni uno que no pararía el pulgar. Motivo:
+ * el 2026-10-30 el juez aprobó con 8 «Nunca supe qué pedirle a la IA» y «“¿Cómo va tu
+ * área?” Informe listo», que el lector con prisa (solo el título) no entendió.
+ */
+export const DESDE_PORTADA_LECTOR = "2026-10-31";
+
+/** Veto de la respuesta del juez sobre su propio elegido (ver DESDE_PORTADA_LECTOR). */
+export function vetoDelJuez(r, elegido) {
+  const pc = esObj(r.porCandidato) ? r.porCandidato[String(elegido)] : undefined;
+  if (!esObj(pc) || !esTexto(pc.soloTitulo)) return [`hook.juez.respuestas: falta porCandidato.${elegido}.soloTitulo (desde el ${DESDE_PORTADA_LECTOR} el juez dice qué consigues y con qué IA leyendo solo el título)`];
+  const errs = [];
+  if (/^\s*no s[eé](?!\p{L})/iu.test(pc.soloTitulo)) errs.push(`hook.juez: el elegido tiene "no sé" en soloTitulo: el título solo no dice qué consigues; escribe candidatos con la promesa en el título y vuelve a pasar el juez`);
+  if (pc.pulgar !== "sí") errs.push(`hook.juez: el elegido no pararía el pulgar (pulgar ${q(pc.pulgar)}); el juez no puede elegirlo`);
   return errs;
 }
 
@@ -1710,13 +1730,14 @@ export function mensajeLector(seccionLector, perfil, texto) {
 /**
  * Mensaje completo para el subagente juez: la sección "Para el juez" de
  * `guia-hooks.md` COPIADA y los candidatos numerados desde 1 (solo title,
- * subtitle y resultado: sin patrón, tema ni entregable, para no sesgarlo).
+ * subtitle y, fuera del reel, resultado: sin patrón, tema ni entregable, para no sesgarlo).
  */
-export function mensajeJuez(seccion, candidatos) {
+export function mensajeJuez(seccion, candidatos, formato) {
   const items = candidatos.map((c, i) => {
     const lineas = [`${i + 1}. ${c.title}`];
     if (c.subtitle) lineas.push(`   Subtítulo: ${c.subtitle}`);
-    if (c.resultado) lineas.push(`   Resultado en pantalla: ${c.resultado}`);
+    // En el reel la tarjeta de resultado no se pinta (DESDE_REEL_SIN_TARJETA): el juez ve solo lo que se ve.
+    if (c.resultado && formato !== "reel") lineas.push(`   Resultado en pantalla: ${c.resultado}`);
     return lineas.join("\n");
   });
   return [
@@ -2240,7 +2261,7 @@ export const EJEMPLO = {
           "juez": {
             "elegido": 1,
             "nota": 8,
-            "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+            "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"escuchar mis informes pendientes en vez de leerlos\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
           }
         },
         "emocion": [
@@ -2363,7 +2384,7 @@ export const EJEMPLO = {
           "juez": {
             "elegido": 2,
             "nota": 8,
-            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
+            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"saber qué pasó al automatizar la publicación con agentes de IA\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
           }
         },
         "emocion": [
@@ -2485,7 +2506,7 @@ export const EJEMPLO = {
           "juez": {
             "elegido": 2,
             "nota": 8,
-            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir como jefe, con 3 pedidos concretos\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedir «ayúdame»\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"el informe semanal\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preparar un feedback\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
+            "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"3 pedidos para partir con ChatGPT como jefe\",\"teLlevas\":\"por dónde partir como jefe, con 3 pedidos concretos\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedir «ayúdame»\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"el informe semanal\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preparar un feedback\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
           }
         },
         "emocion": [
@@ -2852,7 +2873,7 @@ function imprimirJuez(here, semana, id, fallar, config) {
   }
   const seccion = seccionDelJuez(md);
   if (!seccion) fallar(['guia-hooks.md no tiene la sección "## Para el juez"']);
-  console.log(`=== MENSAJE PARA EL SUBAGENTE JUEZ (pégalo tal cual) ===\n${mensajeJuez(seccion, cands)}\n=== FIN ===\n`);
+  console.log(`=== MENSAJE PARA EL SUBAGENTE JUEZ (pégalo tal cual) ===\n${mensajeJuez(seccion, cands, p.formato)}\n=== FIN ===\n`);
 }
 
 function main(args) {

@@ -77,7 +77,9 @@ export declare function titulosLargos(cands: unknown, config?: unknown): string[
 export declare const DESDE_PROMESAS: string;
 export declare function erroresDePromesas(promesas: unknown): string[];
 export declare const NADA_NUEVO_RE: RegExp[];
-export declare function mensajeJuez(seccion: string, candidatos: object[]): string;
+export declare function mensajeJuez(seccion: string, candidatos: object[], formato?: string): string;
+export declare const DESDE_PORTADA_LECTOR: string;
+export declare function vetoDelJuez(respuesta: Record<string, unknown>, elegido: number): string[];
 export declare function seccionDelJuez(md: string): string | undefined;
 export declare const SERIES_CALIDAD: string[];
 export declare function seriesDe(config: unknown): string[];

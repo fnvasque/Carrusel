@@ -35,7 +35,8 @@ jerga sin explicar y sin exagerar.
 Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
 Donde esta sección choque con el resto de la guía, manda esta.
 
-- **Primera persona singular** en pantalla y en la voz: «yo partí por aquí»,
+- **Primera persona singular** en el cuerpo y en la voz (la portada le habla al
+  lector, ver `guia-hooks.md`): «yo partí por aquí»,
   «a mí me pasó», «armé un sistema que…». El lector ve a alguien como él dar
   el paso, no a un experto que le dice qué hacer.
   - **Mal:** «Sube tus informes a Gemini Notebook y ahorra horas.»

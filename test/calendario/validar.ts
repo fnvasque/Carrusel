@@ -39,6 +39,8 @@ import {
   erroresDeHookJuez,
   erroresDeHookBorrador,
   mensajeJuez,
+  DESDE_PORTADA_LECTOR,
+  vetoDelJuez,
   titulosLargos,
   erroresDePromesas,
   DESDE_PROMESAS,
@@ -2090,6 +2092,31 @@ check("hook-juez: mensajeJuez enumera los candidatos sin patrón", () => {
   for (const c of cands) assert.ok(m.includes(c.title));
   assert.ok(m.includes("Y no lo dice") && m.includes("Informe listo."));
   assert.ok(!/patron/i.test(m) && !m.includes("en-juego") && !m.includes("error-comun"));
+});
+
+check("portada-al-lector: en reels el juez no ve el resultado (no se pinta); en carruseles sí", () => {
+  const cands = [{ patron: "resultado", title: "Informe al jefe: ChatGPT ordena tus notas", subtitle: "En logros, trabas y pedidos", resultado: "Logros: presupuesto cerrado." }];
+  const reel = mensajeJuez("## Para el juez\nPerfil.", cands, "reel");
+  assert.ok(reel.includes("En logros, trabas y pedidos") && !reel.includes("Logros: presupuesto cerrado."));
+  const post = mensajeJuez("## Para el juez\nPerfil.", cands, "carrusel");
+  assert.ok(post.includes("Resultado en pantalla: Logros: presupuesto cerrado."));
+});
+
+check("portada-al-lector: desde DESDE_PORTADA_LECTOR el juez no puede elegir un «no sé» ni un pulgar «no»", () => {
+  assert.equal(DESDE_PORTADA_LECTOR, "2026-10-31");
+  const resp = (pc: Record<string, unknown>) => JSON.stringify({ elegido: 3, nota: 8, porCandidato: { "3": pc } });
+  const conJuez = (pc: Record<string, unknown>, dia: string) => piezaJuez({ dia }, { score: 8, juez: { elegido: 3, nota: 8, respuestas: resp(pc) } });
+  const bien = { pulgar: "sí", importa: "sí", soloTitulo: "mi informe al jefe ordenado con ChatGPT", teLlevas: "x" };
+  assertNone(erroresDeHookJuez(conJuez(bien, "2026-10-31")));
+  assertHas(erroresDeHookJuez(conJuez({ ...bien, soloTitulo: "no sé" }, "2026-10-31")), /no sé/);
+  assertHas(erroresDeHookJuez(conJuez({ ...bien, soloTitulo: "No se" }, "2026-11-02")), /no sé/);
+  assertHas(erroresDeHookJuez(conJuez({ ...bien, pulgar: "no" }, "2026-10-31")), /pulgar/);
+  const { soloTitulo: _s, ...sinSolo } = bien;
+  assertHas(erroresDeHookJuez(conJuez(sinSolo, "2026-10-31")), /soloTitulo/);
+  // Antes de la fecha no se exige (las semanas pasadas no lo conocían).
+  assertNone(erroresDeHookJuez(conJuez({ ...bien, soloTitulo: "no sé" }, "2026-10-30")));
+  // «no sé» dentro de una frase que sí dice qué consigues no es un veto.
+  assert.deepEqual(vetoDelJuez({ porCandidato: { "1": { ...bien, soloTitulo: "ordenar notas con ChatGPT (no sé cuánto tarda)" } } }, 1), []);
 });
 
 check("hook-juez: elegido es 1-based (0 → error; N → ok; N+1 → error)", () => {

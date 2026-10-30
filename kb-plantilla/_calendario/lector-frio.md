@@ -104,7 +104,11 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    pasan**. Motivo: seguidores avisaron el 2026-10-15 que no se entiende el
    propósito de los reels; hooks como «¿Por qué tu texto se olvida?» nombran un
    problema sin decir qué te llevas, y con 3 s de visionado medio nadie llega
-   a la respuesta.
+   a la respuesta. Desde el 2026-10-31 la 7 dice además **con qué** (la IA o
+   la herramienta) o **cómo**: «tener el informe listo, pero no sé cómo ni con
+   qué» no pasa. Un «no sé» en la 7 del lector con prisa bloquea en
+   **cualquier** ronda: no se repite el lector hasta que pase; se cambia la
+   portada (con el juez).
 8. La respuesta 8 nombra algo que el lector aprendió. En el lector
    **completo** bloquea si responde "nada nuevo" (o "ya lo sabía") y también si
    nombra algo que la pieza no enseña (que no está en ninguna slide). Prueba de

@@ -144,10 +144,11 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    (Paso 5, `guia-hooks.md`); la regla 8 sigue valiendo para todos.
    - Mal: «¿Por qué tu texto se olvida?» + «El truco: no decirlo». Bien:
      «Haz que tu texto se recuerde» + subtítulo «1 prompt de ChatGPT».
-   - Mal: «¿Qué es un agente? Te lo explico». Bien: «No sabía qué era un
-     agente hasta que le pregunté a la IA» + subtítulo «La pregunta que le
-     hice y lo que me respondió» (desde 2026-11-02: primera persona y nivel
-     cero; la promesa es lo que te llevas, no la definición).
+   - Mal: «Nunca supe qué pedirle a la IA» + «Así partí: que me
+     preguntara». Bien: «ChatGPT elige tu primera tarea con IA» + subtítulo
+     «Solo responde 3 preguntas» (desde 2026-10-31: la portada le habla al
+     lector y la promesa, con la IA, va en el título; el cuerpo sigue en
+     primera persona).
    - Mal: «¿Cuánto tiempo te ahorra la IA? 3 estudios». Bien: «“¿Cuánto nos
      ahorra la IA?”: qué responderle a tu jefe» + subtítulo «3 estudios, lo
      que miden y cómo medirlo en tu equipo».
@@ -160,7 +161,9 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    notificación del celular, «Resumen de tu área · hoy 8:00»;
    `respuesta`: la burbuja con lo que contestó la IA). La tarjeta sale arriba
    desde el cuadro 0 y el `title` va debajo, más chico, como pie de foto
-   (≤ 7 palabras, mejor 6). El `subtitle` sobra: la narración lo dice. Motivo: con 3 a 5 s
+   (≤ 7 palabras, mejor 6). El `subtitle` sobraba porque la narración lo decía;
+   con los reels sin voz (`config.voz` false, desde el 2026-10-30) vuelve, y
+   amplía la promesa del título sin cargarla. Motivo: con 3 a 5 s
    de visionado medio, un título sobre fondo negro no retiene a nadie; una
    pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
    no se anuncia).
@@ -743,9 +746,12 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
 
 ### Voz (desde 2026-11-02)
 
-- **Primera persona singular**, en pantalla y en la narración: «yo armé», «a
+- **Primera persona singular en el cuerpo** y en la narración: «yo armé», «a
   mí me pasó», «le pregunté a la IA». Quien habla ya dio el paso; no da
-  órdenes desde arriba.
+  órdenes desde arriba. **La portada, en cambio, le habla al lector** (desde el
+  2026-10-31): su situación o su resultado y la IA que lo hace, con la promesa
+  en el título («ChatGPT elige tu primera tarea con IA»), nunca una confesión
+  sin resultado («Nunca supe qué pedirle a la IA»). Detalle en `guia-hooks.md`.
 - **Nivel cero sin jerga**: un término técnico como máximo por pieza
   (`puerta.terminosTecnicosMax`), y explicado en la misma escena con palabras
   de oficina («un agente es una IA que hace tareas sola»).
@@ -831,6 +837,11 @@ Desde el 2026-10-26 no te pones nota a ti mismo: el que escribe no evalúa.
    `hook.texto` = el `title` del candidato `n`, y el `Hook` del borrador lleva
    **exactamente** el `title`, el `subtitle` y (en reels) el `resultado` de ese
    candidato. El validador compara las tres cosas.
+   Desde el 2026-10-31 el juez responde también `soloTitulo` por candidato
+   (qué consigues y con qué IA leyendo solo el título) y el validador rechaza
+   un elegido con «no sé» en `soloTitulo` o con `pulgar` «no»: escribe
+   candidatos con la promesa en el título y vuelve a pasar el juez. En reels
+   el juez ve título y subtítulo, sin el `resultado` (que el reel no pinta).
 5. Si la nota es menor que `puerta.hookUmbral` (7): **una ronda más** de 8 a 10
    candidatos nuevos, usando lo que respondió el juez. Cuenta como una vuelta
    de `reescriturasMax`. Si tampoco pasa, quita la pieza (y anótala en
@@ -1435,7 +1446,7 @@ horas son las del mix de tu `config.json`:
         "juez": {
           "elegido": 1,
           "nota": 8,
-          "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+          "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"escuchar mis informes pendientes en vez de leerlos\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
         }
       },
       "emocion": [
@@ -1558,7 +1569,7 @@ horas son las del mix de tu `config.json`:
         "juez": {
           "elegido": 2,
           "nota": 8,
-          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
+          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"que tiene agentes\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"saber qué pasó al automatizar la publicación con agentes de IA\",\"teLlevas\":\"que automatizar no basta si nadie lo guarda\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"pensar qué decir antes de automatizar\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"no\",\"teLlevas\":\"un cambio de frecuencia\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"que el volumen no sirve solo\"},\"6\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"aprendizajes\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una frase\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"no automatizar todo\"}}}"
         }
       },
       "emocion": [
@@ -1680,7 +1691,7 @@ horas son las del mix de tu `config.json`:
         "juez": {
           "elegido": 2,
           "nota": 8,
-          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir como jefe, con 3 pedidos concretos\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedir «ayúdame»\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"el informe semanal\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preparar un feedback\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
+          "respuestas": "{\"elegido\":2,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"3 pedidos para partir con ChatGPT como jefe\",\"teLlevas\":\"por dónde partir como jefe, con 3 pedidos concretos\"},\"3\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no pedir «ayúdame»\"},\"4\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"cómo empezó él\"},\"5\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"3 pedidos\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"el informe semanal\"},\"7\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"preparar un feedback\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"no partir por una herramienta\"}}}"
         }
       },
       "emocion": [
@@ -1834,7 +1845,7 @@ herramienta se llama Gemini Notebook). Una entrada de `plan.json → piezas`:
     "juez": {
       "elegido": 1,
       "nota": 8,
-      "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
+      "respuestas": "{\"elegido\":1,\"nota\":8,\"porCandidato\":{\"1\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"soloTitulo\":\"escuchar mis informes pendientes en vez de leerlos\",\"teLlevas\":\"escuchar los informes que no alcanzo a leer\"},\"2\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"escuchar informes\"},\"3\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"no sé cuál tarea\"},\"4\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"qué pedirle, pero no sé qué me llevo\"},\"5\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"llegar a la reunión con el informe escuchado\"},\"6\":{\"pulgar\":\"sí\",\"importa\":\"no\",\"teLlevas\":\"una pregunta para la IA\"},\"7\":{\"pulgar\":\"no\",\"importa\":\"sí\",\"teLlevas\":\"escuchar en vez de acumular\"},\"8\":{\"pulgar\":\"sí\",\"importa\":\"sí\",\"teLlevas\":\"por dónde partir, pero no sé con qué\"}}}"
     }
   },
   "emocion": [
