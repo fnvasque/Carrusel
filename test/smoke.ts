@@ -12,7 +12,7 @@ import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
 import { readFileSync } from "node:fs";
 import { pillContent } from "../src/templates/Cta.tsx";
-import { frasesNowrap } from "../src/templates/highlight.tsx";
+import { frasesNowrap, highlightText } from "../src/templates/highlight.tsx";
 import { parrafos, parrafosHeight } from "../src/templates/parrafos.tsx";
 import { contentHeight, sourceLines, wrapLines, firmaReserve } from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
@@ -834,6 +834,26 @@ check("frasesNowrap: el resaltado solo cuenta como bloque si es una palabra; el 
   // Con la frase pegada, el titular del reel se achicaba como si no pudiera partirse.
   const t = "¿Esto lo escribió la IA? Que tu equipo no lo piense";
   assert.ok(fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: frasesNowrap("¿Esto lo escribió la IA?") }) >= fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: ["¿Esto lo escribió la IA?"] }));
+});
+
+check("highlightText: marcador lima en la palabra clave y frase en serif cursiva", () => {
+  const h = renderToStaticMarkup(createElement("p", null, highlightText("Que tu equipo no piense", "piense", "#C6FF3D", undefined, undefined, "Que tu equipo")));
+  assert.match(h, /<span data-cursiva="" style="[^"]*font-family:InstrumentSerif;font-style:italic;font-weight:400;font-size:1\.13em;letter-spacing:-0\.01em">Que tu equipo<\/span>/);
+  assert.match(h, /data-anim="pop"[^>]*background-image:linear-gradient[^>]*background-size:100% 100%[^>]*background-repeat:no-repeat[^>]*>piense</);
+  assert.doesNotMatch(h, /data-anim="pop"[^>]*[^-]color:/); // el texto sigue en tinta
+  // cursiva inexistente → texto intacto; solapada con highlight → solo marcador
+  assert.equal(renderToStaticMarkup(createElement("p", null, highlightText("Hola mundo", undefined, "#fff", undefined, undefined, "nada"))), "<p>Hola mundo</p>");
+  const o = renderToStaticMarkup(createElement("p", null, highlightText("Que tu equipo no piense", "tu equipo", "#fff", undefined, undefined, "Que tu equipo")));
+  assert.doesNotMatch(o, /data-cursiva/);
+  assert.match(o, /data-anim="pop"/);
+  // mark > cursiva
+  const m = renderToStaticMarkup(createElement("p", null, highlightText("Que tu equipo no piense", undefined, "#fff", "equipo", undefined, "tu equipo")));
+  assert.doesNotMatch(m, /data-cursiva/);
+  assert.match(m, /data-mark/);
+});
+check("frasesNowrap: la cursiva de una palabra se estima como bloque", () => {
+  assert.deepEqual(frasesNowrap(undefined, undefined, "piense"), [undefined, undefined, "piense"]);
+  assert.deepEqual(frasesNowrap(undefined, undefined, "Que tu equipo"), [undefined, undefined]);
 });
 
 // Carrusel del martes 2026-10-27 (slides 3 a 5): el ejemplo entre «» y su explicación salían

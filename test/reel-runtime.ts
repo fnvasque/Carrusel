@@ -80,19 +80,16 @@ function hookState(page: Page, t: number) {
     (window as any).__reel.seek(x);
     const h1 = document.querySelector('[data-scene="0"] h1') as HTMLElement;
     const pop = h1.querySelector('[data-anim="pop"]') as HTMLElement;
-    const probe = document.createElement("span");
-    probe.style.color = pop.dataset.accent!;
-    document.body.appendChild(probe);
-    const accent = getComputedStyle(probe).color;
-    probe.remove();
     return {
       split: h1.querySelectorAll(".reel-word").length,
       opacity: Number(getComputedStyle(h1).opacity),
       visibility: getComputedStyle(h1).visibility,
       scale: new DOMMatrix(getComputedStyle(h1).transform).a,
-      pop: getComputedStyle(pop).color,
-      accent,
-      parent: getComputedStyle(h1).color,
+      // Look papel: el pop hace crecer el marcador (background-size 0 % → 100 %), no cambia el color.
+      pop: getComputedStyle(pop).backgroundSize,
+      accent: "100% 100%",
+      marcador: pop.dataset.accent!.startsWith("linear-gradient"),
+      parent: "0% 100%",
     };
   }, t);
 }
@@ -100,14 +97,14 @@ function hookState(page: Page, t: number) {
 /**
  * Metas del hook (en ambos ritmos): titular completo y legible en el cuadro 0
  * (sin dividir en palabras) con el acercamiento ya en 1.04, cuadro 0 no vacío
- * y palabra clave en acento antes de 0.6 s.
+ * y marcador de la palabra clave completo (100 %) antes de 0.6 s.
  */
 async function hookGoals(page: Page, label: string): Promise<void> {
   const h0 = await hookState(page, 0);
   assert.equal(h0.split, 0, `${label}: el titular del hook no se divide en palabras`);
   assert.deepEqual([h0.opacity, h0.visibility], [1, "visible"], `${label}: titular completo y visible en el cuadro 0`);
   assert.ok(Math.abs(h0.scale - 1.04) < 1e-3, `${label}: titular a 1.04 en el cuadro 0: ${h0.scale}`);
-  assert.equal(h0.pop, h0.parent, `${label}: palabra clave aún en el color del titular en el cuadro 0`);
+  assert.equal(h0.pop, h0.parent, `${label}: marcador de la palabra clave aún sin crecer (0 %) en el cuadro 0`);
   // Miniatura: el cuadro 0 no sale vacío.
   const visible0 = await page.evaluate(() => {
     (window as any).__reel.seek(0);
@@ -116,7 +113,8 @@ async function hookGoals(page: Page, label: string): Promise<void> {
   });
   assert.ok(visible0 > 0, `${label}: el cuadro 0 muestra al menos un elemento (miniatura no vacía)`);
   const h06 = await hookState(page, 0.59);
-  assert.equal(h06.pop, h06.accent, `${label}: palabra clave en acento antes de 0.6 s`);
+  assert.ok(h06.marcador, `${label}: dataset.accent guarda el degradado del marcador`);
+  assert.equal(h06.pop, h06.accent, `${label}: marcador de la palabra clave completo (100 %) antes de 0.6 s`);
 }
 
 /**
@@ -224,7 +222,7 @@ try {
   const duration = await page.evaluate(() => (window as any).__reel.duration as number);
   assert.ok(Math.abs(duration - timing.total) <= 1 / timing.fps, `duración ${duration} vs ${timing.total}`);
 
-  // Hook (escena 0): metas del cuadro 0 y palabra clave en acento antes de 0.6 s.
+  // Hook (escena 0): metas del cuadro 0 y marcador de la palabra clave completo (100 %) antes de 0.6 s.
   await hookGoals(page, "rapido");
   const hook = (t: number) => hookState(page, t);
 
@@ -242,7 +240,7 @@ try {
     else assert.ok(v <= scales[k - 1], `la escala del titular crece en el cuadro ${k}: ${scales[k - 1]} → ${v}`);
   });
   const back = await hook(0);
-  assert.equal(back.pop, back.parent, "la palabra clave vuelve al color del titular al volver a 0");
+  assert.equal(back.pop, back.parent, "el marcador de la palabra clave vuelve a 0 % al volver a 0");
 
   // Look papel: sin grilla (el runtime tolera su ausencia: seek no falla y no hay capas [data-grid]).
   const sinGrilla = await page.evaluate(() => {
@@ -691,11 +689,11 @@ try {
       return { y: new DOMMatrix(getComputedStyle(h1).transform).f, marca: h1.dataset.reelHookGancho };
     });
     assert.ok(Math.abs(y0.y - 40) < 1e-3 && y0.marca === "1", `gancho: titular desplazado 40 px en el cuadro 0 (${y0.y})`);
-    assert.equal(h0.pop, h0.parent, "gancho: palabra clave aún en el color del titular en el cuadro 0");
+    assert.equal(h0.pop, h0.parent, "gancho: marcador de la palabra clave aún sin crecer (0 %) en el cuadro 0");
     const h03 = await hookState(g, 0.3);
     assert.ok(h03.scale < 1.12 && h03.scale > 1, `gancho: el titular se está asentando a los 0.3 s (${h03.scale})`);
     const h05 = await hookState(g, 0.49);
-    assert.equal(h05.pop, h05.accent, "gancho: palabra clave en acento antes de 0.5 s");
+    assert.equal(h05.pop, h05.accent, "gancho: marcador de la palabra clave completo (100 %) antes de 0.5 s");
     const h08 = await hookState(g, 0.75);
     assert.ok(Math.abs(h08.scale - 1) < 1e-3, `gancho: titular asentado a los 0.75 s (${h08.scale})`);
     // Entradas: nunca más lentas (slow 1) y comprimidas solo si no caben.
@@ -790,15 +788,10 @@ try {
       const pops = await p.evaluate((x) => {
         (window as any).__reel.seek(x);
         return Array.from(document.querySelectorAll('[data-scene="0"] h1 [data-anim="pop"]')).map((e) => {
-          const probe = document.createElement("span");
-          probe.style.color = (e as HTMLElement).dataset.accent!;
-          document.body.appendChild(probe);
-          const acc = getComputedStyle(probe).color;
-          probe.remove();
-          return getComputedStyle(e).color === acc;
+          return getComputedStyle(e).backgroundSize === "100% 100%" && (e as HTMLElement).dataset.accent!.startsWith("linear-gradient");
         });
       }, t.scenes[0].dur - t.transition);
-      assert.deepEqual(pops, [true, true, true, true, true], `${pace}: las 5 palabras del resaltado terminan en el acento`);
+      assert.deepEqual(pops, [true, true, true, true, true], `${pace}: las 5 palabras del resaltado terminan con el marcador completo`);
       await p.close();
     }
   }

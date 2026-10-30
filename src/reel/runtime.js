@@ -215,17 +215,17 @@ document.fonts.ready.then(function () {
           master.fromTo(el, { scale: 1.04 }, { scale: 1, transformOrigin: "50% 50%", duration: HOOK_ZOOM, ease: "power2.out", immediateRender: true }, 0);
         }
         // Un resaltado de varias palabras trae un pop por palabra (highlight.tsx).
-        const parentColor = getComputedStyle(el).color;
+        // Look papel: el pop hace crecer el marcador de izquierda a derecha.
         el.querySelectorAll('[data-anim="pop"]').forEach(function (pop) {
-          pop.dataset.accent = pop.style.color;
-          master.fromTo(pop, { color: parentColor }, { color: pop.style.color, duration: POP_DUR, ease: "power2.out", immediateRender: true }, gancho ? HOOK_GANCHO.popAt : HOOK_POP_AT);
+          pop.dataset.accent = pop.style.backgroundImage;
+          master.fromTo(pop, { backgroundSize: "0% 100%" }, { backgroundSize: "100% 100%", duration: POP_DUR, ease: "power2.out", immediateRender: true }, gancho ? HOOK_GANCHO.popAt : HOOK_POP_AT);
         });
         return POP_DUR;
       }
       if (kind === "words") {
         // Un pop por palabra resaltada (varias si el resaltado tiene varias palabras).
         let pops = Array.from(el.querySelectorAll('[data-anim="pop"]'));
-        pops.forEach(function (p) { p.dataset.accent = p.style.color; }); // acento original, para tests
+        pops.forEach(function (p) { p.dataset.accent = p.style.backgroundImage; }); // acento original, para tests
         // Altura con el corte de líneas del post, para detectar si el split lo cambia.
         const h0 = el.getBoundingClientRect().height;
         el.dataset.reelH0 = String(h0);
@@ -239,7 +239,7 @@ document.fonts.ready.then(function () {
         const split = new SplitText(el, { type: "words", wordsClass: "reel-word" });
         if (el.getBoundingClientRect().height > h0 + 1) {
           // El split cambió el corte de líneas: se deshace y el bloque entra
-          // entero (rise), conservando el pop por color.
+          // entero (rise), conservando el pop del marcador.
           split.revert();
           pops = Array.from(el.querySelectorAll('[data-anim="pop"]'));
           pops.forEach(function (p) { p.style.whiteSpace = ""; });
@@ -247,7 +247,7 @@ document.fonts.ready.then(function () {
           console.warn("SplitText cambiaba el corte de líneas; el texto entra entero: " + el.textContent.slice(0, 60));
           sub.from(el, { y: 40, autoAlpha: 0, duration: 0.45, ease: "power3.out" }, at);
           if (!pops.length) return 0.45;
-          sub.from(pops, { color: getComputedStyle(el).color, duration: 0.3, ease: "power2.out" }, at + 0.45);
+          sub.from(pops, { backgroundSize: "0% 100%", duration: 0.3, ease: "power2.out" }, at + 0.45);
           return 0.75;
         }
         // Puntuación tras la palabra clave (pop/mark) va dentro de ella: si no, al escalarla queda un hueco antes de la coma.
@@ -280,8 +280,7 @@ document.fonts.ready.then(function () {
           sub.from(mk, { backgroundColor: clear, duration: 0.45, ease: "power4.out" }, at + 0.06 * words.indexOf(mw[0]));
         });
         if (pops.length) {
-          const parentColor = getComputedStyle(el).color;
-          sub.from(pops, { color: parentColor, duration: 0.3, ease: "power2.out" }, at + len);
+          sub.from(pops, { backgroundSize: "0% 100%", duration: 0.3, ease: "power2.out" }, at + len);
           if (popWords.length) sub.fromTo(popWords, { scale: 0.9 }, { scale: 1, duration: 0.3, ease: "power2.out", immediateRender: false }, at + len);
           len += 0.3;
         }

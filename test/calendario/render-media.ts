@@ -219,7 +219,7 @@ try {
     mkdirSync(cache, { recursive: true });
     const prompt = "una oficina luminosa vacía";
     const clave = createHash("sha256").update(`${applyBrandStyle(prompt)}|1024x1536|medium`).digest("hex");
-    ffmpeg(["-f", "lavfi", "-i", "color=c=black:s=1024x1536:d=1", "-frames:v", "1", join(cache, `${clave}.png`)]);
+    ffmpeg(["-f", "lavfi", "-i", "color=c=0x303030:s=1024x1536:d=1", "-frames:v", "1", join(cache, `${clave}.png`)]);
     const envPrev = { CARRUSEL_AI_CACHE_DIR: process.env.CARRUSEL_AI_CACHE_DIR, CARRUSEL_AI_SOLO_CACHE: process.env.CARRUSEL_AI_SOLO_CACHE };
     process.env.CARRUSEL_AI_CACHE_DIR = cache;
     process.env.CARRUSEL_AI_SOLO_CACHE = "1";
@@ -242,7 +242,7 @@ try {
       const lCon = await luz(join(con, "01.jpg"));
       const lSin = await luz(join(sin, "01.jpg"));
       console.log(`(luminancia de la portada: con fondo ${lCon.toFixed(3)}, sin fondo ${lSin.toFixed(3)})`);
-      // Look papel: el fondo por defecto es claro, así que la imagen de la caché es negra para distinguirlos.
+      // Look papel: el fondo por defecto es claro, así que la imagen de la caché es gris oscuro (no negro puro: el QA de portada rechaza una portada negra, y con el marcador en vez de texto lima la portada sobre negro queda bajo el umbral) para distinguirlos.
       assert.ok(lCon < 0.3, `con el fondo negro de la caché la portada es oscura (${lCon})`);
       assert.ok(lSin > 0.6, `sin el fondo ai la portada vuelve al papel por defecto (${lSin})`);
       assert.ok(lSin - lCon > 0.2);
