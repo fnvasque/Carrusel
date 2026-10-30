@@ -37,6 +37,7 @@ export function Frame({
   format = "post",
   firmaLinea = false,
   narracion,
+  oscuro = false,
   style,
   children,
 }: {
@@ -57,6 +58,8 @@ export function Frame({
   firmaLinea?: boolean;
   /** Reel: la escena lleva subtítulo de narración; el contenido deja su espacio (`SUBTITULO_RESERVA`). */
   narracion?: string;
+  /** Escena sobre fondo oscuro (Clip, que se mezcla con video): la cabecera, la firma y la fuente van en claro. */
+  oscuro?: boolean;
   style?: CSSProperties;
   children: ReactNode;
 }) {
@@ -100,7 +103,7 @@ export function Frame({
                 fontSize: 26,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                color: theme.colors.ink,
+                color: oscuro ? "#FFFFFF" : theme.colors.ink,
                 whiteSpace: "nowrap",
               }}
             >
@@ -112,7 +115,7 @@ export function Frame({
           {/* El círculo (56) es más alto que la cabecera (44): arranca arriba y se asoma al aire de abajo, sin pasar la zona segura. */}
           {reel && (
             <div style={{ alignSelf: "flex-start" }}>
-              <Firma circulo={56} nombre={28} linea={firmaLinea} />
+              <Firma circulo={56} nombre={28} linea={firmaLinea} oscuro={oscuro} />
             </div>
           )}
         </div>
@@ -133,7 +136,7 @@ export function Frame({
               fontSize: SOURCE_SIZE,
               lineHeight: 1.35,
               letterSpacing: "0.02em",
-              color: theme.colors.textMuted,
+              color: oscuro ? "rgba(255,255,255,0.8)" : theme.colors.textMuted,
             }}
           >
             {source}
@@ -142,9 +145,9 @@ export function Frame({
         {/* Pie del post: firma a la izquierda, n/total a la derecha */}
         {!reel && (
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: FIRMA_SIZE, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Firma circulo={FIRMA_SIZE} nombre={32} linea={firmaLinea} />
+            <Firma circulo={FIRMA_SIZE} nombre={32} linea={firmaLinea} oscuro={oscuro} />
             {pagina && (
-              <span data-brand="pagina" style={{ fontFamily: theme.fonts.serif, fontStyle: "italic", fontSize: 56, lineHeight: 1, color: theme.colors.ink }}>
+              <span data-brand="pagina" style={{ fontFamily: theme.fonts.serif, fontStyle: "italic", fontSize: 56, lineHeight: 1, color: oscuro ? "#FFFFFF" : theme.colors.ink }}>
                 {pagina}
               </span>
             )}
@@ -155,8 +158,11 @@ export function Frame({
   );
 }
 
-/** Firma de la cuenta: círculo tinta con las iniciales en serif cursiva lima y el nombre (y, opcional, la línea). */
-export function Firma({ circulo, nombre, linea = false }: { circulo: number; nombre: number; linea?: boolean }) {
+/**
+ * Firma de la cuenta: círculo tinta con las iniciales en serif cursiva lima y el nombre (y, opcional, la línea).
+ * Sobre fondo oscuro (`oscuro`): círculo lima con las iniciales en tinta y el texto en blanco.
+ */
+export function Firma({ circulo, nombre, linea = false, oscuro = false }: { circulo: number; nombre: number; linea?: boolean; oscuro?: boolean }) {
   return (
     <div data-brand="firma" style={{ display: "flex", alignItems: "center", gap: Math.round(circulo * 0.24), flexShrink: 0 }}>
       <div
@@ -164,8 +170,8 @@ export function Firma({ circulo, nombre, linea = false }: { circulo: number; nom
           width: circulo,
           height: circulo,
           borderRadius: "50%",
-          backgroundColor: theme.colors.ink,
-          color: theme.colors.accent,
+          backgroundColor: oscuro ? theme.colors.accent : theme.colors.ink,
+          color: oscuro ? theme.colors.ink : theme.colors.accent,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -179,8 +185,8 @@ export function Firma({ circulo, nombre, linea = false }: { circulo: number; nom
         {theme.firma.iniciales}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontFamily: theme.fonts.body, fontWeight: 700, fontSize: nombre, lineHeight: 1.1, color: theme.colors.ink }}>{theme.firma.nombre}</span>
-        {linea && <span style={{ fontFamily: theme.fonts.body, fontWeight: 400, fontSize: 24, lineHeight: 1.2, color: theme.colors.textMuted }}>{theme.firma.linea}</span>}
+        <span style={{ fontFamily: theme.fonts.body, fontWeight: 700, fontSize: nombre, lineHeight: 1.1, color: oscuro ? "#FFFFFF" : theme.colors.ink }}>{theme.firma.nombre}</span>
+        {linea && <span style={{ fontFamily: theme.fonts.body, fontWeight: 400, fontSize: 24, lineHeight: 1.2, color: oscuro ? "rgba(255,255,255,0.8)" : theme.colors.textMuted }}>{theme.firma.linea}</span>}
       </div>
     </div>
   );

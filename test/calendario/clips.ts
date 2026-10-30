@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { check } from "../_check.ts";
 import { reelTiming } from "../../src/reel/timing.ts";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 import { Clip, Step, Cta } from "../../src/templates/index.ts";
 import type { CarouselSpec } from "../../src/templates/types.ts";
 import { ARCHIVO_CLIP_RE, CLIP_BRILLO, CLIP_FADE, CLIP_SOMBRA_ALTO, CLIP_SOMBRA_MIN, archivoClipError, clipsFaltantes, filtroClips, rangosClips, rutaClip } from "../../src/calendario/clips.ts";
@@ -84,4 +86,13 @@ check("filtroClips: cada clip lleva una sombra degradada en el tercio superior (
   const i1 = f.indexOf("blend=all_mode=multiply"), i2 = f.indexOf("fade=t=out"), i3 = f.indexOf("tpad=start_duration");
   assert.ok(i1 < i2 && i2 < i3);
   assert.equal((f.match(/blend=all_mode=lighten/g) ?? []).length, 2);
+});
+
+check("Clip: fondo negro (el blend lighten lo necesita) y cabecera, firma y titular en claro, sin sombra de texto", () => {
+  const h = renderToStaticMarkup(createElement(Clip, { title: "Una foto, 1 anuncio", highlight: "1 anuncio", archivo: "a.mp4", format: "reel", serie: "lo-que-construi" }));
+  assert.ok(h.includes("background-color:#000000"), "fondo negro, no el papel");
+  assert.ok(!h.includes("text-shadow"), "el blend lighten ignora las sombras");
+  const serie = /data-brand="serie"[^>]*style="([^"]*)"/.exec(h)![1];
+  assert.ok(serie.includes("color:#FFFFFF"), "serie en blanco sobre el video");
+  assert.ok(/data-brand="firma".*?color:#FFFFFF/s.test(h), "nombre de la firma en blanco");
 });

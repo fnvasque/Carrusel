@@ -127,9 +127,9 @@ export interface VozEscena {
 }
 
 /**
- * Subtítulo de la narración (`props.narracion`), como en el cine: texto blanco
- * con borde oscuro, centrado abajo (sobre la fuente al pie), sin caja, ≤ 2
- * líneas, un trozo a la vez al ritmo de la voz (`data-sub-at` / `data-sub-hasta`
+ * Subtítulo de la narración (`props.narracion`) en píldora: texto blanco sobre
+ * tinta al 88 % (#111111), sin sombra, centrado abajo (sobre la fuente al pie),
+ * ≤ 2 líneas. La píldora se lee igual sobre el papel que sobre el video de Clip; un trozo a la vez al ritmo de la voz (`data-sub-at` / `data-sub-hasta`
  * en segundos del reel; el runtime los enciende y apaga). Sin tiempos de voz
  * (sin narración sintetizada), muestra el texto entero mientras dura la escena.
  */
@@ -137,10 +137,10 @@ export function subtitulo(narracion: unknown, source?: unknown, voz?: VozEscena)
   if (typeof narracion !== "string" || !narracion.trim()) return "";
   const bottom = SUBTITULO_BOTTOM + sourceReserve(typeof source === "string" ? source : undefined);
   const estilo =
-    `position:absolute;left:0;right:0;margin:0 auto;max-width:960px;padding:0 60px;` +
+    `position:absolute;left:0;right:0;margin:0 auto;width:fit-content;max-width:960px;box-sizing:border-box;padding:10px 32px;border-radius:44px;` +
+    `background:rgba(17,17,17,0.88);` +
     `font-family:${theme.fonts.body},system-ui,sans-serif;font-weight:600;font-size:${SUBTITULO_SIZE}px;line-height:1.2;color:#FFFFFF;` +
-    `text-align:center;text-wrap:balance;letter-spacing:-0.005em;` +
-    `text-shadow:0 0 10px rgba(0,0,0,0.9),0 2px 3px rgba(0,0,0,0.95),-2px 0 3px rgba(0,0,0,0.85),2px 0 3px rgba(0,0,0,0.85),0 -2px 3px rgba(0,0,0,0.85);`;
+    `text-align:center;text-wrap:balance;letter-spacing:-0.005em;`;
   const trozos = voz ? tiemposTrozos(trozosSubtitulo(narracion), voz.start, voz.segundos) : [{ texto: narracion.replace(/\s+/g, " ").trim(), at: NaN, hasta: NaN }];
   // Los trozos van apilados en el mismo sitio (abajo, anclados al borde inferior): solo uno se ve a la vez.
   const spans = trozos
@@ -177,9 +177,8 @@ export async function buildReelPage(spec: CarouselSpec, timing: ReelTiming, opts
     gsapScript("SplitText.min.js"),
     readFile(join(HERE, "runtime.js"), "utf8"),
   ]);
-  // Barra de progreso de marca (como el motor anterior): 8 px en el borde
-  // superior, color de acento, crece de 0 a 100% durante todo el reel (runtime).
-  const progress = `<div data-reel-progress style="position:absolute;left:0;top:0;width:${width}px;height:8px;background:${theme.colors.accent};transform-origin:left center;transform:scaleX(0);z-index:10;"></div>`;
+  // Barra de progreso de marca: 8 px en el borde superior, en tinta (look papel), crece de 0 a 100% durante todo el reel (runtime).
+  const progress = `<div data-reel-progress style="position:absolute;left:0;top:0;width:${width}px;height:8px;background:${theme.colors.ink};transform-origin:left center;transform:scaleX(0);z-index:10;"></div>`;
   const body =
     `<div style="position:relative;width:${width}px;height:${height}px;overflow:hidden;background:#000;">${scenes}${progress}</div>` +
     `<script>${gsap}</script><script>${split}</script>` +

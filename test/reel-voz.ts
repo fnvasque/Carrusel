@@ -7,6 +7,7 @@ import { inicioVoces, VOZ_ENTRADA } from "../src/reel/renderReel.ts";
 import { parseVoz, segundosEstimados, VOCES, VOZ_DEFECTO } from "../src/reel/voz.ts";
 import { subtitulo, SUBTITULO_BOTTOM, SUBTITULO_COLA, SUBTITULO_MAX_CHARS, SUBTITULO_MAX_PALABRAS, SUBTITULO_SIZE, tiemposTrozos, trozosSubtitulo } from "../src/reel/page.ts";
 import { Hook, Screen, Cta } from "../src/templates/index.ts";
+import { applyBrandStyle } from "../src/render/background.ts";
 import { REEL_SAFE_BOTTOM, SUBTITULO_RESERVA, contentHeight, subtituloReserve } from "../src/templates/layout.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
@@ -131,7 +132,7 @@ check("tiemposTrozos: continuos, proporcionales al texto, desde el inicio de la 
   assert.throws(() => tiemposTrozos(["a"], 0, 0), /inválidos/);
 });
 
-check("subtitulo: estilo cine (blanco con borde, sin caja) un trozo a la vez con tiempos; sin voz, el texto entero", () => {
+check("subtitulo: píldora tinta al 88 % con texto blanco, sin sombra, un trozo a la vez con tiempos; sin voz, el texto entero", () => {
   assert.equal(subtitulo(undefined), "");
   assert.equal(subtitulo("   "), "");
   assert.equal(subtitulo(42), "");
@@ -140,8 +141,10 @@ check("subtitulo: estilo cine (blanco con borde, sin caja) un trozo a la vez con
   assert.ok(sinVoz.includes("Esto lo hizo ChatGPT &lt;solo&gt; &amp; &quot;ya&quot;"), "espacios colapsados y HTML escapado");
   assert.ok(!sinVoz.includes("data-sub-at"), "sin tiempos");
   assert.ok(sinVoz.includes(`bottom:${SUBTITULO_BOTTOM}px`));
-  assert.ok(/text-shadow:[^"]*rgba\(0,0,0/.test(sinVoz), "borde oscuro");
-  assert.ok(!/background:|border:/.test(sinVoz), "sin caja");
+  assert.ok(sinVoz.includes("background:rgba(17,17,17,0.88)"), "píldora tinta al 88 %");
+  assert.ok(sinVoz.includes("color:#FFFFFF"), "texto blanco");
+  assert.ok(!sinVoz.includes("text-shadow"), "sin sombra de texto");
+  assert.ok(/border-radius:\d+px/.test(sinVoz) && /padding:\d+px \d+px/.test(sinVoz), "píldora redondeada con relleno horizontal");
   const conVoz = subtitulo("Este aviso lo manda ChatGPT solo, cada mes. Mira cómo se hace.", undefined, { start: 0.2, segundos: 4 });
   assert.equal((conVoz.match(/data-sub-trozo/g) ?? []).length, 2);
   assert.ok(/data-sub-at="0.2" data-sub-hasta="[\d.]+"/.test(conVoz));
@@ -171,3 +174,10 @@ check("voz: VOZ_DEFECTO es em_alex, parseVoz acepta las 3 de Kokoro y rechaza el
 });
 
 await done();
+
+check("applyBrandStyle: el fondo IA pide papel gris cálido claro, no el casi negro del look lima", () => {
+  const p = applyBrandStyle("escritorio");
+  assert.ok(p.includes("light warm grey paper"), "papel gris cálido claro");
+  assert.ok(!/near-black|#06060A/i.test(p), "sin el fondo casi negro");
+  assert.equal(applyBrandStyle("escritorio", false), "escritorio");
+});

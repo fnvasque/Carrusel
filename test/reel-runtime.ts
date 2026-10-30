@@ -242,7 +242,7 @@ try {
   const back = await hook(0);
   assert.equal(back.pop, back.parent, "el marcador de la palabra clave vuelve a 0 % al volver a 0");
 
-  // Look papel: sin grilla (el runtime tolera su ausencia: seek no falla y no hay capas [data-grid]).
+  // Look papel: sin grilla (el runtime ya no la maneja: seek no falla y no hay capas [data-grid]).
   const sinGrilla = await page.evaluate(() => {
     (window as any).__reel.seek(1);
     return document.querySelectorAll("[data-grid]").length;
@@ -256,6 +256,8 @@ try {
       const r = document.querySelector("[data-reel-progress]")!.getBoundingClientRect();
       return { w: r.width, top: r.top, h: r.height };
     }, t);
+  const colorBarra = await page.evaluate(() => getComputedStyle(document.querySelector("[data-reel-progress]")!).backgroundColor);
+  assert.equal(colorBarra, "rgb(17, 17, 17)", "barra de progreso en tinta #111111");
   const p0 = await progress(0);
   const pMid = await progress(timing.total / 2);
   const pEnd = await progress(timing.total);
@@ -701,10 +703,10 @@ try {
     console.log(`✓ ritmo gancho: hook ≤ 3 s en movimiento desde el cuadro 0, transición 0.3, cierre lento (${t.total}s)`);
   }
 
-  // logoEnCuadro0: false ya no tiene efecto (sin wordmark): el reel renderiza, sin logo ni capa «late».
+  // logoEnCuadro0: false ya no tiene efecto (sin wordmark): el reel renderiza igual, sin logo.
   {
     const spec = {
-      name: "_logo-tardio",
+      name: "_logo-sin-efecto",
       slides: [
         { template: Hook, props: { title: "Logo después del hook", highlight: "Logo", logoEnCuadro0: false } },
         { template: Hook, props: { title: "Segunda escena del reel", highlight: "escena", logoEnCuadro0: false } },
@@ -714,9 +716,9 @@ try {
     await hookGoals(l, "logoEnCuadro0 sin efecto");
     const marcas = await l.evaluate(() => {
       (window as any).__reel.seek(3.2);
-      return { logo: document.querySelectorAll('[data-brand="logo"]').length, late: document.querySelectorAll('[data-anim="late"]').length, firma: document.querySelectorAll('[data-scene="0"] [data-brand="firma"]').length };
+      return { logo: document.querySelectorAll('[data-brand="logo"]').length, firma: document.querySelectorAll('[data-scene="0"] [data-brand="firma"]').length };
     });
-    assert.deepEqual(marcas, { logo: 0, late: 0, firma: 1 }, "sin wordmark ni capa late; la firma compacta va en la cabecera");
+    assert.deepEqual(marcas, { logo: 0, firma: 1 }, "sin wordmark; la firma compacta va en la cabecera");
     await l.close();
     console.log("✓ logoEnCuadro0: sin efecto; el reel no tiene wordmark y lleva la firma compacta");
   }

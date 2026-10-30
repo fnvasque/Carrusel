@@ -1,7 +1,6 @@
 /* Runtime del reel animado: lee window.__REEL_TIMING__ y las marcas data-anim
- * (rise, stagger, words, type, strike, count, check, caret; bg, pop y late aparte),
+ * (rise, stagger, words, type, strike, count, check, caret; bg y pop aparte),
  * arma una timeline maestra pausada y expone window.__reel = { duration, seek }.
- * La grilla [data-grid] deriva durante todo el reel.
  * Ritmo (T.pace): las entradas de cada escena (salvo la 0) van T.entranceSlow
  * veces más lentas y se comprimen solo si no caben en su presupuesto; en
  * "ensenar" los bullets de un stagger van uno cada T.stagger s sin comprimir.
@@ -61,7 +60,6 @@ document.fonts.ready.then(function () {
     const CHECK_DELAY = 0.1; // s tras la entrada de su bullet en que crece el ✓
     const CHECK_DUR = 0.3;
     const CARET_BLINK = 0.5; // s encendido / apagado del cursor del prompt
-    const GRID_CELL_SECONDS = 8; // s que la grilla tarda en derivar una celda
 
     // Reemplaza los "\n" de los nodos de texto de `el` por <br>.
     function newlinesToBr(el) {
@@ -377,7 +375,7 @@ document.fonts.ready.then(function () {
       let cursor = 0;
       Array.from(scene.querySelectorAll("[data-anim]")).forEach(function (el) {
         const kind = el.getAttribute("data-anim");
-        if (kind === "bg" || kind === "pop" || kind === "late") return;
+        if (kind === "bg" || kind === "pop") return;
         // Los ✓ de un checklist y el cursor de un type van con su contenedor.
         if (kind === "check" && el.parentElement.closest('[data-anim="stagger"]')) return;
         if (kind === "caret" && el.parentElement.closest('[data-anim="type"]')) return;
@@ -413,42 +411,6 @@ document.fonts.ready.then(function () {
         }
       });
     });
-
-    // Grilla: deriva diagonal lenta y continua (una celda cada
-    // GRID_CELL_SECONDS s) durante todo el reel, igual en todas las escenas. La
-    // capa sobra una celda por lado y el patrón se repite cada celda: el
-    // desplazamiento se envuelve dentro de una celda y nunca deja bordes vacíos.
-    const grids = Array.from(document.querySelectorAll("[data-grid]"));
-    if (grids.length) {
-      const cell = parseFloat(getComputedStyle(grids[0]).backgroundSize) || 120;
-      const dist = (cell * T.total) / GRID_CELL_SECONDS;
-      const wrap = gsap.utils.wrap(0, cell);
-      master.fromTo(
-        grids,
-        { x: 0, y: 0 },
-        {
-          x: dist,
-          y: -dist,
-          duration: T.total,
-          ease: "none",
-          immediateRender: true,
-          // x en [0, celda), y en (−celda, 0]: en 0 la grilla está en su lugar.
-          modifiers: { x: gsap.utils.unitize(wrap), y: gsap.utils.unitize(function (v) { return -wrap(-v); }) },
-        },
-        0,
-      );
-    }
-
-    // Logo tardío ([data-anim="late"], experimento logoEnCuadro0: false): el
-    // wordmark queda oculto hasta LATE_AT s del reel y entra con power2.out en
-    // LATE_DUR s (si el reel es más corto, termina justo en el final).
-    const LATE_AT = 3;
-    const LATE_DUR = 0.4;
-    const lates = Array.from(document.querySelectorAll('[data-anim="late"]'));
-    if (lates.length) {
-      const at = Math.max(0, Math.min(LATE_AT, T.total - LATE_DUR));
-      master.fromTo(lates, { autoAlpha: 0 }, { autoAlpha: 1, duration: LATE_DUR, ease: "power2.out", immediateRender: true }, at);
-    }
 
     // Subtítulos de la narración ([data-sub-trozo] con data-sub-at / data-sub-hasta,
     // en segundos del reel): un trozo a la vez, sin transición (como en el cine).
