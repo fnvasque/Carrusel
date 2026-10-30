@@ -36,7 +36,7 @@ function getClient(): OpenAI {
  * en `scoreCarousel`.
  */
 const BRAND_RULES = `
-Marca ia.es (look lima): fondo casi negro #06060A con grilla lima tenue, acento lima #C6FF3D, violeta #7C5CFF y rosa #FF3D7F. La palabra clave del titular SIEMPRE va en lima vía la prop "highlight" (1-2 palabras); en el Hook puedes marcar otra palabra con caja rosa vía "mark".
+Marca ia.es (look papel): fondo papel gris cálido claro #ECECEA, texto en tinta #111111, sin grilla; el acento lima #C6FF3D va solo como marcador sobre la palabra clave. La palabra clave del titular SIEMPRE va sobre el marcador lima vía la prop "highlight" (1-2 palabras); una frase corta del titular (2-4 palabras) puede ir en serif cursiva vía "cursiva" (Hook, Lead, Step, Cta); en el Hook puedes marcar otra palabra con caja tinta vía "mark".
 Pilares de contenido (prop "pillar"): "herramienta" | "noticia" | "prompt" | "curiosidad" | "trabajo" (cómo cambia el trabajo, el liderazgo o las decisiones con IA, con un estudio o dato con fuente).
 Reglas de viralidad (para maximizar guardados/compartidos):
 - El Hook (primer slide) debe tener un número concreto + un enemigo/tensión (no, deja de, mentira, gratis...) + un bucle abierto (#3, por qué, lo que nadie...). Define "highlight".
@@ -44,9 +44,9 @@ Reglas de viralidad (para maximizar guardados/compartidos):
 - Incluye al menos un slide de reframe (Lead o MythReality): dispara el compartir.
 - Slides de desarrollo (Step/Prompt/Stat/MythReality) llevan index/total (barra de progreso) y pasos numerados (step "01", o mythLabel "Nº1").
 - Cada slide de desarrollo muestra la idea con un elemento visual: un dato grande (Stat: value "47%" + label + context), un checklist (Step con bullets), un prompt/comando copiable (Prompt) o un antes/después (MythReality). Si el post original trae una cifra, usa Stat.
-- El Cta primario debe pedir guardar o compartir, e incluir un handle.
+- El Cta primario debe pedir guardar o compartir, e incluir un handle (salvo en el Cta «Escríbeme PARTIR», que no lo lleva: la caja de mensaje ya muestra la cuenta y cuenta igual para el score).
 - PROHIBIDO: hype ("cambia tu vida", "increíble"), miedo ("te reemplaza"), jerga técnica cruda (LLM, token, embedding) y clickbait ("no vas a creer").
-- Fondos: usa "background.ai" con un prompt en inglés que reproduzca el TEMA/COMPOSICIÓN del estilo visual original PERO re-skineado al look lima (casi negro #06060A, acentos lima #C6FF3D, minimal, editorial), mucho espacio negativo. overlay 0.4-0.55. No copies el branding ajeno.
+- Fondos: usa "background.ai" con un prompt en inglés que reproduzca el TEMA/COMPOSICIÓN del estilo visual original PERO re-skineado al look papel (papel gris cálido claro #ECECEA, calmo, minimal, editorial, acento lima #C6FF3D suave), mucho espacio negativo. overlay 0.4-0.55. No copies el branding ajeno.
 `.trim();
 
 function sha(input: string): string {

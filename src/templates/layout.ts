@@ -22,7 +22,7 @@ export const REEL_SAFE_TOP = 150;
 export const MARGEN_LATERAL = 60;
 /** Margen vertical del post (arriba y abajo). */
 export const POST_PAD_Y = theme.padding - 24;
-/** Alto de la cabecera de marca (etiqueta + wordmark). */
+/** Alto de la cabecera de marca (serie a la izquierda, firma compacta a la derecha en el reel). */
 export const HEADER_HEIGHT = 44;
 /** Aire entre la cabecera y el contenido. */
 export const CONTENT_GAP_TOP = 40;
@@ -39,7 +39,18 @@ export function franjaSegura(w: number, h: number): [number, number] {
     return [(REEL_SAFE_TOP + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, (H - REEL_SAFE_BOTTOM) / H];
   }
   const H = FORMATS.post.height;
-  return [(POST_PAD_Y + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, 1 - POST_PAD_Y / H];
+  return [(POST_PAD_Y + HEADER_HEIGHT + CONTENT_GAP_TOP) / H, 1 - (POST_PAD_Y + firmaReserve("post")) / H];
+}
+/** Círculo de la firma del pie del post (px). */
+export const FIRMA_SIZE = 84;
+/** Aire entre la firma del pie y lo que va encima (fuente o contenido). */
+const FIRMA_GAP = 28;
+/**
+ * Alto reservado abajo para la firma del post (círculo + aire). En el reel la
+ * firma va en la cabecera: no reserva nada.
+ */
+export function firmaReserve(format: Format = "post"): number {
+  return format === "reel" ? 0 : FIRMA_SIZE + FIRMA_GAP;
 }
 /** Fuente al pie: mono 24 px, interlineado 1.35. */
 export const SOURCE_SIZE = 24;
@@ -74,42 +85,68 @@ export function opticalLift(format: Format = "post"): number {
  * Fracción máxima del alto útil que ocupa el bloque en el reel cuando hay
  * escalas de sobra: el 9:16 es alto y un bloque al tamaño del post deja una
  * franja vacía, así que las escaleras del reel suben más que las del post; este
- * tope deja aire arriba y abajo. En post se llena hasta el 100 %.
+ * tope deja papel arriba y abajo («más aire», Felipe 2026-10-29: antes 0,88).
  */
-export const REEL_FILL = 0.88;
+export const REEL_FILL = 0.72;
+/**
+ * Tope equivalente del post: el bloque prefiere ocupar a lo sumo el 85 % del
+ * alto útil (texto un poco más chico con aire antes que grande y apretado).
+ */
+export const POST_FILL = 0.85;
 
 /**
- * Como `pickFit`, pero en el reel prefiere la mayor escala que ocupa a lo sumo
- * `fill` (por defecto `REEL_FILL`) del alto útil, y si ninguna cabe ahí, la
- * mayor que cabe en el alto completo. Una plantilla cuyo estimador sobreestima
- * (Step: tarjeta + viñetas) puede pedir un `fill` mayor.
+ * Aire entre bloques (titular ↔ tarjeta/cita/burbujas ↔ cuerpo): los gaps de
+ * las plantillas se multiplican por esto (Felipe 2026-10-29: ~40 % más).
  */
-export function pickFill<T>(candidates: T[], height: (c: T) => number, available: number, format: Format = "post", fill: number = REEL_FILL): T {
-  if (format === "reel") {
-    const c = candidates.find((x) => height(x) <= available * fill);
-    if (c !== undefined) return c;
-  }
+export const AIRE = 1.4;
+/** Separación entre bloques escalada por `AIRE`, redondeada. */
+export function aire(px: number): number {
+  return Math.round(px * AIRE);
+}
+/** Relleno de tarjetas y burbujas en el post (horizontal, vertical); el reel lo escala. */
+export const CARD_PAD = { x: 52, y: 44 } as const;
+/** Escala del relleno de tarjetas en el reel (texto más grande, mismo aire relativo). */
+export const CARD_PAD_REEL = 1.15;
+/** Relleno de tarjeta para un formato. */
+export function cardPad(format: Format = "post"): { x: number; y: number } {
+  const k = format === "reel" ? CARD_PAD_REEL : 1;
+  return { x: Math.round(CARD_PAD.x * k), y: Math.round(CARD_PAD.y * k) };
+}
+
+/**
+ * Como `pickFit`, pero prefiere la mayor escala que ocupa a lo sumo `fill` del
+ * alto útil (`REEL_FILL` en el reel, `POST_FILL` en el post), y si ninguna cabe
+ * ahí, la mayor que cabe en el alto completo. Una plantilla cuyo estimador
+ * sobreestima (Step: viñetas) puede pedir un `fill` mayor.
+ */
+export function pickFill<T>(candidates: T[], height: (c: T) => number, available: number, format: Format = "post", fill?: number): T {
+  const tope = fill ?? (format === "reel" ? REEL_FILL : POST_FILL);
+  const c = candidates.find((x) => height(x) <= available * tope);
+  if (c !== undefined) return c;
   return pickFit(candidates, height, available);
 }
 
 /**
  * Alto (px) que el subtítulo de la narración ocupa sobre la fuente al pie en el
  * reel (pastilla de ≤ 2 líneas a 44 px + separación): el contenido se centra
- * por encima para no pisarlo. Solo cuando la escena lleva `narracion`.
+ * por encima para no pisarlo. Solo con subtítulos encendidos y `narracion`.
  */
 export const SUBTITULO_RESERVA = 170;
 
-/** Reserva del subtítulo para una escena (0 en post o sin narración). */
-export function subtituloReserve(format: Format = "post", narracion?: string): number {
-  return format === "reel" && typeof narracion === "string" && narracion.trim() ? SUBTITULO_RESERVA : 0;
+/**
+ * Reserva del subtítulo para una escena: 0 en post, sin narración o con los
+ * subtítulos apagados (por defecto desde 2026-11-02: el contenido usa esa altura).
+ */
+export function subtituloReserve(format: Format = "post", narracion?: string, subtitulos = false): number {
+  return subtitulos === true && format === "reel" && typeof narracion === "string" && narracion.trim() ? SUBTITULO_RESERVA : 0;
 }
 
-/** Alto disponible para el bloque de contenido (descontando cabecera, pie, subtítulo y alza óptica). */
-export function contentHeight(format: Format = "post", source?: string, narracion?: string): number {
+/** Alto disponible para el bloque de contenido (descontando cabecera, fuente, firma, subtítulo y alza óptica). */
+export function contentHeight(format: Format = "post", source?: string, narracion?: string, subtitulos = false): number {
   const h = FORMATS[format].height;
   const padTop = format === "reel" ? REEL_SAFE_TOP : POST_PAD_Y;
   const padBottom = format === "reel" ? REEL_SAFE_BOTTOM : POST_PAD_Y;
-  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - subtituloReserve(format, narracion) - opticalLift(format);
+  return h - padTop - padBottom - HEADER_HEIGHT - CONTENT_GAP_TOP - sourceReserve(source) - firmaReserve(format) - subtituloReserve(format, narracion, subtitulos) - opticalLift(format);
 }
 
 /**
@@ -147,8 +184,8 @@ export function interHeight(text: string, size: number, width: number, lineHeigh
   return wrapLines(text, size * em, width) * size * lineHeight;
 }
 
-/** Alto (px) de un titular Anton a `size` con `lineHeight`, en `width`. */
-export function antonHeight(text: string, size: number, lineHeight: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
+/** Alto (px) de un titular Inter 700 a `size` con `lineHeight`, en `width` (estimador de fit.ts). */
+export function displayHeight(text: string, size: number, lineHeight: number, width: number = CONTENT_WIDTH, tight = false, keep?: (string | undefined)[]): number {
   return estimateLines(text, size, width, tight, keep) * size * lineHeight;
 }
 

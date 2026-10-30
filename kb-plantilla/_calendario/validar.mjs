@@ -26,15 +26,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * `StoryCover` no está: la usa solo el motor, nunca el agente.
  */
 export const CATALOGO = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
-  Lead: { required: ["text"], optional: ["kicker", "highlight"] },
-  Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "cursiva", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
+  Lead: { required: ["text"], optional: ["kicker", "highlight", "cursiva"] },
+  Step: { required: ["heading"], optional: ["step", "highlight", "cursiva", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
   Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
-  MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
+  MythReality: { required: ["myth", "reality"], optional: ["highlight", "mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
   Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
-  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
+  Cta: { required: ["title"], optional: ["highlight", "cursiva", "reason", "handle", "cta", "ctaIcon"] },
 };
 
 /** Plantillas que puede usar un borrador. */
@@ -42,7 +42,7 @@ export const PLANTILLAS = new Set(Object.keys(CATALOGO));
 
 /**
  * Props comunes que el agente sí puede poner. El resto de las de marca (color,
- * fuente, formato, índice…) las fija el motor: el look lima no se toca.
+ * fuente, formato, índice…) las fija el motor: el look papel no se toca.
  */
 const PROPS_BASE = new Set(["source", "pillar"]);
 
@@ -50,7 +50,10 @@ const PROPS_BASE = new Set(["source", "pillar"]);
 const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 
 /** Plantilla → prop donde debe aparecer su `highlight`. */
-const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title" };
+const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title", MythReality: "reality" };
+
+/** Plantilla → prop donde debe aparecer su `cursiva` (frase del titular en serif cursiva). */
+const DONDE_CURSIVA = { Hook: "title", Step: "heading", Lead: "text", Cta: "title" };
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion", "dm"];
 
@@ -130,7 +133,7 @@ const CAMPOS_TITULO = ["title", "heading"];
 /** Props con texto de cuerpo (límite `cuerpoMaxPalabras`). */
 const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "note"];
 /**
- * `myth` y `reality` de MythReality se dibujan como titular (Anton mayúscula), no como
+ * `myth` y `reality` de MythReality se dibujan como titular (Inter 700 grande), no como
  * cuerpo: desde `DESDE_MITO_CORTO` tienen tope propio, `MITO_REALIDAD_MAX_PALABRAS`, en
  * carrusel y reel. Antes de esa fecha siguen con el tope de cuerpo (las semanas viejas
  * no ganan errores nuevos). Carrusel del 2026-10-27: una «realidad» de 26 palabras.
@@ -1081,15 +1084,39 @@ function erroresDePastilla(props, senal) {
 /** Palabras máximas del `resultado` del Hook (una notificación o una respuesta corta, legible en 1 s). */
 const RESULTADO_MAX_PALABRAS = 20;
 const MODOS_RESULTADO = ["aviso", "respuesta"];
+/**
+ * Desde esta semana el Hook del reel va sin tarjeta de resultado (la plantilla la
+ * ignora en reel) y sin subtítulos quemados: la IA se ve en la escena 2 (`Screen`).
+ * Regla `reel-sin-subtitulos` de reglas.json (pedido de Felipe, 2026-10-29).
+ */
+export const DESDE_REEL_SIN_TARJETA = "2026-11-02";
+
+/**
+ * Reel con Hook de portada desde DESDE_REEL_SIN_TARJETA: la slide 2 (la que sigue al
+ * Hook) es una `Screen` con `app`, `prompt` y `respuesta`: reemplaza a la tarjeta de
+ * resultado (la IA se ve antes del segundo 5). Con un Clip de portada no aplica (el
+ * video ya es la IA haciéndolo).
+ */
+function erroresDeScreenTrasHook(b, p) {
+  if (p.formato !== "reel" || typeof p.dia !== "string" || !fechaValida(p.dia) || p.dia < DESDE_REEL_SIN_TARJETA) return [];
+  const [s1, s2] = b.slides;
+  if (!esObj(s1) || s1.template !== "Hook") return [];
+  const pide = `desde el ${DESDE_REEL_SIN_TARJETA} la slide 2 del reel es una Screen (justo después del Hook) con app, prompt y respuesta: la portada ya no muestra la tarjeta de resultado y la IA tiene que verse antes del segundo 5`;
+  if (!esObj(s2) || s2.template !== "Screen") return [`slide 2: ${pide}; mueve o agrega la Screen ahí (es ${q(esObj(s2) ? s2.template : s2)})`];
+  const props = esObj(s2.props) ? s2.props : {};
+  const faltan = ["app", "prompt", "respuesta"].filter((k) => !esTexto(props[k]));
+  return faltan.length ? [`slide 2: ${pide}; a la Screen le falta ${faltan.join(", ")}`] : [];
+}
 
 /**
  * `resultado` del Hook (el resultado en el primer cuadro): en reels, obligatorio
- * desde DESDE_NARRACION, con `app`; ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta.
+ * desde DESDE_NARRACION hasta antes de DESDE_REEL_SIN_TARJETA, con `app`;
+ * ≤ RESULTADO_MAX_PALABRAS; `modo` aviso o respuesta. Si viene, siempre se valida.
  */
 function erroresDeResultado(props, p) {
   const errs = [];
   const r = props.resultado;
-  const exigido = p.formato === "reel" && typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION;
+  const exigido = p.formato === "reel" && typeof p.dia === "string" && fechaValida(p.dia) && p.dia >= DESDE_NARRACION && p.dia < DESDE_REEL_SIN_TARJETA;
   if (r === undefined) return exigido ? [`falta resultado: desde el ${DESDE_NARRACION} el Hook del reel muestra en el primer cuadro lo que la IA ya hizo (resultado + app)`] : [];
   if (!esTexto(r)) errs.push("resultado debe ser un texto no vacío (lo que se ve en pantalla cuando la IA terminó)");
   else if (palabras(r).length > RESULTADO_MAX_PALABRAS) errs.push(`resultado tiene ${palabras(r).length} palabras (máximo ${RESULTADO_MAX_PALABRAS}: se lee de un vistazo)`);
@@ -1197,12 +1224,20 @@ function erroresDeBorrador(b, p, config) {
         errs.push(`${donde} (${t}): el highlight ${q(hl)} no aparece tal cual en ${campo} (mismas tildes)`);
       }
     }
+    // cursiva: frase del titular en serif cursiva; el motor la busca igual que el highlight.
+    const campoCursiva = DONDE_CURSIVA[t];
+    const cu = s.props.cursiva;
+    if (campoCursiva && cu !== undefined && typeof s.props[campoCursiva] === "string" && typeof cu === "string") {
+      if (!cu.trim() || !minus(s.props[campoCursiva]).includes(minus(cu))) {
+        errs.push(`${donde} (${t}): la cursiva ${q(cu)} no aparece tal cual en ${campoCursiva} (mismas tildes)`);
+      }
+    }
     if (t === "Hook") errs.push(...erroresDeResultado(s.props, p).map((e) => `${donde} (Hook): ${e}`));
     if (s.background !== undefined) {
       const bg = s.background;
       if (!esObj(bg)) errs.push(`${donde} (${t}): background debe ser un objeto { ai }`);
       else {
-        for (const k of Object.keys(bg)) if (!CAMPOS_FONDO.has(k)) errs.push(`${donde} (${t}): background.${k} no permitido (solo fondos ai; el look lima pone el resto)`);
+        for (const k of Object.keys(bg)) if (!CAMPOS_FONDO.has(k)) errs.push(`${donde} (${t}): background.${k} no permitido (solo fondos ai; el look papel pone el resto)`);
         if (!esTexto(bg.ai)) errs.push(`${donde} (${t}): background.ai debe ser un texto (la descripción de la imagen)`);
         else if (t !== "Hook" && t !== "Cta") errs.push(`${donde} (${t}): fondo ai solo en Hook o Cta`);
         if (bg.brandStyle !== undefined && bg.brandStyle !== true) errs.push(`${donde} (${t}): brandStyle ${q(bg.brandStyle)} no permitido (el fondo ai siempre lleva el estilo de marca)`);
@@ -1210,6 +1245,7 @@ function erroresDeBorrador(b, p, config) {
       }
     }
   });
+  errs.push(...erroresDeScreenTrasHook(b, p));
   const plantillas = b.slides.map((s) => (esObj(s) ? s.template : undefined));
   if (plantillas[0] !== "Hook" && plantillas[0] !== "Clip") errs.push("la primera slide debe ser un Hook (la promesa va en la portada) o un Clip (el video es la portada)");
   if (plantillas.filter((t) => t === "Hook").length > 1) errs.push("solo puede haber un Hook");
@@ -1433,10 +1469,10 @@ export function validarCandidatos(data, semana, alcance) {
 // --- lector frío ------------------------------------------------------------
 
 /** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`; un test las compara). */
-const ETIQUETA_MITO = "El mito";
-const ETIQUETA_REALIDAD = "La realidad";
-/** Ventana de `Prompt`: título mono y botón (`src/templates/Prompt.tsx`). */
-const VENTANA_PROMPT = ["Copia este prompt", "Copiar"];
+const ETIQUETA_MITO = "Lo que se cree";
+const ETIQUETA_REALIDAD = "Lo que pasa";
+/** Etiqueta de la tarjeta de `Prompt` (`ETIQUETA_PROMPT` de `src/templates/Prompt.tsx`). */
+const VENTANA_PROMPT = ["Copia esto"];
 /** Etiqueta del mensaje de la persona en `Screen` (`src/templates/Screen.tsx`). */
 const ETIQUETA_TU = "Tú";
 /** "DESLIZA →" del Hook, solo en carrusel (`src/templates/Hook.tsx`). */
@@ -1451,6 +1487,11 @@ export function textoPastilla(cta) {
   const raw = cta ?? "Link en bio →";
   return String(raw).replace(EMOJI_PASTILLA, "").replace(/\s+/g, " ").trim();
 }
+
+/** Pista bajo la burbuja del Cta con «PARTIR» (`DM_PISTA` de `src/templates/Cta.tsx`). */
+const DM_PISTA = "Escríbeme esto por mensaje y te respondo yo.";
+/** COPIA de `pideDm` de `src/templates/Cta.tsx`: el Cta pide «PARTIR» (en la pastilla o en el título) y se pinta como mensaje directo. */
+const pideDmLector = (...textos) => textos.some((t) => typeof t === "string" && /\bPARTIR\b/.test(t));
 
 /** Texto de una prop si es texto no vacío (o un número, como un `step` 1). */
 const txt = (v) => (typeof v === "number" && Number.isFinite(v) ? String(v) : typeof v === "string" && v.trim() ? v.trim() : undefined);
@@ -1490,7 +1531,8 @@ function lineasSlide(template, p, prisa, formato) {
   switch (template) {
     case "Hook":
       if (!prisa) add(p.eyebrow);
-      if (txt(p.resultado)) add(`${txt(p.app) ?? "IA"} (${p.modo === "respuesta" ? "respuesta" : "aviso, ahora"}): ${txt(p.resultado)}`);
+      // En reel el Hook no pinta la tarjeta de respuesta (src/templates/Hook.tsx): el lector no la ve.
+      if (formato !== "reel" && txt(p.resultado)) add(`${txt(p.app) ?? "IA"} (${p.modo === "respuesta" ? "respuesta" : "aviso, ahora"}): ${txt(p.resultado)}`);
       add(conDestacado(txt(p.title), p.highlight));
       if (!prisa) {
         add(p.subtitle);
@@ -1530,6 +1572,13 @@ function lineasSlide(template, p, prisa, formato) {
       break;
     case "Cta":
       add(conDestacado(txt(p.title), p.highlight));
+      // Con «PARTIR» se pinta la caja de mensaje: título, razón, burbuja «PARTIR» y la pista; ni pastilla ni @handle.
+      if (pideDmLector(textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.title))) {
+        if (!prisa) add(p.reason);
+        add("PARTIR");
+        if (!prisa) add(DM_PISTA);
+        break;
+      }
       if (!prisa) add(p.reason, textoPastilla(typeof p.cta === "string" ? p.cta : undefined), txt(p.handle) ? `@${txt(p.handle)}` : undefined);
       break;
     default:
@@ -2438,14 +2487,6 @@ export const EJEMPLO = {
         "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
       },
       {
-        "template": "Lead",
-        "props": {
-          "text": "No sabía qué pedirle a la IA, así que le pregunté.",
-          "highlight": "le pregunté"
-        },
-        "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
-      },
-      {
         "template": "Screen",
         "props": {
           "app": "Gemini Notebook",
@@ -2453,6 +2494,14 @@ export const EJEMPLO = {
           "respuesta": "Puedo resumirlos en audio, hacerte tarjetas o responder citando cada informe."
         },
         "narracion": "Le escribí esto a Gemini Notebook, la herramienta de Google para estudiar tus documentos, y me ofreció tres caminos."
+      },
+      {
+        "template": "Lead",
+        "props": {
+          "text": "No sabía qué pedirle a la IA, así que le pregunté.",
+          "highlight": "le pregunté"
+        },
+        "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
       },
       {
         "template": "Step",
@@ -2475,9 +2524,8 @@ export const EJEMPLO = {
       {
         "template": "Cta",
         "props": {
-          "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
-          "highlight": "PARTIR",
-          "handle": "ia.punto.es",
+          "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
+          "highlight": "empezar",
           "cta": "Escríbeme PARTIR",
           "source": "Fuente: notebook.google"
         },

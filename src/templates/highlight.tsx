@@ -2,21 +2,36 @@ import type { ReactNode } from "react";
 import { theme } from "../theme.ts";
 
 /**
- * Resalta la primera aparición de `highlight` dentro de `text` pintándola con
- * `color` (la "palabra clave en lima" de la marca, marcada `data-anim="pop"`).
+ * Resalta la primera aparición de `highlight` dentro de `text` con el marcador
+ * lima detrás (`theme.marker`, franja 52 %–92 % del alto) y el texto en tinta
+ * (hereda el color del titular), marcada `data-anim="pop"`. Look papel: el
+ * parámetro `color` se conserva solo por compatibilidad de firma con los
+ * llamadores existentes y ya NO pinta el texto; el «pop» del reel hace crecer
+ * el marcador de izquierda a derecha (`background-size` 0 % → 100 %).
+ * `cursiva` es una frase que sale en Instrument Serif cursiva ×1,13
+ * (`data-cursiva`). Precedencia si se solapan: highlight > mark > cursiva
+ * (la que pierde se descarta).
  * Opcionalmente, `mark` es otra palabra que va con una caja de color detrás
- * (`markColor`, rosa por defecto) y texto oscuro, estilo "NINGUNO.".
+ * (`markColor`; el Hook pasa tinta) y texto claro (papel), estilo "NINGUNO.".
  * Búsqueda case-insensitive. Si no hay coincidencias, devuelve el texto tal cual.
  * Un resaltado de varias palabras sale como un span `pop` por palabra (ver abajo).
  */
 export function highlightText(
   text: string,
   highlight: string | undefined,
-  color: string,
+  _color: string,
   mark?: string,
   markColor: string = theme.colors.pink,
+  cursiva?: string,
 ): ReactNode {
-  type Range = { start: number; end: number; kind: "pop" | "mark" };
+  type Range = { start: number; end: number; kind: "pop" | "mark" | "cursiva" };
+  const marcador = {
+    backgroundImage: theme.marker,
+    backgroundSize: "100% 100%",
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "left",
+    whiteSpace: "nowrap" as const,
+  };
   const ranges: Range[] = [];
   const lower = text.toLowerCase();
   const find = (needle: string | undefined, kind: Range["kind"]) => {
@@ -30,6 +45,7 @@ export function highlightText(
   };
   find(highlight, "pop");
   find(mark, "mark");
+  find(cursiva, "cursiva");
   if (ranges.length === 0) return text;
   ranges.sort((a, b) => a.start - b.start);
   const out: ReactNode[] = [];
@@ -62,7 +78,7 @@ export function highlightText(
       if (palabras <= 1) {
         out.push(
           conPunct(
-            <span key={k} data-anim="pop" style={{ color, whiteSpace: "nowrap" }}>
+            <span key={k} data-anim="pop" style={marcador}>
               {match}
             </span>,
             `p${k}`,
@@ -77,13 +93,30 @@ export function highlightText(
           }
           n++;
           const w = (
-            <span key={`${k}-${j}`} data-anim="pop" style={{ color, whiteSpace: "nowrap" }}>
+            <span key={`${k}-${j}`} data-anim="pop" style={marcador}>
               {x}
             </span>
           );
           out.push(n === palabras ? conPunct(w, `p${k}-${j}`) : w);
         });
       }
+    } else if (r.kind === "cursiva") {
+      // La frase puede partirse entre líneas; la puntuación pegada va dentro.
+      out.push(
+        <span
+          key={k}
+          data-cursiva=""
+          style={{
+            fontFamily: theme.fonts.serif,
+            fontStyle: "italic",
+            fontWeight: 400,
+            fontSize: "1.13em",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {match + punct}
+        </span>,
+      );
     } else {
       out.push(
         conPunct(
@@ -93,12 +126,13 @@ export function highlightText(
             style={{
               color: theme.colors.bg,
               backgroundColor: markColor,
-              // inline-block con interlineado propio: la caja abraza la altura de
-              // las mayúsculas y no pisa las líneas vecinas (un inline pintaría
-              // todo el alto de la fuente, más que el interlineado 0.98 del titular).
+              // inline-block con interlineado propio: la caja abraza la tinta de
+              // Inter (mayúsculas 0,73 em, tildes 0,95, descendentes 0,22) sin
+              // pisar las líneas vecinas, y el texto claro no se sale de ella.
               display: "inline-block",
-              lineHeight: 0.9,
-              padding: "0.07em 0.1em 0.01em",
+              lineHeight: 1.0,
+              padding: "0.02em 0.12em 0.06em",
+              borderRadius: "0.12em",
               whiteSpace: "nowrap",
             }}
           >
@@ -116,11 +150,14 @@ export function highlightText(
 
 /**
  * Lo que se pinta en nowrap y por eso se estima como una sola «palabra» al ajustar
- * el titular (`fitDisplaySize`/`antonHeight` con `keep`): el resaltado solo si es
+ * el titular (`fitDisplaySize`/`displayHeight` con `keep`): el resaltado solo si es
  * una palabra (si son varias, se parte entre ellas) y el `mark` siempre (su caja no
- * se parte).
+ * se parte). La `cursiva` se trata como el resaltado. Su ancho se estima con
+ * Inter (el estimador de fit.ts), conservador: la serif es más angosta.
  */
-export function frasesNowrap(highlight?: string, mark?: string): (string | undefined)[] {
-  const una = highlight && highlight.trim().split(/\s+/).length === 1 ? highlight : undefined;
-  return [una, mark];
+export function frasesNowrap(highlight?: string, mark?: string, cursiva?: string): (string | undefined)[] {
+  const una = (t?: string) => (t && t.trim().split(/\s+/).length === 1 ? t : undefined);
+  const keep = [una(highlight), mark];
+  if (una(cursiva)) keep.push(una(cursiva));
+  return keep;
 }

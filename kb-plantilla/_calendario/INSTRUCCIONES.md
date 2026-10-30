@@ -116,6 +116,10 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
      pieza cuenta **cómo la IA cambia ese tema** según su ángulo, con el dato
      de una referencia ("Los equipos que usan IA hacen reuniones más cortas: el
      dato", "Qué le pasa a tu memoria si la IA te recuerda todo").
+   **En reels, desde 2026-11-02, la IA se ve en la escena 2 (`Screen`) antes
+   del segundo 5:** la portada del reel ya no pinta la tarjeta de `resultado`;
+   la slide 2, justo después del `Hook`, es una `Screen` completa (obligatoria,
+   ver regla 8).
    Si el ángulo se sostiene sin la IA (el mito de los 21 días, lenguaje
    corporal, presupuesto 50-30-20), no es para esta cuenta: elige otro. Motivo:
    en la semana del 2026-10-12 la mitad de las piezas no trataba de IA y la
@@ -134,7 +138,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    te entregó la IA», «saber cuándo firmar lo que hizo la IA»), no solo una
    función de la app. Una
    pregunta o una curiosidad puede ir en el título solo si el `subtitle` da esa
-   promesa. La segunda escena (`Lead`) confirma la promesa, no la esconde
+   promesa. La escena siguiente (`Lead`; en reels desde 2026-11-02, la 3, tras la `Screen`) confirma la promesa, no la esconde
    detrás de un acertijo. El caption abre con la misma promesa. Desde el
    2026-10-26 el hook sale de 8 a 10 candidatos y lo elige un juez separado
    (Paso 5, `guia-hooks.md`); la regla 8 sigue valiendo para todos.
@@ -160,12 +164,23 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    de visionado medio, un título sobre fondo negro no retiene a nadie; una
    pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
    no se anuncia).
+   **Desde 2026-11-02 el `Hook` del reel va sin tarjeta** (pedido del usuario:
+   demasiado texto en la portada): `resultado`, `app` y `modo` dejan de ser
+   obligatorios en reels y, si vienen, no se pintan en el reel (sí en el post).
+   **Obligatorio (el validador lo exige):** en todo reel con `Hook` de portada,
+   la slide 2 es una `Screen` con `app`, `prompt` y `respuesta`, justo después
+   del `Hook`, con la respuesta que antes iba en la tarjeta (la IA se ve antes
+   del segundo 5). El `Lead` que confirma la promesa pasa a la escena 3. Con un
+   `Clip` de portada no aplica. El `title` sigue siendo la promesa (≤ 7
+   palabras, mejor 6).
 9. **Todo reel se narra.** Desde 2026-10-19, cada slide de un reel lleva
    `narracion` (fuera de `props`, como `background`): lo que dice la voz
    mientras se ve esa escena, 3 a 24 palabras, en español neutro y hablado
    («Esto lo hizo ChatGPT solo, cada mes», no «ChatGPT: recordatorio
-   mensual»). La voz la pone el Mac (Kokoro, `config.json → voz`) y el texto
-   sale como subtítulo abajo; la escena dura lo que dura la voz. La narración
+   mensual»). La voz la pone el Mac (Kokoro, `config.json → voz`); desde el
+   2026-11-02 el texto **no** sale como subtítulo (`config.json → subtitulos`:
+   `false`), así que la voz completa lo que el titular no dice. La escena dura
+   lo que dura la voz. La narración
    del `Hook` dice el resultado en la primera frase; la del `Cta` pide el
    gesto. No repite palabra por palabra el texto en pantalla: lo explica.
    Ver "Narración" en el Paso 5. Motivo: los 15 reels de texto mudo sobre
@@ -188,9 +203,12 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    juvenil (ver `guia-redaccion.md`, «Lo que la IA responde en pantalla»).
 11. **Cierre PARTIR.** Desde el 2026-11-02 (`config.json → cta`), toda pieza
    lleva `"senal": "dm"` y cierra pidiendo que le escriban «PARTIR» por
-   mensaje: el `Cta` (en el `title` o en la pastilla `cta`) y el `caption`
-   contienen la palabra **PARTIR** en mayúsculas y dicen qué recibe quien
-   escribe. Texto base: «Escríbeme PARTIR y te cuento por dónde empezar en tu
+   mensaje: la palabra **PARTIR** va en la pastilla `cta` del `Cta`
+   («Escríbeme PARTIR») y en el `caption`, en mayúsculas, y el caption dice qué
+   recibe quien escribe. El `title` del `Cta` **no** repite PARTIR: la
+   plantilla lo pinta en una burbuja de mensaje directo, y ahí la palabra
+   aparece una sola vez. El título es la pregunta que invita a escribir
+   («¿No sabes por dónde empezar con la IA en tu trabajo?»). Texto base del caption: «Escríbeme PARTIR y te cuento por dónde empezar en tu
    caso» (promete una respuesta humana: la da el autor, a mano). La pastilla
    dice «Escríbeme PARTIR». La narración del `Cta` pide lo mismo con palabras
    habladas. El validador lo exige; la palabra y la fecha salen de
@@ -214,7 +232,9 @@ Lee, en este orden (lo que no exista, sáltalo; las primeras semanas no habrá
 métricas):
 
 1. `_calendario/config.json` (mix, horas, pilares, hashtags, parámetros de la
-   puerta en `puerta`, `terminosTecnicos`, `audios`), `_calendario/lector-frio.md`
+   puerta en `puerta`, `terminosTecnicos`, `audios`, `voz` y `subtitulos`: la
+   voz de Kokoro y si el reel pinta la narración como subtítulo; `false` por
+   defecto desde el 2026-11-02, lo cambia solo el usuario), `_calendario/lector-frio.md`
    y las dos guías: `_calendario/guia-redaccion.md` (cómo se escribe cada
    escena) y `_calendario/guia-hooks.md` (qué está en juego para el público,
    los patrones de hook y el juez). Las dos son obligatorias en el Paso 5.
@@ -902,7 +922,7 @@ el Hook (escena 1): tope de 5 s
 Cuentan las palabras y caracteres de `title`, `subtitle`, `eyebrow`,
 `heading`, `body`, `bullets`, `text`, `kicker`, `reality`, `myth`, `reason`,
 `note`, `value`, `label`, `context` y `prompt` (no `highlight`, `source` ni
-`handle`).
+`handle`; este último, además, no se pinta en un Cta PARTIR).
 
 **Regla práctica: ≤ 12 palabras por escena en total**, sumando título, cuerpo,
 bullets y prompt. Con 12 palabras normales pasa en cualquier escena. Topes
@@ -929,7 +949,8 @@ Cada slide de un reel lleva `narracion` (regla dura 9). Cómo escribirla:
 
 - **Hablada, no leída**: frases cortas de 3 a 24 palabras, con verbos, sin
   dos puntos ni listas. Se oye con la voz de `config.json → voz` (Kokoro, voz
-  masculina en español) y se ve como subtítulo abajo.
+  masculina en español). Desde el 2026-11-02 no se ve como subtítulo
+  (`config.json → subtitulos: false`): solo se oye.
 - **Dice más de lo que se ve.** El título de la escena es la idea; la voz la
   explica o da el detalle que no cabe en pantalla. Nunca lee el título tal
   cual.
@@ -1006,7 +1027,7 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
 - Máximo 10 slides (límite de la API). La primera es un `Hook` (con
   `highlight`) y la última un `Cta`.
 - Solo las plantillas y props del catálogo de abajo, más `source` y `pillar`.
-  Nada de colores, fuentes ni formato: el look lima lo pone el motor.
+  Nada de colores, fuentes ni formato: el look papel lo pone el motor.
 - Reel: cada slide con `narracion` (3–24 palabras, fuera de `props`); en
   carrusel, `narracion` es error. Ver "Narración".
 - `highlight` debe aparecer **tal cual** (mismas tildes) dentro del título de
@@ -1103,7 +1124,8 @@ Cuando el contenido **es** un video hecho con IA (serie `lo-probe-por-ti`:
 en Seedance", "tu idea en 10 segundos"), el reel no lo cuenta: lo muestra. La
 slide `Clip` reserva una escena entera para un clip a pantalla completa; el
 motor pinta solo el texto (titular arriba, `label` con el modelo y el costo,
-subtítulo de la narración abajo) y el Mac mezcla el video después del render.
+y, si `config.json → subtitulos` está encendido, el subtítulo de la narración
+abajo) y el Mac mezcla el video después del render.
 
 **Desde el 2026-10-26 el video con IA no es tema** (la producción de contenido
 automatizado salió del alcance): `Clip` sigue permitido como imagen dentro de
@@ -1130,7 +1152,7 @@ que a las demás.
 **Estructura que pasa el score** (6 slides, ≤ 19 s con la voz real):
 `Clip` (portada) → `Step` (qué se le dio) → `Clip` (segundo resultado o
 variante) → `Step` (el prompt exacto, entre comillas: el entregable) →
-`Stat` (modelo, créditos, minutos) → `Cta` (guardar, con `handle` y `source`).
+`Stat` (modelo, créditos, minutos) → `Cta` (guardar, con `handle` y `source`; en un Cta PARTIR no pongas `handle`: la caja de mensaje ya muestra @ia.punto.es).
 La voz de la portada no lee el titular y nombra a quién le sirve («si vendes
 por Instagram…»); algún `Clip` lleva `label` y alguna slide, `source`.
 
@@ -1161,7 +1183,8 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
 **Reel narrado** (`scoreReel`): mide las reglas duras 7 a 10.
 
 - **Hook (25)**: `resultado` de 2 a 20 palabras (8); `app` + `modo`
-  (`aviso` | `respuesta`) (5); `highlight` (4); titular con **pregunta,
+  (`aviso` | `respuesta`) (5) — sin `resultado`, una `Screen` completa en la
+  escena 2 da esos 13 puntos (desde 2026-11-02 el reel va así); `highlight` (4); titular con **pregunta,
   número o tensión** («sin», «no», «error», «nunca»; también «gratis», pero
   ya no es gancho para este público) (5); titular de 2 a 8 palabras (3).
 - **Narración (20)**: **todas** las escenas con `narracion` de 3 a 24 palabras
@@ -1177,7 +1200,8 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   (4); `Cta` al cierre (4).
 - **CTA (10)**: el título o la pastilla del `Cta` pide el gesto (6): desde el
   2026-11-02, «Escríbeme PARTIR» (también cuentan guardar, compartir o
-  comentar); y lleva `handle` (4).
+  comentar); y lleva `handle` (4; un `Cta` que pide PARTIR suma esos 4 sin
+  `handle`, porque la caja de mensaje ya muestra la cuenta).
 - **Marca (10, resta 3 por cada una)**: igual que en carrusel; la narración
   también cuenta.
 
@@ -1198,7 +1222,8 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   número) (7); el indicador de progreso lo pone el motor.
 - **CTA (10)**: el título o la pastilla del `Cta` pide el gesto (6): desde el
   2026-11-02, «Escríbeme PARTIR» (también cuentan "Guárdalo", "Mándaselo",
-  "Compártelo"); y lleva `handle` (4).
+  "Compártelo"); y lleva `handle` (4; un `Cta` que pide PARTIR suma esos 4 sin
+  `handle`, porque la caja de mensaje ya muestra la cuenta).
 - **Marca (10, resta 3 por cada una)**: sin **hype** ("increíble",
   "revolucionario", "brutal"…), sin miedo ("te reemplaza"), sin **jerga**
   ("llm", "token", "embedding", "fine-tuning", "prompt engineering") y sin
@@ -1208,21 +1233,32 @@ Si el repo de código sí está al lado, el validador calcula el score y lo exig
 
 ### Catálogo de plantillas
 
+**Look papel (desde el 2026-11-02).** Las plantillas se dibujan sobre fondo
+claro con Inter en negrita, un marcador lima detrás de la palabra clave
+(`highlight`) y una frase en serif cursiva (`cursiva`). `cursiva` es opcional:
+2 a 4 palabras del **inicio** del titular, tal cual aparecen en él (mismas
+tildes), en `Hook` (`title`), `Step` (`heading`), `Lead` (`text`) o `Cta`
+(`title`). `highlight` y `cursiva` pueden convivir en el mismo titular, pero
+sin pisarse. En `MythReality`, `highlight` marca palabras de la `reality`.
+La **serie** no se escribe en las slides: el motor la toma de la pieza del plan
+(`plan.json → serie`) y la pinta en la cabecera. La firma de la cuenta
+(@ia.punto.es) también la pone el motor.
+
 Copia de `TEMPLATE_CATALOG` (`src/remix/templates-catalog.ts`). Todas las props
 son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 (true/false).
 
 | Plantilla | Obligatorias | Opcionales | Para qué |
 |---|---|---|---|
-| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (obligatorios en reels, regla 8) | Portada: el resultado en el primer cuadro y la promesa debajo |
-| `Lead` | `text` | `kicker`, `highlight` | Una frase grande que abre o sostiene la tensión |
-| `Step` | `heading` | `step`, `highlight`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
+| `Hook` | `title` | `eyebrow`, `highlight` (obligatorio en el calendario), `cursiva`, `mark`, `subtitle`, `titleSize`, `swipe`, `resultado` + `app` + `modo` (tarjeta solo en el post; en reels obligatorios hasta el 2026-11-01, regla 8) | Portada: la promesa (en el post, con el resultado encima) |
+| `Lead` | `text` | `kicker`, `highlight`, `cursiva` | Una frase grande que abre o sostiene la tensión |
+| `Step` | `heading` | `step`, `highlight`, `cursiva`, `body`, `bullets` | Un paso o una idea, con cuerpo o viñetas |
 | `Prompt` | `heading`, `prompt` | `note` | El prompt copiable (entregable) |
-| `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10) |
-| `MythReality` | `myth`, `reality` | `mythLabel`, `realityLabel` | Una creencia contra un dato (≤ 14 palabras cada uno; ver abajo) |
+| `Screen` | `app`, `prompt`, `respuesta` | `heading`, `nota` | La IA en pantalla: lo que se le escribe y lo que contesta (regla 10); la burbuja de la IA muestra el nombre de la app (`app`) |
+| `MythReality` | `myth`, `reality` | `highlight`, `mythLabel`, `realityLabel` | Una creencia contra un dato (≤ 14 palabras cada uno; ver abajo) |
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Clip` | `title`, `archivo` | `highlight`, `label` | Video generado con IA a pantalla completa, solo reels (ver "Reel con video generado") |
-| `Cta` | `title` | `highlight`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
+| `Cta` | `title` | `highlight`, `cursiva`, `reason`, `handle` (no en un Cta PARTIR: la caja de mensaje ya muestra la cuenta), `cta`, `ctaIcon` | Cierre con un solo gesto |
 
 `MythReality` es solo para **una creencia contra un dato**: `myth` es lo que la
 gente cree («Hay que saber editar audio») y `reality` el dato que la desmiente
@@ -1238,7 +1274,7 @@ de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
 "Escríbeme PARTIR" para `dm` (la señal de toda pieza desde el 2026-11-02),
 "Guárdalo" para `guardados`, "Envíaselo a alguien" para `envios`,
 "Comenta PALABRA" para `comentarios` y "Guárdalo" o "Envíaselo a alguien" para
-`retencion`. `handle` va sin @: el motor la agrega (`"ia.punto.es"`, nunca
+`retencion`. En el Cta de cierre PARTIR no pongas `handle`: la caja de mensaje y la firma ya muestran @ia.punto.es (la prop sigue siendo válida para los demás Cta). `handle` va sin @: el motor la agrega (`"ia.punto.es"`, nunca
 `"@ia.punto.es"`).
 
 ### Caption
@@ -1839,14 +1875,6 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
       "narracion": "Si no sabes por dónde partir con la IA, yo partí por aquí."
     },
     {
-      "template": "Lead",
-      "props": {
-        "text": "No sabía qué pedirle a la IA, así que le pregunté.",
-        "highlight": "le pregunté"
-      },
-      "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
-    },
-    {
       "template": "Screen",
       "props": {
         "app": "Gemini Notebook",
@@ -1854,6 +1882,14 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
         "respuesta": "Puedo resumirlos en audio, hacerte tarjetas o responder citando cada informe."
       },
       "narracion": "Le escribí esto a Gemini Notebook, la herramienta de Google para estudiar tus documentos, y me ofreció tres caminos."
+    },
+    {
+      "template": "Lead",
+      "props": {
+        "text": "No sabía qué pedirle a la IA, así que le pregunté.",
+        "highlight": "le pregunté"
+      },
+      "narracion": "Tenía seis informes sin leer y ninguna idea de qué pedirle a la IA."
     },
     {
       "template": "Step",
@@ -1876,9 +1912,8 @@ Su borrador, `_calendario/2026-11-02/lun-reel-pdfs-a-podcast.json`:
     {
       "template": "Cta",
       "props": {
-        "title": "Escríbeme PARTIR y te cuento por dónde empezar en tu caso",
-        "highlight": "PARTIR",
-        "handle": "ia.punto.es",
+        "title": "¿No sabes por dónde empezar con la IA en tu trabajo?",
+        "highlight": "empezar",
         "cta": "Escríbeme PARTIR",
         "source": "Fuente: notebook.google"
       },

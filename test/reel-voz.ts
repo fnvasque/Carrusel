@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import { check, done } from "./_check.ts";
+import { check, checkAsync, done } from "./_check.ts";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { conNarracion, NARRACION_MARGEN, reelTiming, segundosDeLectura, specTiming } from "../src/reel/timing.ts";
 import { tiemposDeLectura } from "../src/calendario/qa.ts";
 import { ffmpegArgs, GANANCIA_VOZ, MUSICA_BAJO_VOZ } from "../src/reel/capture.ts";
 import { inicioVoces, VOZ_ENTRADA } from "../src/reel/renderReel.ts";
 import { parseVoz, segundosEstimados, VOCES, VOZ_DEFECTO } from "../src/reel/voz.ts";
-import { subtitulo, SUBTITULO_BOTTOM, SUBTITULO_COLA, SUBTITULO_MAX_CHARS, SUBTITULO_MAX_PALABRAS, SUBTITULO_SIZE, tiemposTrozos, trozosSubtitulo } from "../src/reel/page.ts";
+import { buildReelPage, subtitulo, SUBTITULO_BOTTOM, SUBTITULO_COLA, SUBTITULO_MAX_CHARS, SUBTITULO_MAX_PALABRAS, SUBTITULO_SIZE, tiemposTrozos, trozosSubtitulo } from "../src/reel/page.ts";
 import { Hook, Screen, Cta } from "../src/templates/index.ts";
+import { applyBrandStyle } from "../src/render/background.ts";
 import { REEL_SAFE_BOTTOM, SUBTITULO_RESERVA, contentHeight, subtituloReserve } from "../src/templates/layout.ts";
 import type { CarouselSpec } from "../src/templates/types.ts";
 
@@ -131,7 +134,7 @@ check("tiemposTrozos: continuos, proporcionales al texto, desde el inicio de la 
   assert.throws(() => tiemposTrozos(["a"], 0, 0), /inválidos/);
 });
 
-check("subtitulo: estilo cine (blanco con borde, sin caja) un trozo a la vez con tiempos; sin voz, el texto entero", () => {
+check("subtitulo: píldora tinta al 88 % con texto blanco, sin sombra, un trozo a la vez con tiempos; sin voz, el texto entero", () => {
   assert.equal(subtitulo(undefined), "");
   assert.equal(subtitulo("   "), "");
   assert.equal(subtitulo(42), "");
@@ -140,8 +143,10 @@ check("subtitulo: estilo cine (blanco con borde, sin caja) un trozo a la vez con
   assert.ok(sinVoz.includes("Esto lo hizo ChatGPT &lt;solo&gt; &amp; &quot;ya&quot;"), "espacios colapsados y HTML escapado");
   assert.ok(!sinVoz.includes("data-sub-at"), "sin tiempos");
   assert.ok(sinVoz.includes(`bottom:${SUBTITULO_BOTTOM}px`));
-  assert.ok(/text-shadow:[^"]*rgba\(0,0,0/.test(sinVoz), "borde oscuro");
-  assert.ok(!/background:|border:/.test(sinVoz), "sin caja");
+  assert.ok(sinVoz.includes("background:rgba(17,17,17,0.88)"), "píldora tinta al 88 %");
+  assert.ok(sinVoz.includes("color:#FFFFFF"), "texto blanco");
+  assert.ok(!sinVoz.includes("text-shadow"), "sin sombra de texto");
+  assert.ok(/border-radius:\d+px/.test(sinVoz) && /padding:\d+px \d+px/.test(sinVoz), "píldora redondeada con relleno horizontal");
   const conVoz = subtitulo("Este aviso lo manda ChatGPT solo, cada mes. Mira cómo se hace.", undefined, { start: 0.2, segundos: 4 });
   assert.equal((conVoz.match(/data-sub-trozo/g) ?? []).length, 2);
   assert.ok(/data-sub-at="0.2" data-sub-hasta="[\d.]+"/.test(conVoz));
@@ -152,10 +157,39 @@ check("subtitulo: estilo cine (blanco con borde, sin caja) un trozo a la vez con
   const conFuente = subtitulo("Hola a todos", "Fuente: help.openai.com");
   const m = /bottom:(\d+)px/.exec(conFuente)!;
   assert.ok(Number(m[1]) > SUBTITULO_BOTTOM, "sube sobre la fuente");
-  assert.equal(subtituloReserve("reel", "Hola"), SUBTITULO_RESERVA);
-  assert.equal(subtituloReserve("post", "Hola"), 0);
-  assert.equal(subtituloReserve("reel", "  "), 0);
-  assert.equal(contentHeight("reel", undefined, "Hola"), contentHeight("reel") - SUBTITULO_RESERVA);
+  // Con el interruptor `subtitulos` encendido (desde 2026-11-02 van apagados por defecto).
+  assert.equal(subtituloReserve("reel", "Hola", true), SUBTITULO_RESERVA);
+  assert.equal(subtituloReserve("post", "Hola", true), 0);
+  assert.equal(subtituloReserve("reel", "  ", true), 0);
+  assert.equal(contentHeight("reel", undefined, "Hola", true), contentHeight("reel") - SUBTITULO_RESERVA);
+});
+
+check("subtítulos apagados (por defecto): sin reserva y el contenido usa esa altura", () => {
+  assert.equal(subtituloReserve("reel", "Hola"), 0);
+  assert.equal(subtituloReserve("reel", "Hola", false), 0);
+  assert.equal(contentHeight("reel", undefined, "Hola"), contentHeight("reel"));
+  assert.equal(contentHeight("reel", undefined, "Hola", false), contentHeight("reel"));
+});
+
+await checkAsync("buildReelPage: sin `subtitulos` no pinta data-subtitulo (la voz sigue); con `subtitulos: true` sí", async () => {
+  const t = specTiming(spec);
+  const apagado = await buildReelPage(spec, t, { voces: [{ start: 0.2, segundos: 3 }, { start: 3.5, segundos: 4 }, undefined] });
+  assert.ok(!apagado.includes("data-subtitulo"), "sin subtítulo por defecto");
+  assert.ok(!apagado.includes(`data-sub-trozo=""`), "sin trozos (el runtime los busca, pero no hay)");
+  const encendido = await buildReelPage({ ...spec, defaults: { ...spec.defaults, subtitulos: true } }, t, { voces: [{ start: 0.2, segundos: 3 }, { start: 3.5, segundos: 4 }, undefined] });
+  assert.equal((encendido.match(/data-subtitulo=""/g) ?? []).length, 2, "una por escena narrada");
+});
+
+check("Hook en reel: no pinta la tarjeta de resultado (la respuesta va en la escena 2); en post sí", () => {
+  const props = { title: "Que tu gerente no vea una cifra inventada", highlight: "cifra inventada", app: "Claude", modo: "respuesta" as const, resultado: "Revisé las 6 cifras: 5 están en tu planilla." };
+  const reel = renderToStaticMarkup(createElement(Hook, { ...props, format: "reel" }));
+  assert.ok(!reel.includes("data-resultado"), "reel sin tarjeta");
+  assert.ok(!reel.includes("Revisé las 6 cifras"), "reel sin el texto del resultado");
+  const sinRes = renderToStaticMarkup(createElement(Hook, { title: props.title, highlight: props.highlight, format: "reel" }));
+  const tam = (h: string) => Number(/<h1[^>]*font-size:(\d+)px/.exec(h)![1]);
+  assert.equal(tam(reel), tam(sinRes), "el titular no se achica como pie de foto");
+  const post = renderToStaticMarkup(createElement(Hook, props));
+  assert.ok(post.includes('data-resultado="respuesta"'), "post conserva la tarjeta");
 });
 
 check("voz: VOZ_DEFECTO es em_alex, parseVoz acepta las 3 de Kokoro y rechaza el resto; estimación por palabras", () => {
@@ -170,4 +204,12 @@ check("voz: VOZ_DEFECTO es em_alex, parseVoz acepta las 3 de Kokoro y rechaza el
   assert.equal(segundosEstimados("Hola"), 1.0, "mínimo 1 s");
 });
 
+check("applyBrandStyle: el fondo IA pide papel gris cálido claro, no el casi negro del look lima", () => {
+  const p = applyBrandStyle("escritorio");
+  assert.ok(p.includes("light warm grey paper"), "papel gris cálido claro");
+  assert.ok(!/near-black|#06060A/i.test(p), "sin el fondo casi negro");
+  assert.equal(applyBrandStyle("escritorio", false), "escritorio");
+});
+
 await done();
+

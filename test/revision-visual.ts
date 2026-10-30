@@ -8,7 +8,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { parseBorrador, borradorASpec, storySpec } from "../src/calendario/draft.ts";
 import { Hook, Step } from "../src/templates/index.ts";
-import { displayLineHeight, ANTON_LH_ACENTO, ANTON_LH_ACENTO_COLA } from "../src/templates/fit.ts";
+import { displayLineHeight, INTER_LH_ACENTO, INTER_LH_ACENTO_MAYUS } from "../src/templates/fit.ts";
 import { FORMATS, type CarouselSpec } from "../src/templates/types.ts";
 import { buildReelPage } from "../src/reel/page.ts";
 import { specTiming } from "../src/reel/timing.ts";
@@ -22,7 +22,8 @@ import voz from "../carousels/voz-subtitulos-gratis.ts";
 
 /**
  * Núcleo de la revisión visual en Chromium real: tilde que pisa la línea de
- * arriba (Anton con interlineado apretado), espacio antes de la puntuación
+ * arriba (titular con interlineado apretado: Anton en los casos del detector,
+ * Inter 700 en los del look papel), espacio antes de la puntuación
  * (palabra escalada con transform) y texto fuera de la zona segura del reel.
  * Uso: npm run test:reel
  */
@@ -121,7 +122,7 @@ try {
   });
   for (const format of ["post", "reel"] as const) {
     await caso(`lados: Hook real «¿Esto lo escribió la IA?» (${format}) queda dentro del margen, sin hallazgos`, async () => {
-      const markup = renderToStaticMarkup(createElement(Hook as any, { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", format, background: { color: "#06060A" } }));
+      const markup = renderToStaticMarkup(createElement(Hook as any, { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", format }));
       const h = await revisar(markup, format === "reel");
       assert.deepEqual(h, [], JSON.stringify(h));
       const lados = await page.evaluate(() => {
@@ -136,7 +137,7 @@ try {
     });
   }
   await caso("lados: Hook real «¿Esto lo escribió la IA?» en el reel animado no da zona", async () => {
-    const spec = { name: "t", slides: [{ template: Hook, props: { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?", background: { color: "#06060A" } } }, { template: Step, props: { step: "01", heading: "Pide tres líneas", highlight: "tres líneas", body: "Corto." } }] } as unknown as CarouselSpec;
+    const spec = { name: "t", slides: [{ template: Hook, props: { title: "¿Esto lo escribió la IA? Que tu equipo no lo piense", highlight: "¿Esto lo escribió la IA?" } }, { template: Step, props: { step: "01", heading: "Pide tres líneas", highlight: "tres líneas", body: "Corto." } }] } as unknown as CarouselSpec;
     const h = await reelDe(spec, specTiming(spec));
     assert.deepEqual(tipos(h, "zona"), [], JSON.stringify(h));
   });
@@ -144,7 +145,7 @@ try {
   for (const format of ["post", "reel"] as const) {
     await caso(`párrafos: Step con cita inicial (${format}) separa la cita de la explicación`, async () => {
       const body = "«Soy jefa de operaciones; el correo va a mis 12 supervisores.» La IA no conoce tu equipo: sin esto escribe para cualquiera.";
-      const h = await revisar(renderToStaticMarkup(createElement(Step as any, { step: "1", heading: "Quién eres y quién lo lee", body, format, background: { color: "#06060A" } })), format === "reel");
+      const h = await revisar(renderToStaticMarkup(createElement(Step as any, { step: "1", heading: "Quién eres y quién lo lee", body, format })), format === "reel");
       assert.deepEqual(h, [], JSON.stringify(h));
       const r = await page.evaluate(() => {
         const ps = Array.from(document.querySelectorAll("[data-parrafos] > p")).map((p) => p.getBoundingClientRect());
@@ -156,7 +157,7 @@ try {
     });
   }
   const fixture = (n: string) => parseBorrador(readFileSync(new URL(`./fixtures/revision-visual/${n}.json`, import.meta.url), "utf8"));
-  const flat = (props: Record<string, any>) => (props.background && "ai" in props.background ? { ...props, background: { color: "#06060A" } } : props);
+  const flat = (props: Record<string, any>) => (props.background && "ai" in props.background ? { ...props } : props);
   const renderSlide = (spec: CarouselSpec, i: number, format: "post" | "reel") =>
     renderToStaticMarkup(createElement(spec.slides[i].template as any, { ...flat({ ...spec.defaults, ...spec.slides[i].props }), format }));
   await caso("zona: trozo de subtítulo oculto (autoAlpha 0) no cuenta, ni su hijo", async () => {
@@ -191,8 +192,10 @@ try {
   });
   await caso("transición: reel de 2 escenas con strike y subtítulos no da transicion ni zona", async () => {
     const [myth, screen] = [smoke.slides.find((x) => x.template.name === "MythReality")!, smoke.slides.find((x) => x.template.name === "Screen")!];
+    // Con el interruptor `subtitulos` encendido (desde 2026-11-02 van apagados por defecto).
     const spec = {
       ...smoke,
+      defaults: { ...smoke.defaults, subtitulos: true },
       slides: [
         { ...myth, props: { ...myth.props, narracion: "La IA no piensa sola, hace lo que tú le pides." } },
         { ...screen, props: { ...screen.props, narracion: "Le escribes esto una vez y te lo recuerda todos los meses." } },
@@ -206,7 +209,8 @@ try {
   await caso("zona: Hook de habitos-no-son-21-dias (reel) no saca el subtítulo de la zona segura", async () => {
     const b = fixture("mie-reel-habitos-no-son-21-dias");
     const spec = borradorASpec(b, { format: "reel" });
-    const offline = { ...spec, defaults: flat(spec.defaults as any), slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
+    // Con el interruptor `subtitulos` encendido: es la zona del subtítulo la que se prueba.
+    const offline = { ...spec, defaults: { ...flat(spec.defaults as any), subtitulos: true }, slides: spec.slides.map((sl) => ({ ...sl, props: flat(sl.props as any) })) } as CarouselSpec;
     const h = await reelDe(offline, specTiming(spec, { pace: b.pace }));
     assert.deepEqual(h, [], JSON.stringify(h));
   });
@@ -249,28 +253,35 @@ try {
       });
     }
   }
-  // Coma justo encima de una tilde: la coma de Anton baja 0,115 em (paréntesis 0,092, @ 0,077).
-  const anton400 = (html: string, lh: number) =>
-    `<h2 style="font-family:Anton;font-weight:400;font-size:124px;width:640px;line-height:${lh};color:#fff;margin:200px 60px;">${html}</h2>`;
-  await caso("tilde: coma justo encima de «Á» con 1.14 pisa (el detector la ve)", async () => {
-    const h = await revisar(anton400(",<br>ÁA", 1.14));
+  // Look papel (Inter 700): una mayúscula con tilde sube 0,949 em; g j p q y , ; ( @ bajan hasta 0,216 em.
+  const inter700 = (html: string, lh: number) =>
+    `<h2 style="font-family:Inter;font-weight:700;font-size:124px;letter-spacing:-0.04em;width:640px;line-height:${lh};color:#111;margin:200px 60px;">${html}</h2>`;
+  await caso("tilde: Inter 700, «g» justo encima de «Á» a 1.03 pisa (el detector la ve)", async () => {
+    const h = await revisar(inter700("g<br>ÁA", 1.03));
     assert.equal(tipos(h, "tilde").length, 1, JSON.stringify(h));
   });
-  for (const texto of [",<br>ÁA", "(<br>ÓA", ")<br>ÓA", "@<br>ÉA", "Q<br>ÚA"]) {
-    await caso(`tilde: «${texto.replace("<br>", " / ")}» con displayLineHeight no pisa`, async () => {
-      const h = await revisar(anton400(texto, displayLineHeight(texto, 0.98)));
+  for (const texto of ["g<br>ÁA", "j<br>ÉA", "y<br>ÍA", ",<br>ÓA", "(<br>ÚA", "@<br>ÑA", "Q<br>ÚA"]) {
+    await caso(`tilde: Inter 700 «${texto.replace("<br>", " / ")}» con displayLineHeight no pisa`, async () => {
+      const h = await revisar(inter700(texto, displayLineHeight(texto.replace("<br>", " "), 1.0)));
       assert.deepEqual(h, [], JSON.stringify(h));
     });
   }
-  await caso("displayLineHeight: coma, paréntesis o @ con tilde suben a ANTON_LH_ACENTO_COLA", async () => {
-    assert.equal(ANTON_LH_ACENTO_COLA, 1.24);
-    assert.equal(displayLineHeight("HOLA, TÚ", 0.98), 1.24);
-    assert.equal(displayLineHeight("GRATIS (SÍ)", 0.98), 1.24);
-    assert.equal(displayLineHeight("@IA.PUNTO.ES TÚ", 0.98), 1.24);
-    assert.equal(displayLineHeight("QUÉ, CÓMO", 0.98), 1.24);
-    assert.equal(displayLineHeight("HOLA, TU", 0.98), 0.98);
-    // El punto y coma de Anton no baja de la línea base.
-    assert.equal(displayLineHeight("YA; TÚ", 0.98), 1.14);
+  await caso("tilde: frase en serif cursiva (×1,13) sobre una minúscula con tilde, con displayLineHeight, no pisa", async () => {
+    const serif = (w: string) => `<span style="font-family:InstrumentSerif;font-style:italic;font-weight:400;font-size:1.13em;letter-spacing:-0.01em">${w}</span>`;
+    const h = await revisar(inter700(`${serif("gyq")}<br>áéí`, displayLineHeight("gyq áéí", 1.0)));
+    assert.deepEqual(h, [], JSON.stringify(h));
+  });
+  await caso("displayLineHeight (Inter): tilde minúscula → INTER_LH_ACENTO; mayúscula fuera de la primera palabra y algo que baje → INTER_LH_ACENTO_MAYUS", async () => {
+    assert.equal(INTER_LH_ACENTO, 1.03);
+    assert.equal(INTER_LH_ACENTO_MAYUS, 1.18);
+    assert.equal(displayLineHeight("Hola mundo", 1.0), 1.0);
+    assert.equal(displayLineHeight("Qué pasa", 1.0), 1.03);
+    assert.equal(displayLineHeight("Úsalo cada lunes", 1.0), 1.03, "la mayúscula de la primera palabra no tiene nada encima");
+    assert.equal(displayLineHeight("¿Ésta es la buena?", 1.0), 1.03, "la puntuación que abre va con la primera palabra");
+    assert.equal(displayLineHeight("Pégalo en ChatGPT y Él responde", 1.0), 1.18);
+    assert.equal(displayLineHeight("HOLA TÚ", 1.0), 1.03, "sin nada que baje no sube");
+    assert.equal(displayLineHeight("hola, tú", 1.0, true), 1.18, "en mayúsculas toda tilde cuenta como de mayúscula");
+    assert.equal(displayLineHeight("año", 1.1), 1.1);
   });
   // La caja del mark tiene 0,1 em de padding a la derecha: la coma que va después (fuera de la caja)
   // no es un espacio suelto.
@@ -286,15 +297,6 @@ try {
   await caso("tilde: h2 sin fontWeight 400 se mide a 400 («Q» sobre «Ú» a 1.2 no pisa)", async () => {
     const h = await revisar(titulo("Q<br>ÚA", 1.2));
     assert.deepEqual(h, [], JSON.stringify(h));
-  });
-  await caso("displayLineHeight: sube a 1.14 solo con tildes", async () => {
-    assert.equal(ANTON_LH_ACENTO, 1.14);
-    assert.equal(displayLineHeight("PRÓXIMO", 0.98), 1.14);
-    assert.equal(displayLineHeight("año", 0.98), 1.14);
-    assert.equal(displayLineHeight("PROXIMO", 0.98), 0.98);
-    assert.equal(displayLineHeight("ÑU", 1.2), 1.2);
-    assert.equal(displayLineHeight("QUE TÚ", 0.98), 1.2);
-    assert.equal(displayLineHeight("QUE TU", 0.98), 0.98);
   });
   for (const format of ["reel", "post"] as const) {
     const reel = format === "reel";

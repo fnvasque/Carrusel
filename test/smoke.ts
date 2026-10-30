@@ -3,18 +3,19 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Hook, Lead, Step, MythReality, Cta, Stat, Prompt, StoryCover, Clip, Screen } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
-import { fitDisplaySize, estimateLines } from "../src/templates/fit.ts";
-import { theme } from "../src/theme.ts";
+import { fitDisplaySize, estimateLines, CONTENT_WIDTH } from "../src/templates/fit.ts";
+import { theme, serieLabel } from "../src/theme.ts";
 import { detectType, extractImageUrls, extractVideoUrl } from "../src/remix/ingest.ts";
 import { isTemplateName, validPropKeys, TEMPLATE_CATALOG, catalogoRemix } from "../src/remix/templates-catalog.ts";
 import { slugify, validateDraft, templatesImportBase } from "../src/remix/emit.ts";
 import { draftToSpec, scoreDraft, esReelNarrado } from "../src/remix/registry.ts";
 import { THRESHOLD, scoreCarousel, scoreReel } from "../src/score/virality.ts";
 import { readFileSync } from "node:fs";
-import { pillContent } from "../src/templates/Cta.tsx";
-import { frasesNowrap } from "../src/templates/highlight.tsx";
+import { pillContent, DM_PISTA } from "../src/templates/Cta.tsx";
+import { frasesNowrap, highlightText } from "../src/templates/highlight.tsx";
 import { parrafos, parrafosHeight } from "../src/templates/parrafos.tsx";
-import { contentHeight, sourceLines, wrapLines } from "../src/templates/layout.ts";
+import { contentHeight, sourceLines, wrapLines, firmaReserve } from "../src/templates/layout.ts";
+import * as layout from "../src/templates/layout.ts";
 import { linearFit, projectOutcome, pearson, type CalibrationModel } from "../src/score/calibration.ts";
 import type { VariationDraft } from "../src/remix/types.ts";
 import { extractShortcode, extractUsername, findByShortcode, hasMorePages, mediaTypeOf } from "../src/remix/providers/meta.ts";
@@ -205,6 +206,19 @@ check("scoreDraft: weak < strong y strong supera el umbral", () => {
   assert.ok(ss >= THRESHOLD, `strong(${ss}) debe alcanzar el umbral ${THRESHOLD}`);
 });
 
+check("score: un Cta PARTIR sin handle suma los 4 puntos del handle; uno sin PARTIR sigue perdiéndolos (carrusel y reel)", () => {
+  const ctaDe = (r: ReturnType<typeof scoreReel>) => r.dimensions.find((d) => d.name === "CTA")!;
+  const reel = (props: Record<string, unknown>) =>
+    scoreReel({ pace: "gancho", slides: [{ template: "Hook", props: {} }, { template: "Cta", props }] });
+  assert.equal(ctaDe(reel({ title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" })).score, 10, "reel: PARTIR sin handle");
+  assert.equal(ctaDe(reel({ title: "Guárdalo para tu próximo resumen", cta: "Guárdalo" })).score, 6, "reel: sin PARTIR ni handle pierde 4");
+  assert.equal(ctaDe(reel({ title: "Guárdalo", cta: "Guárdalo", handle: "ia.punto.es" })).score, 10, "reel: con handle suma");
+  const car = (props: Record<string, unknown>) =>
+    scoreCarousel({ name: "x", slides: [{ template: Hook, props: { title: "t" } }, { template: Cta, props }] } as never);
+  assert.equal(ctaDe(car({ title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" })).score, 10, "carrusel: PARTIR sin handle");
+  assert.equal(ctaDe(car({ title: "Guárdalo", cta: "Guárdalo" })).score, 6, "carrusel: sin PARTIR ni handle pierde 4");
+});
+
 // --- registry: scoreDraft elige la rúbrica de reel narrado (pivote 2026-10-17) ---
 check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el umbral y uno mudo de texto no", () => {
   // Pieza real de la semana 2026-10-19 que el scorer de carrusel marcó fallida (57 < 75).
@@ -237,6 +251,77 @@ check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el um
   // scoreReel directo: sin Screen pero con fuente (pieza de evidencia) recibe la mitad de Pantalla.
   const evidencia = scoreReel({ pace: "gancho", slides: [{ template: "Hook", props: {} }, { template: "Lead", props: { source: "Fuente: METR 2025" } }] });
   assert.equal(evidencia.dimensions.find((d) => d.name === "Pantalla")?.score, 10);
+});
+
+check("scoreReel: desde 2026-11-02 el Hook del reel va sin tarjeta; la Screen en la escena 2 vale como el resultado del primer cuadro", () => {
+  const pieza = JSON.parse(readFileSync(new URL("./calendario/fixtures/reel-narrado-pivote.json", import.meta.url), "utf8")) as VariationDraft & { pace?: string };
+  const hook = (d: VariationDraft) => scoreReel(d as never).dimensions.find((x) => x.name === "Hook")!.score;
+  const conTarjeta = hook(pieza);
+  const sinTarjeta = structuredClone(pieza);
+  for (const k of ["resultado", "app", "modo"]) delete (sinTarjeta.slides[0].props as Record<string, unknown>)[k];
+  // La Screen de la pieza (escena 4) pasa a la escena 2, justo después del Hook.
+  const [screen] = sinTarjeta.slides.splice(3, 1);
+  sinTarjeta.slides.splice(1, 0, screen);
+  assert.equal(hook(sinTarjeta), conTarjeta, "Screen en la escena 2 = resultado + app en la portada");
+  // «Screen completa»: sin prompt no cuenta como la IA en pantalla.
+  const sinPrompt = structuredClone(sinTarjeta);
+  (sinPrompt.slides[1].props as Record<string, unknown>).prompt = "";
+  assert.ok(hook(sinPrompt) < conTarjeta, "una Screen sin prompt no reemplaza la tarjeta");
+  // Sin tarjeta y con la Screen tarde, el Hook pierde esos puntos.
+  const tarde = structuredClone(pieza);
+  for (const k of ["resultado", "app", "modo"]) delete (tarde.slides[0].props as Record<string, unknown>)[k];
+  assert.ok(hook(tarde) < conTarjeta);
+});
+
+// --- más aire (Felipe 2026-10-29): gaps ~40 % mayores, tarjetas 52 × 44, tope de llenado ---
+check("aire: el bloque llena a lo sumo 72 % del alto en reel y 85 % en post; gaps × 1,4", () => {
+  assert.equal(layout.REEL_FILL, 0.72);
+  assert.equal((layout as Record<string, unknown>).POST_FILL, 0.85);
+  assert.equal((layout as Record<string, unknown>).AIRE, 1.4);
+  // pickFill en post: prefiere la escala que cabe en el 85 % (antes llenaba el 100 %).
+  assert.equal(layout.pickFill([100, 90, 80], (x) => x, 100, "post"), 80);
+  assert.equal(layout.pickFill([100, 70, 60], (x) => x, 100, "reel"), 70);
+  // Si ninguna cabe en el tope, la mayor que cabe en el alto completo.
+  assert.equal(layout.pickFill([100, 95, 90], (x) => x, 100, "post"), 100);
+});
+
+check("aire: tarjetas y burbujas con relleno 44 × 52 en post; burbujas ≤ 80 % del ancho útil y ≥ 32 px entre ellas", () => {
+  const pad = (h: string, attr: string) => new RegExp(`${attr}[^>]*style="[^"]*padding:(\\d+)px (\\d+)px`).exec(h)?.slice(1).map(Number);
+  const scr = renderToStaticMarkup(createElement(Screen, { app: "Claude", prompt: "Resume esta planilla para mi gerente.", respuesta: "La de devoluciones no está en la planilla." }));
+  for (const lado of ["tu", "ia"]) {
+    assert.deepEqual(pad(scr, `data-chat="${lado}"`), [44, 52], `burbuja ${lado}`);
+    const ancho = Number(new RegExp(`data-chat="${lado}"[^>]*max-width:(\\d+)px`).exec(scr)![1]);
+    assert.ok(ancho <= Math.round((1080 - 2 * theme.padding) * 0.8), `burbuja ${lado} de ${ancho} px`);
+  }
+  const gapChat = Number(/<div style="display:flex;flex-direction:column;justify-content:center;flex:1;gap:(\d+)px">/.exec(scr)![1]);
+  assert.ok(gapChat >= 32, `gap entre burbujas ${gapChat}`);
+  const myth = renderToStaticMarkup(createElement(MythReality, { myth: "La IA piensa sola.", reality: "Hace lo que le pides.", highlight: "le pides" }));
+  assert.match(myth, /padding:44px 52px/, "tarjeta de la realidad");
+  const prompt = renderToStaticMarkup(createElement(Prompt, { heading: "Pídelo así", prompt: "Resume en 3 puntos." }));
+  assert.match(prompt, /padding:44px 52px/, "tarjeta del prompt");
+  const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", highlight: "empezar", cta: "Escríbeme PARTIR" }));
+  assert.match(dm, /data-cta="dm"[^>]*padding:44px 52px/, "caja DM a tamaño pleno en post");
+  // Gap del Lead y del Hook: 40 y 36 × 1,4.
+  assert.match(renderToStaticMarkup(createElement(Lead, { text: "Una frase corta." })), /flex:1;gap:56px/);
+  assert.match(renderToStaticMarkup(createElement(Hook, { title: "Un titular corto" })), /flex:1;gap:50px/);
+});
+
+check("Cta PARTIR con reason: se ven la razón y la pista «Escríbeme…» (post y reel)", () => {
+  for (const format of ["post", "reel"] as const) {
+    const html = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR", reason: "RAZON_VISIBLE", format }));
+    assert.ok(html.includes("RAZON_VISIBLE"), `${format}: razón`);
+    assert.ok(html.includes(DM_PISTA), `${format}: pista`);
+    assert.ok(html.indexOf("RAZON_VISIBLE") < html.indexOf('data-cta="dm"'), `${format}: la razón va bajo el título, antes de la caja`);
+  }
+});
+
+check("Screen (post): una respuesta larga ensancha la burbuja (≤ 90 %) y mantiene el texto ≥ 36 px", () => {
+  const props = {"app": "Claude", "heading": "Los 3 tips juntos, en un solo pedido", "prompt": "Soy jefa de operaciones; escribo a 12 supervisores. Avisa: desde el lunes los turnos rotan cada dos semanas; dudas, antes del viernes. Con este estilo, máximo 120 palabras: [tu correo]", "respuesta": "Asunto: Rotación de turnos desde el lunes\nHola, equipo:\nDesde el lunes los turnos rotan cada dos semanas.\nSi tienen dudas, escríbanme antes del viernes y las resolvemos.\nGracias,\nPaula"};
+  const html = renderToStaticMarkup(createElement(Screen, { ...props, format: "post" }));
+  const tam = Number(html.match(/data-anim="words" style="[^"]*font-size:(\d+)px/)?.[1]);
+  assert.ok(tam >= 36, `texto ${tam}px`);
+  const anchos = [...html.matchAll(/data-chat="(?:tu|ia)" style="[^"]*max-width:(\d+)px/g)].map((m) => Number(m[1]));
+  assert.ok(anchos.length === 2 && anchos.every((a) => a <= Math.round(CONTENT_WIDTH * 0.9)), String(anchos));
 });
 
 check("validateDraft: Clip primero conserva el orden, sin Hook sintético ni index en la portada", () => {
@@ -601,8 +686,10 @@ check("plantillas: marcas data-anim en formato reel", () => {
   assert.equal((hook.match(/data-anim="rise"/g) ?? []).length, 2);
   const step = renderToStaticMarkup(createElement(Step, { heading: "Paso", bullets: ["a", "b"], format: "reel" }));
   assert.match(step, /<ul[^>]*data-anim="stagger"/);
+  // Look papel: el mito ya no se tacha (spec 2026-10-29); entra con rise, apagado en serif cursiva.
   const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R", format: "reel" }));
-  assert.match(myth, /data-anim="strike"/);
+  assert.doesNotMatch(myth, /data-anim="strike"/);
+  assert.match(myth, /data-anim="rise" data-mito=""/);
 });
 
 check("plantillas: sin highlight (o no encontrado) no hay pop", () => {
@@ -643,24 +730,67 @@ check("plantillas: checklist con un check por viñeta y cursor del Prompt", () =
   assert.match(prompt, /data-anim="type"[^>]*>hola<span data-anim="caret"/);
 });
 
-check("Frame: grilla data-grid solo en reel, etiqueta NN / PILAR y tokens lima", () => {
+check("Frame: papel liso, sin grilla, viñeta ni wordmark; la marca no lleva data-anim", () => {
   const reel = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7, format: "reel" }));
   const post = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "noticia", index: 3, total: 7 }));
-  assert.match(reel, /data-grid=""/);
-  assert.doesNotMatch(post, /data-grid/);
-  assert.match(post, /rgba\(198,255,61,0\.07\)/, "grilla lima al 7 %");
-  assert.match(post, /background-color:#06060A/);
-  assert.match(post, new RegExp(`color:${theme.colors.violet}">03</span>`), "número en color del pilar");
-  assert.match(post, />NOTICIA</);
-  // Logo, etiqueta y fuente no llevan data-anim.
-  const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", pillar: "noticia", index: 3, format: "reel" }));
+  for (const h of [reel, post]) {
+    assert.doesNotMatch(h, /data-grid|rgba\(198,255,61,0\.07\)|radial-gradient|data-brand="logo"|data-brand="label"|NOTICIA/);
+    assert.match(h, /background-color:#ECECEA/);
+  }
+  // Firma y fuente no llevan data-anim.
+  const withSrc = renderToStaticMarkup(createElement(Step, { heading: "Paso", source: "Fuente: X", serie: "lo-que-construi", index: 3, total: 7, format: "reel" }));
   for (const b of withSrc.match(/<[^>]*data-brand="[^"]*"[^>]*>/g) ?? []) assert.doesNotMatch(b, /data-anim/);
 });
 
-check("Hook: mark pinta la palabra con caja rosa sin pop", () => {
+check("theme: serieLabel traduce la serie al rótulo de cabecera", () => {
+  assert.equal(serieLabel("por-donde-partir"), "Por dónde partir");
+  assert.equal(serieLabel("lo-que-construi"), "Lo que construí");
+  assert.equal(serieLabel(undefined), undefined);
+  assert.equal(serieLabel("otra-cosa"), undefined);
+});
+
+check("Frame (post): serie en la cabecera, firma y n/total en el pie", () => {
+  const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "por-donde-partir", index: 2, total: 6, source: "Fuente: X", pillar: "noticia" }));
+  assert.match(h, /data-brand="serie"[^>]*>Por dónde partir</);
+  assert.match(h, /data-brand="firma"/);
+  assert.match(h, /@ia\.punto\.es/);
+  assert.match(h, /data-brand="pagina"[^>]*>2\/6</);
+  assert.match(h, />ia</);
+  assert.doesNotMatch(h, /NOTICIA|data-brand="logo"|data-brand="label"|data-grid|undefined/);
+  // La firma no lleva la línea salvo que se pida.
+  assert.doesNotMatch(h, /Te ayudo a partir/);
+  const conLinea = renderToStaticMarkup(createElement(Step, { heading: "Paso", index: 1, total: 6, firmaLinea: true }));
+  assert.match(conLinea, /Te ayudo a partir con la IA en tu trabajo/);
+});
+
+check("Frame: sin serie la cabecera izquierda queda vacía (ni pilar ni undefined)", () => {
+  const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", pillar: "herramienta", index: 2, total: 6 }));
+  assert.doesNotMatch(h, /data-brand="serie"|HERRAMIENTA|undefined/);
+  const desconocida = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "otra-cosa", index: 2, total: 6 }));
+  assert.doesNotMatch(desconocida, /data-brand="serie"|undefined/);
+});
+
+check("Frame (reel): firma compacta en la cabecera y nada en el pie", () => {
+  const h = renderToStaticMarkup(createElement(Step, { heading: "Paso", serie: "lo-que-construi", index: 2, total: 6, format: "reel", source: "Fuente: X" }));
+  assert.match(h, /data-brand="serie"[^>]*>Lo que construí</);
+  assert.match(h, /data-brand="firma"/);
+  assert.doesNotMatch(h, /data-brand="pagina"/);
+  // La firma va antes que el contenido (cabecera), no después (pie).
+  assert.ok(h.indexOf('data-brand="firma"') < h.indexOf("data-content"), "firma del reel en la cabecera");
+  const post = renderToStaticMarkup(createElement(Step, { heading: "Paso", index: 2, total: 6 }));
+  assert.ok(post.indexOf('data-brand="firma"') > post.indexOf("data-content"), "firma del post en el pie");
+});
+
+check("layout: firmaReserve reserva el pie solo en el post", () => {
+  assert.ok(firmaReserve("post") > 0);
+  assert.equal(firmaReserve("reel"), 0);
+  assert.equal(contentHeight("post"), 1350 - 2 * 72 - 44 - 40 - 40 - firmaReserve("post"), "el contenido descuenta la firma");
+});
+
+check("Hook: mark pinta la palabra con caja tinta sin pop", () => {
   const h = renderToStaticMarkup(createElement(Hook, { title: "No encuentras ninguno.", highlight: "encuentras", mark: "ninguno.", format: "reel" }));
   assert.match(h, /data-anim="pop"[^>]*>encuentras</);
-  assert.match(h, /data-mark=""[^>]*background-color:#FF3D7F[^>]*>ninguno\.</);
+  assert.match(h, /data-mark=""[^>]*background-color:#111111[^>]*>ninguno\.</);
   assert.equal((h.match(/data-anim="pop"/g) ?? []).length, 1);
 });
 
@@ -744,6 +874,61 @@ check("Cta: la pastilla quita emoji y usa ícono SVG", () => {
   assert.match(html, />Guardar<svg/);
 });
 
+check("Cta: con la caja de mensaje directo no se pinta el handle suelto (solo cabecera de la caja y firma)", () => {
+  const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR", handle: "ia.punto.es" }));
+  assert.doesNotMatch(dm, /data-cta="handle"/);
+  assert.equal((dm.match(/@ia\.punto\.es/g) ?? []).length, 2, "caja DM + firma, nada más");
+  // Con la pastilla normal el handle sigue yendo.
+  const pill = renderToStaticMarkup(createElement(Cta, { title: "Guárdalo", cta: "Guárdalo", handle: "ia.punto.es" }));
+  assert.match(pill, /data-cta="handle"[^>]*>@ia\.punto\.es</);
+});
+
+check("Cta (post): con una fuente larga el titular se achica para no pisarla", () => {
+  const titulo = "¿No sabes por dónde empezar con la IA en tu trabajo?";
+  const fuente = "Fuente: Anthropic, Claude 101 y guía de prompts; OpenAI y Google, guías de prompts";
+  const tam = (h: string) => Number(h.match(/<h2[^>]*font-size:(\d+)px/)?.[1]);
+  const corta = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es" }));
+  const larga = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es", source: fuente }));
+  assert.ok(tam(corta) > 0 && tam(larga) > 0, "se lee el tamaño del titular");
+  // Con el tope de llenado del post (POST_FILL 0,85, «más aire» 2026-10-29) la versión sin fuente ya deja
+  // 15 % libre: con 2 líneas de fuente el titular puede quedar igual (nunca mayor); con 3 líneas sí se achica.
+  assert.ok(tam(larga) <= tam(corta), `con fuente larga el titular no crece (${tam(larga)} vs ${tam(corta)})`);
+  const muyLarga = renderToStaticMarkup(createElement(Cta, { title: titulo, cta: "Escríbeme PARTIR", reason: "Si un colega nuevo no entendería tu pedido, la IA tampoco.", handle: "ia.punto.es", source: `${fuente}; Microsoft, guía de Copilot para equipos de trabajo` }));
+  assert.ok(tam(muyLarga) < tam(corta), `con fuente de 3 líneas el titular debe achicarse (${tam(muyLarga)} vs ${tam(corta)})`);
+});
+
+check("Cta: con PARTIR dibuja la caja de mensaje directo; sin PARTIR, la pastilla tinta", () => {
+  const dm = renderToStaticMarkup(createElement(Cta, { title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" }));
+  assert.match(dm, /data-cta="dm"/);
+  const burbuja = dm.match(/<span data-cta="burbuja"[^>]*>([^<]*)<\/span>/);
+  assert.equal(burbuja?.[1], "PARTIR", "la burbuja lleva solo la palabra");
+  assert.equal((dm.match(/PARTIR/g) ?? []).length, 1, "PARTIR aparece una sola vez");
+  assert.match(dm, /@ia\.punto\.es/);
+  assert.match(dm, />ia</);
+  assert.match(dm, /Escríbeme esto por mensaje y te respondo yo\./);
+  const conPista = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "PARTIR", reason: "Te respondo con un primer paso." }));
+  assert.match(conPista, /Te respondo con un primer paso\./);
+  // La razón va en su línea bajo el título; la pista que pide escribir se queda siempre bajo la burbuja.
+  assert.match(conPista, /Escríbeme esto por mensaje y te respondo yo\./);
+  // PARTIR en el título también activa la caja; el título se deja como está escrito.
+  const enTitulo = renderToStaticMarkup(createElement(Cta, { title: "Escríbeme PARTIR", cta: "Link en bio" }));
+  assert.match(enTitulo, /data-cta="dm"/);
+  assert.match(enTitulo, /<span data-cta="burbuja"[^>]*>PARTIR<\/span>/);
+  const sin = renderToStaticMarkup(createElement(Cta, { title: "Guárdalo", cta: "Guárdalo 🔖" }));
+  assert.doesNotMatch(sin, /data-cta="dm"/);
+  assert.match(sin, />Guárdalo<svg/);
+  const reel = renderToStaticMarkup(createElement(Cta, { title: "Hola", cta: "Escríbeme PARTIR", format: "reel" }));
+  assert.match(reel, /data-cta="dm"[^>]*data-anim="rise"|data-anim="rise"[^>]*data-cta="dm"/, "la caja se anima en el reel");
+  const cur = renderToStaticMarkup(createElement(Cta, { title: "No sabes por dónde empezar", cursiva: "No sabes" }));
+  assert.match(cur, /data-cursiva/);
+});
+
+check("StoryCover: firma con la línea de la cuenta, también en el reel", () => {
+  const h = renderToStaticMarkup(createElement(StoryCover, { title: "3 IAs gratis", format: "reel" }));
+  assert.match(h, /@ia\.punto\.es/);
+  assert.match(h, /Te ayudo a partir con la IA en tu trabajo/);
+});
+
 check("layout: la fuente al pie reserva su alto real y Step/Stat se ajustan al área", () => {
   const long = "Fuente: un informe con un nombre muy largo, publicado por una organización con un nombre igual de largo, 2026";
   assert.equal(sourceLines("Fuente: X"), 1);
@@ -793,6 +978,26 @@ check("frasesNowrap: el resaltado solo cuenta como bloque si es una palabra; el 
   assert.ok(fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: frasesNowrap("¿Esto lo escribió la IA?") }) >= fitDisplaySize(t, 220, { maxLines: 6, tight: true, keep: ["¿Esto lo escribió la IA?"] }));
 });
 
+check("highlightText: marcador lima en la palabra clave y frase en serif cursiva", () => {
+  const h = renderToStaticMarkup(createElement("p", null, highlightText("Que tu equipo no piense", "piense", "#C6FF3D", undefined, undefined, "Que tu equipo")));
+  assert.match(h, /<span data-cursiva="" style="[^"]*font-family:InstrumentSerif;font-style:italic;font-weight:400;font-size:1\.13em;letter-spacing:-0\.01em">Que tu equipo<\/span>/);
+  assert.match(h, /data-anim="pop"[^>]*background-image:linear-gradient[^>]*background-size:100% 100%[^>]*background-repeat:no-repeat[^>]*>piense</);
+  assert.doesNotMatch(h, /data-anim="pop"[^>]*[^-]color:/); // el texto sigue en tinta
+  // cursiva inexistente → texto intacto; solapada con highlight → solo marcador
+  assert.equal(renderToStaticMarkup(createElement("p", null, highlightText("Hola mundo", undefined, "#fff", undefined, undefined, "nada"))), "<p>Hola mundo</p>");
+  const o = renderToStaticMarkup(createElement("p", null, highlightText("Que tu equipo no piense", "tu equipo", "#fff", undefined, undefined, "Que tu equipo")));
+  assert.doesNotMatch(o, /data-cursiva/);
+  assert.match(o, /data-anim="pop"/);
+  // mark > cursiva
+  const m = renderToStaticMarkup(createElement("p", null, highlightText("Que tu equipo no piense", undefined, "#fff", "equipo", undefined, "tu equipo")));
+  assert.doesNotMatch(m, /data-cursiva/);
+  assert.match(m, /data-mark/);
+});
+check("frasesNowrap: la cursiva de una palabra se estima como bloque", () => {
+  assert.deepEqual(frasesNowrap(undefined, undefined, "piense"), [undefined, undefined, "piense"]);
+  assert.deepEqual(frasesNowrap(undefined, undefined, "Que tu equipo"), [undefined, undefined]);
+});
+
 // Carrusel del martes 2026-10-27 (slides 3 a 5): el ejemplo entre «» y su explicación salían
 // pegados en un bloque; un \n explícito tampoco partía el párrafo.
 check("parrafos: cita «…» inicial en su propio párrafo y \\n parte el párrafo", () => {
@@ -812,7 +1017,8 @@ check("Step: el body con cita inicial o \\n sale en párrafos separados (post y 
   for (const format of ["post", "reel"] as const) {
     const h = renderToStaticMarkup(createElement(Step, { step: "1", heading: "Quién eres y quién lo lee", body, format }));
     assert.match(h, /data-parrafos="2"[^>]*gap:\d+px/, format);
-    assert.match(h, /<p style="margin:0">«Soy jefa de operaciones; el correo va a mis 12 supervisores\.»<\/p><p style="margin:0">La IA no conoce/, format);
+    // La cita «…» lleva el borde lima a la izquierda (look papel); la explicación, no.
+    assert.match(h, /<p style="margin:0;border-left:6px solid #C6FF3D;padding-left:32px">«Soy jefa de operaciones; el correo va a mis 12 supervisores\.»<\/p><p style="margin:0">La IA no conoce/, format);
     const n = renderToStaticMarkup(createElement(Step, { heading: "H", body: "Primera línea.\nSegunda línea.", format }));
     assert.match(n, /<p style="margin:0">Primera línea\.<\/p><p style="margin:0">Segunda línea\.<\/p>/, format);
   }
@@ -843,14 +1049,16 @@ check("plantillas: formato post sin capa bg ni strike", () => {
   const myth = renderToStaticMarkup(createElement(MythReality, { myth: "M", reality: "R" }));
   assert.doesNotMatch(hook, /data-anim="bg"/);
   assert.doesNotMatch(myth, /data-anim="strike"/);
-  assert.match(myth, /text-decoration-line:line-through/, "en post, tachado rosa estático");
+  // Look papel: sin tachado; el mito va en serif cursiva gris.
+  assert.doesNotMatch(myth, /line-through/);
+  assert.match(myth, /font-family:InstrumentSerif;font-style:italic[^"]*color:#6B6B6B[^>]*>M</);
 });
 
 // --- StoryCover y logo tardío ---
 check("StoryCover: rótulo \"Nuevo en el feed\", wordmark y titular con palabra clave", () => {
   const h = renderToStaticMarkup(createElement(StoryCover, { title: "3 IAs gratis", highlight: "gratis", format: "reel" }));
   assert.match(h, /Nuevo en el feed ↑/);
-  assert.match(h, /data-brand="logo"/, "lleva el wordmark");
+  assert.doesNotMatch(h, /data-brand="logo"/, "el wordmark ya no se pinta");
   assert.match(h, /<h1[^>]*>.*data-anim="pop"[^>]*>gratis<\/span>/);
   assert.match(h, /width:1080px;height:1920px/, "lienzo 9:16");
   const otro = renderToStaticMarkup(createElement(StoryCover, { title: "Hola", rotulo: "Ya en el feed", format: "reel" }));
@@ -858,19 +1066,15 @@ check("StoryCover: rótulo \"Nuevo en el feed\", wordmark y titular con palabra 
   assert.doesNotMatch(otro, /Nuevo en el feed/);
 });
 
-check("Frame: logoEnCuadro0 por defecto no cambia el markup; false marca el wordmark como late (solo reel)", () => {
+check("Frame: logoEnCuadro0 y showLogo se aceptan sin efecto (ya no hay wordmark)", () => {
   for (const format of ["post", "reel"] as const) {
     const props = { title: "La IA cambió todo", highlight: "cambió", format };
     const def = renderToStaticMarkup(createElement(Hook, props));
-    assert.equal(renderToStaticMarkup(createElement(Hook, { ...props, logoEnCuadro0: true })), def, `${format}: true = por defecto`);
-    assert.doesNotMatch(def, /data-anim="late"/);
-    assert.doesNotMatch(def, /logoEnCuadro0/i);
+    for (const extra of [{ logoEnCuadro0: true }, { logoEnCuadro0: false }, { showLogo: false }]) {
+      assert.equal(renderToStaticMarkup(createElement(Hook, { ...props, ...extra })), def, `${format}: ${JSON.stringify(extra)} no cambia el markup`);
+    }
+    assert.doesNotMatch(def, /data-anim="late"|data-brand="logo"/);
   }
-  const reel = renderToStaticMarkup(createElement(Hook, { title: "T", format: "reel", logoEnCuadro0: false }));
-  assert.match(reel, /data-brand="logo" data-anim="late"|data-anim="late" data-brand="logo"/);
-  // En el carrusel no hay tiempo: el logo queda estático.
-  const post = renderToStaticMarkup(createElement(Hook, { title: "T", logoEnCuadro0: false }));
-  assert.doesNotMatch(post, /data-anim="late"/);
 });
 
 // --- reel: página única ---

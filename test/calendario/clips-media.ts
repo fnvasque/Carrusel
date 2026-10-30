@@ -53,8 +53,10 @@ await checkAsync("mezclarClips: el clip corto se congela hasta el fin de su esce
   ffmpeg(["-ss", "0.5", "-i", salida, "-frames:v", "1", jpg]);
   const g = await grisDeImagen(jpg, W, H);
   const media = (desde: number, hasta: number) => { let s = 0; for (let y = desde; y < hasta; y++) for (let x = 0; x < W; x++) s += g[y * W + x]; return s / ((hasta - desde) * W); };
-  const arriba = media(0, Math.round(H * 0.05)), abajo = media(Math.round(H * 0.8), H);
-  assert.ok(arriba < abajo * 0.6, `arriba ${arriba.toFixed(1)} debía ser bastante más oscuro que abajo ${abajo.toFixed(1)}`);
+  // Se compara con la franja del medio (sin sombra): la de abajo también se oscurece, por el subtítulo.
+  const arriba = media(0, Math.round(H * 0.05)), medio = media(Math.round(H * 0.4), Math.round(H * 0.5)), abajo = media(Math.round(H * 0.8), H);
+  assert.ok(arriba < medio * 0.6, `arriba ${arriba.toFixed(1)} debía ser bastante más oscuro que el medio ${medio.toFixed(1)}`);
+  assert.ok(abajo < medio * 0.6, `la franja del subtítulo (${abajo.toFixed(1)}) debía ser bastante más oscura que el medio ${medio.toFixed(1)}`);
 });
 
 await done();

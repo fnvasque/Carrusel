@@ -6,7 +6,7 @@ import { specTiming, BULLET_LEAD, HOOK_MAX_SECONDS, HOOK_MAX_SECONDS_GANCHO, GAN
 import { findChromium } from "../src/render/renderSlide.ts";
 import { FORMATS, type CarouselSpec, type Pace } from "../src/templates/types.ts";
 import { forceCaretsOn } from "../src/reel/capture.ts";
-import { Stat, Step, Hook, Screen } from "../src/templates/index.ts";
+import { Stat, Step, Hook, Screen, Clip } from "../src/templates/index.ts";
 import { parseStatValue } from "../src/templates/Stat.tsx";
 import spec from "../carousels/_smoke-plantillas.ts";
 import estudiar from "../carousels/estudiar-3-ias.ts";
@@ -80,19 +80,16 @@ function hookState(page: Page, t: number) {
     (window as any).__reel.seek(x);
     const h1 = document.querySelector('[data-scene="0"] h1') as HTMLElement;
     const pop = h1.querySelector('[data-anim="pop"]') as HTMLElement;
-    const probe = document.createElement("span");
-    probe.style.color = pop.dataset.accent!;
-    document.body.appendChild(probe);
-    const accent = getComputedStyle(probe).color;
-    probe.remove();
     return {
       split: h1.querySelectorAll(".reel-word").length,
       opacity: Number(getComputedStyle(h1).opacity),
       visibility: getComputedStyle(h1).visibility,
       scale: new DOMMatrix(getComputedStyle(h1).transform).a,
-      pop: getComputedStyle(pop).color,
-      accent,
-      parent: getComputedStyle(h1).color,
+      // Look papel: el pop hace crecer el marcador (background-size 0 % → 100 %), no cambia el color.
+      pop: getComputedStyle(pop).backgroundSize,
+      accent: "100% 100%",
+      marcador: pop.dataset.accent!.startsWith("linear-gradient"),
+      parent: "0% 100%",
     };
   }, t);
 }
@@ -100,14 +97,14 @@ function hookState(page: Page, t: number) {
 /**
  * Metas del hook (en ambos ritmos): titular completo y legible en el cuadro 0
  * (sin dividir en palabras) con el acercamiento ya en 1.04, cuadro 0 no vacío
- * y palabra clave en acento antes de 0.6 s.
+ * y marcador de la palabra clave completo (100 %) antes de 0.6 s.
  */
 async function hookGoals(page: Page, label: string): Promise<void> {
   const h0 = await hookState(page, 0);
   assert.equal(h0.split, 0, `${label}: el titular del hook no se divide en palabras`);
   assert.deepEqual([h0.opacity, h0.visibility], [1, "visible"], `${label}: titular completo y visible en el cuadro 0`);
   assert.ok(Math.abs(h0.scale - 1.04) < 1e-3, `${label}: titular a 1.04 en el cuadro 0: ${h0.scale}`);
-  assert.equal(h0.pop, h0.parent, `${label}: palabra clave aún en el color del titular en el cuadro 0`);
+  assert.equal(h0.pop, h0.parent, `${label}: marcador de la palabra clave aún sin crecer (0 %) en el cuadro 0`);
   // Miniatura: el cuadro 0 no sale vacío.
   const visible0 = await page.evaluate(() => {
     (window as any).__reel.seek(0);
@@ -116,7 +113,8 @@ async function hookGoals(page: Page, label: string): Promise<void> {
   });
   assert.ok(visible0 > 0, `${label}: el cuadro 0 muestra al menos un elemento (miniatura no vacía)`);
   const h06 = await hookState(page, 0.59);
-  assert.equal(h06.pop, h06.accent, `${label}: palabra clave en acento antes de 0.6 s`);
+  assert.ok(h06.marcador, `${label}: dataset.accent guarda el degradado del marcador`);
+  assert.equal(h06.pop, h06.accent, `${label}: marcador de la palabra clave completo (100 %) antes de 0.6 s`);
 }
 
 /**
@@ -224,7 +222,7 @@ try {
   const duration = await page.evaluate(() => (window as any).__reel.duration as number);
   assert.ok(Math.abs(duration - timing.total) <= 1 / timing.fps, `duración ${duration} vs ${timing.total}`);
 
-  // Hook (escena 0): metas del cuadro 0 y palabra clave en acento antes de 0.6 s.
+  // Hook (escena 0): metas del cuadro 0 y marcador de la palabra clave completo (100 %) antes de 0.6 s.
   await hookGoals(page, "rapido");
   const hook = (t: number) => hookState(page, t);
 
@@ -242,28 +240,14 @@ try {
     else assert.ok(v <= scales[k - 1], `la escala del titular crece en el cuadro ${k}: ${scales[k - 1]} → ${v}`);
   });
   const back = await hook(0);
-  assert.equal(back.pop, back.parent, "la palabra clave vuelve al color del titular al volver a 0");
+  assert.equal(back.pop, back.parent, "el marcador de la palabra clave vuelve a 0 % al volver a 0");
 
-  // Grilla: deriva diagonal continua (x sube, y baja) igual en todas las
-  // escenas, envuelta dentro de una celda y determinista hacia atrás.
-  const grid = (t: number) =>
-    page.evaluate((x) => {
-      (window as any).__reel.seek(x);
-      return Array.from(document.querySelectorAll("[data-grid]")).map((g) => {
-        const m = new DOMMatrix(getComputedStyle(g).transform);
-        return { x: m.e, y: m.f, cell: parseFloat(getComputedStyle(g).backgroundSize) };
-      });
-    }, t);
-  const g0 = await grid(0);
-  assert.ok(g0.length === timing.scenes.length, `una grilla por escena: ${g0.length}`);
-  assert.ok(g0.every((g) => g.x === 0 && g.y === 0), `grilla sin desplazar en el cuadro 0: ${JSON.stringify(g0)}`);
-  const g1 = await grid(1);
-  assert.ok(g1.every((g) => g.x === g1[0].x && g.y === g1[0].y), "todas las grillas se mueven igual");
-  assert.ok(g1[0].x > 0 && g1[0].y < 0 && Math.abs(g1[0].x + g1[0].y) < 1e-3, `deriva diagonal: ${g1[0].x}, ${g1[0].y}`);
-  const gEnd = await grid(timing.total);
-  assert.ok(gEnd.every((g) => g.x >= 0 && g.x < g.cell && g.y <= 0 && g.y > -g.cell), "la deriva queda dentro de una celda (sin bordes vacíos)");
-  const g1b = await grid(1);
-  assert.deepEqual(g1b, g1, "grilla determinista al volver atrás");
+  // Look papel: sin grilla (el runtime ya no la maneja: seek no falla y no hay capas [data-grid]).
+  const sinGrilla = await page.evaluate(() => {
+    (window as any).__reel.seek(1);
+    return document.querySelectorAll("[data-grid]").length;
+  });
+  assert.equal(sinGrilla, 0, "el look papel no pinta grilla");
 
   // Barra de progreso: lineal de 0 a 100% del ancho en todo el reel.
   const progress = (t: number) =>
@@ -272,6 +256,8 @@ try {
       const r = document.querySelector("[data-reel-progress]")!.getBoundingClientRect();
       return { w: r.width, top: r.top, h: r.height };
     }, t);
+  const colorBarra = await page.evaluate(() => getComputedStyle(document.querySelector("[data-reel-progress]")!).backgroundColor);
+  assert.equal(colorBarra, "rgb(17, 17, 17)", "barra de progreso en tinta #111111");
   const p0 = await progress(0);
   const pMid = await progress(timing.total / 2);
   const pEnd = await progress(timing.total);
@@ -413,30 +399,17 @@ try {
     const r = await checkSplitHeights(p, t.total, s.name);
     splits.push(`${s.name}: ${r.split} divididos, ${r.fallback} respaldo`);
 
-    // Tachado: una barra por línea del mito, centrada en la línea y de su ancho.
-    const strikes = await p.evaluate((x) => {
+    // Look papel (spec 2026-10-29): el mito ya no se tacha. No hay marcas strike ni barras
+    // del runtime, y el mito (serif cursiva) queda visible al final de su escena.
+    const mitos = await p.evaluate((x) => {
       (window as any).__reel.seek(x);
-      return Array.from(document.querySelectorAll('[data-anim="strike"]')).map((m) => {
-        const wrap = m.parentElement!;
-        const range = document.createRange();
-        range.selectNodeContents(wrap.querySelector("p")!);
-        const lines = Array.from(range.getClientRects()).map((r) => ({ mid: (r.top + r.bottom) / 2, left: r.left, width: r.width }));
-        const bars = Array.from(wrap.querySelectorAll("[data-reel-strike]")).map((b) => {
-          const r = b.getBoundingClientRect();
-          return { mid: (r.top + r.bottom) / 2, left: r.left, width: r.width };
-        });
-        return { markerHidden: getComputedStyle(m).display === "none", lines, bars };
-      });
+      return {
+        strikes: document.querySelectorAll('[data-anim="strike"], [data-reel-strike]').length,
+        mitos: Array.from(document.querySelectorAll("[data-mito]")).map((m) => getComputedStyle(m).opacity),
+      };
     }, t.total);
-    for (const st of strikes) {
-      assert.ok(st.markerHidden, `${s.name}: el marcador strike queda oculto`);
-      assert.equal(st.bars.length, st.lines.length, `${s.name}: una barra por línea (${st.lines.length})`);
-      st.bars.forEach((b, j) => {
-        const l = st.lines[j];
-        assert.ok(Math.abs(b.mid - l.mid) <= 2 && Math.abs(b.left - l.left) <= 2 && Math.abs(b.width - l.width) <= 2, `${s.name}: barra ${j} sobre su línea`);
-      });
-    }
-    if (s === mentiras) assert.ok(strikes.some((st) => st.lines.length >= 2), "mentiras-ia tiene un mito de 2+ líneas");
+    assert.equal(mitos.strikes, 0, `${s.name}: sin tachado`);
+    if (s === mentiras) assert.ok(mitos.mitos.length >= 1 && mitos.mitos.every((o) => o === "1"), `${s.name}: mitos visibles al final ${JSON.stringify(mitos.mitos)}`);
     await p.close();
   }
   // count con prefijos, sufijos, miles y decimales: texto final idéntico y
@@ -705,11 +678,11 @@ try {
       return { y: new DOMMatrix(getComputedStyle(h1).transform).f, marca: h1.dataset.reelHookGancho };
     });
     assert.ok(Math.abs(y0.y - 40) < 1e-3 && y0.marca === "1", `gancho: titular desplazado 40 px en el cuadro 0 (${y0.y})`);
-    assert.equal(h0.pop, h0.parent, "gancho: palabra clave aún en el color del titular en el cuadro 0");
+    assert.equal(h0.pop, h0.parent, "gancho: marcador de la palabra clave aún sin crecer (0 %) en el cuadro 0");
     const h03 = await hookState(g, 0.3);
     assert.ok(h03.scale < 1.12 && h03.scale > 1, `gancho: el titular se está asentando a los 0.3 s (${h03.scale})`);
     const h05 = await hookState(g, 0.49);
-    assert.equal(h05.pop, h05.accent, "gancho: palabra clave en acento antes de 0.5 s");
+    assert.equal(h05.pop, h05.accent, "gancho: marcador de la palabra clave completo (100 %) antes de 0.5 s");
     const h08 = await hookState(g, 0.75);
     assert.ok(Math.abs(h08.scale - 1) < 1e-3, `gancho: titular asentado a los 0.75 s (${h08.scale})`);
     // Entradas: nunca más lentas (slow 1) y comprimidas solo si no caben.
@@ -730,36 +703,50 @@ try {
     console.log(`✓ ritmo gancho: hook ≤ 3 s en movimiento desde el cuadro 0, transición 0.3, cierre lento (${t.total}s)`);
   }
 
-  // Logo tardío (logoEnCuadro0: false): el wordmark de la escena 0 está oculto
-  // hasta los 3 s y entra en 0.4 s; por defecto se ve desde el cuadro 0.
+  // Barra de progreso: tinta sobre el papel, blanca mientras dura una escena oscura (Clip o Hook con video,
+  // que se mezclan en lighten y se tragarían la tinta).
   {
-    const logoSpec = (late: boolean) =>
-      ({
-        name: "_logo-tardio",
-        slides: [
-          { template: Hook, props: { title: "Logo después del hook", highlight: "Logo", ...(late ? { logoEnCuadro0: false } : {}) } },
-          { template: Hook, props: { title: "Segunda escena del reel", highlight: "escena", ...(late ? { logoEnCuadro0: false } : {}) } },
-        ],
-      }) as unknown as CarouselSpec;
-    const logoAt = (p: Page, t: number) =>
-      p.evaluate((x) => {
+    const spec = {
+      name: "_barra-oscura",
+      slides: [
+        { template: Hook, props: { title: "Primero", highlight: "Primero", oscuro: true } },
+        { template: Clip, props: { title: "Un clip", archivo: "a.mp4" } },
+        { template: Hook, props: { title: "Último", highlight: "Último" } },
+      ],
+    } as unknown as CarouselSpec;
+    const { page: b, timing: tb } = await open(browser, spec);
+    const color = (t: number) =>
+      b.evaluate((x) => {
         (window as any).__reel.seek(x);
-        const logo = document.querySelector('[data-scene="0"] [data-brand="logo"]') as HTMLElement;
-        return { opacity: Number(getComputedStyle(logo).opacity), late: logo.getAttribute("data-anim") === "late" };
+        return getComputedStyle(document.querySelector("[data-reel-progress]")!).backgroundColor;
       }, t);
-    const { page: d } = await open(browser, logoSpec(false));
-    const d0 = await logoAt(d, 0);
-    assert.deepEqual(d0, { opacity: 1, late: false }, "por defecto, wordmark visible en el cuadro 0");
-    await d.close();
-    const { page: l } = await open(browser, logoSpec(true));
-    await hookGoals(l, "logo tardío");
-    for (const t of [0, 1.5, 2.95]) assert.equal((await logoAt(l, t)).opacity, 0, `logo tardío: oculto a los ${t} s`);
-    const mid = (await logoAt(l, 3.2)).opacity;
-    assert.ok(mid > 0 && mid < 1, `logo tardío: entrando a los 3.2 s (${mid})`);
-    assert.equal((await logoAt(l, 3.45)).opacity, 1, "logo tardío: completo a los 3.4 s");
-    assert.equal((await logoAt(l, 0)).opacity, 0, "logo tardío: seek hacia atrás lo vuelve a ocultar");
+    const sc = tb.scenes;
+    assert.equal(await color(0.5), "rgb(255, 255, 255)", "sobre el Hook oscuro, blanca");
+    assert.equal(await color(sc[1].start + 0.01), "rgb(255, 255, 255)", "en el solape Hook oscuro → Clip sigue blanca");
+    assert.equal(await color(sc[1].start + sc[1].dur / 2), "rgb(255, 255, 255)", "sobre el Clip, blanca");
+    assert.equal(await color(sc[2].start + sc[2].dur / 2), "rgb(17, 17, 17)", "de vuelta en papel, tinta");
+    await b.close();
+    console.log("✓ barra de progreso: tinta sobre papel y blanca sobre escenas oscuras");
+  }
+
+  // logoEnCuadro0: false ya no tiene efecto (sin wordmark): el reel renderiza igual, sin logo.
+  {
+    const spec = {
+      name: "_logo-sin-efecto",
+      slides: [
+        { template: Hook, props: { title: "Logo después del hook", highlight: "Logo", logoEnCuadro0: false } },
+        { template: Hook, props: { title: "Segunda escena del reel", highlight: "escena", logoEnCuadro0: false } },
+      ],
+    } as unknown as CarouselSpec;
+    const { page: l } = await open(browser, spec);
+    await hookGoals(l, "logoEnCuadro0 sin efecto");
+    const marcas = await l.evaluate(() => {
+      (window as any).__reel.seek(3.2);
+      return { logo: document.querySelectorAll('[data-brand="logo"]').length, firma: document.querySelectorAll('[data-scene="0"] [data-brand="firma"]').length };
+    });
+    assert.deepEqual(marcas, { logo: 0, firma: 1 }, "sin wordmark; la firma compacta va en la cabecera");
     await l.close();
-    console.log("✓ logo tardío: wordmark oculto hasta 3 s, entra en 0.4 s; por defecto desde el cuadro 0");
+    console.log("✓ logoEnCuadro0: sin efecto; el reel no tiene wordmark y lleva la firma compacta");
   }
 
   // Carrusel del martes 2026-10-27: la respuesta de la IA (un correo) con saltos de línea
@@ -816,15 +803,10 @@ try {
       const pops = await p.evaluate((x) => {
         (window as any).__reel.seek(x);
         return Array.from(document.querySelectorAll('[data-scene="0"] h1 [data-anim="pop"]')).map((e) => {
-          const probe = document.createElement("span");
-          probe.style.color = (e as HTMLElement).dataset.accent!;
-          document.body.appendChild(probe);
-          const acc = getComputedStyle(probe).color;
-          probe.remove();
-          return getComputedStyle(e).color === acc;
+          return getComputedStyle(e).backgroundSize === "100% 100%" && (e as HTMLElement).dataset.accent!.startsWith("linear-gradient");
         });
       }, t.scenes[0].dur - t.transition);
-      assert.deepEqual(pops, [true, true, true, true, true], `${pace}: las 5 palabras del resaltado terminan en el acento`);
+      assert.deepEqual(pops, [true, true, true, true, true], `${pace}: las 5 palabras del resaltado terminan con el marcador completo`);
       await p.close();
     }
   }

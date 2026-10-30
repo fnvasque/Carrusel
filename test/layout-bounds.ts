@@ -57,7 +57,7 @@ async function problems(page: Page, format: Format): Promise<string[]> {
     const out: string[] = [];
     const src = document.querySelector('[data-brand="source"]');
     const srcTop = src ? src.getBoundingClientRect().top : Infinity;
-    const header = document.querySelector('[data-brand="label"]')?.parentElement;
+    const header = document.querySelector("[data-content]")?.previousElementSibling;
     const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
     const limit = reel ? h - safe : h;
     document.querySelectorAll("body *").forEach((el) => {
@@ -78,9 +78,11 @@ async function problems(page: Page, format: Format): Promise<string[]> {
   }, { h: FORMATS[format].height, reel: format === "reel", safe: REEL_SAFE_BOTTOM, safeTop: REEL_SAFE_TOP });
 }
 
-/** Fondos `ai` → color plano: el layout no depende del fondo y así no se llama a la API. */
+/** Fondos `ai` → sin fondo (papel): el layout no depende del fondo y así no se llama a la API. */
 function offline(props: Record<string, any>): Record<string, any> {
-  return props.background && "ai" in props.background ? { ...props, background: { color: "#06060A" } } : props;
+  if (!(props.background && "ai" in props.background)) return props;
+  const { background: _bg, ...rest } = props;
+  return rest;
 }
 
 const cases: { name: string; template: ComponentType<any>; props: Record<string, unknown> }[] = [...stress];
@@ -99,7 +101,7 @@ async function centerOffset(page: Page): Promise<{ offset: number; fill: number 
     const rects = Array.from(root.children).map((c) => c.getBoundingClientRect()).filter((r) => r.height > 0);
     const top = Math.min(...rects.map((r) => r.top));
     const bottom = Math.max(...rects.map((r) => r.bottom));
-    const header = document.querySelector('[data-brand="logo"]')!.parentElement!.getBoundingClientRect().bottom;
+    const header = document.querySelector("[data-content]")!.previousElementSibling!.getBoundingClientRect().bottom;
     const src = document.querySelector('[data-brand="source"]');
     const floor = src ? src.getBoundingClientRect().top : 1920 - safe;
     const usable = floor - header;

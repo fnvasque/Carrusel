@@ -16,6 +16,7 @@ import type { CarouselSpec } from "../templates/types.ts";
  *   npm run reel carousels/mi-carrusel.ts -- --pace=gancho --max-seconds=20
  *   npm run reel carousels/mi-carrusel.ts -- --seconds=3 --fade=0.5
  *   npm run reel carousels/mi-carrusel.ts -- --frames-only
+ *   npm run reel carousels/mi-carrusel.ts -- --subtitulos   (subtítulos de la voz; por defecto apagados)
  */
 function numFlag(name: string): number | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -32,7 +33,7 @@ function strFlag(name: string): string | undefined {
 async function main() {
   const file = process.argv[2];
   if (!file) {
-    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --pace=ensenar|rapido|gancho --seconds=N --fade=N (transición) --max-seconds=N (tope) --frames-only --audio=ruta --voz=em_alex|em_santa|ef_dora --sin-voz]");
+    console.error("Uso: npm run reel <ruta-al-carrusel.ts> [-- --pace=ensenar|rapido|gancho --seconds=N --fade=N (transición) --max-seconds=N (tope) --frames-only --audio=ruta --voz=em_alex|em_santa|ef_dora --sin-voz --subtitulos]");
     process.exit(1);
   }
   const seconds = numFlag("seconds"); // override opcional: duración uniforme
@@ -43,6 +44,8 @@ async function main() {
   // Voz de la narración (escenas con `narracion`): --voz=em_alex|em_santa|ef_dora, --sin-voz la omite.
   const vozFlag = strFlag("voz");
   const voz = process.argv.includes("--sin-voz") ? false : vozFlag === undefined ? undefined : parseVoz(vozFlag);
+  // Subtítulos quemados de la narración: apagados salvo --subtitulos.
+  const subtitulos = process.argv.includes("--subtitulos");
   // Ritmo: sobrescribe el `pace` del carrusel; un valor inválido falla con un mensaje claro.
   const paceFlag = process.argv.includes("--pace") ? "" : strFlag("pace");
   if (paceFlag === "") throw new Error("falta el valor de --pace (ensenar | rapido | gancho)");
@@ -54,7 +57,7 @@ async function main() {
     throw new Error(`El archivo ${file} no exporta por defecto un carrusel con slides.`);
   }
 
-  await renderReel(spec, { seconds, fade, pace, audio, framesOnly, maxSeconds, voz });
+  await renderReel(spec, { seconds, fade, pace, audio, framesOnly, maxSeconds, voz, subtitulos });
 }
 
 main().catch((err) => {

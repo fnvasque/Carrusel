@@ -63,7 +63,7 @@ import { NADA_NUEVO_RE as NADA_NUEVO_LECTOR } from "../../src/calendario/lector-
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
 import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
-import { pillContent } from "../../src/templates/Cta.tsx";
+import { pillContent, DM_PISTA } from "../../src/templates/Cta.tsx";
 
 /**
  * Tests del validador del planificador (`kb-plantilla/_calendario/validar.mjs`).
@@ -221,6 +221,34 @@ check("calendario/validar: Hook sin highlight o con highlight fuera del título 
   const d = borrador();
   d.slides[0].props.highlight = "Podcast"; // mayúsculas: el motor busca sin distinguir mayúsculas
   assertNone(vb(pieza(), d));
+});
+
+check("calendario/validar: cursiva (Hook, Step, Lead, Cta) y highlight de MythReality son props válidas (look papel)", () => {
+  // Hook: cursiva = 2-4 palabras del inicio del titular.
+  const h = borrador();
+  h.slides[0].props.cursiva = "Convierte 6 PDFs";
+  assertNone(vb(pieza(), h));
+  // Step y Cta.
+  const s = borrador();
+  s.slides[1].props.cursiva = "Sube tus PDFs";
+  s.slides[3].props.cursiva = "Guárdalo para";
+  assertNone(vb(pieza(), s));
+  // Lead.
+  const l = borrador();
+  l.slides.splice(1, 0, { template: "Lead", props: { text: "Sin leer una página.", cursiva: "Sin leer" } });
+  assertNone(vb(pieza(), l));
+  // MythReality: highlight sobre la realidad.
+  const m = borrador();
+  m.slides.splice(1, 0, { template: "MythReality", props: { myth: "Necesitas pagar", reality: "NotebookLM lo hace gratis", highlight: "gratis" } });
+  assertNone(vb(pieza(), m));
+  // La cursiva debe aparecer tal cual en el titular, igual que el highlight.
+  const mal = borrador();
+  mal.slides[0].props.cursiva = "otra frase";
+  assertHas(vb(pieza(), mal), /cursiva/);
+  // En una plantilla que no la admite sigue siendo prop desconocida.
+  const sc = borrador();
+  sc.slides.splice(1, 0, { template: "Stat", props: { value: "10 min", label: "dura", cursiva: "10" } });
+  assertHas(vb(pieza(), sc), /cursiva/);
 });
 
 for (const campo of ["senal", "emocion", "entregable", "fraseAmigo"]) {
@@ -1304,8 +1332,9 @@ check("calendario/validar (lector): con prisa ve el prompt completo y las etique
   assert.ok(conPrisa.includes(prompt), conPrisa);
   assert.ok(completo.includes(prompt));
   for (const t of [conPrisa, completo]) {
-    assert.ok(t.includes("El mito: Necesitas pagar para tener un podcast"), t);
-    assert.ok(t.includes("La realidad: NotebookLM lo hace gratis"), t);
+    // Etiquetas por defecto del look papel (spec 2026-10-29): «Lo que se cree» / «Lo que pasa».
+    assert.ok(t.includes("Lo que se cree: Necesitas pagar para tener un podcast"), t);
+    assert.ok(t.includes("Lo que pasa: NotebookLM lo hace gratis"), t);
     assert.ok(t.includes("Lo que crees: Hay que saber editar audio"), t);
     assert.ok(t.includes("Lo que pasa: Lo arma solo"), t);
     assert.ok(/10 min\ndura el resumen/.test(t), t);
@@ -1341,11 +1370,11 @@ check("calendario/validar (lector): el completo ve eyebrow, kicker, subtitle, no
   b.slides[5].props.handle = "ia.punto.es";
   b.slides[5].props.cta = "Guárdalo 🔖";
   const { completo, conPrisa } = textosLector(b, "carrusel");
-  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "Copia este prompt", "Copiar", "Desliza →"]) {
+  for (const x of ["Truco de estudio", "Sin pantalla", "El truco es el prompt", "Funciona también en inglés", "Cada semana un truco nuevo", "\nGuárdalo\n", "@ia.punto.es", "Copia esto", "Desliza →"]) {
     assert.ok(completo.includes(x), `falta ${JSON.stringify(x)} en:\n${completo}`);
   }
   assert.ok(!completo.includes("🔖"));
-  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "Copia este prompt"]) assert.ok(!conPrisa.includes(x), x);
+  for (const x of ["Truco de estudio", "Sin pantalla", "Funciona también", "Cada semana", "@ia.punto.es", "Desliza", "Copia esto"]) assert.ok(!conPrisa.includes(x), x);
   assert.ok(!textosLector(b, "reel").completo.includes("Desliza"), "en reel no hay Desliza");
   b.slides[0].props.swipe = false;
   assert.ok(!textosLector(b, "carrusel").completo.includes("Desliza"));
@@ -1362,6 +1391,31 @@ check("calendario/validar (lector): textoPastilla es copia de pillContent (Cta.t
 /** Texto visible de un componente renderizado (sin etiquetas HTML). */
 const textoRender = (el: any) =>
   renderToStaticMarkup(el).replace(/<[^>]+>/g, "\n").replace(/&amp;/g, "&").replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+
+check("calendario/validar (lector): en reel el Hook no muestra `resultado`; en carrusel sí", () => {
+  const b: any = { slides: [{ template: "Hook", props: { title: "Pídele a la IA que revise", resultado: "RESULTADO_X", app: "ChatGPT" } }] };
+  assert.ok(!textosLector(b, "reel").completo.includes("RESULTADO_X"));
+  assert.ok(!textosLector(b, "reel").conPrisa.includes("RESULTADO_X"));
+  assert.ok(textosLector(b, "carrusel").completo.includes("RESULTADO_X"));
+});
+
+check("calendario/validar (lector): el Cta con PARTIR lee título, razón, PARTIR y la pista; sin pastilla ni @handle (lo que pinta Cta.tsx)", () => {
+  const props = { title: "Tu primer paso con IA", reason: "RAZON_X", handle: "ia.punto.es", cta: "Escríbeme PARTIR" };
+  const b: any = { slides: [{ template: "Cta", props }] };
+  const { completo, conPrisa } = textosLector(b, "carrusel");
+  for (const x of ["Tu primer paso con IA", "RAZON_X", "\nPARTIR\n", DM_PISTA]) assert.ok(completo.includes(x), `falta ${x} en ${completo}`);
+  assert.ok(!completo.includes("Escríbeme PARTIR") && !completo.includes("@ia.punto.es"), completo);
+  assert.ok(conPrisa.includes("PARTIR") && !conPrisa.includes("RAZON_X") && !conPrisa.includes("Escríbeme esto"), conPrisa);
+  // Lo que se lee es lo que pinta el componente.
+  const pintado = textoRender(createElement(Cta, { ...props, format: "post" } as any));
+  for (const x of ["Tu primer paso con IA", "RAZON_X", "PARTIR", DM_PISTA]) assert.ok(pintado.includes(x), x);
+  // (la firma de la caja ya dice la cuenta; la prop `handle` no se pinta suelta y la pastilla tampoco)
+  assert.ok(!pintado.includes("Escríbeme PARTIR"));
+  assert.ok(!pintado.includes('data-cta="handle"'));
+  // PARTIR en el título también cuenta (igual que pideDm).
+  const t: any = { slides: [{ template: "Cta", props: { title: "Escribe PARTIR", cta: "Guárdalo", handle: "ia.punto.es" } }] };
+  assert.ok(!textosLector(t).completo.includes("@ia.punto.es") && textosLector(t).completo.includes(DM_PISTA));
+});
 
 check("calendario/validar (lector): etiquetas por defecto de MythReality leídas del componente; mythLabel \"\" da etiqueta vacía", () => {
   const html = textoRender(createElement(MythReality, { myth: "MITO_X", reality: "REAL_Y" }));
@@ -1582,7 +1636,8 @@ check("calendario/validar: handle con @ inicial → error \"sin @: el motor la a
   assertHas(vb(pieza(), b), /handle "@ia\.punto\.es" sin @: el motor la agrega/);
   b.slides[3].props.handle = "ia.punto.es";
   assertNone(vb(pieza(), b));
-  assert.equal(EJEMPLO.borrador.slides[5].props.handle, "ia.punto.es");
+  // El ejemplo cierra con PARTIR: la caja de mensaje ya muestra la cuenta, así que no lleva handle.
+  assert.equal(EJEMPLO.borrador.slides[5].props.handle, undefined);
 });
 
 check("calendario/validar: el Cta exige cta explícito y coherente con la señal", () => {
@@ -1627,14 +1682,15 @@ check("calendario/validar: INSTRUCCIONES.md trae los textos sugeridos de la past
 
 // --- 2026-10-07 (2): ventana del Prompt legible y notas NB del lector frío ---
 
-check("calendario/validar (lector): la ventana del Prompt dice \"Copia este prompt\" (no un nombre de archivo con guiones)", () => {
+// Look papel (spec 2026-10-29): la tarjeta del Prompt se rotula «Copia esto» (antes «Copia este prompt»).
+check("calendario/validar (lector): la tarjeta del Prompt dice \"Copia esto\" (no un nombre de archivo con guiones)", () => {
   for (const format of ["post", "reel"] as const) {
     const html = textoRender(createElement(Prompt, { heading: "Pega esto", prompt: "Resume esto.", format }));
-    assert.ok(html.includes("Copia este prompt"), format);
-    assert.ok(!html.includes("copia-este-prompt"), format);
+    assert.ok(html.includes("Copia esto"), format);
+    assert.ok(!html.includes("copia-esto"), format);
   }
   const { completo } = textosLector(EJEMPLO_VIEJO.borrador);
-  assert.ok(completo.includes("Copia este prompt") && !completo.includes("copia-este-prompt"), completo);
+  assert.ok(completo.includes("Copia esto") && !completo.includes("copia-esto"), completo);
 });
 
 check("calendario/validar: lectorFrio.notas — cada duda no bloqueante en formato NB: «cita» → regla", () => {
@@ -1794,6 +1850,50 @@ check("calendario/validar: narracion — obligatoria en cada escena del reel des
   delete bc.pace;
   delete bc.audio;
   assertHas(vb(carrusel, bc), /narracion solo va en reels/);
+});
+
+check("calendario/validar: desde 2026-11-02 el Hook del reel no exige resultado (la IA se ve en la escena 2, Screen); antes sí", () => {
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  assertHas(vb(pieza({ dia: "2026-10-26" }), b), /slide 1 \(Hook\): falta resultado/);
+  const nov = vb(pieza({ dia: "2026-11-02" }), b);
+  assert.ok(!nov.some((e: string) => /falta resultado/.test(e)), nov.join("\n"));
+  // Si viene, se sigue validando su forma (el post de la misma pieza la muestra).
+  const malo = clone(b);
+  Object.assign(malo.slides[0].props, { resultado: "x ".repeat(25).trim(), app: "NotebookLM" });
+  assertHas(vb(pieza({ dia: "2026-11-02" }), malo), /resultado tiene 25 palabras/);
+});
+
+check("calendario/validar: desde 2026-11-02 la slide 2 del reel (tras el Hook) es una Screen completa; antes rige resultado", () => {
+  const b = borrador();
+  b.slides.forEach((s: any) => (s.narracion = "Esto lo hace NotebookLM solo, con tus apuntes."));
+  const nov = pieza({ dia: "2026-11-02" });
+  const re = /slide 2: desde el 2026-11-02 la slide 2 del reel es una Screen/;
+  // Sin Screen en la slide 2 (es un Step): falla, con o sin resultado en el Hook.
+  assertHas(vb(nov, b), re);
+  const conRes = clone(b);
+  Object.assign(conRes.slides[0].props, { app: "NotebookLM", modo: "respuesta", resultado: "Resumen en audio listo: 10 minutos." });
+  assertHas(vb(nov, conRes), re);
+  // Con una Screen completa en la slide 2: pasa esa regla.
+  const ok = clone(b);
+  ok.slides.splice(1, 0, { template: "Screen", props: { app: "NotebookLM", prompt: "Haz un resumen en audio de estos PDFs.", respuesta: "Listo: resumen de 10 minutos." }, narracion: "Le pides el resumen en audio y te lo hace." });
+  const errsOk = vb(nov, ok);
+  assert.ok(!errsOk.some((e: string) => re.test(e) || /falta resultado/.test(e)), errsOk.join("\n"));
+  // Screen incompleta (sin prompt): falla igual, diciendo qué falta.
+  const incompleta = clone(ok);
+  incompleta.slides[1].props.prompt = "  ";
+  assertHas(vb(nov, incompleta), /Screen[^"]*falta prompt/);
+  // Antes del 2026-11-02: no se exige la Screen en la slide 2; sigue la regla del resultado.
+  const oct = vb(pieza({ dia: "2026-10-26" }), b);
+  assert.ok(!oct.some((e: string) => re.test(e)), oct.join("\n"));
+  assertHas(oct, /slide 1 \(Hook\): falta resultado/);
+  // Carrusel: no aplica.
+  const carrusel = pieza({ formato: "carrusel", arquetipo: "lista", dia: "2026-11-06", id: "vie-carrusel-x", borrador: "vie-carrusel-x.json" });
+  const bc = clone(borrador());
+  bc.name = "vie-carrusel-x";
+  delete bc.pace;
+  delete bc.audio;
+  assert.ok(!vb(carrusel, bc).some((e: string) => re.test(e)));
 });
 
 check("calendario/validar: narracion alarga la escena como el motor (voz + margen) y cuenta para el tope de duración", () => {

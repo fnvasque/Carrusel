@@ -18,20 +18,23 @@ export interface ClipProps extends BaseSlideProps {
 
 /**
  * Rol — Video generado como contenido (solo reels). El motor pinta solo el
- * texto sobre el fondo casi negro de marca; después del render, el calendario
- * mezcla el clip `archivo` a pantalla completa durante esta escena
- * (`src/calendario/clips.ts`, blend lighten como `hookVideo`). Por eso el
- * titular va en el tercio superior, con sombra, y la acción del clip se pide
- * en la mitad inferior del cuadro.
+ * texto sobre negro (la única escena oscura del look papel); después del
+ * render, el calendario mezcla el clip `archivo` a pantalla completa durante
+ * esta escena (`src/calendario/clips.ts`, blend lighten como `hookVideo`): el
+ * blend ignora todo lo más oscuro que el video, así que el fondo debe ser
+ * negro y el texto, la cabecera y la firma van en claro (`oscuro`). Sin
+ * sombras de texto: el blend las ignora. El titular va en el tercio superior
+ * (el calendario oscurece el video bajo él) y la acción del clip se pide en la
+ * mitad inferior del cuadro.
  */
 export function Clip({ title, highlight, label, archivo, accent, format, ...base }: ClipProps) {
   const lime = accent ?? theme.colors.accent;
   const size = fitDisplaySize(title, 150, { maxLines: 3, tight: true, keep: frasesNowrap(highlight) });
   return (
-    <Frame format={format} {...base}>
+    <Frame format={format} {...base} oscuro>
       <div data-clip={archivo} style={{ display: "flex", flexDirection: "column", justifyContent: "flex-start", flex: 1, gap: 28, paddingTop: 120 }}>
         {label && (
-          <MonoLabel anim="rise" color={lime} style={{ textShadow: "0 4px 18px rgba(0,0,0,0.9)" }}>
+          <MonoLabel anim="rise" color={lime}>
             {label}
           </MonoLabel>
         )}
@@ -40,13 +43,11 @@ export function Clip({ title, highlight, label, archivo, accent, format, ...base
           style={{
             margin: 0,
             fontFamily: theme.fonts.display,
-            fontWeight: 400,
+            fontWeight: 700, // Inter 700 tal como se escribe: lo que mide fit.ts
             fontSize: size,
             lineHeight: displayLineHeight(title, 0.98),
-            textTransform: "uppercase",
-            letterSpacing: "0.005em",
+            letterSpacing: "-0.04em",
             textWrap: "balance",
-            textShadow: "0 6px 28px rgba(0,0,0,0.9)",
           }}
         >
           {highlightText(title, highlight, lime)}

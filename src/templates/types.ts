@@ -63,22 +63,37 @@ export interface BaseSlideProps {
   total?: number;
   /** Atribución al pie (ej. "Fuente: OpenAI"). */
   source?: string;
-  /** Muestra el logo de marca arriba-izquierda. Por defecto true. */
+  /** Sin efecto desde el look papel (ya no hay wordmark); se acepta para no romper borradores. */
   showLogo?: boolean;
   /**
-   * Reel: el wordmark se ve desde el cuadro 0 (por defecto true). Con false
-   * entra a los 3 s (`data-anim="late"`); es un experimento del calendario, no
-   * la regla. En el carrusel no tiene efecto.
+   * Sin efecto desde el look papel (el wordmark `ia.es` ya no se pinta). Se
+   * acepta para que los borradores y el calendario antiguos sigan validando.
    */
   logoEnCuadro0?: boolean;
+  /**
+   * Reel: la escena va sobre fondo negro con texto claro porque un video se mezcla debajo en
+   * blend `lighten` (Clip; el Hook de un reel con `hookVideo`). Lo marca el calendario, no el usuario.
+   */
+  oscuro?: boolean;
+  /** Serie de la pieza (`por-donde-partir`, `lo-que-construi`): su nombre va en la cabecera izquierda. */
+  serie?: string;
+  /** Post: la firma del pie lleva debajo la línea de la cuenta (`theme.firma.linea`). Por defecto false. */
+  firmaLinea?: boolean;
   /** Formato de salida: "post" (4:5, por defecto) o "reel" (9:16). */
   format?: Format;
   /**
    * Reel: lo que la voz dice mientras se ve esta escena (6–18 palabras). El
-   * motor la sintetiza (Kokoro), alarga la escena hasta que quepa y la pinta
-   * como subtítulo abajo. Las plantillas no la dibujan; en el carrusel se ignora.
+   * motor la sintetiza (Kokoro) y alarga la escena hasta que quepa. Las
+   * plantillas no la dibujan; en el carrusel se ignora.
    */
   narracion?: string;
+  /**
+   * Reel: pinta la narración como subtítulo quemado abajo (y el contenido le
+   * deja su espacio). Por defecto apagado desde 2026-11-02 (pedido de Felipe:
+   * demasiado texto); lo enciende `npm run reel -- --subtitulos` o
+   * `_calendario/config.json → subtitulos: true`.
+   */
+  subtitulos?: boolean;
 }
 
 /** Un slide = una plantilla + sus props. */

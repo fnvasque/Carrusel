@@ -38,17 +38,24 @@ export function parrafosHeight(text: string, size: number, width: number, lineHe
   return ps.reduce((h, p) => h + interHeight(p, size, width, lineHeight, em), 0) + gap * (ps.length - 1);
 }
 
+/** ¿El párrafo es una cita o ejemplo «…» (empieza con comillas latinas)? */
+export function esCita(p: string): boolean {
+  return p.trimStart().startsWith("«");
+}
+
 /**
  * Cuerpo en párrafos: con uno solo, un `<p>` como siempre; con varios, un `<div>`
  * con el estilo (fuente, color, bordes) y un `<p>` por párrafo, separados por
- * `PARRAFO_GAP_EM`.
+ * `PARRAFO_GAP_EM`. `citaStyle` se suma al párrafo que es una cita «…» (Step:
+ * borde izquierdo lima); su padding izquierdo debe descontarse del ancho al estimar.
  */
-export function Parrafos({ text, size, style, anim }: { text: string; size: number; style?: CSSProperties; anim?: string }) {
+export function Parrafos({ text, size, style, anim, citaStyle }: { text: string; size: number; style?: CSSProperties; anim?: string; citaStyle?: CSSProperties }) {
   const ps = parrafos(text);
   const a = anim ? { "data-anim": anim } : {};
+  const cita = (p: string) => (citaStyle && esCita(p) ? citaStyle : undefined);
   if (ps.length <= 1) {
     return (
-      <p {...a} style={{ margin: 0, fontSize: size, ...style }}>
+      <p {...a} style={{ margin: 0, fontSize: size, ...style, ...cita(text) }}>
         {text}
       </p>
     );
@@ -56,7 +63,7 @@ export function Parrafos({ text, size, style, anim }: { text: string; size: numb
   return (
     <div {...a} data-parrafos={ps.length} style={{ margin: 0, fontSize: size, ...style, display: "flex", flexDirection: "column", gap: Math.round(PARRAFO_GAP_EM * size) }}>
       {ps.map((p, i) => (
-        <p key={i} style={{ margin: 0 }}>
+        <p key={i} style={{ margin: 0, ...cita(p) }}>
           {p}
         </p>
       ))}

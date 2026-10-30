@@ -40,6 +40,17 @@ check("borradorASpec conserva el fondo ai del Hook (draftToSpec lo perdía)", ()
   assert.deepEqual(borradorASpec(b).slides[0].props.background, { ai: "x", overlay: 0.5 });
 });
 
+check("borradorASpec y storySpec pasan la serie de la pieza a los defaults", () => {
+  const b = { ...base(), serie: "lo-que-construi" };
+  assert.equal(borradorASpec(b).defaults?.serie, "lo-que-construi");
+  assert.equal(borradorASpec(b, { format: "reel" }).defaults?.serie, "lo-que-construi");
+  assert.equal(storySpec(b).defaults?.serie, "lo-que-construi");
+  assert.equal(parseBorrador(JSON.stringify(b)).serie, "lo-que-construi");
+  assert.throws(() => parseBorrador(JSON.stringify({ ...b, serie: 3 })), /serie/);
+  // Sin serie, los defaults no la llevan.
+  assert.equal("serie" in (borradorASpec(base()).defaults ?? {}), false);
+});
+
 check("borradorASpec fuerza el estilo de marca en fondos ai (nunca brandStyle: false)", () => {
   for (const brandStyle of [false, true]) {
     const b = base() as any;

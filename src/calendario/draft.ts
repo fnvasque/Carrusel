@@ -33,6 +33,8 @@ export interface Borrador extends VariationDraft {
   audio?: string;
   /** Reel: wordmark desde el cuadro 0 (por defecto true; false = experimento logo tardío). */
   logoEnCuadro0?: boolean;
+  /** Serie de la pieza (`plan.piezas[].serie`): su nombre va en la cabecera de cada lámina. */
+  serie?: string;
   /** Reel: clip de video IA detrás del hook (lo aplica `hook-video.ts` después del render). */
   hookVideo?: HookVideo;
   /**
@@ -118,6 +120,7 @@ export function parseBorrador(text: string): Borrador {
   });
   if (data.pace !== undefined) parsePace(data.pace, "el campo `pace` del borrador");
   if (data.audio !== undefined && (typeof data.audio !== "string" || !data.audio.trim())) throw new Error("El campo `audio` debe ser el nombre de una pista (texto).");
+  if (data.serie !== undefined && (typeof data.serie !== "string" || !data.serie.trim())) throw new Error("El campo `serie` debe ser el nombre de una serie (texto).");
   if (data.logoEnCuadro0 !== undefined && typeof data.logoEnCuadro0 !== "boolean") throw new Error("El campo `logoEnCuadro0` debe ser true o false.");
   if (data.hookVideo !== undefined) {
     const err = hookVideoError(data.hookVideo);
@@ -159,12 +162,14 @@ export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): Caro
     // La narración solo tiene sentido en el reel (voz + subtítulo); el carrusel la ignora.
     const n = validated.slides[i].narracion;
     const narracion = opts.format === "reel" && typeof n === "string" && n.trim() ? { narracion: n.replace(/\s+/g, " ").trim() } : {};
-    return { ...s, props: { ...s.props, ...handle, ...narracion, ...(background ? { background } : {}) } };
+    // Con `hookVideo`, el Hook del reel va oscuro: el video se mezcla debajo en blend lighten.
+    const oscuro = opts.format === "reel" && i === 0 && b.hookVideo !== undefined ? { oscuro: true } : {};
+    return { ...s, props: { ...s.props, ...handle, ...narracion, ...oscuro, ...(background ? { background } : {}) } };
   });
   return {
     name: slugify(validated.name),
     ...(b.pace !== undefined ? { pace: b.pace } : {}),
-    defaults: { ...spec.defaults, ...(opts.format ? { format: opts.format } : {}) },
+    defaults: { ...spec.defaults, ...(validated.serie ? { serie: validated.serie } : {}), ...(opts.format ? { format: opts.format } : {}) },
     slides,
   };
 }
@@ -173,7 +178,7 @@ export function borradorASpec(b: Borrador, opts: { format?: Format } = {}): Caro
  * Spec de la story de la pieza: un solo slide `StoryCover` 9:16 con el titular
  * y la palabra clave del Hook (el que garantiza `validateDraft`). No hereda el
  * fondo del Hook: uno `ai` sería otra generación en 9:16 y rompería el tope de
- * imágenes IA por semana; la story va con el fondo por defecto del look lima.
+ * imágenes IA por semana; la story va con el fondo por defecto del look papel.
  */
 export function storySpec(b: Borrador): CarouselSpec {
   const validated = validateDraft(b) as Borrador;
@@ -182,7 +187,7 @@ export function storySpec(b: Borrador): CarouselSpec {
   const highlight = typeof hook.props.highlight === "string" ? hook.props.highlight : undefined;
   return {
     name: `${slugify(validated.name)}-story`,
-    defaults: { pillar: validated.pillar },
+    defaults: { pillar: validated.pillar, ...(validated.serie ? { serie: validated.serie } : {}) },
     slides: [
       {
         template: StoryCover,

@@ -2,12 +2,13 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { SUBTITULO_ZONA_ALTO } from "../reel/page.ts";
 import { esEscenaClip, type ReelTiming } from "../reel/timing.ts";
 import type { CarouselSpec } from "../templates/types.ts";
 
 /**
  * Escenas `Clip` del calendario (video generado como contenido): el motor
- * renderiza el texto sobre el fondo casi negro y aquí se calcula en qué
+ * renderiza el texto sobre negro y aquí se calcula en qué
  * segundos se ve cada clip y se mezcla con ffmpeg a pantalla completa, con el
  * mismo truco que `scripts/reel-hook-video.sh`: el clip oscurecido entra en
  * blend `lighten`, así el texto blanco y el lima quedan encima.
@@ -26,6 +27,17 @@ export const CLIP_BRILLO = 0.7;
  */
 export const CLIP_SOMBRA_ALTO = 0.45;
 export const CLIP_SOMBRA_MIN = 0.3;
+/**
+ * Franja del subtítulo abajo: el clip se multiplica por CLIP_SOMBRA_ABAJO_MIN en la
+ * zona del subtítulo (`SUBTITULO_ZONA_ALTO` px de un reel de 1920, escalados al
+ * alto real) con una rampa de CLIP_SOMBRA_ABAJO_RAMPA px hacia arriba. En blend
+ * lighten la píldora tinta del subtítulo no se ve sobre un video: solo queda el
+ * texto blanco, y necesita un video oscuro debajo para leerse. Se aplica también
+ * con los subtítulos apagados (por defecto desde 2026-11-02): la franja cubre la
+ * fuente al pie del Clip, que es texto blanco sobre el video y se lee mejor así.
+ */
+export const CLIP_SOMBRA_ABAJO_MIN = 0.3;
+export const CLIP_SOMBRA_ABAJO_RAMPA = 100;
 /** Fundido (s) al entrar y salir de cada clip; no se aplica al entrar en t = 0. */
 export const CLIP_FADE = 0.25;
 /** Carpeta de la caché de clips si no viene `CLIPS_DIR`. */
@@ -111,7 +123,12 @@ export function filtroClips(rangos: RangoClip[], dim: { width: number; height: n
       "format=gbrp",
     ];
     // Máscara gris (CLIP_SOMBRA_MIN arriba → 1 a la altura `alto`) y multiply sobre el clip.
-    const mascara = `geq=lum='if(lt(Y,${alto}),255*(${CLIP_SOMBRA_MIN}+${1 - CLIP_SOMBRA_MIN}*Y/${alto}),255)':cb=128:cr=128,format=gray,format=gbrp`;
+    const arriba = `if(lt(Y,${alto}),${CLIP_SOMBRA_MIN}+${1 - CLIP_SOMBRA_MIN}*Y/${alto},1)`;
+    // Abajo: factor 1 sobre y0 − rampa, baja linealmente hasta CLIP_SOMBRA_ABAJO_MIN en y0 y ahí se queda.
+    const y0 = dim.height - Math.round((SUBTITULO_ZONA_ALTO * dim.height) / 1920);
+    const rampa = Math.round((CLIP_SOMBRA_ABAJO_RAMPA * dim.height) / 1920);
+    const abajo = `if(gt(Y,${y0}),${CLIP_SOMBRA_ABAJO_MIN},if(gt(Y,${y0 - rampa}),1-${1 - CLIP_SOMBRA_ABAJO_MIN}*(Y-${y0 - rampa})/${rampa},1))`;
+    const mascara = `geq=lum='255*(${arriba})*(${abajo})':cb=128:cr=128,format=gray,format=gbrp`;
     const resto = [
       ...(r.inicio > 0 ? [`fade=t=in:st=0:d=${CLIP_FADE}`] : []),
       `fade=t=out:st=${(dur - CLIP_FADE).toFixed(3)}:d=${CLIP_FADE}`,

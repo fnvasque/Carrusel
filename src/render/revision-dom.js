@@ -26,8 +26,8 @@
 
   /**
    * Métricas de `ch` con la fuente computada de `estilo` (en px de font-size). Anton
-   * solo tiene peso 400: se mide siempre a 400, porque con el peso computado (un h2
-   * sin fontWeight es 700) el canvas sintetiza negrita y la tinta sale más alta.
+   * (fuente del look anterior) solo tiene peso 400: se sigue midiendo a 400 por si
+   * una pieza vieja la usa; el look papel usa Inter 700 y la serif cursiva con su peso.
    */
   function metricas(estilo, ch) {
     var peso = /anton/i.test(estilo.fontFamily) ? "400" : estilo.fontWeight;
@@ -108,7 +108,7 @@
       var op = opacidadEfectiva(el);
       var fuente = nodo.textContent || "";
       var texto = pintado(fuente, estilo);
-      var anton = /anton/i.test(estilo.fontFamily);
+      var anton = /anton/i.test(estilo.fontFamily); // solo piezas del look anterior
       var lista = chars[escena] || (chars[escena] = []);
       for (var i = 0; i < fuente.length && i < texto.length; i++) {
         var ch = texto[i];
@@ -155,7 +155,8 @@
       if (comprobar.indexOf("tilde") >= 0) {
         var vistas = {};
         lista.forEach(function (c, i) {
-          if (!c.rect || !c.anton || !ACENTO.test(c.fuente)) return;
+          // Toda fuente (antes solo Anton): con el look papel los titulares son Inter 700 y la serif cursiva.
+          if (!c.rect || !ACENTO.test(c.ch)) return;
           var g = geometria(c);
           var tope = g.base - g.m.tintaArriba * g.s;
           var pisa = visibles.some(function (o) {

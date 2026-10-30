@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { abortStaleRebase, pullKb, setSyncErrorHandler } from "../kb/store.ts";
 import { leerSemana, listarSemanas, ocultarToken, type SemanaLeida } from "./plan.ts";
 import {
-  clonKbCalendario, copiarCalibracion, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, leerVoz, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
+  clonKbCalendario, copiarCalibracion, crearEscritorRender, destinoRemoto, dirMediosValido, leerPuerta, leerSubtitulos, leerVoz, pendientes, procesar, renderPieza, rsyncReal, sincronizarPendiente, tomarCandado,
   verificarReal,
   type EnvRender,
 } from "./render.ts";
@@ -171,13 +171,13 @@ try {
     const log = (t: string): void => console.log(ocultarToken(t, token));
     // Puerta de score/QA y voz: las mismas para procesar y para el re-render de la fase 3. Se leen
     // una vez y solo si hacen falta (sin pendientes, recién cuando la fase 3 re-renderiza algo).
-    let recursos: Promise<{ puerta: Awaited<ReturnType<typeof leerPuerta>>; voz: Awaited<ReturnType<typeof leerVoz>> }> | undefined;
-    const leerRecursos = () => (recursos ??= (async () => ({ puerta: await leerPuerta(), voz: await leerVoz(avisar) }))());
+    let recursos: Promise<{ puerta: Awaited<ReturnType<typeof leerPuerta>>; voz: Awaited<ReturnType<typeof leerVoz>>; subtitulos: boolean }> | undefined;
+    const leerRecursos = () => (recursos ??= (async () => ({ puerta: await leerPuerta(), voz: await leerVoz(avisar), subtitulos: await leerSubtitulos() }))());
     if (pend.length) {
       console.log(`🎬 ${pend.length} pieza(s) por renderizar (${new Date().toISOString()}).`);
-      const { puerta, voz } = await leerRecursos();
+      const { puerta, voz, subtitulos } = await leerRecursos();
       const r = await procesar(pend, outRoot, env, {
-        render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, avisar, clipsDir }),
+        render: (p, tmp) => renderPieza(p, tmp, { audioDir, puerta, voz, subtitulos, avisar, clipsDir }),
         rsync: rsyncReal,
         verificar: verificarReal,
         escribirRender: escritor.escribirRender,
@@ -209,8 +209,8 @@ try {
         puerta: puertaCorr,
         deps: {
           render: async (p, tmp, quitar) => {
-            const { puerta, voz } = await leerRecursos();
-            return renderPieza(p, tmp, { audioDir, puerta, voz, avisar, clipsDir, quitarFondos: quitar });
+            const { puerta, voz, subtitulos } = await leerRecursos();
+            return renderPieza(p, tmp, { audioDir, puerta, voz, subtitulos, avisar, clipsDir, quitarFondos: quitar });
           },
           // La misma voz que usará `render`: la precondición de caché de voz mira esas líneas.
           voz: async () => (await leerRecursos()).voz,

@@ -9,15 +9,15 @@ import type { TemplateName } from "./types.ts";
  * Debe mantenerse alineado con src/templates/index.ts.
  */
 export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; optional: string[] }> = {
-  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
-  Lead: { required: ["text"], optional: ["kicker", "highlight"] },
-  Step: { required: ["heading"], optional: ["step", "highlight", "body", "bullets"] },
+  Hook: { required: ["title"], optional: ["eyebrow", "highlight", "cursiva", "mark", "subtitle", "titleSize", "swipe", "resultado", "app", "modo"] },
+  Lead: { required: ["text"], optional: ["kicker", "highlight", "cursiva"] },
+  Step: { required: ["heading"], optional: ["step", "highlight", "cursiva", "body", "bullets"] },
   Prompt: { required: ["heading", "prompt"], optional: ["note"] },
   Screen: { required: ["app", "prompt", "respuesta"], optional: ["heading", "nota"] },
-  MythReality: { required: ["myth", "reality"], optional: ["mythLabel", "realityLabel"] },
+  MythReality: { required: ["myth", "reality"], optional: ["highlight", "mythLabel", "realityLabel"] },
   Stat: { required: ["value", "label"], optional: ["context"] },
   Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
-  Cta: { required: ["title"], optional: ["highlight", "reason", "handle", "cta", "ctaIcon"] },
+  Cta: { required: ["title"], optional: ["highlight", "cursiva", "reason", "handle", "cta", "ctaIcon"] },
 };
 
 /** Plantillas que solo usa el calendario (necesitan un archivo en la caché del Mac): el remix no las ofrece al modelo. */

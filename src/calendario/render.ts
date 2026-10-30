@@ -567,6 +567,20 @@ export async function leerVoz(avisar?: (texto: string) => Promise<boolean | void
 }
 
 /**
+ * Subtítulos quemados del reel desde `_calendario/config.json → subtitulos`:
+ * solo `true` los enciende; por defecto (sin clave, otro valor o config rota)
+ * van apagados (pedido de Felipe, 2026-10-29). La voz no cambia.
+ */
+export async function leerSubtitulos(): Promise<boolean> {
+  try {
+    const cfg = JSON.parse(await readFile(join(calendarioDir(), "config.json"), "utf8"));
+    return cfg?.subtitulos === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Tope de duración (s) de un reel: `parametros.duracionMaxSegundos` de la pieza
  * (`plan.json`, experimento) si es un número > 0; si no, el de la puerta.
  */
@@ -662,6 +676,8 @@ export async function renderPieza(
     audioDir: string;
     puerta: Puerta;
     voz?: Voz | false;
+    /** Subtítulos quemados de la narración (`leerSubtitulos`); por defecto apagados. */
+    subtitulos?: boolean;
     avisar?: (texto: string) => Promise<boolean | void>;
     clipsDir?: string;
     /** Solo para el corpus de la revisión visual: salta la puerta de score (`scoreDraft`). Nunca en el render del calendario. */
@@ -677,7 +693,9 @@ export async function renderPieza(
   } catch (e) {
     throw new ErrorContenido([razon(e)]);
   }
-  // Tope de fondos ai: los que sobran vuelven al fondo por defecto del look lima.
+  // La serie de la pieza (plan) manda en la cabecera si el borrador no la trae.
+  if (b.serie === undefined && p.pieza.serie) b.serie = p.pieza.serie;
+  // Tope de fondos ai: los que sobran vuelven al fondo por defecto del look papel.
   const quitar = [...((await fondosIaQuitados(p.semana)).get(p.pieza.id) ?? [])];
   for (const q of opts.quitarFondos ?? []) {
     if (!Number.isInteger(q.slide) || q.slide < 0 || q.slide >= b.slides.length) continue;
@@ -733,7 +751,7 @@ export async function renderPieza(
     if (exceso) throw new ErrorContenido([exceso]);
     let r: Awaited<ReturnType<typeof renderReelResult>>;
     try {
-      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz, revision: "bloquear", lectura: { palabrasPorSegundo: opts.puerta.lecturaPalabrasPorSegundo, minSegundos: opts.puerta.lecturaMinSegundos } });
+      r = await renderReelResult(spec, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, maxSeconds: tope, voz: opts.voz, subtitulos: opts.subtitulos === true, revision: "bloquear", lectura: { palabrasPorSegundo: opts.puerta.lecturaPalabrasPorSegundo, minSegundos: opts.puerta.lecturaMinSegundos } });
     } catch (e) {
       // Con narración las escenas se alargan: pasarse del tope es un problema del borrador, no del Mac.
       if (e instanceof Error && /duracionMaxSegundos/.test(e.message)) throw new ErrorContenido([e.message]);
