@@ -39,6 +39,8 @@ export const ROTULO_EMPIEZA = "Lo que no sabe quien está empezando";
 export const ROTULOS_ETAPAS = [ROTULO_DICHO, "Por qué importa", "Qué se puede hacer", ROTULO_EMPIEZA, "Para quién", "Límites"];
 /** Tope del texto de «Dicho simple»: una idea, no un párrafo. */
 export const MAX_DICHO = 400;
+/** `aprendiz: pendiente`: el lector no entendió la idea; la nota se sube pero no está lista para piezas. */
+export const APRENDIZ_PENDIENTE = "pendiente";
 /** Meta de cobertura por etapa (referencias y conexiones listas). */
 export const META_REFERENCIAS = 8;
 export const META_CONEXIONES = 3;
@@ -159,8 +161,8 @@ export function validateReferencia(text, ctx = {}) {
     if (ctx.etapas) {
       for (const e of etapas) if (!ctx.etapas.includes(e)) errs.push(`la etapa "${e}" no está en alcance.json → etapas (${ctx.etapas.join(", ")})`);
     }
-    if (data.aprendiz !== data.revisado) {
-      errs.push(`"aprendiz" es la fecha en que la nota pasó el lector aprendiz y debe ser igual a revisado (${data.revisado}); es "${data.aprendiz ?? "(falta)"}"`);
+    if (data.aprendiz !== data.revisado && data.aprendiz !== APRENDIZ_PENDIENTE) {
+      errs.push(`"aprendiz" es la fecha en que el lector aprendiz entendió la nota (igual a revisado, ${data.revisado}) o "${APRENDIZ_PENDIENTE}" si no la entendió; es "${data.aprendiz ?? "(falta)"}"`);
     }
   }
   if (ctx.preguntas) {
@@ -492,7 +494,8 @@ export function cobertura(root, hoy) {
     const aud = seccion(body, "Para la audiencia");
     const lista_ =
       validDate(data.revisado) && data.revisado >= DESDE_ETAPAS && diasEntre(data.revisado, hoy) <= VIGENCIA_DIAS &&
-      aud !== undefined && !NO_APLICA_RE.test(aud) && !validateReferencia(text, { ...ctx, slugPropio: f.slice(0, -3) }).length;
+      aud !== undefined && !NO_APLICA_RE.test(aud) && data.aprendiz === data.revisado &&
+      !validateReferencia(text, { ...ctx, slugPropio: f.slice(0, -3) }).length;
     if (!lista_) continue;
     // Cuenta en su primera etapa: declarar varias no infla la cobertura.
     const c = cuenta.get(lista(data.etapa)[0]);

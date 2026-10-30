@@ -36,3 +36,4 @@ export declare function cobertura(
   hoy: string,
 ): { etapas: { etapa: string; referencias: number; conexiones: number; falta: boolean }[]; preguntasPendientes: string[]; preguntasInvalidas: string[] };
 export declare function mensajeAprendiz(nota: string, lector: string): string;
+export declare const APRENDIZ_PENDIENTE: string;
