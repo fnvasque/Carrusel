@@ -54,6 +54,9 @@ import {
   erroresDeReferencias,
   leerAlcance,
   claveTema,
+  semanaExplicativa,
+  CONCEPTO_MAX_PALABRAS,
+  CONCEPTO_LAMINA_MAX_PALABRAS,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { sceneSeconds, sceneDurations, specTiming } from "../../src/reel/timing.ts";
 import { zonedToUtc } from "../../src/calendario/time.ts";
@@ -62,7 +65,7 @@ import { THRESHOLD, scoreReel } from "../../src/score/virality.ts";
 import { NADA_NUEVO_RE as NADA_NUEVO_LECTOR } from "../../src/calendario/lector-causas.ts";
 import { parsePlan } from "../../src/calendario/plan.ts";
 import { TEMPLATE_CATALOG } from "../../src/remix/templates-catalog.ts";
-import { Cta, Hook, Lead, MythReality, Prompt, Stat, Step } from "../../src/templates/index.ts";
+import { Concepto, Cta, Hook, Lead, MythReality, Prompt, ROTULO_EN_SIMPLE, Stat, Step } from "../../src/templates/index.ts";
 import { pillContent, DM_PISTA } from "../../src/templates/Cta.tsx";
 
 /**
@@ -175,7 +178,7 @@ const vb = (p = pieza(), b = borrador(), c = config) => validarBorrador(p, b, c)
 // --- catálogo y config ---
 
 check("calendario/validar: PLANTILLAS es el catálogo del remix, sin StoryCover", () => {
-  assert.deepEqual([...PLANTILLAS].sort(), ["Clip", "Cta", "Hook", "Lead", "MythReality", "Prompt", "Screen", "Stat", "Step"]);
+  assert.deepEqual([...PLANTILLAS].sort(), ["Clip", "Concepto", "Cta", "Hook", "Lead", "MythReality", "Prompt", "Screen", "Stat", "Step"]);
   assert.deepEqual(CATALOGO, TEMPLATE_CATALOG);
 });
 
@@ -2856,4 +2859,107 @@ check("pivote: senal dm exigida desde cta.desde", () => {
   assertNone(sen(configCta, { dia: "2026-10-30" }));
   assertNone(sen(config, { dia: "2026-11-02" }));
   assertNone(sen(configCta, { dia: "2026-11-02", senal: "dm" }));
+});
+
+// --- carrusel explicativo (Concepto) ---
+
+/** Cada 2 semanas desde el lunes 2026-10-12 (la semana de las fixtures). */
+const configExpl = { ...config, explicativo: { desde: "2026-10-12", cadaSemanas: 2 } };
+const lamina = (n: string, over: Record<string, unknown> = {}) => ({
+  template: "Concepto",
+  props: { numero: n, titulo: "La IA no sabe quién eres", highlight: "quién eres", idea: "Le pides algo y te responde genérico.", enSimple: "Yo le cuento mi cargo antes de preguntar. Pídele lo mismo hoy.", ...over },
+});
+function borradorExpl(laminas = 3): any {
+  const b = borrador();
+  b.name = "mar-carrusel-b";
+  b.slides = [b.slides[0], ...Array.from({ length: laminas }, (_, i) => lamina(String(i + 1))), b.slides[3]];
+  return b;
+}
+const piezaExpl = (over: Record<string, unknown> = {}) =>
+  pieza({ id: "mar-carrusel-b", borrador: "mar-carrusel-b.json", formato: "carrusel", arquetipo: "lista", dia: "2026-10-13", variante: "explicativo", ...over });
+const conceptoErrs = (errs: string[]) => errs.filter((e) => /Concepto|explicativo|variante|CONCEPTO|lámina/.test(e));
+
+check("calendario/validar (explicativo): semanaExplicativa cada cadaSemanas desde desde; nunca en el paquete ni sin config", () => {
+  assert.equal(semanaExplicativa("2026-10-12", configExpl), true);
+  assert.equal(semanaExplicativa("2026-10-19", configExpl), false);
+  assert.equal(semanaExplicativa("2026-11-09", configExpl), true);
+  assert.equal(semanaExplicativa("2026-10-05", configExpl), false, "antes de desde");
+  // 2026-10-26 toca por cadencia, pero es semana del paquete de la fixture.
+  assert.equal(semanaExplicativa("2026-10-26", configExpl), false);
+  assert.equal(semanaExplicativa("2026-10-12", { ...config, explicativo: undefined }), false, "sin config.explicativo no toca nunca");
+});
+
+check("calendario/validar (explicativo): carrusel con 3 Concepto en semana que toca → sin errores de Concepto", () => {
+  assert.deepEqual(conceptoErrs(vb(piezaExpl(), borradorExpl(), configExpl)), []);
+  assertNone(validarPieza(piezaExpl(), configExpl).filter((e: string) => /variante/.test(e)));
+});
+
+check("calendario/validar (explicativo): fuera de turno, sin variante, en reel, con 2 o 6 láminas o variante inválida → error", () => {
+  assertHas(vb(piezaExpl({ dia: "2026-10-20" }), borradorExpl(), configExpl), /esta semana no toca carrusel explicativo/);
+  assertHas(vb(piezaExpl(), borradorExpl(), { ...config, explicativo: undefined }), /no está activo \(falta config\.explicativo\)/);
+  assertHas(vb(piezaExpl({ variante: undefined }), borradorExpl(), configExpl), /solo van en el carrusel explicativo/);
+  assertHas(vb(piezaExpl({ formato: "reel", arquetipo: "tutorial" }), borradorExpl(), configExpl), /Concepto solo va en carruseles/);
+  assertHas(vb(piezaExpl(), borradorExpl(2), configExpl), /de 3 a 5 slides Concepto \(tiene 2\)/);
+  assertHas(vb(piezaExpl(), borradorExpl(6), configExpl), /de 3 a 5 slides Concepto \(tiene 6\)/);
+  assertHas(validarPieza(piezaExpl({ variante: "largo" }), configExpl), /variante "largo" inválida/);
+});
+
+check("calendario/validar (explicativo): topes por campo y por lámina de Concepto", () => {
+  const larga = (n: number) => Array.from({ length: n }, (_, i) => `palabra${i}`).join(" ");
+  const b = borradorExpl();
+  b.slides[1] = lamina("1", { idea: larga(CONCEPTO_MAX_PALABRAS.idea + 1) });
+  assertHas(reglasDeTexto(b, configExpl, "carrusel"), /slide 2 \(Concepto\): idea tiene 19 palabras \(máximo 18/);
+  b.slides[1] = lamina("1", { enSimple: larga(CONCEPTO_MAX_PALABRAS.enSimple + 1) });
+  assertHas(reglasDeTexto(b, configExpl, "carrusel"), /enSimple tiene 36 palabras/);
+  // Cada campo en su tope: la lámina pasa los 60 (6 + 18 + 35 + 16 = 75).
+  b.slides[1] = lamina("1", { titulo: larga(6), highlight: undefined, idea: larga(18), enSimple: larga(35), contraste: larga(16) });
+  const errs = reglasDeTexto(b, configExpl, "carrusel");
+  assertHas(errs, new RegExp(`la lámina suma 75 palabras \\(máximo ${CONCEPTO_LAMINA_MAX_PALABRAS}`));
+  assert.ok(!has(errs, /idea tiene|enSimple tiene|contraste tiene/), "cada campo en su tope no es error");
+});
+
+check("calendario/validar (explicativo): la semana que toca exige un carrusel con variante explicativo", () => {
+  const { root, dir, p } = semanaTemporal();
+  try {
+    assertHas(validarSemana(dir, configExpl, { score: () => 90, avisos: [] }), /semana: toca carrusel explicativo \(config\.explicativo\) y hay 0/);
+    const i = p.piezas.findIndex((x: any) => x.formato === "carrusel");
+    p.piezas[i].variante = "explicativo";
+    writeFileSync(join(dir, "plan.json"), JSON.stringify(p, null, 2));
+    writeFileSync(join(dir, p.piezas[i].borrador), JSON.stringify(borradorExpl(), null, 2));
+    assert.deepEqual(conceptoErrs(validarSemana(dir, configExpl, { score: () => 90, avisos: [] })), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+check("calendario/validar (explicativo): config.explicativo se valida (lunes y cadaSemanas 1-8)", () => {
+  assert.deepEqual(validarConfig(configExpl).filter((e: string) => /explicativo/.test(e)), []);
+  assertHas(validarConfig({ ...config, explicativo: { desde: "2026-10-13", cadaSemanas: 2 } }), /explicativo debe ser/);
+  assertHas(validarConfig({ ...config, explicativo: { desde: "2026-10-12", cadaSemanas: 0 } }), /explicativo debe ser/);
+});
+
+check("calendario/validar (lector): Concepto — con prisa título y contraste; completo con idea y «En simple: …» (rótulo del componente)", () => {
+  const html = renderToStaticMarkup(createElement(Concepto, { titulo: "T", idea: "I", enSimple: "E" }));
+  assert.ok(html.includes(`${ROTULO_EN_SIMPLE}:`), "el componente pinta el rótulo con dos puntos");
+  const b = { slides: [lamina("1", { contraste: "CONTRASTE_X", idea: "IDEA_X", enSimple: "SIMPLE_X" })] };
+  const { completo, conPrisa } = textosLector(b, "carrusel");
+  assert.ok(completo.includes("IDEA_X") && completo.includes(`${ROTULO_EN_SIMPLE}: SIMPLE_X`) && completo.includes("CONTRASTE_X"));
+  assert.ok(conPrisa.includes("**quién eres**") && conPrisa.includes("CONTRASTE_X") && !conPrisa.includes("IDEA_X"));
+  // rotulo con dos puntos no duplica; rotulo "" deja solo el texto.
+  assert.ok(textosLector({ slides: [lamina("1", { rotulo: "Lo que hago:", enSimple: "S" })] }, "carrusel").completo.includes("Lo que hago: S"));
+  assert.ok(!renderToStaticMarkup(createElement(Concepto, { titulo: "T", idea: "I", enSimple: "E", rotulo: "Lo que hago:" })).includes("::"));
+  assert.ok(!renderToStaticMarkup(createElement(Concepto, { titulo: "T", idea: "I", enSimple: "E", rotulo: "" })).includes(`${ROTULO_EN_SIMPLE}:`));
+});
+
+check("score: un carrusel explicativo bien escrito (Hook, 4 Concepto numerados con acción, Cta PARTIR) pasa el umbral", () => {
+  const b = {
+    name: "x", angle: "x", pillar: "trabajo",
+    slides: [
+      { template: "Hook", props: { title: "4 cosas de la IA que nadie te explica en simple", highlight: "en simple", subtitle: "Lo que no te dicen el primer día" } },
+      ...[1, 2, 3, 4].map((n) => lamina(String(n), { enSimple: "Yo le cuento mi cargo y mi equipo. Pídele lo mismo hoy: 3 líneas sobre ti.", source: "Fuente: guías de OpenAI" })),
+      { template: "Cta", props: { title: "¿No sabes por dónde empezar con la IA?", highlight: "empezar", cta: "Escríbeme PARTIR" } },
+    ],
+  };
+  const r = scoreDraft(b as any);
+  assert.ok(r.total >= THRESHOLD, `score ${r.total}: ${JSON.stringify(r.suggestions)}`);
 });

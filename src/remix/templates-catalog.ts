@@ -18,10 +18,15 @@ export const TEMPLATE_CATALOG: Record<TemplateName, { required: string[]; option
   Stat: { required: ["value", "label"], optional: ["context"] },
   Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
   Cta: { required: ["title"], optional: ["highlight", "cursiva", "reason", "handle", "cta", "ctaIcon"] },
+  Concepto: { required: ["titulo", "idea", "enSimple"], optional: ["numero", "highlight", "cursiva", "contraste", "rotulo"] },
 };
 
-/** Plantillas que solo usa el calendario (necesitan un archivo en la caché del Mac): el remix no las ofrece al modelo. */
-export const SOLO_CALENDARIO: readonly TemplateName[] = ["Clip"];
+/**
+ * Plantillas que solo usa el calendario: el remix no las ofrece al modelo. `Clip` necesita
+ * un archivo en la caché del Mac; `Concepto` es del carrusel explicativo, que tiene su propia
+ * frecuencia y topes en `validar.mjs`.
+ */
+export const SOLO_CALENDARIO: readonly TemplateName[] = ["Clip", "Concepto"];
 
 /** Catálogo que ve el modelo del remix: todo menos las plantillas de `SOLO_CALENDARIO`. */
 export function catalogoRemix(): Partial<Record<TemplateName, { required: string[]; optional: string[] }>> {

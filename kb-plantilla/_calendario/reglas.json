@@ -176,6 +176,13 @@
       "formato": null,
       "descripcion": "La investigación escribe por etapas del coaching con Dicho simple, lector aprendiz y conexiones; el planificador prefiere etapas perder-el-miedo/adoptar y conexiones para por-donde-partir y redacta desde el Dicho simple. Entra con el paquete del pivote",
       "fuente": "docs/superpowers/specs/2026-10-29-investigacion-por-etapas-design.md; PR de la investigación por etapas"
+    },
+    {
+      "id": "carrusel-explicativo",
+      "desde": "2026-11-27",
+      "formato": "carrusel",
+      "descripcion": "Cada 2 semanas desde la del 2026-11-23 (config.explicativo), el carrusel va explicativo: una idea de IA en 3 a 5 láminas Concepto (idea, contraste en negrita y «En simple:» en primera persona con la acción), ≤ 60 palabras por lámina; plan.piezas[].variante = explicativo",
+      "fuente": "pedido de Felipe 2026-10-30 (posts de Daniel Pink, Success Theory y Andrés Bilbao) con revisión adversaria; PR del carrusel explicativo"
     }
   ]
 }

@@ -357,10 +357,10 @@ check("scoreReel: un reel con Clip de portada y Clip de desarrollo pasa el umbra
   assert.ok(scoreDraft(pobre, { format: "reel" }).total < r.total);
 });
 
-check("catalogoRemix: el remix (LLM) no ve la plantilla Clip, que solo usa el calendario", () => {
+check("catalogoRemix: el remix (LLM) no ve Clip ni Concepto, que solo usa el calendario", () => {
   const nombres = Object.keys(catalogoRemix());
-  assert.ok(!nombres.includes("Clip"));
-  assert.deepEqual(nombres, Object.keys(TEMPLATE_CATALOG).filter((n) => n !== "Clip"));
+  assert.ok(!nombres.includes("Clip") && !nombres.includes("Concepto"));
+  assert.deepEqual(nombres, Object.keys(TEMPLATE_CATALOG).filter((n) => n !== "Clip" && n !== "Concepto"));
 });
 
 // --- emit: templatesImportBase (ruta de import relativa a la carpeta de salida) ---

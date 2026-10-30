@@ -35,6 +35,7 @@ export const CATALOGO = {
   Stat: { required: ["value", "label"], optional: ["context"] },
   Clip: { required: ["title", "archivo"], optional: ["highlight", "label"] },
   Cta: { required: ["title"], optional: ["highlight", "cursiva", "reason", "handle", "cta", "ctaIcon"] },
+  Concepto: { required: ["titulo", "idea", "enSimple"], optional: ["numero", "highlight", "cursiva", "contraste", "rotulo"] },
 };
 
 /** Plantillas que puede usar un borrador. */
@@ -50,10 +51,10 @@ const PROPS_BASE = new Set(["source", "pillar"]);
 const TIPO_PROP = { bullets: "lista", titleSize: "numero", swipe: "booleano" };
 
 /** Plantilla → prop donde debe aparecer su `highlight`. */
-const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title", MythReality: "reality" };
+const DONDE_HIGHLIGHT = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Clip: "title", MythReality: "reality", Concepto: "titulo" };
 
 /** Plantilla → prop donde debe aparecer su `cursiva` (frase del titular en serif cursiva). */
-const DONDE_CURSIVA = { Hook: "title", Step: "heading", Lead: "text", Cta: "title" };
+const DONDE_CURSIVA = { Hook: "title", Step: "heading", Lead: "text", Cta: "title", Concepto: "titulo" };
 
 const SENALES = ["guardados", "envios", "comentarios", "retencion", "dm"];
 
@@ -129,7 +130,7 @@ const MOTIVOS_CANDIDATO = ["sin-referencia", "derivado", "proxima-semana"];
 const MAX_CANDIDATOS = 8;
 
 /** Props con texto de título (límite `tituloMaxPalabras`). */
-const CAMPOS_TITULO = ["title", "heading"];
+const CAMPOS_TITULO = ["title", "heading", "titulo"];
 /** Props con texto de cuerpo (límite `cuerpoMaxPalabras`). */
 const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "note"];
 /**
@@ -141,6 +142,17 @@ const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "note"];
 const CAMPOS_MITO = ["myth", "reality"];
 export const MITO_REALIDAD_MAX_PALABRAS = 14;
 export const DESDE_MITO_CORTO = "2026-10-26";
+/**
+ * Carrusel explicativo (plantilla `Concepto`, pedido de Felipe 2026-10-30 con revisión
+ * adversaria): una idea de IA explicada en simple en 3 a 5 láminas. Cada campo tiene su
+ * tope y la lámina entera también, para que el texto largo no se vuelva un muro en el
+ * celular. Fuera del tope de cuerpo general.
+ */
+export const CONCEPTO_MAX_PALABRAS = { titulo: 6, idea: 18, enSimple: 35, contraste: 16 };
+export const CONCEPTO_LAMINA_MAX_PALABRAS = 60;
+export const CONCEPTO_POR_PIEZA = [3, 5];
+/** Valores de `plan.piezas[].variante`: hoy solo el carrusel explicativo. */
+export const VARIANTES = ["explicativo"];
 /**
  * Props que no pasan por las reglas de lenguaje (siglas, relleno, términos):
  * la cita al pie, el prompt copiable (es para pegarlo en una IA, no para leerlo)
@@ -548,6 +560,16 @@ export function reglasDeTexto(borrador, config, formato, dia) {
         const n = palabras(p[k]).length;
         if (n > cuerpoMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${cuerpoMax}, puerta.${claveCuerpo})`);
       }
+      if (slide.template === "Concepto") {
+        let total = 0;
+        for (const [k, max] of Object.entries(CONCEPTO_MAX_PALABRAS)) {
+          if (typeof p[k] !== "string") continue;
+          const n = palabras(p[k]).length;
+          total += n;
+          if (n > max) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${max}, CONCEPTO_MAX_PALABRAS): una idea por lámina, dicha en simple`);
+        }
+        if (total > CONCEPTO_LAMINA_MAX_PALABRAS) errs.push(`${donde}: la lámina suma ${total} palabras (máximo ${CONCEPTO_LAMINA_MAX_PALABRAS}, CONCEPTO_LAMINA_MAX_PALABRAS): recorta idea o contraste`);
+      }
       for (const k of CAMPOS_MITO) {
         if (typeof p[k] !== "string") continue;
         const n = palabras(p[k]).length;
@@ -637,6 +659,51 @@ export function validarCaption(caption, config, tema, dia) {
 export function contarHookVideo(borradores) {
   if (!Array.isArray(borradores)) return 0;
   return borradores.filter((b) => esObj(b) && b.hookVideo !== undefined).length;
+}
+
+/**
+ * Frecuencia del carrusel explicativo: `config.explicativo = { desde, cadaSemanas }` (la
+ * edita el usuario). Toca la semana del lunes `desde` y luego cada `cadaSemanas` semanas;
+ * nunca en una semana del paquete. Sin `config.explicativo` no toca nunca.
+ */
+function explicativoDe(config) {
+  const e = esObj(config) && esObj(config.explicativo) ? config.explicativo : undefined;
+  if (!e || !fechaValida(e.desde) || diaSemana(e.desde) !== 1 || !Number.isInteger(e.cadaSemanas) || e.cadaSemanas < 1) return undefined;
+  return { desde: e.desde, cadaSemanas: e.cadaSemanas };
+}
+
+/** Lunes (AAAA-MM-DD) de la semana de un día. */
+const lunesDe = (dia) => sumarDias(dia, -((diaSemana(dia) + 6) % 7));
+
+/** ¿La semana del lunes `lunes` lleva carrusel explicativo? */
+export function semanaExplicativa(lunes, config) {
+  const e = explicativoDe(config);
+  if (!e || !fechaValida(lunes) || lunes < e.desde) return false;
+  if (paqueteDe(config).semanas.includes(lunes)) return false;
+  const semanas = Math.round((Date.parse(`${lunes}T00:00:00Z`) - Date.parse(`${e.desde}T00:00:00Z`)) / (7 * 864e5));
+  return semanas % e.cadaSemanas === 0;
+}
+
+/**
+ * Reglas de las slides `Concepto`: solo en la pieza `variante: "explicativo"`, que es un
+ * carrusel de 3 a 5 Concepto en una semana que toca (`semanaExplicativa`).
+ */
+function erroresDeConcepto(b, p, config) {
+  const slides = Array.isArray(b.slides) ? b.slides : [];
+  const n = slides.filter((s) => esObj(s) && s.template === "Concepto").length;
+  const errs = [];
+  if (n > 0 && p.formato !== "carrusel") errs.push("Concepto solo va en carruseles (en el reel no cabe el texto largo)");
+  if (p.variante !== "explicativo") {
+    if (n > 0) errs.push('las slides Concepto solo van en el carrusel explicativo (plan.piezas[].variante: "explicativo")');
+    return errs;
+  }
+  if (p.formato !== "carrusel") errs.push("variante explicativo solo para el carrusel");
+  if (n < CONCEPTO_POR_PIEZA[0] || n > CONCEPTO_POR_PIEZA[1]) errs.push(`el carrusel explicativo lleva de ${CONCEPTO_POR_PIEZA[0]} a ${CONCEPTO_POR_PIEZA[1]} slides Concepto (tiene ${n}): una idea repartida en láminas`);
+  if (typeof p.dia === "string" && fechaValida(p.dia) && !semanaExplicativa(lunesDe(p.dia), config)) {
+    const e = explicativoDe(config);
+    errs.push(e ? `esta semana no toca carrusel explicativo (config.explicativo: desde el ${e.desde}, cada ${e.cadaSemanas} semanas)` : "el carrusel explicativo no está activo (falta config.explicativo)");
+  }
+  return errs;
 }
 
 /** Borradores con al menos una slide `Clip` (cuentan para `config.clipsMaxSemana`, 0 si falta). */
@@ -1028,6 +1095,7 @@ function erroresDePieza(p, config) {
     if (esObj(config) && config.series !== undefined && (p.serie === undefined || p.serie === null)) errs.push(`falta serie: desde el ${paqueteDe(config).desde} cada pieza lleva una de ${validas.join(", ")}`);
     else if (p.serie !== undefined && p.serie !== null && !validas.includes(p.serie)) errs.push(`serie ${q(p.serie)} no vale desde el ${paqueteDe(config).desde}: usa ${validas.join(", ")}${esObj(config) && config.series !== undefined ? "" : " o null"}`);
   } else if (p.serie !== undefined && p.serie !== null && !(typeof p.serie === "string" && /^[a-z0-9-]{3,40}$/.test(p.serie))) errs.push("serie debe ser un slug (p. ej. hazlo-con-ia, lo-probe-por-ti) o null");
+  if (p.variante !== undefined && !VARIANTES.includes(p.variante)) errs.push(`variante ${q(p.variante)} inválida (usa: ${VARIANTES.join(", ")}, o no la pongas)`);
   if (p.estado !== undefined && p.estado !== "planificado") errs.push(`estado ${q(p.estado)}: el planificador solo escribe "planificado"`);
   errs.push(...erroresDeParametros(p.parametros, config, p.dia));
   errs.push(...validarCaption(p.caption, config, typeof p.tema === "string" ? p.tema : undefined, p.dia));
@@ -1164,6 +1232,7 @@ function erroresDeBorrador(b, p, config) {
   if (exigeJuez(p, config)) errs.push(...erroresDeHookBorrador(p, b));
   errs.push(...erroresDeHookVideo(b, p));
   errs.push(...erroresDeClips(b, p));
+  errs.push(...erroresDeConcepto(b, p, config));
   if (!Array.isArray(b.slides)) {
     errs.push("slides debe ser una lista de slides");
     return errs;
@@ -1471,6 +1540,8 @@ export function validarCandidatos(data, semana, alcance) {
 /** Etiquetas por defecto de `MythReality` (las de `src/templates/MythReality.tsx`; un test las compara). */
 const ETIQUETA_MITO = "Lo que se cree";
 const ETIQUETA_REALIDAD = "Lo que pasa";
+/** Rótulo por defecto del bloque de explicación de `Concepto` (el de `src/templates/Concepto.tsx`; un test los compara). */
+const ROTULO_EN_SIMPLE = "En simple";
 /** Etiqueta de la tarjeta de `Prompt` (`ETIQUETA_PROMPT` de `src/templates/Prompt.tsx`). */
 const VENTANA_PROMPT = ["Copia esto"];
 /** Etiqueta del mensaje de la persona en `Screen` (`src/templates/Screen.tsx`). */
@@ -1560,6 +1631,12 @@ function lineasSlide(template, p, prisa, formato) {
       break;
     case "MythReality":
       add(conEtiqueta(p.mythLabel, ETIQUETA_MITO, p.myth), conEtiqueta(p.realityLabel, ETIQUETA_REALIDAD, p.reality));
+      break;
+    case "Concepto":
+      add(p.numero, conDestacado(txt(p.titulo), p.highlight));
+      if (!prisa) add(p.idea);
+      add(p.contraste);
+      if (!prisa) add(conEtiqueta(typeof p.rotulo === "string" ? p.rotulo.replace(/:\s*$/, "") : p.rotulo, ROTULO_EN_SIMPLE, p.enSimple));
       break;
     case "Stat":
       add(p.value, p.label);
@@ -1941,6 +2018,10 @@ export function validarConfig(config) {
         if (!esTexto(paq.motivo)) errs.push("paquete.motivo debe ser un texto (el motivo que lleva el experimento de esas semanas)");
       }
     }
+    const ex = config.explicativo;
+    if (ex !== undefined && !(esObj(ex) && fechaValida(ex.desde) && diaSemana(ex.desde) === 1 && Number.isInteger(ex.cadaSemanas) && ex.cadaSemanas >= 1 && ex.cadaSemanas <= 8)) {
+      errs.push('explicativo debe ser { "desde": "AAAA-MM-DD" (lunes), "cadaSemanas": 1-8 }: cada cuántas semanas el carrusel va explicativo');
+    }
     if (!Array.isArray(config.pilares) || !config.pilares.length || !config.pilares.every(esTexto)) errs.push("pilares debe ser una lista de textos");
     if (!Array.isArray(config.hashtagsBase) || !config.hashtagsBase.every((h) => typeof h === "string" && HASHTAG_RE.test(h))) {
       errs.push("hashtagsBase debe ser una lista de hashtags en minúsculas (#ia)");
@@ -2050,6 +2131,11 @@ export function validarSemana(dir, config, opts = {}) {
     const clips = contarHookVideo(borradores);
     const maxClips = config.hookVideoMaxSemana ?? HOOK_VIDEO_MAX_SEMANA;
     if (clips > maxClips) out.push(`semana: ${clips} reels con hookVideo (máximo ${maxClips}, config.hookVideoMaxSemana)`);
+    if (semanaExplicativa(plan.semana, config)) {
+      const carruseles = plan.piezas.filter((p) => esObj(p) && p.formato === "carrusel");
+      const expl = carruseles.filter((p) => p.variante === "explicativo").length;
+      if (carruseles.length > 0 && expl !== 1) out.push(`semana: toca carrusel explicativo (config.explicativo) y hay ${expl}: un carrusel de la semana va con variante "explicativo"`);
+    }
     const conClip = contarClips(borradores);
     const maxConClip = Number.isInteger(config.clipsMaxSemana) ? config.clipsMaxSemana : 0;
     if (conClip > maxConClip) out.push(`semana: ${conClip} reels con Clip (máximo ${maxConClip}, config.clipsMaxSemana)`);

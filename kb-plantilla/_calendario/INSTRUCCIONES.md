@@ -1259,6 +1259,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Clip` | `title`, `archivo` | `highlight`, `label` | Video generado con IA a pantalla completa, solo reels (ver "Reel con video generado") |
 | `Cta` | `title` | `highlight`, `cursiva`, `reason`, `handle` (no en un Cta PARTIR: la caja de mensaje ya muestra la cuenta), `cta`, `ctaIcon` | Cierre con un solo gesto |
+| `Concepto` | `titulo`, `idea`, `enSimple` | `numero`, `highlight`, `cursiva`, `contraste`, `rotulo` | Una lámina del **carrusel explicativo**: solo en la pieza con `variante: "explicativo"` (ver "Carrusel explicativo") |
 
 `MythReality` es solo para **una creencia contra un dato**: `myth` es lo que la
 gente cree («Hay que saber editar audio») y `reality` el dato que la desmiente
@@ -1268,6 +1269,51 @@ van cortos: ≤ 14 palabras cada uno (`MITO_REALIDAD_MAX_PALABRAS`, desde el
 sale»: tacha el pedido como si pedir fuera el error. Para el antes y después de
 un pedido van **dos `Screen`**: el pedido vago y su respuesta, y después el
 pedido bueno y su respuesta.
+
+### Carrusel explicativo (`Concepto`)
+
+Algunas ideas necesitan más texto que un `Step` para entenderse: por qué la IA
+responde genérico, por qué inventa datos, qué cambia entre pedir y conversar.
+Para eso está el **carrusel explicativo**: una sola idea de IA, explicada en
+simple en 3 a 5 láminas `Concepto`, como quien se la cuenta a un colega.
+
+**Cuándo.** No lo eliges tú: lo fija `config.json → explicativo`
+(`{ "desde": "<lunes>", "cadaSemanas": 2 }`, lo edita el usuario). La semana
+del lunes `desde` y luego cada `cadaSemanas` semanas (nunca en una semana del
+paquete), el carrusel de la semana va explicativo: en `plan.json` la pieza
+lleva `"variante": "explicativo"` y **sigue** con el `formato`, `arquetipo` y
+`serie` de su entrada del mix. Las otras semanas no lleva `variante` ni
+láminas `Concepto`. Sin `config.json → explicativo` no hay carruseles
+explicativos. El validador lo revisa en ambos sentidos. Así la variante es
+medible: al evaluar, compara los carruseles con `variante` contra los sin ella
+(alcance, guardados, envíos y los DM de esas semanas), sabiendo que con pocas
+piezas el resultado es «n insuficiente».
+
+**Estructura.** `Hook` → 3 a 5 `Concepto` sobre **la misma idea** (qué te
+pasa, por qué pasa, cómo lo hago yo, el error típico) → `Screen` si la idea es
+de una herramienta (regla 10) → `Cta` PARTIR. Entre 5 y 8 slides.
+
+**Cada lámina `Concepto`**, en el orden en que se lee:
+
+- `numero` (opcional): "1", "2"… en el cuadro lima.
+- `titulo` (≤ 6 palabras, con `highlight` y, si quieres, `cursiva`): el nombre
+  de lo que pasa, en palabras de oficina («La IA no sabe quién eres»), nunca
+  un término técnico ni el nombre de un sesgo.
+- `idea` (≤ 18 palabras): lo que le pasa al lector, no la teoría («Le pides
+  algo y te responde genérico, como si le hablara a cualquiera»).
+- `contraste` (opcional, ≤ 16 palabras, va en negrita): la distinción que se
+  lee aunque se pase rápido («Sin contexto, responde para cualquiera. Con
+  contexto, responde para ti»). Es la frase compartible de la lámina.
+- `enSimple` (≤ 35 palabras): bajo el rótulo «En simple:», **en primera
+  persona** lo que haces tú y la acción que el lector puede dar hoy («Yo parto
+  contándole mi cargo y mi equipo. Pídele lo mismo hoy: tres líneas sobre ti
+  antes de la pregunta»). `rotulo` cambia «En simple» por otro texto corto
+  (sin los dos puntos; `""` lo quita); casi nunca hace falta.
+
+La lámina entera suma **≤ 60 palabras** (`CONCEPTO_LAMINA_MAX_PALABRAS`): si
+pasa, recorta `idea` o `contraste`, no la acción. Una acción por lámina. Las
+reglas de lenguaje (un término técnico por pieza, siglas, relleno) valen igual.
+`Concepto` no va en reels: el texto largo no cabe en una escena de 35 s.
 
 En el `Cta`, `cta` (el texto de la pastilla) es **obligatorio** y pide el gesto
 de la señal: sin él el motor dibuja "Link en bio →". Textos sugeridos:
@@ -1711,7 +1757,9 @@ y, desde el 2026-10-26, `candidatos` y `juez`), `emocion`,
 `entregable`, `fraseAmigo`, `promesas` (desde el 2026-10-26: `promesa`, `slide`),
 `lectorFrio` (`intentos`, `resultado`, `notas`),
 `origen` (`fichas`, `referencias`), `derivadoDe`, `caption`, `borrador`,
-`estado: "planificado"` y `parametros`. Si quitas piezas, quedan menos
+`estado: "planificado"` y `parametros`. Solo el carrusel de una semana que
+toca explicativo lleva además `"variante": "explicativo"` (ver "Carrusel
+explicativo"); las demás piezas no llevan `variante`. Si quitas piezas, quedan menos
 entradas; sin ninguna, `"piezas": []`, `"experimento": null` y `"motivo"`.
 
 ### Ejemplo completo

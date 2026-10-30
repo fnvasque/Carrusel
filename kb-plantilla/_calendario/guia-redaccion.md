@@ -256,6 +256,30 @@ sin tocar.
 - **Bien:** «Asunto: Rotación de turnos desde el lunes`\n`Hola, equipo:`\n`Desde
   el lunes los turnos rotan cada dos semanas.`\n`Gracias,`\n`Paula».
 
+## 11. Carrusel explicativo: una idea, dicha como a un colega
+
+El carrusel explicativo (láminas `Concepto`, solo las semanas que fija
+`config.json → explicativo`) existe para lo que no cabe en un `Step`: una idea
+que necesita dos o tres frases para entenderse. El riesgo es el muro de texto.
+Cada lámina se lee de arriba abajo en este orden: qué le pasa al lector
+(`idea`), la distinción que se queda (`contraste`, en negrita) y lo que hago
+yo con la acción para hoy (`enSimple`). Si una lámina explica teoría sin decir
+qué le pasa al lector ni qué hacer, sobra.
+
+- **Mal:** `titulo` «La falacia de la planificación»; `idea` «Sesgo cognitivo
+  por el que se subestima sistemáticamente el tiempo de una tarea»; `enSimple`
+  «Hay que considerar datos históricos al estimar». Nombre técnico, definición
+  de diccionario y una recomendación sin sujeto.
+- **Bien:** `titulo` «Suena segura aunque se equivoque»; `idea` «A veces
+  inventa un dato y lo dice con la misma seguridad que uno cierto»; `enSimple`
+  «Yo reviso cifras, nombres y fechas antes de mandar algo. Pídele que te
+  marque lo que no está segura de saber». Lo que pasa, en palabras de oficina,
+  y lo que hago yo con un pedido que se puede copiar.
+
+Las 3 a 5 láminas cuentan **una** idea (qué pasa, por qué, cómo lo hago, el
+error típico), no cinco conceptos sueltos: el que llega a la última lámina
+tiene que poder contarla en una frase.
+
 ## Pieza completa: antes y después
 
 El reel «¿Cuándo no confiar en la IA? 1 regla» (jue 2026-10-22), reescrito
@@ -314,3 +338,6 @@ reescribe la escena; no lo dejes para el lector.
     líneas en blanco; sin «ojo» ni muletillas).
 12. **Primera persona**: la pieza la cuenta quien la vivió («yo partí», «armé»),
     con un término técnico como máximo, explicado.
+13. **Carrusel explicativo**: cada `Concepto` dice qué le pasa al lector, el
+    `enSimple` va en primera persona con una sola acción para hoy, y todas las
+    láminas cuentan la misma idea.
