@@ -118,8 +118,10 @@ lo demás de este manual sigue igual (zonas, citas, validar, registro, resumen).
 Al completar una nota con `revisado` anterior a 2026-10-28 se le suma lo nuevo
 (etapa, `Dicho simple`, el rótulo «Lo que no sabe quien está empezando» en vez de
 «Lo que no sabe un usuario frecuente», lector aprendiz y `aprendiz`). Si la lista
-pide **conexiones** de una etapa, armas solo conexiones (Paso 3, punto 7) con las
-referencias listas de esa etapa.
+pide **conexiones** de una etapa, armas solo conexiones (Paso 3, punto 7) con
+referencias de esa etapa; si una referencia que necesitas no está lista (sin
+etapa, sin `Dicho simple` o vencida), la completas en la misma corrida antes de
+conectarla.
 
 ## Paso 3 — Por cada tema
 
@@ -331,8 +333,11 @@ Por qué juntas dicen algo que solas no dicen [1][2][3].
 ## Mis notas
 ```
 
-   Reglas: `conecta` tiene ≥ 3 referencias que existen y no son conexiones; las
-   `fuentes` vienen de **≥ 2 dominios distintos** (el validador lo revisa). Una
+   Reglas (el validador las revisa): `conecta` tiene ≥ 3 referencias que existen
+   y no son conexiones; las `fuentes` vienen de **≥ 2 dominios distintos** y
+   repiten, de cada nota conectada, al menos una de **sus** URL originales; y
+   `## Cómo se conectan` cita al menos 2 fuentes distintas. Tres notas sobre el
+   mismo estudio no son una conexión: tienen que ser piezas distintas. Una
    conexión **no afirma nada que sus fuentes no digan**: lo nuevo es la relación
    entre las piezas, y si esa relación es interpretación tuya, va marcada
    `(propuesta, sin fuente)`. Si no encuentras una conexión que se sostenga, no

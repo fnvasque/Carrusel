@@ -26,7 +26,7 @@ import {
 import { enqueue, finish, pendingCount, requeueInterrupted, takeNext } from "../src/kb/queue.ts";
 import { closeDb } from "../src/kb/db.ts";
 import {
-  autoZoneOf, cobertura, DESDE_ETAPAS, DESDE_NOVEDAD, dichoSimple, ETAPAS, MAX_DICHO, mensajeAprendiz, outsideAgentZones, parseFrontmatter, parseNameStatus, parsePreguntas,
+  autoZoneOf, cobertura, DESDE_ETAPAS, DESDE_NOVEDAD, dichoSimple, ETAPAS, lineasPreguntas, MAX_DICHO, mensajeAprendiz, outsideAgentZones, parseFrontmatter, parseNameStatus, parsePreguntas,
   slugDeEnlace, TIPOS, validateAlcance, validateAudiencia, validateReferencia, validateResumen, validateTopicBlock, zoneErrors,
 } from "../kb-plantilla/_investigacion/validar.mjs";
 import { abortStaleRebase, kbHead, pullKb } from "../src/kb/store.ts";
@@ -1054,6 +1054,7 @@ check("validar: desde DESDE_ETAPAS — etapa, aprendiz, Dicho simple y rótulo d
   assert.equal(MAX_DICHO, 400);
   assert.match(errs(REF_ETAPAS.replace("la IA te ayuda", `${"x".repeat(400)} la IA te ayuda`)), /400/);
   assert.match(errs(REF_ETAPAS.replace("Lo que no sabe quien está empezando", "Lo que no sabe un usuario frecuente")), /quien está empezando/);
+  assert.match(errs(REF_ETAPAS.replace("- **Para quién:** quien repite tareas en la oficina.", "- **Para quién:**")), /Para quién/);
   const noAplica = REF_ETAPAS.replace("etapa: [adoptar]\naprendiz: 2026-10-30\n", "").replace(/## Para la audiencia\n[\s\S]*?\n\n## Mis notas/, "## Para la audiencia\nNo aplica a la cuenta: es una pastelería.\n\n## Mis notas");
   assert.deepEqual(validateReferencia(noAplica, ctx), []);
   // Una nota vieja (revisado antes del corte) sigue con las reglas de antes.
@@ -1081,6 +1082,7 @@ conecta: ["[[a]]", "[[b]]", "[[c]]"]
 fuentes:
   - https://www.hbs.edu/estudio
   - https://arxiv.org/abs/1
+  - https://n8n.io/pricing
 tags: [kb/referencia]
 ---
 
@@ -1106,18 +1108,31 @@ check("validar: conexiones — ≥ 3 referencias existentes, ≥ 2 dominios y «
   assert.deepEqual(validateReferencia(CONEXION_OK, ctx), []);
   assert.match(errs(CONEXION_OK.replace(', "[[c]]"', "")), /3/);
   assert.match(errs(CONEXION_OK.replace('"[[c]]"', '"[[zeta]]"')), /zeta/);
-  assert.match(errs(CONEXION_OK.replace("https://arxiv.org/abs/1", "https://hbs.edu/otro")), /dominios/);
   assert.match(errs(CONEXION_OK.replace("## Cómo se conectan", "## Otra cosa")), /Cómo se conectan/);
   assert.deepEqual(validateReferencia(CONEXION_OK.replace('["[[a]]", "[[b]]", "[[c]]"]', `["[[a|A]]", "'[[b]]'", "[[c]]"]`), ctx), []);
   assert.match(errs(CONEXION_OK.replace('"[[c]]"', '"[[la-ia-ayuda]]"')), /sí misma/);
   // Sin contexto no se comprueba que existan, pero sí la cantidad.
   assert.deepEqual(validateReferencia(CONEXION_OK.replace('"[[c]]"', '"[[zeta]]"')), []);
+  // Un subdominio del mismo sitio no cuenta como otra fuente.
+  const mismoSitio = CONEXION_OK.replace("https://arxiv.org/abs/1", "https://blog.hbs.edu/2").replace("  - https://n8n.io/pricing\n", "");
+  assert.match(errs(mismoSitio), /dominios/);
+  // Cada nota conectada aporta al menos una de sus URL originales.
+  const fuentesDe = new Map([["a", ["https://www.hbs.edu/estudio"]], ["b", ["https://arxiv.org/abs/1/"]], ["c", ["https://otro.org/x"]]]);
+  assert.match(validateReferencia(CONEXION_OK, { ...ctx, fuentesDe }).join(), /\[\[c\]\].*no cita ninguna de sus fuentes/);
+  fuentesDe.set("c", ["https://n8n.io/pricing"]);
+  assert.deepEqual(validateReferencia(CONEXION_OK, { ...ctx, fuentesDe }), []);
+  // «Cómo se conectan» cruza al menos 2 fuentes.
+  assert.match(errs(CONEXION_OK.replace("desde lados distintos [1][2].", "desde lados distintos [1].")), /al menos 2 fuentes/);
+  // Comas dentro de un enlace con nombre no parten la lista.
+  assert.deepEqual(validateReferencia(CONEXION_OK.replace('"[[a]]"', '"[[a|Uno, dos]]"'), ctx), []);
 });
 
 check("validar: preguntas de las sesiones y responde:", () => {
   const txt = "# Preguntas\n\n- AAAA-MM-DD · <etapa> · <pregunta>\n- 2026-10-30 · perder-el-miedo · ¿qué es un agente?\n- 2026-13-01 · adoptar · mala fecha\n- sin formato\n";
   assert.deepEqual(parsePreguntas(txt), ["2026-10-30 · perder-el-miedo · ¿qué es un agente?"]);
   assert.deepEqual(parsePreguntas(""), []);
+  assert.deepEqual(lineasPreguntas(txt).invalidas, ["2026-13-01 · adoptar · mala fecha", "sin formato"]);
+  assert.deepEqual(parsePreguntas("- 2026-10-30 · Adoptar · ¿mayúscula?\n"), []);
   const con = REF_ETAPAS.replace("aprendiz: 2026-10-30", 'aprendiz: 2026-10-30\nresponde: ["2026-10-30 · perder-el-miedo · ¿qué es un agente?"]');
   assert.deepEqual(validateReferencia(con, { etapas: ETAPAS, preguntas: parsePreguntas(txt) }), []);
   assert.match(validateReferencia(con, { etapas: ETAPAS, preguntas: [] }).join(), /responde/);
@@ -1132,6 +1147,9 @@ check("validar: mensaje del lector aprendiz — solo Dicho simple y Qué se pued
   assert.match(m, /mandar un aviso cuando llega un correo/);
   assert.match(m, /=== FIN ===/);
   assert.doesNotMatch(m, /\[\d\]|https?:|n8n|Automatización con IA|conecta apps/);
+  const conEnlace = mensajeAprendiz(REF_ETAPAS.replace("una tarea que repites", "una tarea que repites, como en [[delegar-en-ia|delegar en IA]]"), lector);
+  assert.match(conEnlace, /como en delegar en IA/);
+  assert.doesNotMatch(conEnlace, /\[\[/);
 });
 
 check("validar: cobertura por etapa y archivos protegidos nuevos", () => {
@@ -1144,12 +1162,15 @@ check("validar: cobertura por etapa y archivos protegidos nuevos", () => {
     writeFileSync(joinPath(root, "referencias", "vieja.md"), REF_ETAPAS.replace(/2026-10-30/g, "2026-08-01"));
     writeFileSync(joinPath(root, "referencias", "b.md"), REF_ETAPAS);
     writeFileSync(joinPath(root, "referencias", "c.md"), REF_ETAPAS);
+    // Declarar varias etapas no infla la cobertura: cuenta en la primera.
+    writeFileSync(joinPath(root, "referencias", "varias.md"), REF_ETAPAS.replace("etapa: [adoptar]", "etapa: [liderar, adoptar, adoptar]"));
     writeFileSync(joinPath(root, "referencias", "con.md"), CONEXION_OK);
     writeFileSync(joinPath(root, "_investigacion", "preguntas.md"), "- 2026-10-30 · adoptar · ¿respondida?\n- 2026-10-30 · liderar · ¿pendiente?\n");
     const c = cobertura(root, "2026-10-31");
     const adoptar = c.etapas.find((e) => e.etapa === "adoptar");
     assert.deepEqual(adoptar, { etapa: "adoptar", referencias: 3, conexiones: 1, falta: true });
     assert.equal(c.etapas.length, 4);
+    assert.equal(c.etapas.find((e) => e.etapa === "liderar")?.referencias, 1);
     assert.deepEqual(c.preguntasPendientes, ["2026-10-30 · liderar · ¿pendiente?"]);
   } finally {
     rmSync(root, { recursive: true, force: true });

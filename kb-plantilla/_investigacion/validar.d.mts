@@ -25,13 +25,14 @@ export declare const ROTULOS_ETAPAS: string[];
 export declare const MAX_DICHO: number;
 export declare const META_REFERENCIAS: number;
 export declare const META_CONEXIONES: number;
-export type Contexto = { etapas?: string[]; slugs?: Set<string>; preguntas?: string[]; slugPropio?: string };
+export type Contexto = { etapas?: string[]; slugs?: Set<string>; preguntas?: string[]; slugPropio?: string; fuentesDe?: Map<string, string[]> };
 export declare function slugDeEnlace(s: string): string;
 export declare function dichoSimple(body: string): string | undefined;
 export declare function parsePreguntas(text: string): string[];
+export declare function lineasPreguntas(text: string): { validas: string[]; invalidas: string[] };
 export declare function contexto(root: string): Contexto;
 export declare function cobertura(
   root: string,
   hoy: string,
-): { etapas: { etapa: string; referencias: number; conexiones: number; falta: boolean }[]; preguntasPendientes: string[] };
+): { etapas: { etapa: string; referencias: number; conexiones: number; falta: boolean }[]; preguntasPendientes: string[]; preguntasInvalidas: string[] };
 export declare function mensajeAprendiz(nota: string, lector: string): string;

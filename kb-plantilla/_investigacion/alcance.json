@@ -34,7 +34,8 @@
     "Modelos mentales y pensamiento crítico": "pensar mejor con IA y frente a la IA: usarla para contrastar decisiones, sesgos que amplifica, cuándo no confiar en su respuesta",
     "Psicología del comportamiento y toma de decisiones": "hábitos y decisiones con IA: formar o mantener hábitos con ayuda de una IA, qué pasa con la atención, la motivación y el juicio cuando la IA decide o recuerda por ti",
     "Productividad y gestión del tiempo": "productividad con IA: qué tareas absorbe la IA, cómo cambia planificar el día y la semana, cuánto tiempo ahorra de verdad según estudios, y qué pasa con tu rol y tus habilidades cuando la IA hace parte del trabajo",
-    "Desarrollo de habilidades y carrera profesional": "qué habilidades suben o bajan de valor cuando la IA hace parte del trabajo, y cómo se desarrollan: qué aprender, qué dejar de hacer a mano y cómo se ve tu perfil en cinco años"
+    "Desarrollo de habilidades y carrera profesional": "qué habilidades suben o bajan de valor cuando la IA hace parte del trabajo, y cómo se desarrollan: qué aprender, qué dejar de hacer a mano y cómo se ve tu perfil en cinco años",
+    "Ingeniería de agentes de IA": "qué es un agente y qué hace, dicho para quien no programa: qué tareas de oficina puede tomar, cómo se le dan instrucciones y cómo se revisa lo que hizo; lo técnico (código, frameworks, APIs) entra solo si se explica con un caso de oficina o respalda la serie «Lo que construí»"
   },
   "etapas": {
     "_nota": "Del usuario (2026-10-29). El camino de coaching de @ia.punto.es, en orden. Cada referencia que aplica a la cuenta lleva una o más en su frontmatter `etapa:`; la investigación llena primero la etapa con menos cobertura (validar.mjs --cobertura).",

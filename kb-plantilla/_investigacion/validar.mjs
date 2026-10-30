@@ -87,10 +87,37 @@ export function parseFrontmatter(text) {
       key = undefined; // texto plegado: sus líneas siguientes no son una lista
     } else {
       data[key] =
-        v === "" ? [] : v.startsWith("[") && v.endsWith("]") ? v.slice(1, -1).split(",").map(unquote).filter(Boolean) : unquote(v);
+        v === "" ? [] : v.startsWith("[") && v.endsWith("]") ? partirLista(v.slice(1, -1)).map(unquote).filter(Boolean) : unquote(v);
     }
   }
   return { data, body: m[2] };
+}
+
+/** Parte una lista inline por comas, sin cortar dentro de comillas ni de `[[…]]` («[[b|Uno, dos]]»). */
+function partirLista(s) {
+  const partes = [];
+  let actual = "";
+  let comilla = "";
+  let enlace = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (comilla) {
+      if (c === comilla) comilla = "";
+    } else if (c === '"' || c === "'") {
+      if (!actual.trim()) comilla = c;
+    } else if (s.startsWith("[[", i)) {
+      enlace++;
+    } else if (s.startsWith("]]", i) && enlace) {
+      enlace--;
+    } else if (c === "," && !enlace) {
+      partes.push(actual.trim());
+      actual = "";
+      continue;
+    }
+    actual += c;
+  }
+  partes.push(actual.trim());
+  return partes;
 }
 
 /** Quita un comentario YAML final (` # …`) que no esté dentro de comillas. */
@@ -152,13 +179,17 @@ export function slugDeEnlace(s) {
   return (m ? m[1] : t).trim();
 }
 
+/** Dominio registrable aproximado: `blog.hbs.edu` → `hbs.edu`, `www.bbc.co.uk` → `bbc.co.uk`. */
 const dominio = (u) => {
   try {
-    return new URL(u).hostname.replace(/^www\./, "");
+    const partes = new URL(u).hostname.replace(/^www\./, "").split(".");
+    const n = partes.length >= 3 && partes.at(-1).length === 2 && /^(com|co|org|gob|gov|edu|ac|net)$/.test(partes.at(-2)) ? 3 : 2;
+    return partes.slice(-n).join(".");
   } catch {
     return undefined;
   }
 };
+const normalizarUrl = (u) => String(u).trim().replace(/\/+$/, "");
 
 /** Una conexión une ≥ 3 referencias (no conexiones) con fuentes de ≥ 2 dominios y explica cómo se conectan. */
 function validateConexion(data, body, fuentes, ctx) {
@@ -173,7 +204,20 @@ function validateConexion(data, body, fuentes, ctx) {
   }
   const dominios = new Set(fuentes.map(dominio).filter(Boolean));
   if (dominios.size < 2) errs.push(`las fuentes de una conexión vienen de al menos 2 dominios distintos (tiene ${dominios.size})`);
-  if (!/^## Cómo se conectan\s*$/m.test(body)) errs.push('falta la sección "## Cómo se conectan"');
+  if (ctx.fuentesDe) {
+    const propias = new Set(fuentes.map(normalizarUrl));
+    for (const c of conecta) {
+      const suyas = ctx.fuentesDe.get(c);
+      if (suyas && !suyas.some((u) => propias.has(normalizarUrl(u)))) {
+        errs.push(`conecta "[[${c}]]": la conexión no cita ninguna de sus fuentes (copia en "fuentes" la URL original de lo que tomas de esa nota)`);
+      }
+    }
+  }
+  const como = seccion(body, "Cómo se conectan");
+  if (como === undefined) errs.push('falta la sección "## Cómo se conectan"');
+  else if (new Set([...como.matchAll(/(?<!\[)\[(\d+)\](?![\](])/g)].map((x) => x[1])).size < 2) {
+    errs.push('"## Cómo se conectan" cita al menos 2 fuentes distintas [n]: es donde se cruzan');
+  }
   return errs;
 }
 
@@ -211,8 +255,8 @@ export function validateAudiencia(body, revisado) {
 function validateAudienciaEtapas(s) {
   const errs = [];
   for (const r of ROTULOS_ETAPAS) {
-    if (!new RegExp(`^- \\*\\*${r}:\\*\\*\\s*\\S`, "m").test(s)) {
-      errs.push(`"## Para la audiencia" sin "- **${r}:** …" (obligatorio desde revisado ${DESDE_ETAPAS}; o escribe "No aplica a la cuenta: <motivo>")`);
+    if (!new RegExp(`^- \\*\\*${r}:\\*\\*[ \\t]*\\S`, "m").test(s)) {
+      errs.push(`"## Para la audiencia" sin "- **${r}:** …" con texto (obligatorio desde revisado ${DESDE_ETAPAS}; o escribe "No aplica a la cuenta: <motivo>")`);
     }
   }
   const dicho = rotulo(s, ROTULO_DICHO);
@@ -282,13 +326,26 @@ export function validateAlcance(text) {
   return errs;
 }
 
-/** Preguntas de `_investigacion/preguntas.md`: líneas `- AAAA-MM-DD · <etapa> · <pregunta>` con fecha válida, sin el "- ". */
+/**
+ * Preguntas de `_investigacion/preguntas.md`: líneas `- AAAA-MM-DD · <etapa> · <pregunta>` con fecha
+ * válida y una etapa de ETAPAS, sin el "- ". La línea de ejemplo (`AAAA-MM-DD`) no cuenta.
+ */
 export function parsePreguntas(text) {
-  return String(text)
-    .split("\n")
-    .map((l) => l.match(/^\s*-\s+((\d{4}-\d{2}-\d{2}) · [^·]+? · .+?)\s*$/))
-    .filter((m) => m && validDate(m[2]))
-    .map((m) => m[1]);
+  return lineasPreguntas(text).validas;
+}
+
+/** Líneas de viñeta de preguntas.md separadas en válidas e inválidas (para avisar al usuario). */
+export function lineasPreguntas(text) {
+  const validas = [];
+  const invalidas = [];
+  for (const l of String(text).split("\n")) {
+    const vin = l.match(/^\s*-\s+(.+?)\s*$/);
+    if (!vin || vin[1].startsWith("AAAA-MM-DD")) continue;
+    const m = vin[1].match(/^(\d{4}-\d{2}-\d{2}) · ([^·]+?) · .+$/);
+    if (m && validDate(m[1]) && ETAPAS.includes(m[2])) validas.push(vin[1]);
+    else invalidas.push(vin[1]);
+  }
+  return { validas, invalidas };
 }
 
 /** Clave de comparación de un tema: sin `[[ ]]`, sin tildes, en minúsculas. */
@@ -393,7 +450,7 @@ function agentBase(root, desde) {
 
 /** Contexto de la base para validateReferencia: etapas de alcance.json, slugs de referencias que no son conexiones y preguntas. */
 export function contexto(root) {
-  const ctx = { preguntas: [], slugs: new Set() };
+  const ctx = { preguntas: [], slugs: new Set(), fuentesDe: new Map() };
   const alcance = join(root, "_investigacion", "alcance.json");
   if (existsSync(alcance)) {
     try {
@@ -407,7 +464,10 @@ export function contexto(root) {
   if (existsSync(preguntas)) ctx.preguntas = parsePreguntas(readFileSync(preguntas, "utf8"));
   for (const f of mdIn(join(root, "referencias"))) {
     const fm = parseFrontmatter(readFileSync(join(root, "referencias", f), "utf8"));
-    if (!("error" in fm) && fm.data.tipo !== "conexion") ctx.slugs.add(f.slice(0, -3));
+    if (!("error" in fm) && fm.data.tipo !== "conexion") {
+      ctx.slugs.add(f.slice(0, -3));
+      ctx.fuentesDe.set(f.slice(0, -3), lista(fm.data.fuentes));
+    }
   }
   return ctx;
 }
@@ -415,7 +475,7 @@ export function contexto(root) {
 const diasEntre = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
 /**
- * Cobertura por etapa: referencias y conexiones listas (válidas, aplican a la cuenta, `revisado` desde
+ * Cobertura por etapa (cada nota cuenta en la primera etapa de su `etapa:`): referencias y conexiones listas (válidas, aplican a la cuenta, `revisado` desde
  * DESDE_ETAPAS y de hace ≤ 60 días respecto de `hoy`) y preguntas que ninguna nota lista en `responde`.
  */
 export function cobertura(root, hoy) {
@@ -434,10 +494,9 @@ export function cobertura(root, hoy) {
       validDate(data.revisado) && data.revisado >= DESDE_ETAPAS && diasEntre(data.revisado, hoy) <= VIGENCIA_DIAS &&
       aud !== undefined && !NO_APLICA_RE.test(aud) && !validateReferencia(text, { ...ctx, slugPropio: f.slice(0, -3) }).length;
     if (!lista_) continue;
-    for (const e of lista(data.etapa)) {
-      const c = cuenta.get(e);
-      if (c) c[data.tipo === "conexion" ? "conexiones" : "referencias"]++;
-    }
+    // Cuenta en su primera etapa: declarar varias no infla la cobertura.
+    const c = cuenta.get(lista(data.etapa)[0]);
+    if (c) c[data.tipo === "conexion" ? "conexiones" : "referencias"]++;
   }
   return {
     etapas: etapas.map((etapa) => {
@@ -445,10 +504,18 @@ export function cobertura(root, hoy) {
       return { etapa, referencias, conexiones, falta: referencias < META_REFERENCIAS || conexiones < META_CONEXIONES };
     }),
     preguntasPendientes: ctx.preguntas.filter((p) => !respondidas.has(p)),
+    preguntasInvalidas: existsSync(join(root, "_investigacion", "preguntas.md"))
+      ? lineasPreguntas(readFileSync(join(root, "_investigacion", "preguntas.md"), "utf8")).invalidas
+      : [],
   };
 }
 
-const sinCitas = (t) => t.replace(/\s?(?<!\[)\[\d+\](?![\](])/g, "").replace(/\s?\(?https?:\/\/\S+\)?/g, "");
+const sinCitas = (t) =>
+  t
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/\s?(?<!\[)\[\d+\](?![\](])/g, "")
+    .replace(/\s?\(?https?:\/\/\S+\)?/g, "");
 
 /**
  * Mensaje exacto para el subagente lector aprendiz: la sección "## Para el lector" de lector-aprendiz.md
@@ -550,6 +617,9 @@ if (process.argv[1] && real(process.argv[1]) === real(self)) {
       console.log(`${e.etapa} · ${e.referencias}/${META_REFERENCIAS} referencias · ${e.conexiones}/${META_CONEXIONES} conexiones${e.falta ? " · FALTA" : " · ok"}`);
     }
     console.log(c.preguntasPendientes.length ? `Preguntas pendientes:\n${c.preguntasPendientes.map((p) => `  - ${p}`).join("\n")}` : "Preguntas pendientes: ninguna");
+    if (c.preguntasInvalidas.length) {
+      console.log(`Líneas de preguntas.md que no se entienden (formato "- AAAA-MM-DD · <etapa> · <pregunta>", etapa en minúsculas: ${ETAPAS.join(", ")}); nómbralas en el resumen:\n${c.preguntasInvalidas.map((p) => `  - ${p}`).join("\n")}`);
+    }
   } else {
     main(root, arg("--desde"));
   }
