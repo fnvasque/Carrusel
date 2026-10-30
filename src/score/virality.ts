@@ -26,6 +26,9 @@ export interface ViralityResult {
 /** Umbral a partir del cual consideramos el carrusel "listo" para publicar. */
 export const THRESHOLD = 75;
 
+/** El Cta pide «PARTIR» por mensaje directo (misma regla que `pideDm` en Cta.tsx: palabra completa en mayúsculas). */
+const pideParTir = (texto: string): boolean => /\bPARTIR\b/.test(texto);
+
 // --- Léxicos (en minúsculas, con acentos) ---
 const ENEMY = ["no ", "no.", "deja de", "nunca", "mentira", "error", "errores", "gratis", "sin ", "basta", "olvida", "nadie", "dejes de", "no pagues", "no es"];
 const OPEN_LOOP = ["#", "todavía", "por qué", "porque", "esto es", "lo que nadie", "la #", "el truco", "la verdad"];
@@ -149,7 +152,8 @@ export function scoreCarousel(spec: CarouselSpec): ViralityResult {
     // «Escríbeme PARTIR» (señal dm, desde el pivote a coaching del 2026-11-02) cuenta como el gesto, igual que en el reel (GESTO).
     if (has(ctaText, ["guarda", "guárdalo", "guardalo", "comparte", "mándaselo", "mandaselo", "descarga", "envíaselo", "escríbeme", "escribeme"])) cta += 6;
     else { ctaNotes.push("CTA sin verbo de guardar/compartir/escribir"); suggestions.push("El CTA primario debe pedir el gesto que mide la cuenta: escribir (Escríbeme PARTIR), guardar o compartir."); }
-    if (typeof p.handle === "string" && p.handle) cta += 4; else ctaNotes.push("sin handle");
+    // Un Cta PARTIR no lleva handle: la caja de mensaje directo y la firma ya muestran la cuenta.
+    if ((typeof p.handle === "string" && p.handle) || pideParTir(ctaText)) cta += 4; else ctaNotes.push("sin handle");
   } else {
     ctaNotes.push("sin slide CTA");
   }
@@ -322,7 +326,8 @@ export function scoreReel(draft: ReelDraftLike): ViralityResult {
   if (cta) {
     const ctaText = `${txt(cta.props.title)} ${txt(cta.props.cta)}`;
     if (has(ctaText, GESTO)) ctaScore += 6; else { ctaNotes.push("CTA sin verbo de guardar/compartir"); suggestions.push("El título del Cta pide guardar o compartir (tu métrica)."); }
-    if (txt(cta.props.handle).trim()) ctaScore += 4; else ctaNotes.push("sin handle");
+    // Un Cta PARTIR no lleva handle: la caja de mensaje directo y la firma ya muestran la cuenta.
+    if (txt(cta.props.handle).trim() || pideParTir(ctaText)) ctaScore += 4; else ctaNotes.push("sin handle");
   } else {
     ctaNotes.push("sin slide CTA");
   }

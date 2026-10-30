@@ -1187,7 +1187,8 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   (4); `Cta` al cierre (4).
 - **CTA (10)**: el título o la pastilla del `Cta` pide el gesto (6): desde el
   2026-11-02, «Escríbeme PARTIR» (también cuentan guardar, compartir o
-  comentar); y lleva `handle` (4).
+  comentar); y lleva `handle` (4; un `Cta` que pide PARTIR suma esos 4 sin
+  `handle`, porque la caja de mensaje ya muestra la cuenta).
 - **Marca (10, resta 3 por cada una)**: igual que en carrusel; la narración
   también cuenta.
 
@@ -1208,7 +1209,8 @@ narrado** (toda slide con `narracion`; desde el pivote del 2026-10-17) y la de
   número) (7); el indicador de progreso lo pone el motor.
 - **CTA (10)**: el título o la pastilla del `Cta` pide el gesto (6): desde el
   2026-11-02, «Escríbeme PARTIR» (también cuentan "Guárdalo", "Mándaselo",
-  "Compártelo"); y lleva `handle` (4).
+  "Compártelo"); y lleva `handle` (4; un `Cta` que pide PARTIR suma esos 4 sin
+  `handle`, porque la caja de mensaje ya muestra la cuenta).
 - **Marca (10, resta 3 por cada una)**: sin **hype** ("increíble",
   "revolucionario", "brutal"…), sin miedo ("te reemplaza"), sin **jerga**
   ("llm", "token", "embedding", "fine-tuning", "prompt engineering") y sin

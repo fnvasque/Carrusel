@@ -44,7 +44,7 @@ Reglas de viralidad (para maximizar guardados/compartidos):
 - Incluye al menos un slide de reframe (Lead o MythReality): dispara el compartir.
 - Slides de desarrollo (Step/Prompt/Stat/MythReality) llevan index/total (barra de progreso) y pasos numerados (step "01", o mythLabel "Nº1").
 - Cada slide de desarrollo muestra la idea con un elemento visual: un dato grande (Stat: value "47%" + label + context), un checklist (Step con bullets), un prompt/comando copiable (Prompt) o un antes/después (MythReality). Si el post original trae una cifra, usa Stat.
-- El Cta primario debe pedir guardar o compartir, e incluir un handle.
+- El Cta primario debe pedir guardar o compartir, e incluir un handle (salvo en el Cta «Escríbeme PARTIR», que no lo lleva: la caja de mensaje ya muestra la cuenta y cuenta igual para el score).
 - PROHIBIDO: hype ("cambia tu vida", "increíble"), miedo ("te reemplaza"), jerga técnica cruda (LLM, token, embedding) y clickbait ("no vas a creer").
 - Fondos: usa "background.ai" con un prompt en inglés que reproduzca el TEMA/COMPOSICIÓN del estilo visual original PERO re-skineado al look papel (papel gris cálido claro #ECECEA, calmo, minimal, editorial, acento lima #C6FF3D suave), mucho espacio negativo. overlay 0.4-0.55. No copies el branding ajeno.
 `.trim();

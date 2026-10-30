@@ -206,6 +206,19 @@ check("scoreDraft: weak < strong y strong supera el umbral", () => {
   assert.ok(ss >= THRESHOLD, `strong(${ss}) debe alcanzar el umbral ${THRESHOLD}`);
 });
 
+check("score: un Cta PARTIR sin handle suma los 4 puntos del handle; uno sin PARTIR sigue perdiéndolos (carrusel y reel)", () => {
+  const ctaDe = (r: ReturnType<typeof scoreReel>) => r.dimensions.find((d) => d.name === "CTA")!;
+  const reel = (props: Record<string, unknown>) =>
+    scoreReel({ pace: "gancho", slides: [{ template: "Hook", props: {} }, { template: "Cta", props }] });
+  assert.equal(ctaDe(reel({ title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" })).score, 10, "reel: PARTIR sin handle");
+  assert.equal(ctaDe(reel({ title: "Guárdalo para tu próximo resumen", cta: "Guárdalo" })).score, 6, "reel: sin PARTIR ni handle pierde 4");
+  assert.equal(ctaDe(reel({ title: "Guárdalo", cta: "Guárdalo", handle: "ia.punto.es" })).score, 10, "reel: con handle suma");
+  const car = (props: Record<string, unknown>) =>
+    scoreCarousel({ name: "x", slides: [{ template: Hook, props: { title: "t" } }, { template: Cta, props }] } as never);
+  assert.equal(ctaDe(car({ title: "¿No sabes por dónde empezar?", cta: "Escríbeme PARTIR" })).score, 10, "carrusel: PARTIR sin handle");
+  assert.equal(ctaDe(car({ title: "Guárdalo", cta: "Guárdalo" })).score, 6, "carrusel: sin PARTIR ni handle pierde 4");
+});
+
 // --- registry: scoreDraft elige la rúbrica de reel narrado (pivote 2026-10-17) ---
 check("scoreReel: un reel del manual (resultado, voz, Screen, gancho) pasa el umbral y uno mudo de texto no", () => {
   // Pieza real de la semana 2026-10-19 que el scorer de carrusel marcó fallida (57 < 75).
