@@ -1286,7 +1286,8 @@ lleva `"variante": "explicativo"` y **sigue** con el `formato`, `arquetipo` y
 láminas `Concepto`. Sin `config.json → explicativo` no hay carruseles
 explicativos. El validador lo revisa en ambos sentidos. Así la variante es
 medible: al evaluar, compara los carruseles con `variante` contra los sin ella
-(alcance, guardados, envíos y los DM de esas semanas), sabiendo que con pocas
+(`bucle.json → piezas[].variante`: alcance, guardados, envíos y los DM de esas
+semanas), sabiendo que con pocas
 piezas el resultado es «n insuficiente».
 
 **Estructura.** `Hook` → 3 a 5 `Concepto` sobre **la misma idea** (qué te

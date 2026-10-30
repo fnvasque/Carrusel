@@ -263,6 +263,13 @@ await checkAsync("tick (R48): arma las URLs públicas de los medios con MEDIA_PU
   assert.match(sinBase.estados.at(-1)?.e.motivo ?? "", /MEDIA_PUBLIC_BASE/);
 });
 
+await checkAsync("tick: una pieza con variante (carrusel explicativo) la anota en la línea publicado del registro", async () => {
+  const conVariante = { ...lunes, variante: "explicativo" };
+  const w = mundo([semanaDe([conVariante], { [lunes.id]: render() }, { [lunes.id]: { estado: "programado" } })]);
+  await tick(w.deps);
+  assert.equal(w.registro.find((l) => l.tipo === "publicado")?.variante, "explicativo");
+});
+
 await checkAsync("tick: publica la pieza debida, persiste la fila antes del commit y anota el registro con los campos de T3", async () => {
   const w = mundo([programada()]);
   await tick(w.deps);

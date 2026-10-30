@@ -53,9 +53,11 @@ El adversario la atacó en cinco puntos; se adoptaron todos:
 `INSTRUCCIONES.md`, `guia-redaccion.md`, `lector-frio.md`, `config.json`, `reglas.json`,
 `carousels/ejemplo-explicativo.ts` y tests.
 
-## Pendiente
+## Medición
 
-- El bucle del bot no guarda `variante` en `bucle.json → piezas`; mientras tanto la comparación se
-  hace por id contra los `plan.json`. Si la variante se queda, llevarla al registro del bot.
-- `scripts/kb-calendario-install.sh` no pisa un `config.json` existente: hay que agregar
-  `explicativo` a mano en la base.
+El bot anota `variante` en la línea `publicado` de `registro.jsonl` y el bucle la copia a
+`bucle.json → piezas[].variante` (la toma del plan y, si no está, del registro). El planificador
+compara los carruseles con y sin ella.
+
+`scripts/kb-calendario-install.sh` no pisa un `config.json` existente: `explicativo` se agrega a
+mano en la base.
