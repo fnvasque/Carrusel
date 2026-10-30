@@ -26,11 +26,17 @@ nota). Pasa si se cumplen las tres:
    entendió otra cosa, o una idea a medias, no pasa.
 2. La respuesta 2 nombra **una acción concreta** que se puede hacer esa semana (no «informarme más»,
    «tenerlo en cuenta» ni «nada»).
-3. La respuesta 3 está vacía: no hubo palabras ni frases que no entendiera.
+3. La respuesta 3 no nombra **una palabra o frase del texto que no entendió**: una sigla, un
+   anglicismo, un término técnico o una cifra sin explicar. Si la nombra, no pasa.
+
+La respuesta 4 (lo que le faltaría saber para hacerlo: dónde se abre, cuánto cuesta, qué botón)
+**no bloquea**: es la duda normal de quien parte. Úsala para mejorar la nota: si tienes fuente para
+responderla, súmala a `Qué se puede hacer` o a `Límites`; si no, déjala y nómbrala en el resumen
+(es buena materia para una pieza de «Por dónde partir»).
 
 Si no pasa, reescribe `Dicho simple` y `Qué se puede hacer` (palabras de oficina, una sola idea, cada
-dato explicado: «de cada 10 personas, 4…» en vez de «40 %»), vuelve a correr `--aprendiz` y lanza un
-subagente **nuevo**. Máximo **3 intentos** por nota. Si el tercero falla, descarta lo que escribiste
+dato explicado: «de cada 10 personas, 4…» en vez de «40 %»; la palabra que no entendió, cambiada o
+explicada ahí mismo), vuelve a correr `--aprendiz` y lanza un subagente **nuevo**. Máximo **3 intentos** por nota. Si el tercero falla, descarta lo que escribiste
 de esa nota en esta corrida (`git checkout -- referencias/<slug>.md`, o bórrala si era nueva) y
 nómbrala en el resumen.
 
@@ -53,12 +59,15 @@ completes con lo que sabes.
 
 1. ¿Qué entendiste, en tus palabras? (una o dos frases)
 2. ¿Qué harías esta semana después de leerlo? Si no harías nada, responde "nada".
-3. ¿Qué palabra o frase no entendiste o te hizo dudar? Si entendiste todo, deja el texto vacío.
+3. ¿Qué palabra o frase del texto no entendiste (no sabes qué significa)? Cópiala tal cual. Si
+   entendiste todas las palabras, deja el texto vacío.
+4. ¿Qué te faltaría saber para hacerlo de verdad (dónde, cuánto cuesta, cómo se hace)? Si nada,
+   deja el texto vacío.
 
 ### Formato de respuesta
 
 Responde **solo** este JSON, sin texto antes ni después:
 
 ```json
-{ "1": "...", "2": "...", "3": "" }
+{ "1": "...", "2": "...", "3": "", "4": "..." }
 ```
