@@ -190,6 +190,13 @@
       "formato": null,
       "descripcion": "La portada le habla al lector con la promesa en el título (qué consigue y con qué IA); el cuerpo sigue en primera persona. El juez ve solo lo que pinta la portada y responde soloTitulo; el validador veta un elegido con «no sé» o sin pulgar. La 7 del lector exige el con qué, y un «no sé» del con prisa bloquea en cualquier ronda",
       "fuente": "pedido de Felipe 2026-10-30 (portadas «Nunca supe qué pedirle a la IA» e «Informe listo») con revisión adversaria; PR de la portada al lector"
+    },
+    {
+      "id": "cierre-dm-o-comentario",
+      "desde": "2026-10-31",
+      "formato": null,
+      "descripcion": "El Cta pregunta por el caso del lector y termina con «Escribe esta palabra y te ayudo» sobre la burbuja PARTIR; la pista dice «Por mensaje o en comentarios. Te respondo yo.» y el caption pide PARTIR por mensaje o en comentarios",
+      "fuente": "pedido de Felipe 2026-10-30; lectores fríos que no sabían qué hacer con PARTIR"
     }
   ]
 }

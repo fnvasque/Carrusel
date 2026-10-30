@@ -42,7 +42,7 @@ export function pideDm(...textos: (string | undefined)[]): boolean {
 }
 
 /** Pista bajo la burbuja: siempre pide escribir (la `reason`, si hay, va en su propia línea bajo el título). */
-export const DM_PISTA = "Escríbeme esto por mensaje y te respondo yo.";
+export const DM_PISTA = "Por mensaje o en comentarios. Te respondo yo.";
 
 /**
  * Rol 5 — Cierre. Titular Inter 700 con el marcador lima. Si la pieza pide
