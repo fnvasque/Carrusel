@@ -650,7 +650,6 @@ Para quienes escriben plantillas nuevas, aquí están los atributos que controla
 | `rise` | Sube y aparece | Subtítulos, body, etiquetas |
 | `stagger` | Los hijos aparecen de a uno, de abajo hacia arriba (cada 1.8 s en `ensenar`) | Lista de bullets |
 | `type` | Efecto máquina de escribir, con tope de duración | Texto de Prompt |
-| `strike` | Tacha el texto de izquierda a derecha, una barra por línea | Mito en MythReality |
 | `count` | El número cuenta desde 0 (respeta prefijos/sufijos; si no es numérico, entra como `rise`); la barra `[data-meter]` se llena en sincronía | Valor de Stat |
 | `check` | El ✓ crece de 0 a 1 cuando entra su bullet | Checklist de Step |
 | `caret` | El cursor parpadea (0.5 s) tras terminar de escribir | Prompt |
@@ -694,7 +693,7 @@ suscripción y necesita una sesión de Claude: lee `pendientes`, genera cada cli
 `generate_video` (Kling 3.0, 9:16, `pro`, sin sonido, ≈ 9 créditos), lo descarga y llama a
 `aplicar`. `aplicar` siempre mezcla sobre el original (`.reel-sin-hook.mp4`), deja
 `.hook-video.json` al terminar y no toca un reel a menos de 45 min de su hora. Si algo falla,
-avisa por Telegram y el reel sale sin clip. La duración no cambia, así que `render.json`
+avisa por Telegram y el reel sale sin clip (el Hook del reel se queda oscuro mientras el resto es papel: es lo esperado). La duración no cambia, así que `render.json`
 sigue valiendo.
 
 ### Reel con video generado (slide `Clip`)

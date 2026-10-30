@@ -25,8 +25,10 @@ export const ETIQUETA_TU = "Tú";
 const HEADING_LH = 1.03;
 /** Ancho máximo de una burbuja: ~80 % del ancho útil (más aire a los lados; antes 820 / 860). */
 const BURBUJA_MAX = Math.round(CONTENT_WIDTH * 0.8);
-/** Texto mínimo legible de una burbuja (px); bajo eso solo si no cabe de otro modo. */
-const TEXTO_MIN = 34;
+/** Ancho máximo ampliado (~90 % del ancho útil): se usa en post antes de bajar el texto del cuerpo. */
+const BURBUJA_MAX_ANCHA = Math.round(CONTENT_WIDTH * 0.9);
+/** Texto mínimo preferido de una burbuja (px); bajo eso solo si no cabe de otro modo. */
+const TEXTO_MIN = 36;
 /** Separación mínima entre la burbuja «Tú» y la de la IA (px). */
 const BURBUJA_GAP_MIN = 32;
 /** Alto de la etiqueta de la burbuja (24 px × 1,2) y su aire. */
@@ -48,15 +50,20 @@ export function Screen({ app, prompt, respuesta, heading, nota, accent: _accent,
     // `pad` es el relleno vertical; el horizontal es pad × CARD_PAD.x / CARD_PAD.y (52 × 44 en post a tamaño pleno).
     ...(reel ? [{ text: 54, headingMax: 132, gap: 40, pad: 50 }, { text: 50, headingMax: 124, gap: 38, pad: 50 }, { text: 46, headingMax: 120, gap: 36, pad: 48 }, { text: 42, headingMax: 112, gap: 32, pad: 46 }] : []),
     // Post: relleno pleno (44 × 52) mientras el texto sea legible (≥ TEXTO_MIN); solo los últimos recursos lo achican.
+    // Respuestas largas: antes de bajar de 36 px, la burbuja se ensancha de 80 % a 90 % del ancho útil.
     { text: 40, headingMax: reel ? 104 : theme.fontSize.heading, gap: 28, pad: reel ? Math.round(CARD_PAD.y * CARD_PAD_REEL) : CARD_PAD.y },
+    ...(reel ? [] : [{ text: 40, headingMax: theme.fontSize.heading, gap: 28, pad: CARD_PAD.y, ancha: true }]),
     { text: 38, headingMax: reel ? 96 : 80, gap: 28, pad: CARD_PAD.y },
+    ...(reel ? [] : [{ text: 38, headingMax: 80, gap: 28, pad: CARD_PAD.y, ancha: true }]),
     { text: 36, headingMax: 76, gap: 24, pad: CARD_PAD.y },
-    { text: 34, headingMax: 72, gap: 24, pad: CARD_PAD.y },
-    { text: 32, headingMax: 68, gap: 20, pad: 32 },
-    { text: 30, headingMax: 64, gap: 20, pad: 28 },
-  ].map((c) => ({ ...c, gap: Math.max(BURBUJA_GAP_MIN, aire(c.gap)), padX: Math.round((c.pad * CARD_PAD.x) / CARD_PAD.y) }));
+    { text: 36, headingMax: 76, gap: 24, pad: CARD_PAD.y, ancha: true },
+    // Último recurso (siempre anchas): para que nada se salga.
+    { text: 34, headingMax: 72, gap: 24, pad: CARD_PAD.y, ancha: true },
+    { text: 32, headingMax: 68, gap: 20, pad: 32, ancha: true },
+    { text: 30, headingMax: 64, gap: 20, pad: 28, ancha: true },
+  ].map((c: { text: number; headingMax: number; gap: number; pad: number; ancha?: boolean }) => ({ ...c, ancho: c.ancha ? BURBUJA_MAX_ANCHA : BURBUJA_MAX, gap: Math.max(BURBUJA_GAP_MIN, aire(c.gap)), padX: Math.round((c.pad * CARD_PAD.x) / CARD_PAD.y) }));
   const height = (c: (typeof candidates)[number]) => {
-    const inner = BURBUJA_MAX - 2 * c.padX;
+    const inner = c.ancho - 2 * c.padX;
     let h = 2 * c.pad + ETIQUETA_H + interHeight(prompt, c.text, inner, 1.35);
     h += c.gap + 2 * c.pad + ETIQUETA_H + interHeight(respuesta, c.text, inner, 1.35);
     if (heading) h += displayHeight(heading, fitDisplaySize(heading, c.headingMax, { maxLines: 2, tight: reel }), displayLineHeight(heading, HEADING_LH), undefined, reel) + c.gap + 24;
@@ -70,7 +77,7 @@ export function Screen({ app, prompt, respuesta, heading, nota, accent: _accent,
   const conAire = pickFill(legibles, height, available, format);
   const sc = height(conAire) <= available * (reel ? REEL_FILL : POST_FILL) ? conAire : height(minLegible) <= available ? minLegible : pickFit(candidates, height, available);
   const burbuja = (lado: "tu" | "ia") => ({
-    maxWidth: BURBUJA_MAX,
+    maxWidth: sc.ancho,
     boxSizing: "border-box" as const,
     padding: `${sc.pad}px ${sc.padX}px`,
     borderRadius: 36,

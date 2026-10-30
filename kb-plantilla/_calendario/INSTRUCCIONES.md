@@ -913,7 +913,7 @@ el Hook (escena 1): tope de 5 s
 Cuentan las palabras y caracteres de `title`, `subtitle`, `eyebrow`,
 `heading`, `body`, `bullets`, `text`, `kicker`, `reality`, `myth`, `reason`,
 `note`, `value`, `label`, `context` y `prompt` (no `highlight`, `source` ni
-`handle`).
+`handle`; este último, además, no se pinta en un Cta PARTIR).
 
 **Regla práctica: ≤ 12 palabras por escena en total**, sumando título, cuerpo,
 bullets y prompt. Con 12 palabras normales pasa en cualquier escena. Topes
@@ -1018,7 +1018,7 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
 - Máximo 10 slides (límite de la API). La primera es un `Hook` (con
   `highlight`) y la última un `Cta`.
 - Solo las plantillas y props del catálogo de abajo, más `source` y `pillar`.
-  Nada de colores, fuentes ni formato: el look lima lo pone el motor.
+  Nada de colores, fuentes ni formato: el look papel lo pone el motor.
 - Reel: cada slide con `narracion` (3–24 palabras, fuera de `props`); en
   carrusel, `narracion` es error. Ver "Narración".
 - `highlight` debe aparecer **tal cual** (mismas tildes) dentro del título de
@@ -1249,7 +1249,7 @@ son texto salvo `bullets` (lista de textos), `titleSize` (número) y `swipe`
 | `MythReality` | `myth`, `reality` | `highlight`, `mythLabel`, `realityLabel` | Una creencia contra un dato (≤ 14 palabras cada uno; ver abajo) |
 | `Stat` | `value`, `label` | `context` | Un dato con su contexto y fuente |
 | `Clip` | `title`, `archivo` | `highlight`, `label` | Video generado con IA a pantalla completa, solo reels (ver "Reel con video generado") |
-| `Cta` | `title` | `highlight`, `cursiva`, `reason`, `handle`, `cta`, `ctaIcon` | Cierre con un solo gesto |
+| `Cta` | `title` | `highlight`, `cursiva`, `reason`, `handle` (no en un Cta PARTIR: la caja de mensaje ya muestra la cuenta), `cta`, `ctaIcon` | Cierre con un solo gesto |
 
 `MythReality` es solo para **una creencia contra un dato**: `myth` es lo que la
 gente cree («Hay que saber editar audio») y `reality` el dato que la desmiente

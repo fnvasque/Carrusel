@@ -22,7 +22,7 @@ lado).
 
 | Lector | Qué recibe (en el orden de las slides, `Slide 1: …`, `Slide 2: …`) |
 |---|---|
-| **Completo** | Todo el texto que dibuja cada slide: títulos, `highlight`, `eyebrow`, `kicker`, `subtitle`, "Desliza →" (solo carrusel), número de paso, cuerpo, bullets, la tarjeta del prompt ("Copia esto") y el prompt, `note`, mito y realidad con sus etiquetas, dato, `reason`, la pastilla del CTA (sin emoji) y `@handle`. |
+| **Completo** | Todo el texto que dibuja cada slide: títulos, `highlight`, `eyebrow`, `kicker`, `subtitle`, "Desliza →" (solo carrusel), número de paso, cuerpo, bullets, la tarjeta del prompt ("Copia esto") y el prompt, `note`, mito y realidad con sus etiquetas, dato, `reason`, la pastilla del CTA (sin emoji) y `@handle`. Dos excepciones, porque el motor no las pinta: en un reel el Hook no muestra `resultado`, y un Cta que pide PARTIR se lee como mensaje directo (título, `reason`, «PARTIR» y la pista «Escríbeme esto por mensaje y te respondo yo.»; sin pastilla ni `@handle`). |
 | **Con prisa** | Lo que se ve de un vistazo: el título de cada slide (`title`, `heading` o `text` según la plantilla) con su `highlight`; el número de paso; en `Prompt`, el texto copiable completo (`prompt`); en `MythReality`, mito y realidad con sus etiquetas ("Lo que se cree", "Lo que pasa" o `mythLabel`/`realityLabel`); en `Stat`, el valor más su `label`. |
 
 En ambos, `source` (la cita al pie) **no** entra y el número de paso **sí**. La

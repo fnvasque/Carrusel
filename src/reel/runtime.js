@@ -1,5 +1,5 @@
 /* Runtime del reel animado: lee window.__REEL_TIMING__ y las marcas data-anim
- * (rise, stagger, words, type, strike, count, check, caret; bg y pop aparte),
+ * (rise, stagger, words, type, count, check, caret; bg y pop aparte),
  * arma una timeline maestra pausada y expone window.__reel = { duration, seek }.
  * Ritmo (T.pace): las entradas de cada escena (salvo la 0) van T.entranceSlow
  * veces más lentas y se comprimen solo si no caben en su presupuesto; en
@@ -75,60 +75,6 @@ document.fonts.ready.then(function () {
         });
         node.parentNode.replaceChild(frag, node);
       });
-    }
-
-    // Tachado por línea: el <div data-anim="strike"> del template queda como
-    // marcador oculto y se crea una barra por cada línea del texto hermano,
-    // centrada en la línea y de su ancho, que se dibujan izquierda→derecha en
-    // secuencia dentro de los mismos 0.4 s.
-    function strike(marker, sub, at) {
-      const DUR = 0.4;
-      const wrap = marker.parentElement;
-      const text = wrap.querySelector("p");
-      if (!text) {
-        sub.from(marker, { scaleX: 0, duration: DUR, ease: "power2.out" }, at);
-        return DUR;
-      }
-      const range = document.createRange();
-      range.selectNodeContents(text);
-      // Una línea puede venir en varios rects (uno por nodo): se agrupan por fila.
-      const lines = [];
-      Array.from(range.getClientRects()).forEach(function (r) {
-        if (r.width < 1) return;
-        const row = lines.find(function (l) { return Math.abs(l.top - r.top) < r.height / 2; });
-        if (row) {
-          row.left = Math.min(row.left, r.left);
-          row.right = Math.max(row.right, r.right);
-        } else {
-          lines.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height });
-        }
-      });
-      if (lines.length === 0) return 0;
-      const box = wrap.getBoundingClientRect();
-      const thick = marker.getBoundingClientRect().height || 8;
-      const color = getComputedStyle(marker).backgroundColor;
-      marker.style.display = "none";
-      const total = lines.reduce(function (a, l) { return a + (l.right - l.left); }, 0);
-      let t = at;
-      lines.forEach(function (l, j) {
-        const bar = document.createElement("div");
-        bar.setAttribute("data-reel-strike", String(j));
-        Object.assign(bar.style, {
-          position: "absolute",
-          left: l.left - box.left + "px",
-          top: (l.top + l.bottom) / 2 - box.top - thick / 2 + "px",
-          width: l.right - l.left + "px",
-          height: thick + "px",
-          backgroundColor: color,
-          transformOrigin: "left center",
-        });
-        wrap.appendChild(bar);
-        // Velocidad constante: cada línea dura según su ancho.
-        const d = (DUR * (l.right - l.left)) / total;
-        sub.from(bar, { scaleX: 0, duration: d, ease: j === lines.length - 1 ? "power2.out" : "none" }, t);
-        t += d;
-      });
-      return DUR;
     }
 
     // Bullets de un stagger en `tl` desde `at`, uno cada `gap` s (STAGGER
@@ -338,9 +284,6 @@ document.fonts.ready.then(function () {
         sub.from(el, { scale: 0, duration: CHECK_DUR, ease: "power2.out" }, at);
         return CHECK_DUR;
       }
-      if (kind === "strike") {
-        return strike(el, sub, at);
-      }
       console.warn("data-anim desconocido: " + kind);
       return 0;
     }
@@ -364,8 +307,7 @@ document.fonts.ready.then(function () {
       // Fondo: zoom lento durante toda la escena.
       const bg = scene.querySelector('[data-anim="bg"]');
       if (bg) master.fromTo(bg, { scale: 1.06 }, { scale: 1, duration: s.dur, ease: "none" }, s.start);
-      // Entradas en orden de documento (bg y pop se manejan aparte; strike va
-      // anidado dentro de un rise y se encadena igual). Se toma la lista antes
+      // Entradas en orden de documento (bg y pop se manejan aparte). Se toma la lista antes
       // de dividir con SplitText para no recorrer nodos recién creados.
       // Pausada hasta colgarla de la maestra.
       const sub = gsap.timeline({ paused: true });

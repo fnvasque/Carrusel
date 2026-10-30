@@ -154,7 +154,7 @@ function volumenMaximo(mp4: string): number | undefined {
 
 /**
  * "Pantalla negra" (R16): la spec pedía luminancia media > 12 %, pero el fondo
- * de marca #06060A da ≈ 2,4 % y las piezas lima reales quedan entre 5 y 15 %.
+ * oscuro #06060A da ≈ 2,4 % y las piezas oscuras (Hook con video, Clip) quedan entre 5 y 15 %; el look papel claro pasa de sobra.
  * Se sigue la intención ("no es una pantalla negra"): pasa si la luminancia
  * media supera LUMINANCIA_MIN Y al menos FRACCION_CLARA_MIN de los píxeles
  * tiene luma > 50 %. Un MP4 negro puro (0 %) sigue fallando.
