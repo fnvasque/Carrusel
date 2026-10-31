@@ -130,6 +130,14 @@ calidad de lo que produce la IA encabeza las habilidades humanas, con 50 %).
   palabras. Desde el 2026-11-02 la portada del reel va sin tarjeta
   de `resultado` (si viene, no se pinta en el reel): la prueba en pantalla es
   la `Screen` de la escena 2, con lo que la IA respondió, tal cual.
+- **Portada pregunta-respuesta** (desde el 2026-11-02): «¿problema del
+  lector? salida». El título abre con la pregunta que se hace quien no sabe y
+  cierra con lo que hace, y lleva hasta **14 palabras** (tope propio del
+  validador, solo para `title` del `Hook` con la forma «¿…? …»). Va **sin
+  subtítulo**: la respuesta ya es la promesa.
+  - **Bien:** «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti».
+  - **Mal:** «ChatGPT elige tu primera tarea con IA» + subtítulo «Solo responde 3
+    preguntas»: el con prisa lee el título y no se reconoce en él.
 - **Carruseles**: título ≤ 12 palabras (`tituloMaxPalabras`) con la palabra
   clave al inicio; el subtítulo da la promesa si el título es pregunta o dato.
 - **Sin relleno ni hype** (`config.json → puerta.relleno`: «increíble», «muy»,

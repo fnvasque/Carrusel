@@ -109,9 +109,10 @@ export const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bu
 
 /**
  * Tope (s) de la escena 0 (hook) en `ensenar`: la promesa llega en 3 s y se
- * sostiene hasta ~6 s (referencias/hook-de-video.md).
+ * sostiene hasta ~6 s (referencias/hook-de-video.md). 6 desde 2026-10-31 (antes
+ * 5): la portada pregunta-respuesta de 13 a 14 palabras no se alcanzaba a leer.
  */
-export const HOOK_MAX_SECONDS = 5.0;
+export const HOOK_MAX_SECONDS = 6.0;
 
 /** Caracteres de texto visibles de una escena (los que hay que leer). */
 function textChars(props: Record<string, unknown>): number {

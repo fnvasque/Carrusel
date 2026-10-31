@@ -48,6 +48,7 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["carrusel-explicativo", "2026-11-27"],
     ["portada-al-lector", "2026-10-31"],
     ["cierre-dm-o-comentario", "2026-10-31"],
+    ["reel-explica-sin-voz", "2026-11-02"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));
 });

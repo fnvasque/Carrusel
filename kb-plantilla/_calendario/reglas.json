@@ -197,6 +197,13 @@
       "formato": null,
       "descripcion": "El Cta pregunta por el caso del lector y termina con «Escribe esta palabra y te ayudo» sobre la burbuja PARTIR; la pista dice «Por mensaje o en comentarios. Te respondo yo.» y el caption pide PARTIR por mensaje o en comentarios",
       "fuente": "pedido de Felipe 2026-10-30; lectores fríos que no sabían qué hacer con PARTIR"
+    },
+    {
+      "id": "reel-explica-sin-voz",
+      "desde": "2026-11-02",
+      "formato": "reel",
+      "descripcion": "Portada pregunta-respuesta («¿problema? salida», hasta 14 palabras, sin subtítulo) y hook de hasta 6 s en ritmo ensenar (antes 5); sin voz nada queda solo en la narración: prompt entero y copiable, respuesta que muestra lo que se gana, paso con el cómo y una escena de por qué funciona",
+      "fuente": "pedido de Felipe 2026-10-31 («no logramos explicar bien»; portada «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti»); entregables/revision-reels-2026-10-31"
     }
   ]
 }
