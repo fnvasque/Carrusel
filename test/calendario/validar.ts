@@ -344,6 +344,23 @@ check("calendario/validar: título del Hook con 13 palabras → error citando ti
   assertHas(reglasDeTexto(b, config), /tituloMaxPalabras/);
 });
 
+check("calendario/validar: portada pregunta-respuesta del Hook → tope de 14 palabras, solo con «¿…? …»", () => {
+  const titulo = (b: ReturnType<typeof borrador>) => reglasDeTexto(b, config).filter((e) => /title tiene/.test(e));
+  const b = borrador();
+  b.slides[0].props.title = "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti";
+  assertNone(titulo(b));
+  b.slides[0].props.title = "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti, hoy mismo";
+  assertHas(titulo(b), /15 palabras \(máximo 14, portada pregunta-respuesta\)/);
+  // Sin respuesta tras la pregunta, o sin pregunta, rige el tope de la puerta.
+  b.slides[0].props.title = "¿No sabes qué pedirle a la IA si eres jefe de área nuevo?";
+  assertHas(titulo(b), /tituloMaxPalabras/);
+  // Solo el Hook: otra plantilla con la misma forma sigue en 12.
+  const c = borrador();
+  c.slides[1] = { template: "Lead", props: { title: "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti" } };
+  assertHas(titulo(c), /slide 2.*tituloMaxPalabras/);
+  assertNone(titulosLargos([{ title: "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti" }], config));
+});
+
 check("calendario/validar: bullet con 13 palabras y body con 31 → error", () => {
   const b = borrador();
   b.slides[2].props.bullets = ["uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece"];
@@ -400,9 +417,9 @@ check("calendario/validar: emoji en el título → error", () => {
 
 check("calendario/validar: reel — escena con más texto del que da el motor → error", () => {
   const b = borrador();
-  // Hook: tope de 5 s; 13 palabras / 2,5 = 5,2 s.
+  // Hook: tope de 6 s (5 hasta 2026-10-31); 16 palabras / 2,5 = 6,4 s.
   b.slides[0].props.title = "Convierte 6 PDFs en un podcast";
-  b.slides[0].props.subtitle = "uno dos tres cuatro cinco seis siete";
+  b.slides[0].props.subtitle = "uno dos tres cuatro cinco seis siete ocho nueve diez";
   assertHas(reglasDeTexto(b, config, "reel"), /segundos/);
   // En carrusel no aplica el tiempo de lectura.
   assert.ok(!has(reglasDeTexto(b, config, "carrusel"), /segundos/));

@@ -131,6 +131,24 @@ const MAX_CANDIDATOS = 8;
 
 /** Props con texto de título (límite `tituloMaxPalabras`). */
 const CAMPOS_TITULO = ["title", "heading", "titulo"];
+/**
+ * Portada pregunta-respuesta del `Hook`: «¿No sabes qué pedirle a la IA? Haz que te
+ * pregunte a ti». La pregunta nombra el problema del lector y la respuesta le da la
+ * salida; partida en dos, ninguna mitad se entiende sola, así que el título tiene
+ * tope propio (2026-10-31: el tope de 12 obligaba a recortar la respuesta).
+ */
+const TITULO_PREGUNTA_MAX_PALABRAS = 14;
+
+/** ¿El título es «¿pregunta? respuesta» (abre con ¿, cierra la pregunta y sigue texto)? */
+export function esPreguntaRespuesta(texto) {
+  return typeof texto === "string" && /^¿[^?]+\?\s*[^\s]/.test(texto.trim());
+}
+
+/** Tope de palabras de un campo de título: el de la puerta, o el propio de la portada pregunta-respuesta. */
+function topeTitulo(texto, tituloMax, campo, template) {
+  const portada = campo === "title" && (template === undefined || template === "Hook");
+  return portada && esPreguntaRespuesta(texto) ? Math.max(tituloMax, TITULO_PREGUNTA_MAX_PALABRAS) : tituloMax;
+}
 /** Props con texto de cuerpo (límite `cuerpoMaxPalabras`). */
 const CAMPOS_CUERPO = ["body", "text", "subtitle", "reason", "context", "note"];
 /**
@@ -334,7 +352,7 @@ function seguro(fn) {
  */
 const TEXT_KEYS = ["title", "subtitle", "eyebrow", "heading", "body", "bullets", "text", "kicker", "quote", "reality", "myth", "reason", "note", "value", "label", "context", "prompt", "respuesta", "nota"];
 const PACE_ENSENAR = { stagger: 1.8 };
-const HOOK_MAX_SECONDS = 5.0;
+const HOOK_MAX_SECONDS = 6.0;
 const BULLET_LEAD = 1.0;
 const BULLET_TAIL = 2.5;
 /** Ritmo gancho: copia de `PACES.gancho.stagger`, `HOOK_MAX_SECONDS_GANCHO` y `GANCHO` (timing.ts). */
@@ -543,7 +561,8 @@ export function reglasDeTexto(borrador, config, formato, dia) {
       for (const k of CAMPOS_TITULO) {
         if (typeof p[k] !== "string") continue;
         const n = palabras(p[k]).length;
-        if (n > tituloMax) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${tituloMax}, puerta.tituloMaxPalabras)`);
+        const max = topeTitulo(p[k], tituloMax, k, slide.template);
+        if (n > max) errs.push(`${donde}: ${k} tiene ${n} palabras (máximo ${max}, ${max === tituloMax ? "puerta.tituloMaxPalabras" : "portada pregunta-respuesta"})`);
       }
       for (const k of [...CAMPOS_TITULO, "highlight"]) {
         if (typeof p[k] === "string" && EMOJI_RE.test(p[k])) errs.push(`${donde}: ${k} lleva un emoji (los títulos van sin emojis)`);
@@ -1010,7 +1029,8 @@ export function titulosLargos(cands, config) {
   cands.forEach((c, i) => {
     if (!esObj(c) || !esTexto(c.title)) return;
     const n = palabras(c.title).length;
-    if (n > max) errs.push(`hook.candidatos[${i}].title tiene ${n} palabras (máximo ${max}, puerta.tituloMaxPalabras): acórtalo antes de pasarlo al juez`);
+    const tope = topeTitulo(c.title, max, "title");
+    if (n > tope) errs.push(`hook.candidatos[${i}].title tiene ${n} palabras (máximo ${tope}, ${tope === max ? "puerta.tituloMaxPalabras" : "portada pregunta-respuesta"}): acórtalo antes de pasarlo al juez`);
   });
   return errs;
 }

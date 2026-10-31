@@ -624,11 +624,11 @@ check("sceneSeconds (ensenar): clamp(2.4 + chars/16, 3.5, 8) + 1.0 en primera y 
   assert.equal(sceneSeconds({ title: "Hola" }, true), 4.5);
   assert.equal(sceneSeconds({ body: "x".repeat(500) }, false, "ensenar"), 8);
   assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar"), 9);
-  // Escena 0 (hook): tope de 5 s en ensenar, también si mandan los bullets; rapido sin tope nuevo.
-  assert.equal(HOOK_MAX_SECONDS, 5);
-  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar", true), 5);
+  // Escena 0 (hook): tope de 6 s en ensenar (5 hasta 2026-10-31), también si mandan los bullets; rapido sin tope nuevo.
+  assert.equal(HOOK_MAX_SECONDS, 6);
+  assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "ensenar", true), 6);
   assert.equal(sceneSeconds({ title: "Hola" }, true, "ensenar", true), 4.5);
-  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d"] }, true, "ensenar", true), 5);
+  assert.equal(sceneSeconds({ bullets: ["a", "b", "c", "d"] }, true, "ensenar", true), 6);
   assert.equal(sceneSeconds({ body: "x".repeat(500) }, true, "rapido", true), 5.5);
   assert.equal(sceneSeconds({ body: "x".repeat(40) }, false, "ensenar"), 4.9);
   // El texto de Stat (valor, etiqueta, contexto) y del prompt cuenta en ambos ritmos.
@@ -670,9 +670,9 @@ check("reelTiming/specTiming (ensenar): transición 0.5, presupuesto min(0.45 ×
   // --pace, --seconds y --fade sobrescriben.
   const fast = specTiming({ ...spec, pace: "ensenar" } as any, { pace: "rapido" });
   assert.deepEqual([fast.pace, fast.transition, fast.scenes.map((s) => s.dur)], ["rapido", 0.35, [3.1, 2.4, 3.1]]);
-  // Hook largo: specDurations pasa la escena 0 como hook (tope 5 s); --seconds sigue mandando.
+  // Hook largo: specDurations pasa la escena 0 como hook (tope 6 s); --seconds sigue mandando.
   const longHook = { name: "h", slides: [{ template: T, props: { title: "x".repeat(200) } }, { template: T, props: { title: "x".repeat(200) } }, { template: T, props: { title: "C" } }] };
-  assert.deepEqual(specDurations(longHook as any), [5, 8, 4.5]);
+  assert.deepEqual(specDurations(longHook as any), [6, 8, 4.5]);
   assert.deepEqual(specDurations(longHook as any, 7), [7, 7, 7]);
   const fixed = specTiming(spec as any, { seconds: 3, fade: 0.2 });
   assert.deepEqual([fixed.transition, fixed.scenes.map((s) => s.dur), fixed.stagger], [0.2, [3, 3, 3], 1.8]);

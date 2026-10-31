@@ -203,6 +203,27 @@ y la promesa completa en 3 s. El espacio extra es para el medio:
   el tope de 35 s). Con unas 80 palabras no pierdes nada; pasar de 90 cuesta
   esos 2 puntos y no cabe en 35 s.
 
+**Reels sin voz (`config.voz` false, desde el 2026-11-02).** La `narracion`
+no se oye ni se ve: lo que solo está ahí se pierde. Revisión del 2026-10-31 (13
+reels leídos solo por la pantalla): el nombre de la app, quién lo midió y cómo
+se hace estaban solo en la voz. Con las mismas ~80 palabras en pantalla se
+explica más si cambia **qué** se dice:
+
+- **Nada solo en la voz.** Lo que el lector necesita para hacerlo (la app, dónde
+  se escribe, quién lo midió) va en pantalla; si no cabe, no estaba en la pieza.
+- **El prompt va entero y copiable** en la `Screen`, no resumido: «Hazme 3
+  preguntas, de a una, y dime qué tarea te paso primero», no «Esas son mis 3
+  respuestas».
+- **La respuesta muestra lo que se gana**, no un telegrama: «Parte por ahí:
+  pégame tus notas y te las ordeno», no «Precio, cliente y canal».
+- **Un paso dice cómo**, en `body` si hace falta: «Respóndele como a un colega
+  nuevo» + «Qué haces, cuánto te demora y para quién es».
+- **Una escena dice por qué funciona** (un `Lead`), para que el lector lo use en
+  otro caso: «Funciona porque la IA no conoce tu trabajo: tus respuestas se lo
+  cuentan».
+- El tope por escena sigue en 8 s (2,5 palabras/s): una `Screen` aguanta unas
+  20 palabras entre prompt y respuesta. Si no cabe, parte en dos escenas.
+
 **Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
 `context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); títulos y bullets
 siguen en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en

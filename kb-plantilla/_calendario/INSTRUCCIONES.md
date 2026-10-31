@@ -163,7 +163,10 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    desde el cuadro 0 y el `title` va debajo, más chico, como pie de foto
    (≤ 7 palabras, mejor 6). El `subtitle` sobraba porque la narración lo decía;
    con los reels sin voz (`config.voz` false, desde el 2026-10-30) vuelve, y
-   amplía la promesa del título sin cargarla. Motivo: con 3 a 5 s
+   amplía la promesa del título sin cargarla. Excepción desde el 2026-11-02: la
+   portada pregunta-respuesta («¿No sabes qué pedirle a la IA? Haz que te
+   pregunte a ti») lleva hasta 14 palabras y va sin subtítulo (guia-hooks.md;
+   sin voz, ver «Reels sin voz» en guia-redaccion.md). Motivo: con 3 a 5 s
    de visionado medio, un título sobre fondo negro no retiene a nadie; una
    pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
    no se anuncia).
