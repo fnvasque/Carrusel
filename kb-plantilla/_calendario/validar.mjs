@@ -135,9 +135,10 @@ const CAMPOS_TITULO = ["title", "heading", "titulo"];
  * Portada pregunta-respuesta del `Hook`: «¿No sabes qué pedirle a la IA? Haz que te
  * pregunte a ti». La pregunta nombra el problema del lector y la respuesta le da la
  * salida; partida en dos, ninguna mitad se entiende sola, así que el título tiene
- * tope propio (2026-10-31: el tope de 12 obligaba a recortar la respuesta).
+ * tope propio (2026-10-31: el tope de 12 obligaba a recortar la respuesta). Desde el
+ * 2026-11-01 el tope general es 14 y este sube a 16, para seguir por encima.
  */
-const TITULO_PREGUNTA_MAX_PALABRAS = 14;
+const TITULO_PREGUNTA_MAX_PALABRAS = 16;
 
 /** ¿El título es «¿pregunta? respuesta» (abre con ¿, cierra la pregunta y sigue texto)? */
 export function esPreguntaRespuesta(texto) {
@@ -180,7 +181,7 @@ const SIN_REGLAS_DE_LENGUAJE = new Set(["source", "prompt", "handle", "ctaIcon",
 
 /** Valores por defecto de la puerta si `config.puerta` no trae alguno. */
 const PUERTA_DEFECTO = {
-  tituloMaxPalabras: 12,
+  tituloMaxPalabras: 14,
   bulletMaxPalabras: 12,
   cuerpoMaxPalabras: 30,
   terminosTecnicosMax: 1,
@@ -2483,7 +2484,7 @@ export const EJEMPLO = {
         "borrador": "lun-reel-pdfs-a-podcast.json",
         "estado": "planificado",
         "parametros": {
-          "tituloMaxPalabras": 12,
+          "tituloMaxPalabras": 14,
           "bulletMaxPalabras": 12,
           "cuerpoMaxPalabras": 30,
           "cuerpoMaxPalabrasCarrusel": 50,
@@ -2605,7 +2606,7 @@ export const EJEMPLO = {
         "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
         "estado": "planificado",
         "parametros": {
-          "tituloMaxPalabras": 12,
+          "tituloMaxPalabras": 14,
           "bulletMaxPalabras": 12,
           "cuerpoMaxPalabras": 30,
           "cuerpoMaxPalabrasCarrusel": 50,
@@ -2730,7 +2731,7 @@ export const EJEMPLO = {
         "borrador": "vie-carrusel-mis-3-primeros-pedidos.json",
         "estado": "planificado",
         "parametros": {
-          "tituloMaxPalabras": 12,
+          "tituloMaxPalabras": 14,
           "bulletMaxPalabras": 12,
           "cuerpoMaxPalabras": 30,
           "cuerpoMaxPalabrasCarrusel": 50,

@@ -171,7 +171,7 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    con los reels sin voz (`config.voz` false, desde el 2026-10-30) vuelve, y
    amplía la promesa del título sin cargarla. Excepción desde el 2026-11-02: la
    portada pregunta-respuesta («¿No sabes qué pedirle a la IA? Haz que te
-   pregunte a ti») lleva hasta 14 palabras y va sin subtítulo (guia-hooks.md;
+   pregunte a ti») lleva hasta 16 palabras y va sin subtítulo (guia-hooks.md;
    sin voz, ver «Reels sin voz» en guia-redaccion.md). Motivo: con 3 a 5 s
    de visionado medio, un título sobre fondo negro no retiene a nadie; una
    pantalla con algo ya hecho, sí (hook-de-video.md: la propuesta se muestra,
@@ -859,7 +859,7 @@ Desde el 2026-10-26 no te pones nota a ti mismo: el que escribe no evalúa.
    `resultado` en reels; solo `title` si la portada es un `Clip`. Todos
    cumplen la regla 8 y los topes de la puerta: si gana cualquiera, se publica
    tal cual. En especial, ningún `title` pasa de
-   `puerta.tituloMaxPalabras` (12): `--juez` se niega a armar el mensaje si
+   `puerta.tituloMaxPalabras` (14): `--juez` se niega a armar el mensaje si
    alguno lo pasa, y el validador lo rechaza.
 2. Guárdalos en `hook.candidatos` del `plan.json` de trabajo (aún sin subir) y
    saca el mensaje del juez:
@@ -923,7 +923,7 @@ Los lee el validador; no los copies a mano, léelos de `config.json` cada semana
   `cuerpoMaxPalabras`). Es opcional en `parametros`. Los carruseles son la
   pieza densa de la semana: usa el espacio para el porqué, el matiz del
   estudio y un ejemplo de trabajo, no para más puntos (`guia-redaccion.md`).
-  Títulos y bullets no cambian (12).
+  Títulos (14) y bullets (12) no cambian.
 - `terminosTecnicosMax`: términos de `terminosTecnicos` (api, modelo, token,
   agente…) en toda la pieza, cada uno explicado en ≤ 3 palabras.
 - `siglasPermitidas`: palabras en mayúsculas permitidas (GPT, PDF, IA, DM; con
@@ -1543,7 +1543,7 @@ horas son las del mix de tu `config.json`:
       "borrador": "lun-reel-pdfs-a-podcast.json",
       "estado": "planificado",
       "parametros": {
-        "tituloMaxPalabras": 12,
+        "tituloMaxPalabras": 14,
         "bulletMaxPalabras": 12,
         "cuerpoMaxPalabras": 30,
         "cuerpoMaxPalabrasCarrusel": 50,
@@ -1665,7 +1665,7 @@ horas son las del mix de tu `config.json`:
       "borrador": "mie-reel-mis-agentes-y-1-guardado.json",
       "estado": "planificado",
       "parametros": {
-        "tituloMaxPalabras": 12,
+        "tituloMaxPalabras": 14,
         "bulletMaxPalabras": 12,
         "cuerpoMaxPalabras": 30,
         "cuerpoMaxPalabrasCarrusel": 50,
@@ -1790,7 +1790,7 @@ horas son las del mix de tu `config.json`:
       "borrador": "vie-carrusel-mis-3-primeros-pedidos.json",
       "estado": "planificado",
       "parametros": {
-        "tituloMaxPalabras": 12,
+        "tituloMaxPalabras": 14,
         "bulletMaxPalabras": 12,
         "cuerpoMaxPalabras": 30,
         "cuerpoMaxPalabrasCarrusel": 50,
@@ -1952,7 +1952,7 @@ herramienta se llama Gemini Notebook). Una entrada de `plan.json → piezas`:
   "borrador": "lun-reel-pdfs-a-podcast.json",
   "estado": "planificado",
   "parametros": {
-    "tituloMaxPalabras": 12,
+    "tituloMaxPalabras": 14,
     "bulletMaxPalabras": 12,
     "cuerpoMaxPalabras": 30,
     "cuerpoMaxPalabrasCarrusel": 50,

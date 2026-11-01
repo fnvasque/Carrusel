@@ -124,21 +124,22 @@ calidad de lo que produce la IA encabeza las habilidades humanas, con 50 %).
   «saber cuándo firmar lo que hizo la IA»), no solo una función de la app.
 - **La IA se nombra en el `Hook`** (regla dura 6): «IA» o la herramienta en el
   título, el subtítulo o el fondo.
-- **Reels**: título **≤ 7 palabras, mejor 6**. Con voz (ritmo gancho, hook de
+- **Reels**: título de **hasta 14 palabras** (`tituloMaxPalabras`); más corto solo si se
+  entiende igual: Felipe prefiere más palabras a un título que no se entiende (2026-11-01). Con voz (ritmo gancho, hook de
   3 s) va sin subtítulo; sin voz (`config.voz` false, ritmo ensenar, hook de
-  5 s) el subtítulo amplía la promesa y título + subtítulo suman ≤ 12
+  5 s) el subtítulo amplía la promesa y título + subtítulo suman ≤ 16
   palabras. Desde el 2026-11-02 la portada del reel va sin tarjeta
   de `resultado` (si viene, no se pinta en el reel): la prueba en pantalla es
   la `Screen` de la escena 2, con lo que la IA respondió, tal cual.
 - **Portada pregunta-respuesta** (desde el 2026-11-02): «¿problema del
   lector? salida». El título abre con la pregunta que se hace quien no sabe y
-  cierra con lo que hace, y lleva hasta **14 palabras** (tope propio del
+  cierra con lo que hace, y lleva hasta **16 palabras** (tope propio del
   validador, solo para `title` del `Hook` con la forma «¿…? …»). Va **sin
   subtítulo**: la respuesta ya es la promesa.
   - **Bien:** «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti».
   - **Mal:** «ChatGPT elige tu primera tarea con IA» + subtítulo «Solo responde 3
     preguntas»: el con prisa lee el título y no se reconoce en él.
-- **Carruseles**: título ≤ 12 palabras (`tituloMaxPalabras`) con la palabra
+- **Carruseles**: título ≤ 14 palabras (`tituloMaxPalabras`) con la palabra
   clave al inicio; el subtítulo da la promesa si el título es pregunta o dato.
 - **Sin relleno ni hype** (`config.json → puerta.relleno`: «increíble», «muy»,
   «brutal»…), sin clickbait («no vas a creer»), sin jerga sin explicar

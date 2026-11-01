@@ -186,7 +186,7 @@ check("calendario/validar: PLANTILLAS es el catálogo del remix, sin StoryCover"
 
 check("calendario/validar: config.json instalado es válido y trae los valores de la spec", () => {
   assertNone(validarConfig(CONFIG_BASE));
-  assert.equal(CONFIG_BASE.puerta.tituloMaxPalabras.valor, 12);
+  assert.equal(CONFIG_BASE.puerta.tituloMaxPalabras.valor, 14);
   assert.equal(CONFIG_BASE.puerta.logoEnCuadro0.respaldo, "base");
   assert.deepEqual(CONFIG_BASE.audios, []);
   for (const [k, v] of Object.entries(CONFIG_BASE.puerta) as [string, any][]) assert.ok(v.respaldo, `${k} sin respaldo`);
@@ -338,25 +338,25 @@ check("calendario/validar: fraseAmigo con API, modelo o token → error", () => 
   }
 });
 
-check("calendario/validar: título del Hook con 13 palabras → error citando tituloMaxPalabras", () => {
+check("calendario/validar: título del Hook con 15 palabras → error citando tituloMaxPalabras (tope 14 desde 2026-11-01)", () => {
   const b = borrador();
-  b.slides[0].props.title = "uno dos tres cuatro cinco seis siete ocho nueve diez once doce podcast";
+  b.slides[0].props.title = "uno dos tres cuatro cinco seis siete ocho nueve diez once doce trece catorce podcast";
   assertHas(reglasDeTexto(b, config), /tituloMaxPalabras/);
 });
 
-check("calendario/validar: portada pregunta-respuesta del Hook → tope de 14 palabras, solo con «¿…? …»", () => {
+check("calendario/validar: portada pregunta-respuesta del Hook → tope de 16 palabras, solo con «¿…? …»", () => {
   const titulo = (b: ReturnType<typeof borrador>) => reglasDeTexto(b, config).filter((e) => /title tiene/.test(e));
   const b = borrador();
   b.slides[0].props.title = "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti";
   assertNone(titulo(b));
-  b.slides[0].props.title = "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti, hoy mismo";
-  assertHas(titulo(b), /15 palabras \(máximo 14, portada pregunta-respuesta\)/);
-  // Sin respuesta tras la pregunta, o sin pregunta, rige el tope de la puerta.
-  b.slides[0].props.title = "¿No sabes qué pedirle a la IA si eres jefe de área nuevo?";
+  b.slides[0].props.title = "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti, hoy mismo, en casa";
+  assertHas(titulo(b), /17 palabras \(máximo 16, portada pregunta-respuesta\)/);
+  // Sin respuesta tras la pregunta, o sin pregunta, rige el tope de la puerta (14).
+  b.slides[0].props.title = "¿No sabes qué pedirle a la IA si eres jefe de área nuevo en esta empresa?";
   assertHas(titulo(b), /tituloMaxPalabras/);
-  // Solo el Hook: otra plantilla con la misma forma sigue en 12.
+  // Solo el Hook: otra plantilla con la misma forma sigue en el tope de la puerta (14).
   const c = borrador();
-  c.slides[1] = { template: "Lead", props: { title: "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti" } };
+  c.slides[1] = { template: "Lead", props: { title: "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti, hoy mismo" } };
   assertHas(titulo(c), /slide 2.*tituloMaxPalabras/);
   assertNone(titulosLargos([{ title: "¿No sabes qué pedirle a la IA? Haz que te pregunte a ti" }], config));
 });
@@ -2691,14 +2691,15 @@ check("backtest 2026-10-23: la plantilla pide hookUmbral 7 y una nota 7 pasa", (
 
 // --- promesas contra contenido y tope del título en el juez (ensayo 3, 2026-10-24) ---
 
-const TITULO_13 = "Una dos tres cuatro cinco seis siete ocho nueve diez once doce trece";
+// Tope de la puerta: 14 desde el 2026-11-01 (antes 12); 15 palabras lo pasa.
+const TITULO_15 = "Una dos tres cuatro cinco seis siete ocho nueve diez once doce trece catorce quince";
 
-check("promesas-1: un candidato con title de 13 palabras da error de tope; con 12, no", () => {
+check("promesas-1: un candidato con title de 15 palabras da error de tope; con 14, no", () => {
   const p = piezaJuez();
-  p.hook.candidatos[5].title = TITULO_13;
-  assertHas(erroresDeHookJuez(p, undefined, config), /candidatos\[5\]\.title tiene 13 palabras.*tituloMaxPalabras/);
-  assertHas(validarPieza(p, config), /candidatos\[5\]\.title tiene 13 palabras/);
-  p.hook.candidatos[5].title = TITULO_13.split(" ").slice(0, 12).join(" ");
+  p.hook.candidatos[5].title = TITULO_15;
+  assertHas(erroresDeHookJuez(p, undefined, config), /candidatos\[5\]\.title tiene 15 palabras.*tituloMaxPalabras/);
+  assertHas(validarPieza(p, config), /candidatos\[5\]\.title tiene 15 palabras/);
+  p.hook.candidatos[5].title = TITULO_15.split(" ").slice(0, 14).join(" ");
   assertNone(titulosLargos(p.hook.candidatos, config));
 });
 
@@ -2712,14 +2713,14 @@ check("promesas-2: --juez se niega a armar el mensaje si un candidato pasa el to
     escribir();
     const juez = () => execFileSync("node", [join(cal, "validar.mjs"), "--juez", EJEMPLO.plan.semana, plan.piezas[0].id], { encoding: "utf8", stdio: "pipe", env });
     assert.ok(juez().includes("=== MENSAJE PARA EL SUBAGENTE JUEZ"));
-    plan.piezas[0].hook.candidatos[2].title = TITULO_13;
+    plan.piezas[0].hook.candidatos[2].title = TITULO_15;
     escribir();
     try {
       juez();
       assert.fail("debió negarse");
     } catch (e: any) {
       assert.equal(e.status, 1, String(e.stderr));
-      assert.match(String(e.stderr), /candidatos\[2\]\.title tiene 13 palabras/);
+      assert.match(String(e.stderr), /candidatos\[2\]\.title tiene 15 palabras/);
       assert.ok(!String(e.stdout).includes("MENSAJE"), "no imprime el mensaje");
     }
   } finally {

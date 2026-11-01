@@ -236,8 +236,8 @@ explica más si cambia **qué** se dice:
   la escena que no es un paso, no el porqué.
 
 **Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
-`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); títulos y bullets
-siguen en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
+`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); los títulos
+siguen en 14 y los bullets en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
 mayúscula y van en ≤ 14 palabras cada uno (ver «Mito contra realidad»). Son la pieza densa de la semana: el
 porqué, el matiz del estudio, un ejemplo de trabajo.
 

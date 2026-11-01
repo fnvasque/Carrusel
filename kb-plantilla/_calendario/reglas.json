@@ -211,6 +211,13 @@
       "formato": null,
       "descripcion": "Guion de pasos dirigidos al lector antes de las escenas, pregunta 9 del lector frío (contarla de corrido), reescritura desde el guion en vez de parches, banco momento × capacidad con respaldo gratis, hasta 20 palabras por escena y ritmo ensenar sin voz. El 2026-11-02 es el piloto escrito a mano; desde el 2026-11-09 lo exige el validador",
       "fuente": "docs/superpowers/specs/2026-10-31-piezas-que-se-entienden-design.md; correcciones de Felipe al reel sab-pm-reel-haz-que-te-pregunte (2026-10-31)"
+    },
+    {
+      "id": "titulo-hasta-14-palabras",
+      "desde": "2026-11-09",
+      "formato": null,
+      "descripcion": "Tope de palabras de title y heading de 12 a 14 (puerta.tituloMaxPalabras); la portada pregunta-respuesta del Hook, de 14 a 16. El límite real es el tiempo de lectura de cada escena",
+      "fuente": "pedido de Felipe 2026-11-01 («prefiero más palabras a cosas que no se entiendan; 13 sobre 12 no debería generar un problema»)"
     }
   ]
 }
