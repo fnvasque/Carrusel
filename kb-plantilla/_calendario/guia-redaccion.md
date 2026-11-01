@@ -146,6 +146,10 @@ acordada el 2026-10-31; no garantiza cabida. Aplican los tiempos, lectura y
 límites vigentes. Sin voz, ritmo `ensenar`. Los títulos se ajustan al límite
 vigente y a su lectura real. Con voz y ritmo `gancho`, el validador exige los
 topes de 7/5/10 palabras de `INSTRUCCIONES.md`: son un máximo, no una meta.
+Una `Screen` de reel aguanta unas 20 palabras entre `heading`, `prompt` y
+`respuesta` (8 s): el rótulo «Ejemplo ficticio» también cuenta. Si la
+demostración completa no cabe, reparte entrada y resultado en dos escenas
+(como en el piloto de notas) o llévala a un carrusel; no cortes la parte difícil.
 
 Si no cabe: reducir el caso o dividir temas en piezas independientes. No
 recortar sujetos, referentes o la parte difícil del ejemplo, acelerar la
@@ -207,8 +211,9 @@ Mostrar un fragmento es válido si contiene lo prometido. Para enseñar a decir
 que no cordialmente, «Hola, entiendo tu molestia…» omite justamente la dificultad.
 
 - **Mal:** una salida que termina antes de comunicar la negativa.
-- **Bien:** «Hola, Ana. Entiendo que necesitas recibirlo antes. La entrega se
-  mantiene para el viernes; no podemos adelantarla. Lamento el inconveniente».
+- **Bien** (carrusel; en reel no cabe en una `Screen`, ver sección 7): «Hola, Ana.
+  Entiendo que necesitas recibirlo antes. La entrega se mantiene para el viernes;
+  no podemos adelantarla. Lamento el inconveniente».
   El contexto del ejemplo debe decir que esa fecha está acordada y no se puede
   adelantar: no es un compromiso que la IA pueda decidir por su cuenta.
 

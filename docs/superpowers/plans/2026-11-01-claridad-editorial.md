@@ -319,7 +319,9 @@ Actualizado 2026-11-01 (tarde). La ejecución empezó en Codex y siguió en Clau
   incluidos E08, E11 y el cambio de P6/P8 en `lector-frio.md`.
 - F7: registrada `claridad-editorial` en `reglas.json` con `desde: 2026-11-09` (el planificador
   del domingo 8 ya escribe con las guías; las primeras piezas salen el lunes 9). Para que rija,
-  hay que instalar la plantilla en la base **antes del domingo 8 a las 06:00**, después del merge.
+  hay que instalar la plantilla en la base **entre el martes 3 y el sábado 7**, después del merge:
+  antes del lunes 2 la tomaría el respaldo local o una replanificación de la semana del 2, y
+  después de las 06:00 del domingo 8 llega tarde al planificador.
   Coincide con `titulo-hasta-14-palabras` y `juez-umbral-6`, también desde el 2026-11-09: el bucle
   las verá como simultáneas y no podrá atribuir el efecto a una sola.
 - F0: inventario de duplicados; P02 (qué ayuda real ofrece PARTIR); fichas editoriales por caso.
@@ -328,6 +330,10 @@ Actualizado 2026-11-01 (tarde). La ejecución empezó en Codex y siguió en Clau
   falta: la fecha quedó decidida y la regla va directo a `reglas`.
 - F8: seguimiento desde el 2026-11-09 (retención en reels; guardados, envíos y PARTIR en
   carruseles; correcciones a mano por semana).
+
+Revisión independiente (agente aparte, 2026-11-01): sin hallazgos graves; corregidos el tope de
+15 palabras de la portada de reel sin voz, la capacidad de una `Screen` de reel, la regla 5 frente a
+los ejemplos ficticios, la forma de `hook.juez` y la nota de simultaneidad en `reglas.json`.
 
 Verificación: `npm run typecheck`, `npm test` (712 + 42 ok), `git diff --check` y
 `node kb-plantilla/_calendario/validar.mjs --self-test`, todos en 0.

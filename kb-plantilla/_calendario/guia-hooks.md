@@ -79,8 +79,10 @@ confundir un máximo de palabras con tiempo suficiente para leerlas:
 
 - Reel: título hasta 14 palabras; más corto si se entiende igual. Con voz y
   ritmo `gancho`, sin subtítulo. Sin voz y ritmo `ensenar`, el subtítulo puede
-  ampliar; título y subtítulo suman hasta 16 palabras. Confirmar lectura en render.
-- Pregunta-respuesta «¿problema? salida»: hasta 16 palabras, sin subtítulo.
+  ampliar, pero la portada del reel dura 6 s: título y subtítulo suman **hasta 15
+  palabras** (2,5 por segundo). Confirmar lectura en render.
+- Pregunta-respuesta «¿problema? salida»: hasta 16 palabras en carrusel, sin
+  subtítulo; en reel, hasta 15 por el mismo tiempo de lectura.
   Es una opción cuando expresa mejor la situación y la acción, no una obligación.
 - Carrusel: título hasta 14 palabras con la palabra clave al inicio; el
   subtítulo amplía la promesa ya comprensible en el título.
@@ -108,7 +110,7 @@ comprobarse con la pieza, sus fuentes, el modo de render y la puerta vigente.
    `{ "patron": "<id>", "title": "…", "subtitle": "…", "resultado": "…" }`
    usando los campos que correspondan. Corre `--juez`; recibe la lista numerada
    sin patrón, tema ni entregable privado.
-6. Conserva su respuesta literal en `hook.juez`, la nota en `hook.score` y el
+6. Guarda su respuesta como `hook.juez = { "elegido": n, "nota": x, "respuestas": "<texto literal>" }`, la nota en `hook.score` y el
    título elegido en `hook.texto`. `Hook` y candidato elegido coinciden en
    `title`, `subtitle` y `resultado` cuando existen. No editar la portada después
    de obtener la evaluación sin volver a evaluarla.

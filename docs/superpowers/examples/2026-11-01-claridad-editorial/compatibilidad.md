@@ -102,8 +102,13 @@ Ambos reels pasan ahora las reglas de escenas, la lectura por escena y el tope d
 regla de Screen en la escena 2 obligó a anticipar el resultado en `reel-notas` («así queda») y
 mostrar las notas de entrada en la escena 3, como prevé E04.
 
-La afirmación de la sección anterior sobre una decisión del usuario de fijar la fecha al
-activar no está registrada en la spec: confirmarla antes de tocar `reglas.json`.
+**Cerrado 2026-11-01:** el usuario decidió activar desde el 8 de noviembre y la regla quedó
+en `reglas` (no en `propuestas`) como `claridad-editorial`, `desde: 2026-11-09`.
+
+Los borradores del piloto **no son borradores válidos de una semana ni sirven de molde**:
+llevan `serie` (que `validar.mjs` rechaza en el borrador; va en `plan.json`), no traen
+`source` ni `audio` y les faltan los campos del plan. Solo se validaron las reglas de escenas,
+lectura, duración, Screen, narración y CTA.
 
 ## Riesgos que debe cubrir la revisión final
 

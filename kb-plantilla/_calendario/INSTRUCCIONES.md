@@ -79,6 +79,10 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    al menos una **referencia lista** (ver Paso 3) del tema de la pieza, y de
    ella salen el entregable y los pasos. Lo que la pieza afirma se respalda
    según su tipo:
+   - **Ejemplos didácticos** (un correo, unas notas, una respuesta de la IA):
+     pueden ser ficticios solo si se rotulan «Ejemplo ficticio» en pantalla y
+     piden capacidades respaldadas (regla 10). Nunca se presentan como captura,
+     testimonio ni resultado medido.
    - **Capacidades de una herramienta** (qué hace, si está en el plan gratis,
      precio, países, pasos): solo de una referencia. La audiencia repite lo
      que ve; si un reel dice "gratis" y era de pago, la cuenta pierde confianza.
@@ -164,7 +168,8 @@ modismos locales. Cómo se escribe cada escena: `guia-redaccion.md`.
    La tarjeta histórica del primer cuadro ya no es el modelo de escritura del reel.
    El título llega hasta el tope vigente de `tituloMaxPalabras`; más corto solo si
    se entiende igual. La portada pregunta-respuesta («¿No sabes qué pedirle a la IA?
-   Haz que te pregunte a ti») lleva hasta 16 palabras y va sin subtítulo.
+   Haz que te pregunte a ti») lleva hasta 16 palabras y va sin subtítulo; en reel,
+   hasta 15, porque el Hook dura 6 s en `ensenar` (2,5 palabras por segundo).
    **Desde 2026-11-02 el `Hook` del reel va sin tarjeta** (pedido del usuario:
    demasiado texto en la portada): `resultado`, `app` y `modo` dejan de ser
    obligatorios en reels y, si vienen, no se pintan en el reel (sí en el post).
