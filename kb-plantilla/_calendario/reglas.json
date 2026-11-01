@@ -204,6 +204,27 @@
       "formato": "reel",
       "descripcion": "Portada pregunta-respuesta («¿problema? salida», hasta 14 palabras, sin subtítulo) y hook de hasta 6 s en ritmo ensenar (antes 5); sin voz nada queda solo en la narración: prompt entero y copiable, respuesta que muestra lo que se gana, paso con el cómo y una escena de por qué funciona",
       "fuente": "pedido de Felipe 2026-10-31 («no logramos explicar bien»; portada «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti»); entregables/revision-reels-2026-10-31"
+    },
+    {
+      "id": "piezas-que-se-entienden",
+      "desde": "2026-11-02",
+      "formato": null,
+      "descripcion": "Guion de pasos dirigidos al lector antes de las escenas, pregunta 9 del lector frío (contarla de corrido), reescritura desde el guion en vez de parches, banco momento × capacidad con respaldo gratis, hasta 20 palabras por escena y ritmo ensenar sin voz. El 2026-11-02 es el piloto escrito a mano; desde el 2026-11-09 lo exige el validador",
+      "fuente": "docs/superpowers/specs/2026-10-31-piezas-que-se-entienden-design.md; correcciones de Felipe al reel sab-pm-reel-haz-que-te-pregunte (2026-10-31)"
+    },
+    {
+      "id": "titulo-hasta-14-palabras",
+      "desde": "2026-11-09",
+      "formato": null,
+      "descripcion": "Tope de palabras de title y heading de 12 a 14 (puerta.tituloMaxPalabras); la portada pregunta-respuesta del Hook, de 14 a 16. El límite real es el tiempo de lectura de cada escena",
+      "fuente": "pedido de Felipe 2026-11-01 («prefiero más palabras a cosas que no se entiendan; 13 sobre 12 no debería generar un problema»)"
+    },
+    {
+      "id": "juez-umbral-6",
+      "desde": "2026-11-09",
+      "formato": null,
+      "descripcion": "puerta.hookUmbral de 7 a 6 en la base (config.json del usuario): el juez en Sonnet dio 6 a portadas que pasaron los dos lectores, y con 7 la semana quedaba con huecos",
+      "fuente": "pedido de Felipe 2026-11-01 («baja el mínimo a 6»); piloto 2026-11-02 (entregables/piloto-2026-11-02/LEEME.md)"
     }
   ]
 }

@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Instala (o actualiza) la plantilla del planificador del calendario en la base:
 # _calendario/INSTRUCCIONES.md, lector-frio.md, las guías de hooks y de redacción, validar.mjs,
-# validar.d.mts, reglas.json, config.json y CLAUDE.md. Commitea y sube.
+# validar.d.mts, reglas.json, config.json, momentos.md y CLAUDE.md. Commitea y sube.
 #
 #   scripts/kb-calendario-install.sh [ruta-de-la-base]    (default: $KB_DIR o ./knowledge)
 #
 # config.json es del usuario: si ya existe no se sobrescribe (se muestra la
-# diferencia con la plantilla para que copies a mano lo que quieras).
+# diferencia con la plantilla para que copies a mano lo que quieras). momentos.md
+# también es del usuario: se copia solo la primera vez.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -31,6 +32,11 @@ else
   ADD+=(_calendario/config.json)
 fi
 
+# momentos.md (banco de momentos y capacidades) es del usuario: se copia solo si no existe.
+if [ ! -f "$DEST/momentos.md" ]; then
+  cp "$SRC/momentos.md" "$DEST/"
+  ADD+=(_calendario/momentos.md)
+fi
 # Archivos del agente: se crean vacíos solo la primera vez.
 for f in experimentos.md aprendizajes.md; do
   if [ ! -f "$DEST/$f" ]; then

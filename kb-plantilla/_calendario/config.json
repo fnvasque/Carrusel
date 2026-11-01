@@ -70,8 +70,9 @@
   "umbralAlcanceTasas": 50,
   "puerta": {
     "tituloMaxPalabras": {
-      "valor": 12,
-      "respaldo": "skill"
+      "valor": 14,
+      "respaldo": "supuesto",
+      "nota": "2026-11-01: Felipe prefiere más palabras a un título que no se entiende; antes 12. El límite real es el tiempo de lectura de la escena"
     },
     "bulletMaxPalabras": {
       "valor": 12,

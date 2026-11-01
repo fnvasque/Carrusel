@@ -20,8 +20,11 @@ para explicar, no para decir más cosas.
 Desde el 2026-11-02 (pivote a vitrina de coaching): un profesional de cargo
 medio (jefe de área, coordinador, gerente de primera línea), no programador,
 que **nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde
-partir**. No sabe qué es un agente ni qué pedirle a la IA. Le escribes en
-primera persona, como alguien que ya dio ese paso y le cuenta cómo: directo,
+partir**. No sabe qué es un agente ni qué pedirle a la IA. Tiene IA a mano
+(ChatGPT gratis, Gemini o el Copilot del trabajo), no paga y la usa como Google:
+no se le ocurre en qué tareas usarla ni qué tipos de cosas hace. Le escribes
+como alguien que ya dio ese paso y le dice cómo darlo, con los pasos dirigidos a
+él («copia», «pega», «respóndele»): directo,
 con tuteo, en español neutro (sin voseo ni «vosotros», sin modismos), sin
 jerga sin explicar y sin exagerar.
 
@@ -30,18 +33,22 @@ jerga sin explicar y sin exagerar.
 > esta guía con datos de estudios siguen sirviendo para la forma (idea
 > completa, números con contexto, voz que explica); el lector es el de arriba.
 
-## Desde 2026-11-02: primera persona, nivel cero y cierre PARTIR
+## Desde 2026-11-02: pasos al lector, nivel cero y cierre PARTIR
 
 Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
 Donde esta sección choque con el resto de la guía, manda esta.
 
-- **Primera persona singular** en el cuerpo y en la voz (la portada le habla al
-  lector, ver `guia-hooks.md`): «yo partí por aquí»,
-  «a mí me pasó», «armé un sistema que…». El lector ve a alguien como él dar
-  el paso, no a un experto que le dice qué hacer.
-  - **Mal:** «Sube tus informes a Gemini Notebook y ahorra horas.»
-  - **Bien:** «Primero creé un cuaderno nuevo y subí ahí los seis informes en
-    PDF.»
+- **Los pasos van al lector** (desde el 2026-10-31, corrección del usuario al
+  reel «haz que te pregunte»; la portada también le habla, ver `guia-hooks.md`):
+  tiene que poder hacerlos, así que cada escena le dice qué copia, dónde lo pega
+  y cómo responde. La primera persona («a mí me pasó», «lo que no funcionó») va
+  en una escena cuando suma, no como hilo; `lo-que-construi` es bitácora y va en
+  primera persona, con el paso para el lector al final. Ni voz de experto ni
+  promesas: el paso es chico y concreto.
+  - **Mal:** «Le pedí a ChatGPT que me preguntara a mí.» (cuenta lo que hice;
+    el lector no sabe qué escribir)
+  - **Bien:** «Copia este mensaje y pégalo en ChatGPT.» y, en la pantalla, el
+    mensaje entero.
 - **Nivel cero sin jerga:** un término técnico como máximo en toda la pieza, y
   explicado en la misma escena con palabras de oficina.
   - **Mal:** «Un agente orquesta tus tareas con herramientas.»
@@ -190,7 +197,7 @@ un dato al pasar.
 
 ## 7. Cuánto cabe
 
-**Reels (tope de 35 s, ritmo gancho).** El hook no cambia: título ≤ 7 palabras
+**Reels con voz (tope de 35 s, ritmo gancho).** El hook no cambia: título ≤ 7 palabras
 y la promesa completa en 3 s. El espacio extra es para el medio:
 
 - 5 a 6 escenas. El texto en pantalla sigue corto (≤ 10 palabras por escena
@@ -223,10 +230,14 @@ explica más si cambia **qué** se dice:
   cuentan».
 - El tope por escena sigue en 8 s (2,5 palabras/s): una `Screen` aguanta unas
   20 palabras entre prompt y respuesta. Si no cabe, parte en dos escenas.
+- **Hasta 20 palabras por escena, mejor si son menos** (decisión del usuario,
+  2026-10-31): lo que manda es que se entienda, no la cuenta. Ritmo `ensenar`
+  mientras no haya voz; con escenas largas caben 4 o 5 en 35 s, así que se va
+  la escena que no es un paso, no el porqué.
 
 **Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
-`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); títulos y bullets
-siguen en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
+`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); los títulos
+siguen en 14 y los bullets en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
 mayúscula y van en ≤ 14 palabras cada uno (ver «Mito contra realidad»). Son la pieza densa de la semana: el
 porqué, el matiz del estudio, un ejemplo de trabajo.
 
@@ -305,12 +316,42 @@ Las 3 a 5 láminas cuentan **una** idea (qué pasa, por qué, cómo lo hago, el
 error típico), no cinco conceptos sueltos: el que llega a la última lámina
 tiene que poder contarla en una frase.
 
+## 12. El hilo: cada escena es el paso siguiente
+
+La pieza se escribe primero como `guion` (Paso 5 de `INSTRUCCIONES.md`): un
+paso por escena, dirigido al lector, y una escena que dice **por qué funciona**
+(para que lo use en otro caso). Si un paso no se sigue del anterior, falta un
+paso o sobra una escena. Las escenas que solo cuentan la experiencia («preguntó
+la IA, no yo») se van. La pregunta 9 del lector frío pide contar la pieza de
+corrido: si no sale el primer paso con su qué o su cómo, no hay hilo.
+
+Corrección del usuario (reel `sab-pm-reel-haz-que-te-pregunte`, 2026-10-31):
+
+| Antes | Después |
+|---|---|
+| «Nunca supe qué pedirle a la IA» | «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti» |
+| «Le pedí a ChatGPT que me preguntara a mí» | «Copia este mensaje y pégalo en ChatGPT» |
+| «Le conté mi cargo, como a un colega» | «Respóndele como a un colega nuevo» + «Qué haces, cuánto te demora y para quién es» |
+| «Esas son mis 3 respuestas» | «Informe semanal: 3 horas, notas sueltas, para mi jefe» |
+| «No tuve que saber qué pedir: preguntó la IA» | «Funciona porque la IA no conoce tu trabajo: tus respuestas se lo cuentan» |
+
+**La plantilla va después del texto.** Primero escribe lo que dice la escena;
+después elige dónde se dibuja:
+
+| Lo que dice la escena | Plantilla |
+|---|---|
+| El pedido a la IA y lo que respondió | `Screen` |
+| Un paso con su cómo | `Step` (`heading` + `body`) |
+| El porqué o una idea en una frase | `Lead` |
+| Una creencia contra un dato | `MythReality` (nada más) |
+| Un dato con quién lo midió | `Stat` |
+
 ## Pieza completa: antes y después
 
 El reel «¿Cuándo no confiar en la IA? 1 regla» (jue 2026-10-22), reescrito
 como pieza de la serie `criterio` (serie retirada el 2026-11-02: el ejemplo
 sirve para la forma de cada escena, no para la serie ni la voz, que desde el
-pivote va en primera persona). Mismos hechos (referencia
+2026-10-31 le dice los pasos al lector). Mismos hechos (referencia
 `estudio-de-la-frontera-irregular.md`), otra redacción.
 
 | Escena | Antes (en pantalla / voz) | Después (en pantalla / voz) |
@@ -348,8 +389,8 @@ reescribe la escena; no lo dejes para el lector.
    detalle o el porqué.
 6. **Lenguaje**: tuteo, español neutro, sin jerga sin explicar, sin palabras de
    `puerta.relleno`, sin alarmismo.
-7. **Espacio**: reel ≤ 35 s con el hook en ≤ 7 palabras; el espacio extra se
-   fue a contexto y matiz, no a más pasos. Carrusel: el cuerpo explica el
+7. **Espacio**: reel ≤ 35 s; hasta 20 palabras por escena, mejor menos, y que
+   se entienda; el espacio se fue al paso y al porqué, no a escenas de relleno. Carrusel: el cuerpo explica el
    porqué y el matiz.
 8. **Entregable**: al final, el lector tiene un primer paso que dar en su
    trabajo esta semana, y el cierre le pide «escríbeme PARTIR».
@@ -361,8 +402,9 @@ reescribe la escena; no lo dejes para el lector.
 11. **Respuesta en pantalla**: la `respuesta` del `Screen` se podría enviar tal
     cual (asunto concreto, saludo, un `\n` entre asunto, cuerpo y cierre, sin
     líneas en blanco; sin «ojo» ni muletillas).
-12. **Primera persona**: la pieza la cuenta quien la vivió («yo partí», «armé»),
-    con un término técnico como máximo, explicado.
+12. **Pasos al lector, de corrido**: cada escena es el paso siguiente del
+    `guion`, dicho al lector («copia», «respóndele»), con una escena del porqué y
+    un término técnico como máximo, explicado.
 13. **Carrusel explicativo**: cada `Concepto` dice qué le pasa al lector, el
     `enSimple` va en primera persona con una sola acción para hoy, y todas las
     láminas cuentan la misma idea.

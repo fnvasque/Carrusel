@@ -63,6 +63,8 @@ ni lo completes con lo que sabes.
    Si no lo sabes, responde "no sé".
 8. ¿Qué aprendiste que no sabías antes de verlo? Si ya sabías todo, responde
    "nada nuevo".
+9. Cuéntaselo en dos frases a un compañero de trabajo que no lo vio: de qué se
+   trata y qué harías primero. Si no sabrías qué hacer primero, dilo.
 
 ### Formato de respuesta
 
@@ -70,7 +72,7 @@ Responde **solo** este JSON, sin texto antes ni después. Si en la 3 o la 6 no
 hay nada, deja el texto vacío (`""`).
 
 ```json
-{ "1": "...", "2": "...", "3": "...", "4": "...", "5": "...", "6": "...", "7": "...", "8": "..." }
+{ "1": "...", "2": "...", "3": "...", "4": "...", "5": "...", "6": "...", "7": "...", "8": "...", "9": "..." }
 ```
 
 ## Para el planificador: criterio de paso
@@ -118,8 +120,16 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    "nada nuevo" en 9 de 20 piezas aunque el cuerpo trajera algo nuevo; se
    registra como `NB` con `con prisa P8: no bloquea`.
 
+9. La respuesta 9 (desde el 2026-11-02, spec «piezas que se entienden»): contada
+   de corrido, la pieza tiene que ser la de `fraseAmigo` y nombrar el primer paso
+   del `guion` (el primero que el lector puede hacer) con su qué o su cómo
+   («copio el mensaje y se lo pego a ChatGPT»). En el lector **completo** bloquea
+   si cuenta otra idea, si no dice qué haría primero o si el primer paso queda sin
+   qué ni cómo. En el lector **con prisa** no bloquea: regístralo como `NB` con
+   `con prisa P9: no bloquea`.
+
 - **Lector completo:** deben cumplirse las ocho (1–8), con la 3 y la 6 como
-  están escritas arriba.
+  están escritas arriba, y la 9.
 - **Lector con prisa:** cuentan solo la 1, la 2, la 5 y la 7. La 7 nunca va
   como `NB`. Sus respuestas 3, 4, 6 y 8
   **no bloquean**. El lector con prisa no ve el cuerpo a propósito; echarlo de
@@ -145,13 +155,17 @@ Reglas que puedes citar (con dónde lo explica la pieza cuando corresponda):
 - `con prisa P3: no bloquea`, `con prisa P4: no bloquea`, `con prisa P6: no bloquea`
 - `con prisa P8: no bloquea` (también con "nada nuevo": anótalo igual, sirve
   al bucle). El lector completo no tiene escape en la 8.
+- `con prisa P9: no bloquea`. El lector completo no tiene escape en la 9.
 
 Una entrada por línea (o separadas por `; `). El validador rechaza un `NB` mal
 escrito y cualquier "no bloquea" fuera de un `NB`. Si no puedes citar una regla
 que la cubra, la duda bloquea: reescribe.
 
 Si falla una condición que cuenta, en cualquiera de los dos lectores: reescribe la pieza
-(contando la vuelta) y vuelve a correr **ambos** lectores con subagentes nuevos.
+**entera desde el `guion`** (primero revisa el guion: cada escena es el paso siguiente de la
+anterior; no cambies una frase suelta) contando la vuelta, y vuelve a correr **ambos** lectores
+con subagentes nuevos. Tras dos fallas del lector, la vuelta siguiente **cambia de momento**
+(en `lo-que-construi`, de ángulo): es una pieza nueva en el mismo hueco.
 Tope: `puerta.reescriturasMax` vueltas en total, sumando las del validador.
 Si no pasa, la pieza se quita y el hueco queda vacío.
 
