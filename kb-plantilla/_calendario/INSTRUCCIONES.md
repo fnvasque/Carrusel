@@ -747,8 +747,9 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   segundo 3 y a los 20 s no queda nadie en reels de 36–49 s). Desde el
   2026-10-14 la puerta trae `ritmoReel: "gancho"` y `duracionMaxSegundos: 20`,
   y desde el 2026-10-26 el tope sube a **35 s** (las entrevistas pidieron más
-  explicación; el hook sigue en 3 s): **todo reel** va con `"pace": "gancho"`
-  en el borrador y, fuera de las semanas del paquete, `"ritmoReel": "gancho"` y
+  explicación; el hook sigue en 3 s): **con voz, todo reel** va con `"pace": "gancho"`
+  (**sin voz, `config.voz` false, con `"ensenar"`**: el validador lo exige
+  siempre) en el borrador y, fuera de las semanas del paquete, `"ritmoReel"` igual al `pace` y
   `"duracionMaxSegundos"` con el valor de la puerta en `parametros` (el
   validador exige que `pace` y `ritmoReel` coincidan y suma las escenas como el
   motor; ver "Presupuesto de texto" y "Tope de duración"). El experimento
@@ -813,7 +814,7 @@ Para cada pieza, en este orden y sin saltarte ninguno:
 3. **Emoción** que busca (puede encadenar más de una: `["curiosidad", "alivio"]`).
 4. **Frase de amigo**: cómo se lo contaría a alguien en una línea, sin
    términos técnicos. Si exige saber qué es una API o un modelo, reescríbela.
-5. **Guion** (desde el 2026-10-31): un paso por escena, dirigido al lector, en
+5. **Guion** (desde el 2026-11-02; el validador lo exige desde el 2026-11-09): un paso por escena, dirigido al lector, en
    `plan.json → guion` (tantos como slides, 2 a 20 palabras cada uno): el
    problema, lo que copia o abre, cómo responde, lo que ve, **por qué funciona**
    y el cierre. Cada paso es el siguiente del anterior; si uno no se sigue del
@@ -1106,7 +1107,8 @@ Orientación para 35 s en `gancho` (el ritmo de la puerta), con la voz real:
   Si la slide 1 es un `Clip`, el reel va **sin `Hook`**, con
   `"logoEnCuadro0": false` y sin `hookVideo`. Ver "Reel con video generado".
 - Reel: `"pace"` igual a `parametros.ritmoReel` de la pieza (en las semanas
-  del paquete, que no lo fijan, igual a `puerta.ritmoReel`: `gancho`) y `"audio"` con el nombre exacto de una pista de
+  del paquete, que no lo fijan, igual al ritmo vigente: `ensenar` sin voz, `puerta.ritmoReel`
+  con voz; sin voz, siempre `ensenar`) y `"audio"` con el nombre exacto de una pista de
   `config.audios` (sin rutas; si la lista está vacía, no hay reels: ver Paso 4).
   Carrusel: `pace` y `audio` no hacen falta.
 - Reel: duración total ≤ `duracionMaxSegundos` (el de `parametros` de la pieza

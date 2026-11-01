@@ -9,6 +9,7 @@ export declare function segundosEscenas(slides: unknown[], pace?: Ritmo, conVoz?
 export declare function duracionReel(borrador: unknown, config?: unknown): number;
 export declare function hayVoz(config: unknown): boolean;
 export declare function ritmoVigente(config: unknown): Ritmo;
+export declare const VOZ_EJEMPLO: string;
 export declare const DESDE_ENTENDER: string;
 export declare function erroresDeGuion(pieza: unknown, borrador: unknown): string[];
 export interface BancoMomentos { momentos: Set<string>; capacidades: Map<string, string[]> }

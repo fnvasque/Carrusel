@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { check } from "../_check.ts";
@@ -52,6 +53,27 @@ check("entender: en el paquete sin voz el pace vigente es ensenar (gancho se rec
   const cfgVoz = { ...cfg, voz: "em_alex" };
   assert.ok(has(erroresDeRetencion(b("ensenar"), pieza, cfgVoz), /gancho/));
   assert.ok(!has(erroresDeRetencion(b("gancho"), pieza, cfgVoz), /pace/));
+});
+
+check("entender: sin voz, fuera del paquete, un reel en gancho se rechaza aunque parametros.ritmoReel diga gancho", () => {
+  const pieza = { formato: "reel", dia: "2026-11-17", parametros: { ritmoReel: "gancho" } };
+  const b = { pace: "gancho", slides: slides(3) };
+  assert.ok(has(erroresDeRetencion(b, pieza, conVoz(false)), /sin voz.*ensenar/));
+  assert.ok(!has(erroresDeRetencion(b, pieza, conVoz("em_alex")), /sin voz/));
+});
+
+check("entender: --self-test pasa con la base sin voz (config.voz false), como la viva", () => {
+  const raiz = mkdtempSync(join(tmpdir(), "entender-cli-"));
+  try {
+    mkdirSync(join(raiz, "_calendario"), { recursive: true });
+    copyFileSync(join(DIR, "validar.mjs"), join(raiz, "_calendario", "validar.mjs"));
+    writeFileSync(join(raiz, "_calendario", "config.json"), JSON.stringify({ ...CONFIG, voz: false }));
+    const out = execFileSync("node", [join(raiz, "_calendario", "validar.mjs"), "--self-test"], { encoding: "utf8", env: { ...process.env, CARRUSEL_DIR: join(raiz, "nada") } });
+    assert.match(out, /Autoprueba del calendario/);
+    assert.match(out, /sin voz los reels van en ensenar/);
+  } finally {
+    rmSync(raiz, { recursive: true, force: true });
+  }
 });
 
 // --- 4d: narración sin voz ---

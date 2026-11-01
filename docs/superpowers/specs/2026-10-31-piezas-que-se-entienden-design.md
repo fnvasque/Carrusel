@@ -192,7 +192,7 @@ El 2026-11-02 es el piloto aplicado a mano; desde el 2026-11-09 lo exige el vali
 | Paquete: pace = `gancho` | Se reemplaza por el ritmo vigente (`ensenar` sin voz) |
 | Juez, score léxico, topes duros, tiempos | Sin cambio |
 
-Meta: `INSTRUCCIONES.md` no crece más de 40 líneas netas.
+Meta era no crecer más de 40 líneas netas; quedó en +73 (2134 → 2207) aun quitando dos notas históricas. Lo nuevo (banco, guion, correcciones) no tenía dónde reemplazar.
 
 ## Piloto: semana 2026-11-02
 
@@ -233,6 +233,16 @@ semanal, `config.json`.
    una referencia gratis.
 5. Ids y textos de la semilla.
 6. La pregunta 9 la evalúa el planificador contra `guion` y `fraseAmigo`; se cita textual.
+
+## Qué cambió con la revisión del diff (segunda revisión independiente)
+
+- Con la base viva sin voz, el ejemplo embebido (escrito con voz, `gancho`) dejaba de pasar
+  `--self-test` y el instalador se cortaba a medias → `--self-test` valida el ejemplo con
+  `VOZ_EJEMPLO` cuando la base no tiene voz y avisa que sin voz los reels van en `ensenar`.
+  Cambiar la voz de la plantilla a `false` rompía 10 tests que dependen de ella: se descartó.
+- Fuera del paquete, sin voz, un reel en `gancho` pasaba si `parametros.ritmoReel` decía
+  `gancho` → sin voz el validador exige `ensenar` siempre.
+- Textos de `INSTRUCCIONES.md` que seguían diciendo `gancho` para todo reel → «con voz / sin voz».
 
 ## Qué cambió con la revisión adversarial
 

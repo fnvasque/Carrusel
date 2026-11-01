@@ -438,6 +438,9 @@ export const hayVoz = (config) => !(esObj(config) && config.voz === false);
  * usuario del 2026-10-30 (en `gancho` la portada dura 3 s y la Screen del medio no alcanza a
  * leerse); con voz, `puerta.ritmoReel`.
  */
+/** Voz con la que está escrito el ejemplo embebido (`--self-test` la usa si la base no tiene voz). */
+export const VOZ_EJEMPLO = "em_alex";
+
 export function ritmoVigente(config) {
   return hayVoz(config) ? puerta(config, "ritmoReel") : "ensenar";
 }
@@ -868,6 +871,10 @@ export function erroresDeRetencion(borrador, pieza, config) {
         const origen = hayVoz(config) ? `puerta.ritmoReel ${q(vigente)}` : `el ritmo vigente ${q(vigente)} (sin voz, config.voz false)`;
         errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con ${origen} (en el ${paqueteDe(config).motivo} el ritmo es el vigente)`);
       }
+    }
+    // Sin voz, todo reel va en ensenar (también fuera del paquete y con parametros.ritmoReel).
+    if (!hayVoz(config) && pace !== "ensenar" && !errs.some((e) => e.includes("ritmo vigente"))) {
+      errs.push(`pace ${q(borrador.pace ?? "ensenar")}: sin voz (config.voz false) el reel va en ritmo "ensenar" (en gancho la portada dura 3 s y no alcanza a leerse)`);
     }
     const tope = typeof params.duracionMaxSegundos === "number" && params.duracionMaxSegundos > 0 ? params.duracionMaxSegundos : puerta(config, "duracionMaxSegundos");
     if (!Array.isArray(borrador.slides) || !borrador.slides.every((s) => esObj(s) && esObj(s.props))) return errs;
@@ -3065,11 +3072,13 @@ function main(args) {
   if (args[0] === "--self-test") {
     const errs = validarConfig(config).map((e) => `config.json: ${e}`);
     if (!errs.length) {
-      const c = { ...config, audios: [...config.audios, EJEMPLO.borrador.audio] };
+      // El ejemplo está escrito con voz (ritmo gancho): sin voz se valida con la voz del ejemplo.
+      const c = { ...config, ...(hayVoz(config) ? {} : { voz: VOZ_EJEMPLO }), audios: [...config.audios, EJEMPLO.borrador.audio] };
       errs.push(...validarPlan(EJEMPLO.plan, c).map((e) => `ejemplo: ${e}`));
       errs.push(...validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, c).map((e) => `ejemplo: ${e}`));
     }
     if (errs.length) fallar(errs);
+    if (!hayVoz(config)) console.log("ℹ config.voz es false: el ejemplo está escrito con voz (gancho); sin voz los reels van en ensenar, con 4 o 5 escenas en 35 s.");
     if (!config.audios.length) console.warn("⚠ config.audios está vacío: el planificador no escribirá reels (solo carruseles) hasta que agregues a _calendario/config.json los nombres de las pistas de promo/audio/.");
     console.log("✓ Autoprueba del calendario: config.json y ejemplo válidos.");
     return;
