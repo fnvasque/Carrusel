@@ -1,0 +1,100 @@
+[
+  {
+    "nombre": "reel-notas",
+    "formato": "reel",
+    "laminas": 5,
+    "timing": {
+      "fps": 30,
+      "pace": "ensenar",
+      "transition": 0.5,
+      "entranceSlow": 1.3,
+      "stagger": 1.8,
+      "bulletTail": 2.5,
+      "total": 34.42,
+      "frames": 1033,
+      "scenes": [
+        {
+          "start": 0,
+          "dur": 6,
+          "budget": 2.4
+        },
+        {
+          "start": 5.5,
+          "dur": 8,
+          "budget": 2.4
+        },
+        {
+          "start": 13,
+          "dur": 8,
+          "budget": 2.4
+        },
+        {
+          "start": 20.5,
+          "dur": 7.46,
+          "budget": 2.4
+        },
+        {
+          "start": 27.46,
+          "dur": 6.96,
+          "budget": 2.4
+        }
+      ]
+    },
+    "hallazgos": []
+  },
+  {
+    "nombre": "carrusel-reclamo",
+    "formato": "post",
+    "laminas": 7,
+    "hallazgos": []
+  },
+  {
+    "nombre": "carrusel-estilo",
+    "formato": "post",
+    "laminas": 7,
+    "hallazgos": []
+  },
+  {
+    "nombre": "reel-bitacora",
+    "formato": "reel",
+    "laminas": 5,
+    "timing": {
+      "fps": 30,
+      "pace": "ensenar",
+      "transition": 0.5,
+      "entranceSlow": 1.3,
+      "stagger": 1.8,
+      "bulletTail": 2.5,
+      "total": 34.8,
+      "frames": 1044,
+      "scenes": [
+        {
+          "start": 0,
+          "dur": 6,
+          "budget": 2.4
+        },
+        {
+          "start": 5.5,
+          "dur": 7.71,
+          "budget": 2.4
+        },
+        {
+          "start": 12.71,
+          "dur": 8,
+          "budget": 2.4
+        },
+        {
+          "start": 20.21,
+          "dur": 8,
+          "budget": 2.4
+        },
+        {
+          "start": 27.71,
+          "dur": 7.09,
+          "budget": 2.4
+        }
+      ]
+    },
+    "hallazgos": []
+  }
+]

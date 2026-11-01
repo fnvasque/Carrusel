@@ -1,0 +1,55 @@
+{
+  "name": "reel-bitacora",
+  "angle": "Una nota alta del juez no demuestra que el lector comprenda la promesa; caso documentado 2026-10-30 (spec portada-al-lector: dos portadas con nota 8, rechazadas a mano).",
+  "pillar": "trabajo",
+  "serie": "lo-que-construi",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "Tu título con IA: comprueba que se entienda qué ganas",
+        "highlight": "qué ganas"
+      },
+      "narracion": "Una IA aprobó mi portada, y no se entendía qué ganabas."
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "IA que evalúa portadas",
+        "heading": "Mi caso, resumido",
+        "prompt": "Evalúa esta portada: «Nunca supe qué pedirle a la IA».",
+        "respuesta": "Nota: 8 de 10."
+      },
+      "narracion": "Le pedí a una IA evaluar mi portada: ocho de diez."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "La rechacé: no decía qué ganas",
+        "highlight": "no decía qué ganas",
+        "body": "Era mi confesión, no tu beneficio. Una nota alta no prueba claridad."
+      },
+      "narracion": "La rechacé: contaba lo mío, no lo que tú ganas."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "Prueba tu título sin explicarlo",
+        "highlight": "sin explicarlo",
+        "body": "Pregúntale a un colega qué cree que conseguirá. Si duda, reescríbelo."
+      },
+      "narracion": "Pregúntale a un colega qué cree que va a conseguir."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "¿Qué título quieres probar? Escribe esta palabra y te ayudo",
+        "highlight": "te ayudo",
+        "cta": "Escríbeme PARTIR"
+      },
+      "narracion": "¿Qué título quieres probar? Escríbeme PARTIR y te ayudo."
+    }
+  ],
+  "pace": "ensenar"
+}
