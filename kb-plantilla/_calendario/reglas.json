@@ -218,6 +218,13 @@
       "formato": null,
       "descripcion": "Tope de palabras de title y heading de 12 a 14 (puerta.tituloMaxPalabras); la portada pregunta-respuesta del Hook, de 14 a 16. El límite real es el tiempo de lectura de cada escena",
       "fuente": "pedido de Felipe 2026-11-01 («prefiero más palabras a cosas que no se entiendan; 13 sobre 12 no debería generar un problema»)"
+    },
+    {
+      "id": "juez-umbral-6",
+      "desde": "2026-11-09",
+      "formato": null,
+      "descripcion": "puerta.hookUmbral de 7 a 6 en la base (config.json del usuario): el juez en Sonnet dio 6 a portadas que pasaron los dos lectores, y con 7 la semana quedaba con huecos",
+      "fuente": "pedido de Felipe 2026-11-01 («baja el mínimo a 6»); piloto 2026-11-02 (entregables/piloto-2026-11-02/LEEME.md)"
     }
   ]
 }

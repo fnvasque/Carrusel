@@ -51,6 +51,7 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["reel-explica-sin-voz", "2026-11-02"],
     ["piezas-que-se-entienden", "2026-11-02"],
     ["titulo-hasta-14-palabras", "2026-11-09"],
+    ["juez-umbral-6", "2026-11-09"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));
 });
