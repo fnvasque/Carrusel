@@ -1,0 +1,69 @@
+{
+  "name": "carrusel-estilo",
+  "angle": "Mostrar referencia de estilo y salida comparable con hechos constantes; ejemplo ficticio.",
+  "pillar": "trabajo",
+  "serie": "por-donde-partir",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "¿El correo de ChatGPT no suena a ti? Muéstrale cómo escribes",
+        "highlight": "Muéstrale cómo escribes",
+        "subtitle": "Compara un ejemplo ficticio con su resultado"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "El mismo aviso, con otro tono",
+        "highlight": "otro tono",
+        "body": "El aviso debe decir: la reunión pasa al martes a las diez.\nUna versión distante sería: «Estimado equipo, se informa que la reunión se realizará el martes a las diez». Los hechos están bien; el tono no se parece al tuyo."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Elige un correo que sí suene a ti",
+        "highlight": "sí suene a ti",
+        "body": "Ejemplo ficticio: «Hola, equipo. El informe está listo. Gracias por la ayuda».\nTiene saludo breve, frases directas y un cierre sencillo. Elimina datos sensibles antes de pegar un correo propio."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Separa el aviso del ejemplo de estilo",
+        "highlight": "Separa el aviso",
+        "body": "En ChatGPT, escribe primero los hechos nuevos: «La reunión pasa al martes a las diez». Luego pega tu correo anterior y aclara que es solo una referencia de estilo. Así distingues qué comunicar de cómo decirlo."
+      }
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "ChatGPT",
+        "heading": "Ejemplo ficticio: misma información",
+        "prompt": "Avisa: reunión el martes a las diez. Usa este estilo: «Hola, equipo. El informe está listo. Gracias por la ayuda». No copies sus hechos.",
+        "respuesta": "Hola, equipo.\nLa reunión pasa al martes a las diez.\nGracias."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "3",
+        "heading": "Compara el tono y revisa el contenido",
+        "highlight": "revisa el contenido",
+        "body": "La salida conserva un saludo breve y frases directas. También mantiene martes y diez: no copió el informe del ejemplo. Si una frase no suena a ti, pide cambiarla en el mismo chat."
+      }
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "¿Qué correo no suena a ti? Escribe esta palabra y te ayudo",
+        "highlight": "te ayudo",
+        "cta": "Escríbeme PARTIR"
+      }
+    }
+  ]
+}

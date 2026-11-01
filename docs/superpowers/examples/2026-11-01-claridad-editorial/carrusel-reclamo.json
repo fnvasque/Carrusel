@@ -1,0 +1,69 @@
+{
+  "name": "carrusel-reclamo",
+  "angle": "Responder una petición imposible manteniendo la fecha y un tono cordial; caso ficticio.",
+  "pillar": "trabajo",
+  "serie": "por-donde-partir",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "Dile que no a un cliente con un borrador cordial de ChatGPT",
+        "highlight": "un borrador cordial",
+        "subtitle": "Un ejemplo ficticio, de principio a fin"
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "El cliente pide algo que no puedes hacer",
+        "highlight": "no puedes hacer",
+        "body": "«Necesito recibir el pedido el miércoles. El viernes ya no me sirve.»\nLa entrega acordada es el viernes y no puedes adelantarla. Ese es el límite que debe respetar la respuesta."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "1",
+        "heading": "Pega el mensaje y explica tu decisión",
+        "highlight": "explica tu decisión",
+        "body": "Abre una conversación en ChatGPT. Pega el mensaje sin datos sensibles y aclara que la entrega sigue siendo el viernes. La IA puede ayudarte a redactar; la fecha la decides tú."
+      }
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "ChatGPT",
+        "heading": "Ejemplo ficticio: petición y respuesta",
+        "prompt": "El cliente pide recibirlo el miércoles. Solo podemos entregar el viernes. Redacta una negativa cordial, sin ofrecer alternativas.",
+        "respuesta": "Hola, Ana:\nEntiendo que necesitas recibirlo antes. La entrega se mantiene para el viernes; no podemos adelantarla.\nLamento el inconveniente."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "2",
+        "heading": "Ajusta el tono sin cambiar los hechos",
+        "highlight": "sin cambiar los hechos",
+        "body": "Si no suena como tú, continúa en el mismo chat: «Hazlo más cercano y conserva la fecha». Dar esa indicación evita empezar el encargo de nuevo."
+      }
+    },
+    {
+      "template": "Step",
+      "props": {
+        "step": "3",
+        "heading": "Revisa lo que vas a prometer",
+        "highlight": "lo que vas a prometer",
+        "body": "Comprueba que diga viernes, explique que no puedes adelantar y no agregue descuentos ni compromisos. Un saludo cordial no basta: también tiene que quedar clara la respuesta."
+      }
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "¿Qué correo te cuesta responder? Escribe esta palabra y te ayudo",
+        "highlight": "te ayudo",
+        "cta": "Escríbeme PARTIR"
+      }
+    }
+  ]
+}

@@ -1,410 +1,312 @@
 # Guía de redacción
 
-Para el planificador (Paso 5 de `INSTRUCCIONES.md`). Es **obligatoria**: la
-aplicas a cada pieza después de escribir el cuerpo y antes del hook y del
-lector frío, y terminas con la lista de chequeo del final.
-
-## Por qué hay guía
-
-Las personas del público entrevistadas dijeron que el contenido es demasiado
-básico y que muchas veces no se entiende o no explica lo suficiente. La
-revisión de la semana del 2026-10-19 mostró por qué: topes de 5 palabras por
-escena y reels de 20 s produjeron frases como «Lo midió Microsoft.», «En 18
-tareas, acertó.» o «Uno con IA rinde como dos». Se perdían el por qué y el
-cómo, y la voz a menudo repetía el título. Desde el 2026-10-26 los reels
-llegan a 35 s y el cuerpo de los carruseles a 50 palabras: el espacio nuevo es
-para explicar, no para decir más cosas.
+Para el planificador (Paso 5 de `INSTRUCCIONES.md`). Es **obligatoria**: escribe
+primero el guion, el cuerpo y su demostración; aplica esta guía antes del hook y
+del lector frío. Termina con la lista de chequeo. La memoria del cambio está en
+`docs/superpowers/specs/2026-11-01-claridad-editorial-design.md` del repo de código.
 
 ## A quién le escribes
 
-Desde el 2026-11-02 (pivote a vitrina de coaching): un profesional de cargo
-medio (jefe de área, coordinador, gerente de primera línea), no programador,
-que **nunca ha usado IA más allá de una pregunta suelta y no sabe por dónde
-partir**. No sabe qué es un agente ni qué pedirle a la IA. Tiene IA a mano
-(ChatGPT gratis, Gemini o el Copilot del trabajo), no paga y la usa como Google:
-no se le ocurre en qué tareas usarla ni qué tipos de cosas hace. Le escribes
-como alguien que ya dio ese paso y le dice cómo darlo, con los pasos dirigidos a
-él («copia», «pega», «respóndele»): directo,
-con tuteo, en español neutro (sin voseo ni «vosotros», sin modismos), sin
-jerga sin explicar y sin exagerar.
+Un profesional de cargo medio, no programador, que **nunca ha usado IA más allá
+de una pregunta suelta y no sabe por dónde partir**. Tiene IA a mano, no paga
+por ella y la usa como Google: pregunta, lee y cierra. Le faltan situaciones
+concretas de su trabajo en las que usarla y una forma de empezar.
 
-> Nota histórica (2026-10-26 a 2026-11-01, ya no rige): el lector «ya paga
-> Claude o ChatGPT» y le faltaba criterio, no el primer paso. Los ejemplos de
-> esta guía con datos de estudios siguen sirviendo para la forma (idea
-> completa, números con contexto, voz que explica); el lector es el de arriba.
+Escribe con tuteo, español neutro y palabras de oficina. Comprensible para un
+principiante no significa interesante para todo el mundo. Una tarea sencilla
+puede ser nueva y útil para él; no busques sofisticación para impresionar a
+quien ya usa IA todos los días. El contexto histórico de la audiencia anterior
+queda en las specs, no rige estos ejemplos.
 
-## Desde 2026-11-02: pasos al lector, nivel cero y cierre PARTIR
+## Una pieza, una necesidad y un resultado
 
-Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
-Donde esta sección choque con el resto de la guía, manda esta.
+Antes de elegir plantilla, usa `fraseAmigo`, `entregable`, `guion` y las notas
+existentes para responder: qué le pasa, qué podrá hacer, qué le impide hacerlo,
+qué aprenderá, cómo lo demuestras, de dónde salen los hechos, qué debe revisar
+y qué ayuda real recibe al terminar. No hace falta agregar campos al plan.
 
-- **Los pasos van al lector** (desde el 2026-10-31, corrección del usuario al
-  reel «haz que te pregunte»; la portada también le habla, ver `guia-hooks.md`):
-  tiene que poder hacerlos, así que cada escena le dice qué copia, dónde lo pega
-  y cómo responde. La primera persona («a mí me pasó», «lo que no funcionó») va
-  en una escena cuando suma, no como hilo; `lo-que-construi` es bitácora y va en
-  primera persona, con el paso para el lector al final. Ni voz de experto ni
-  promesas: el paso es chico y concreto.
-  - **Mal:** «Le pedí a ChatGPT que me preguntara a mí.» (cuenta lo que hice;
-    el lector no sabe qué escribir)
-  - **Bien:** «Copia este mensaje y pégalo en ChatGPT.» y, en la pantalla, el
-    mensaje entero.
-- **Nivel cero sin jerga:** un término técnico como máximo en toda la pieza, y
-  explicado en la misma escena con palabras de oficina.
-  - **Mal:** «Un agente orquesta tus tareas con herramientas.»
-  - **Bien:** «Un agente es una IA que hace tareas sola, paso a paso.»
-- **Quitar el miedo, no vender herramientas.** Cada pieza termina con un
-  primer paso que el lector puede dar hoy; la idea central es «pregúntale a la
-  IA cómo ayudarte».
-- **`lo-que-construi`:** el «resultado» de la regla dura 8 es lo que se
-  aprendió construyendo el sistema, con el número honesto (también lo que no
-  funcionó: 27 piezas, 1 guardado).
-- **Cierre PARTIR (regla dura 11):** la pastilla `cta` del `Cta` dice
-  «Escríbeme PARTIR» y el caption pide lo mismo y dice qué recibe quien
-  escribe. El `title` del `Cta` no repite PARTIR (la plantilla lo pinta en una
-  burbuja de mensaje directo): es una pregunta sobre el caso del lector que
-  sigue a lo que la pieza mostró y termina con «Escribe esta palabra y te
-  ayudo», p. ej. «¿Cuál sería tu primera tarea? Escribe esta palabra y te
-  ayudo» (la burbuja muestra PARTIR justo debajo). Nunca «¿Te digo por dónde empezar?»
-  después de una pieza que ya mostró por dónde empezar. Texto base del
-  caption: «Escríbeme PARTIR por mensaje o en los comentarios y te ayudo con tu caso». La voz del `Cta` pide lo mismo con
-  palabras habladas («¿No sabes cuál sería tu primera tarea? Escríbeme y te
-  cuento.»).
+- **Mal:** enseñar a resumir un video, interrumpir para contar cuánto cuesta
+  un bot propio y terminar con pasos de otra herramienta.
+- **Bien:** enseñar una transformación de principio a fin; o contar una
+  decisión del bot, su resultado y la lección para el trabajo del lector.
 
-**Lo que ya no va:** listas de herramientas, «10 prompts», el truco de la
-semana, la voz de experto («ya sabes pedir un resumen»: este lector no lo
-sabe), los cierres «Guárdalo» o «Mándaselo» (la señal de toda pieza es `dm`) y
-los temas que no responden «¿por dónde parto con la IA en mi trabajo?».
+En `por-donde-partir`, los pasos van al lector («copia», «pega», «respóndele»).
+La primera persona suma cuando aclara una experiencia, no cuando sustituye el
+cómo. En `lo-que-construi`, la primera persona es el hilo: problema propio →
+decisión/error → resultado observado → límite → lección transferible y un paso
+para el lector. No convertir una anécdota sin lección en tutorial ni inventar
+resultados para llenar la serie.
 
-## 1. Cada escena es una idea completa
+## 1. Cada escena aporta una idea completa
 
-Cada escena del reel y cada slide del carrusel dice **quién o qué**, **hace
-qué** y **por qué importa o qué cambia**. Se juzga **pantalla y voz juntas**:
-en un reel, el texto en pantalla puede ser un rótulo corto («En 18 tareas: 25 %
-más rápido») si la voz de esa escena trae el sujeto, el verbo y la
-consecuencia. En un carrusel no hay voz: el título puede ser rótulo si el
-cuerpo o los bullets completan la idea. Prohibidas las escenas donde ni la
-pantalla ni la voz completan la idea: un rótulo sin voz que lo explique
-(«Dónde acierta: tareas conocidas» con «En 18 tareas, acertó.») o una frase con
-verbo pero sin consecuencia («En 18 tareas, acertó.»).
+El lector debe entender quién o qué hace qué y para qué le sirve dentro de la
+secuencia. Con audio, se juzgan **pantalla y voz juntas**; sin audio, solo lo que
+se ve. En carrusel se leen título y cuerpo juntos. No exigir sujeto, acción y
+consecuencia en cada frase por separado: una escena puede preparar la siguiente
+si el vínculo es claro. Un rótulo solo no reemplaza la explicación.
 
-- **Mal:** en pantalla «Dónde acierta: tareas conocidas», voz «En 18 tareas,
-  acertó.» (jue 2026-10-22). ¿Quién acertó? ¿En qué? ¿Y qué ganaron?
-- **Bien:** en pantalla «En 18 tareas: 25 % más rápido», voz «En 18 tareas
-  reales de consultoría, con IA fueron 25 % más rápidos y con más calidad.»
+- **Mal:** «Suben los precios. Plazo: marzo. Cambia el sistema». No sabemos qué
+  precios, qué vence ni qué sistema cambia.
+- **Bien:** «Las nuevas tarifas comienzan en marzo». Conserva el referente y
+  la relación entre hechos; es un ejemplo ficticio de redacción, no una noticia.
 
-- **Mal:** en pantalla «Uno con IA rinde como dos», voz «Lo probaron en una
-  gran empresa.» (lun 2026-10-19). «Rinde como dos» no dice comparado con qué,
-  y la voz esconde el dato.
-- **Bien:** en pantalla «Una persona con IA rindió como una pareja», voz
-  «Procter & Gamble lo probó con 776 profesionales: una persona sola con IA
-  igualó a una pareja sin IA.»
+Ante «esto», «lo» o una palabra ambigua, comprueba que su referente sea visible
+o se haya nombrado claramente. No confíes en `angle` o en el conocimiento del
+autor para completar lo que el lector no recibe.
 
-## 2. Los números llevan contexto
+## 2. Los datos llevan contexto y origen
 
-Un número solo no enseña nada. Dice **quién lo midió, a cuántos y comparado con
-qué**, y si es lo que la gente declara o lo que se midió. El contexto cabe en
-la voz, en el `context` del `Stat` o en el cuerpo del carrusel.
+Un número necesita alcance: quién lo midió, sobre qué población/tarea, cuándo
+y comparado con qué si hay comparación. Distingue medición, declaración y
+estimación. No conviertas el resultado de una tarea en una afirmación universal.
 
-- **Mal:** «758 consultores lo probaron» (jue 2026-10-22). ¿Probaron qué? ¿Qué
-  pasó?
-- **Bien:** en pantalla «758 consultores, con y sin IA», voz «Harvard y BCG
-  los midieron con y sin GPT-4, en las mismas tareas.»
+Ejemplo histórico de la semana 2026-10-19, para conservar el aprendizaje sobre
+contexto, no para copiar cifras sin releer su referencia:
 
-- **Mal:** en pantalla «117 correos al día», voz «Lo midió Microsoft.» (mie
-  2026-10-21).
-- **Bien:** en pantalla «117 correos al día por persona», voz «Microsoft lo
-  contó en usuarios de Microsoft 365, en 2025, junto con 153 mensajes de Teams
-  al día.»
+- **Mal:** «Uno con IA rinde como dos». No dice quién ni comparado con qué.
+- **Bien:** «En el estudio de Procter & Gamble con 776 profesionales, una persona
+  con IA igualó a una pareja sin IA». La publicación debe conservar el alcance
+  y la fuente del estudio, no presentar esa comparación como garantía general.
 
-Lo que ya estaba bien (vie 2026-10-23): el `Stat` «2,2 horas» con el contexto
-«Encuesta en Estados Unidos a quienes usan IA en el trabajo. Es lo que cada
-persona declara, no un reloj.» Así se escribe un número.
+En una bitácora, las cifras salen del caso real, con unidad y alcance. No usar
+un ahorro inventado, un costo ajeno o una salida ficticia como resultado propio.
+Verifica nombres de productos, funciones, acceso, costos y pasos de interfaz
+con la referencia vigente antes de publicar; un ejemplo antiguo no los confirma.
 
-**No estires el dato.** Si el estudio midió una tarea «elegida para quedar
-fuera de lo que la IA hace bien», no escribas «falla en tareas nuevas»: es
-otra afirmación, y la regla dura 5 vale para cada frase.
+## 3. La voz explica y puede repetir lo que orienta
 
-- **Mal:** «Dónde falla: tareas nuevas, con seguridad» (jue 2026-10-22).
-- **Bien:** «En otra igual de difícil: 19 puntos menos», voz «En otra, fuera de
-  lo que la IA hace bien, le creyeron y acertaron menos.»
+La `narracion` aporta detalle, ejemplo, vínculo o porqué. Puede repetir un nombre
+o una instrucción clave para orientar a quien escucha. El problema es la
+redundancia sin función, no compartir palabras con la pantalla.
 
-## 3. La voz explica, no lee
+- **Mal:** pantalla «Esto le pides» y voz «Esto le pides y esto te devuelve».
+  No aclara qué se aporta ni qué cambia.
+- **Bien:** pantalla «Pega tus notas de la reunión» y voz «Pega tus notas de la
+  reunión; de ahí saldrán los responsables y los plazos». Repite para orientar
+  y agrega de dónde sale el resultado.
 
-En reels, la `narracion` nunca repite el título de la escena: da el detalle, el
-porqué o el ejemplo que no cabe en pantalla. Si la borras y la escena se
-entiende igual, la voz no estaba haciendo su trabajo.
-
-- **Mal:** en pantalla «Escribe de qué área eres», voz «Dile de qué área
-  vienes.» (lun 2026-10-19). Dice lo mismo con otras palabras.
-- **Bien:** misma pantalla, voz «Si le dices que vienes de producción, te
-  critica desde lo que no ves: precio, cliente y canal.»
-
-- **Mal:** título del `Hook` «¿Pagar por ordenar 117 correos? No, gratis»,
-  voz «Tu correo ordenado, gratis.» (mie 2026-10-21). Repite la promesa.
-- **Bien:** voz «Claude te separa lo urgente y te deja las respuestas
-  escritas, sin enviar. Si vives en el correo, mira.» La voz agrega qué hace y
-  a quién le sirve.
+Sin voz, lo que solo está en `narracion` se pierde. Con voz, revisa también el
+reel sin sonido: el nombre de una propiedad no garantiza que se oiga o se vea.
+Si falta información esencial, resuelve su presencia en pantalla/subtítulos
+con el modo vigente; no actives audio o cambies configuración por tu cuenta.
 
 ## 4. La prueba del «¿y?»
 
-Lee cada escena y pregúntate «¿y?». Si alguien puede preguntarlo, falta la
-consecuencia: qué cambia para su trabajo, qué decide distinto, qué evita.
+Pregunta qué aporta cada escena: orientación, prueba, explicación, revisión o
+paso siguiente. Si no aporta ninguna de esas cosas, quítala. El beneficio no
+necesita repetirse en todas las escenas, pero debe quedar claro en la pieza.
 
-- **Mal:** «En una distinta, falló segura.» (jue 2026-10-22). ¿Y?
-- **Bien:** «En otra, fuera de lo que la IA hace bien, le creyeron y acertaron
-  menos.» La consecuencia es de ellos: confiar sin revisar les bajó los
-  aciertos.
+- **Mal:** «La IA ordena información». Es una capacidad genérica.
+- **Bien:** «Ordena los acuerdos por tarea, responsable y plazo para revisarlos
+  antes de compartirlos». Conecta capacidad, resultado y uso.
 
-- **Mal:** en pantalla «Pídele 3 puntos, no opiniones», voz «Puntos
-  concretos, no opiniones.» (lun 2026-10-19). ¿Y?
-- **Bien:** voz «Con tres puntos concretos sabes qué corregir; con una opinión
-  general, no.»
+Explica el porqué junto a la acción que aclara, en el cuerpo o la voz si cabe.
+Puede ocupar una escena propia cuando lo necesita; no agregues un `Lead` solo
+para decir «funciona porque». La frase debe explicar una relación real.
 
-## 5. Enseña algo que no sabía
+## 5. Enseña algo que este lector no sabía
 
-El lector frío responde «¿Qué aprendiste que no sabías?» (pregunta 8); «nada
-nuevo» bloquea. Antes de escribir, nombra en una línea lo que un usuario
-frecuente de ChatGPT o Claude **no sabe** de este tema (desde el 2026-11-02:
-lo que no sabe alguien que nunca ha usado IA más allá de una pregunta suelta): un límite, un error
-común, el matiz de un estudio, una forma de pedir que cambia el resultado.
-Sale de la referencia («Lo que no sabe quien está empezando», o «Lo que no sabe
-un usuario frecuente» en notas anteriores al 2026-10-28, «Límites»,
-«Evidencia», «Novedades»), con su cita. Esa línea es el centro de la pieza, no
-un dato al pasar.
+Nombra el aprendizaje en una línea y apóyalo en la referencia o en el caso real
+de la bitácora. Puede ser un primer uso, cómo aportar contexto, cómo iterar o
+qué revisar. Lo básico para un experto no es motivo para descartar una pieza.
 
-- **Mal:** «La IA a veces se equivoca: revisa lo que te entrega.» Ya lo sabe.
-- **Bien:** «Con IA fueron 25 % más rápidos en 18 tareas, y en otra igual de
-  difícil acertaron menos. El estudio no da una lista de tareas seguras: si no
-  la viste acertar en esa tarea, revísala entera.» Lo nuevo es que la falla no
-  avisa (la tarea parece igual de fácil) y que no hay lista.
+- **Mal:** «Dale contexto a la IA». El principiante no sabe qué contar.
+- **Bien:** «Dile para quién es el correo y qué decisión necesitas comunicar».
+  Le dice qué información aportar y permite usarlo en su trabajo.
 
-## 6. Sin jerga, sin hype, sin alarmismo
+No supongas que cualquier principiante conoce un riesgo. Si enseñas revisión,
+muestra qué revisar y cómo, en lugar de una advertencia genérica. El lector
+frío evalúa novedad con este perfil; su respuesta no demuestra interés real
+del público ni reemplaza las métricas posteriores.
 
-- **Jerga:** «agente», «token», «API», «modelo», «frontera irregular» se
-  explican en la misma escena con palabras de oficina o se cambian («una IA que
-  hace tareas sola», «lo que la IA hace bien»). Las siglas fuera de
-  `siglasPermitidas` son error.
-- **Hype:** nada de las palabras de `puerta.relleno` («increíble», «brutal»,
-  «muy»…) ni promesas vacías («te cambia la vida»). Lo concreto convence más.
-- **Alarmismo:** el susto de este público es real (quedarse atrás, que su rol
-  pierda valor) y se trata con un dato y algo que hacer.
-  - **Mal:** «La IA te va a dejar atrás» (ejemplo inventado para mostrar el
-    error).
-  - **Bien:** «Revisar lo que hace la IA es la habilidad que más pesa», con el
-    contexto «Microsoft preguntó a 20.000 trabajadores que usan IA: control de
-    calidad, 50 %; pensamiento crítico, 46 %.»
+## 6. Lenguaje concreto, sin exagerar
 
-## 7. Cuánto cabe
+Máximo un término técnico por pieza, explicado en la misma escena con palabras
+de oficina. Evita jerga, hype, relleno y miedo sin salida. Conserva las siglas
+y límites de la puerta vigente; no uses palabras grandilocuentes para compensar
+una demostración débil.
 
-**Reels con voz (tope de 35 s, ritmo gancho).** El hook no cambia: título ≤ 7 palabras
-y la promesa completa en 3 s. El espacio extra es para el medio:
+- **Mal:** «Un agente orquesta tus tareas con herramientas».
+- **Bien:** «Una IA que hace tareas paso a paso». Si importan permisos o revisión,
+  explícalos; «sola» no debe sugerir autonomía que el ejemplo no demuestra.
 
-- 5 a 6 escenas. El texto en pantalla sigue corto (≤ 10 palabras por escena
-  del medio); lo que crece es la voz.
-- Voz: 12 a 16 palabras por escena (tope duro 24), unas **80 palabras en
-  total**, dan ~33–34 s. Cada palabra de voz suma ~0,35 s.
-- Usa el espacio para una escena de **contexto** (quién lo midió) y una de
-  **matiz o límite** (lo que no sabía), no para más pasos.
-- Score léxico: la rúbrica de reel da 2 puntos por 20 a 90 palabras de voz (cabe
-  el tope de 35 s). Con unas 80 palabras no pierdes nada; pasar de 90 cuesta
-  esos 2 puntos y no cabe en 35 s.
+No prometer «acta lista» cuando se muestra una lista de acuerdos ni «correo
+listo para enviar» cuando todavía hay que revisar hechos. La promesa tiene
+el alcance del ejemplo: lista, borrador, fragmento o criterio, según corresponda.
 
-**Reels sin voz (`config.voz` false, desde el 2026-11-02).** La `narracion`
-no se oye ni se ve: lo que solo está ahí se pierde. Revisión del 2026-10-31 (13
-reels leídos solo por la pantalla): el nombre de la app, quién lo midió y cómo
-se hace estaban solo en la voz. Con las mismas ~80 palabras en pantalla se
-explica más si cambia **qué** se dice:
+## 7. Espacio y estructura por formato
 
-- **Nada solo en la voz.** Lo que el lector necesita para hacerlo (la app, dónde
-  se escribe, quién lo midió) va en pantalla; si no cabe, no estaba en la pieza.
-- **El prompt va entero y copiable** en la `Screen`, no resumido: «Hazme 3
-  preguntas, de a una, y dime qué tarea te paso primero», no «Esas son mis 3
-  respuestas».
-- **La respuesta muestra lo que se gana**, no un telegrama: «Parte por ahí:
-  pégame tus notas y te las ordeno», no «Precio, cliente y canal».
-- **Un paso dice cómo**, en `body` si hace falta: «Respóndele como a un colega
-  nuevo» + «Qué haces, cuánto te demora y para quién es».
-- **Una escena dice por qué funciona** (un `Lead`), para que el lector lo use en
-  otro caso: «Funciona porque la IA no conoce tu trabajo: tus respuestas se lo
-  cuentan».
-- El tope por escena sigue en 8 s (2,5 palabras/s): una `Screen` aguanta unas
-  20 palabras entre prompt y respuesta. Si no cabe, parte en dos escenas.
-- **Hasta 20 palabras por escena, mejor si son menos** (decisión del usuario,
-  2026-10-31): lo que manda es que se entienda, no la cuenta. Ritmo `ensenar`
-  mientras no haya voz; con escenas largas caben 4 o 5 en 35 s, así que se va
-  la escena que no es un paso, no el porqué.
+**Reel:** situación/promesa → transformación visible → cómo conseguirla con
+su porqué → revisión útil → cierre. Se pueden combinar funciones; no es una
+cantidad fija de escenas. Una vista previa del resultado puede ir antes de
+los pasos si queda claro «así queda» y luego «para hacerlo».
 
-**Carruseles (cuerpo ≤ 50 palabras).** `body`, `text`, `subtitle`, `reason`,
-`context` y `note` llegan a `cuerpoMaxPalabrasCarrusel` (50); los títulos
-siguen en 14 y los bullets en 12. `myth` y `reality` no son cuerpo: se dibujan como titular en
-mayúscula y van en ≤ 14 palabras cada uno (ver «Mito contra realidad»). Son la pieza densa de la semana: el
-porqué, el matiz del estudio, un ejemplo de trabajo.
+Hasta 20 palabras por escena, mejor menos, es la orientación de claridad
+acordada el 2026-10-31; no garantiza cabida. Aplican los tiempos, lectura y
+límites vigentes. Sin voz, ritmo `ensenar`. Los títulos se ajustan al límite
+vigente y a su lectura real. Con voz y ritmo `gancho`, el validador exige los
+topes de 7/5/10 palabras de `INSTRUCCIONES.md`: son un máximo, no una meta.
+Una `Screen` de reel aguanta unas 20 palabras entre `heading`, `prompt` y
+`respuesta` (8 s): el rótulo «Ejemplo ficticio» también cuenta. Si la
+demostración completa no cabe, reparte entrada y resultado en dos escenas
+(como en el piloto de notas) o llévala a un carrusel; no cortes la parte difícil.
 
-- **Mal:** «Preguntas 1 y 2: objetivo y límites» con bullets «¿Qué quieres y
-  para qué?» y «¿Hasta dónde puede decidir sola?» (mar 2026-10-20). Las
-  preguntas, sin por qué hacerlas.
-- **Bien:** mismo título y bullets, más `body`: «Es el encargo que propone
-  Ethan Mollick (Wharton): lo mismo que le pedirías a alguien nuevo del
-  equipo. Qué quieres y para qué, y qué puede decidir sin preguntarte.»
+Si no cabe: reducir el caso o dividir temas en piezas independientes. No
+recortar sujetos, referentes o la parte difícil del ejemplo, acelerar la
+lectura ni cambiar duración para acomodarlo. Una lectura en voz alta ayuda a
+redactar, pero solo el render confirma tiempos y legibilidad.
 
-## 8. Mito contra realidad: una creencia contra un dato
+**Carrusel:** problema/promesa → caso → pasos con su razón → resultado que
+cumple la promesa → adaptación/revisión → cierre. Cada lámina añade una función.
+Sus títulos permiten seguir la idea al hojear; el cuerpo desarrolla lo necesario.
+No llenar todos los campos hasta el máximo ni convertirlo en una lista de temas.
 
-`MythReality` enfrenta lo que la gente cree con el dato que lo desmiente, y
-dibuja los dos como titular en mayúscula (≤ 14 palabras cada uno). No sirve para
-«lo que pides contra lo que sale»: el pedido sale tachado, como si pedir fuera
-el error.
+Las restricciones técnicas de cuerpo, títulos, bullets y escenas están en
+`INSTRUCCIONES.md` y la configuración instalada. Esta guía no las reemplaza.
+Si una buena explicación entra en conflicto con ellas, registra el caso y
+reduce el alcance; no la mutiles para que parezca válida.
 
-- **Mal:** `myth` con el pedido a la IA y `reality` con 26 palabras de lo que
-  sale (mar 2026-10-27, «tu correo en tres líneas»). El pedido salió tachado y
-  la «realidad» era un bloque en mayúscula: no se entendía qué era lo falso.
-- **Bien:** dos `Screen`: «Escribe un correo sobre el cambio de turnos» con su
-  respuesta vaga, y después el pedido con quién eres, para qué y el estilo, con
-  su respuesta. El lector ve la diferencia sin que se la expliques.
-- **Bien (mito):** `myth` «Hay que saber editar audio», `reality` «NotebookLM lo
-  arma solo».
+## 8. Mito contra realidad y comparaciones
 
-## 9. El ejemplo va en su propia línea
+`MythReality` enfrenta una creencia con un dato que la corrige. No sirve para
+«lo que pides contra lo que sale»: tachar el pedido lo hace parecer un error.
 
-Cuando un cuerpo trae un ejemplo entre «» (lo que se le escribe a la IA, una
-frase de muestra) y después su explicación, el ejemplo va primero y en su
-propia línea: el motor separa en su párrafo la cita «…» del inicio, y un `\n`
-explícito también parte el párrafo.
+- **Mal:** usar de mito «Escribe un correo» y de realidad el correo generado.
+- **Bien:** mostrar pedido y respuesta en `Screen`, o un antes/después del
+  mismo caso. Reservar `MythReality` para una creencia respaldada y su contraste.
 
-- **Mal:** «Soy jefa de operaciones; el correo va a mis 12 supervisores.» y la
-  explicación en el mismo bloque, sin aire (mar 2026-10-27).
-- **Bien:** `body`: «Soy jefa de operaciones; el correo va a mis 12
-  supervisores.»`\n`La IA no conoce tu equipo: sin esto escribe para cualquiera.
+Al comparar estilo, mostrar un fragmento de referencia y uno de salida, con
+hechos y destinatario constantes. No atribuir al tono una mejora causada por
+agregar datos. Si el ejemplo demuestra información más completa, prometer eso.
 
-## 10. Lo que la IA responde en pantalla se podría enviar tal cual
+## 9. Ejemplo legible y acceso a lo copiable
 
-La `respuesta` de un `Screen` es la prueba de la pieza: el lector se pregunta
-si él la mandaría. Tiene que ser algo que un profesional de cargo medio enviaría
-sin tocar.
+El ejemplo entre «» va primero y en su propia línea; después, su explicación.
+Un `\n` explícito separa párrafos. En correos, usa `\n` entre asunto, saludo,
+cuerpo y cierre; evita líneas vacías que consumen alto. Verifica el resultado
+visual, no solo el JSON.
 
-- Si es un correo: asunto claro y concreto, saludo, cuerpo y cierre, con un `\n`
-  entre las partes. Un solo `\n`, sin líneas en blanco (`\n\n`): cada línea
-  vacía ocupa alto y, con el `prompt` y el `heading`, el `Screen` del post ya no
-  cabe sobre la fuente al pie. Respeta los topes de la regla 10 (`prompt` ≤ 30
-  palabras, `respuesta` ≤ 45).
-- Nada de «ojo», muletillas ni jerga juvenil; tono de trabajo, cordial y directo.
-- **Mal:** «Asunto: ojo, cambian los turnos» en un solo bloque (mar 2026-10-27).
-- **Bien:** «Asunto: Rotación de turnos desde el lunes`\n`Hola, equipo:`\n`Desde
-  el lunes los turnos rotan cada dos semanas.`\n`Gracias,`\n`Paula».
+- **Mal:** esconder el pedido que se ofrece «para copiar» en una explicación
+  resumida o mostrar únicamente «dile esto».
+- **Bien:** pedido entero, con las partes reemplazables reconocibles y un
+  lugar real para recuperarlo. En reel, incluirlo también en el caption si ese
+  es el acceso elegido; comprobar que esté allí.
+
+El caption amplía, cita y facilita copiar. No rescata una pieza incomprensible:
+los pasos y condiciones indispensables para cumplir la promesa deben verse u
+oírse en la pieza. No anunciar un descargable o envío automático inexistente.
+
+## 10. La demostración completa la parte difícil
+
+Cuando la promesa depende de transformar información, muestra la cadena mínima
+**entrada → pedido → resultado**. Puede repartirse entre escenas y no exige tres
+`Screen`. Los nombres, fechas y hechos de la salida deben tener origen visible.
+Mantén el mismo caso durante toda la explicación.
+
+- **Mal:** pedido «arma el acta» y salida «Paula, lunes» sin notas de entrada.
+- **Bien:** entrada «Paula cambia el turno el lunes» y salida «Cambiar turno —
+  Paula — lunes», con el pedido de ordenar por tarea, responsable y plazo.
+
+Mostrar un fragmento es válido si contiene lo prometido. Para enseñar a decir
+que no cordialmente, «Hola, entiendo tu molestia…» omite justamente la dificultad.
+
+- **Mal:** una salida que termina antes de comunicar la negativa.
+- **Bien** (carrusel; en reel no cabe en una `Screen`, ver sección 7): «Hola, Ana.
+  Entiendo que necesitas recibirlo antes. La entrega se mantiene para el viernes;
+  no podemos adelantarla. Lamento el inconveniente».
+  El contexto del ejemplo debe decir que esa fecha está acordada y no se puede
+  adelantar: no es un compromiso que la IA pueda decidir por su cuenta.
+
+Los ejemplos nuevos de esta guía son didácticos ficticios. Rotular «Ejemplo
+ficticio» de forma visible cuando se usen en una pieza; no presentarlos como
+captura, testimonio o ejecución real. En una ejecución real, conserva evidencia
+y verifica que la salida corresponda a la entrada. No prometas que cualquier
+lector obtendrá exactamente el mismo texto.
+
+Un resultado útil sigue necesitando revisión. En acuerdos, comparar nombres y
+fechas con las notas; en correos, revisar hechos y compromisos. Pedir «no
+inventes» o «marca lo que falta» orienta la respuesta, no garantiza exactitud.
+Si falta un responsable en la entrada, el ejemplo no inventa uno.
 
 ## 11. Carrusel explicativo: una idea, dicha como a un colega
 
-El carrusel explicativo (láminas `Concepto`, solo las semanas que fija
-`config.json → explicativo`) existe para lo que no cabe en un `Step`: una idea
-que necesita dos o tres frases para entenderse. El riesgo es el muro de texto.
-Cada lámina se lee de arriba abajo en este orden: qué le pasa al lector
-(`idea`), la distinción que se queda (`contraste`, en negrita) y lo que hago
-yo con la acción para hoy (`enSimple`). Si una lámina explica teoría sin decir
-qué le pasa al lector ni qué hacer, sobra.
+Cuando corresponde la variante `explicativo`, las láminas `Concepto` desarrollan
+una sola idea: qué ocurre, por qué y cómo reconocerlo o actuar. No tienen que
+imitar un tutorial ni una transformación de app si no es lo que prometen.
 
-- **Mal:** `titulo` «La falacia de la planificación»; `idea` «Sesgo cognitivo
-  por el que se subestima sistemáticamente el tiempo de una tarea»; `enSimple`
-  «Hay que considerar datos históricos al estimar». Nombre técnico, definición
-  de diccionario y una recomendación sin sujeto.
-- **Bien:** `titulo` «Suena segura aunque se equivoque»; `idea` «A veces
-  inventa un dato y lo dice con la misma seguridad que uno cierto»; `enSimple`
-  «Yo reviso cifras, nombres y fechas antes de mandar algo. Pídele que te
-  marque lo que no está segura de saber». Lo que pasa, en palabras de oficina,
-  y lo que hago yo con un pedido que se puede copiar.
+`idea` describe lo que le pasa al lector; `contraste` ofrece una distinción
+clara; `enSimple` cuenta en primera persona cómo lo abordas y una acción para
+él. Las láminas se complementan, sin repetir la misma conclusión con sinónimos.
 
-Las 3 a 5 láminas cuentan **una** idea (qué pasa, por qué, cómo lo hago, el
-error típico), no cinco conceptos sueltos: el que llega a la última lámina
-tiene que poder contarla en una frase.
+- **Mal:** «La falacia de la planificación» seguida de una definición técnica
+  y «hay que considerar datos históricos».
+- **Bien:** «Calculas el tiempo como si todo saliera bien», con un ejemplo de
+  tarea y una acción concreta: «Yo comparo con la última vez que la hice.
+  Busca cuánto tardaste antes de comprometer una fecha».
 
-## 12. El hilo: cada escena es el paso siguiente
+El ejemplo debe probar la idea; no introducir teoría o hechos sin respaldo.
+Si una lámina no añade contexto, distinción, ejemplo o acción, sobra.
 
-La pieza se escribe primero como `guion` (Paso 5 de `INSTRUCCIONES.md`): un
-paso por escena, dirigido al lector, y una escena que dice **por qué funciona**
-(para que lo use en otro caso). Si un paso no se sigue del anterior, falta un
-paso o sobra una escena. Las escenas que solo cuentan la experiencia («preguntó
-la IA, no yo») se van. La pregunta 9 del lector frío pide contar la pieza de
-corrido: si no sale el primer paso con su qué o su cómo, no hay hilo.
+## 12. El hilo y la elección de plantilla
 
-Corrección del usuario (reel `sab-pm-reel-haz-que-te-pregunte`, 2026-10-31):
+Escribe la explicación corrida y divídela en `guion`, una entrada por escena.
+En un tutorial, debe poder reconstruirse qué abrir, qué aportar, qué pedir,
+qué cambia y qué revisar. El porqué puede integrarse en el paso. En bitácora,
+la secuencia es problema, decisión, resultado y lección: no forzar instrucciones
+al lector en cada escena.
 
-| Antes | Después |
+Si un paso no se sigue del anterior, falta una transición o sobra una escena.
+La pregunta 9 del lector frío ayuda a observar si puede contar la pieza; no
+completes tú el paso ausente usando el plan privado.
+
+**La plantilla va después del texto:**
+
+| Función | Plantilla |
 |---|---|
-| «Nunca supe qué pedirle a la IA» | «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti» |
-| «Le pedí a ChatGPT que me preguntara a mí» | «Copia este mensaje y pégalo en ChatGPT» |
-| «Le conté mi cargo, como a un colega» | «Respóndele como a un colega nuevo» + «Qué haces, cuánto te demora y para quién es» |
-| «Esas son mis 3 respuestas» | «Informe semanal: 3 horas, notas sueltas, para mi jefe» |
-| «No tuve que saber qué pedir: preguntó la IA» | «Funciona porque la IA no conoce tu trabajo: tus respuestas se lo cuentan» |
+| Pedido y respuesta; rotular si es un ejemplo ficticio | `Screen` |
+| Paso con su cómo y porqué breve | `Step` (`heading` + `body`) |
+| Explicación o transición que necesita su propia escena | `Lead` |
+| Creencia contra dato | `MythReality` |
+| Dato con contexto y fuente | `Stat` |
+| Desarrollo de una idea en la variante correspondiente | `Concepto` |
 
-**La plantilla va después del texto.** Primero escribe lo que dice la escena;
-después elige dónde se dibuja:
+## 13. Cierre PARTIR y ayuda real
 
-| Lo que dice la escena | Plantilla |
-|---|---|
-| El pedido a la IA y lo que respondió | `Screen` |
-| Un paso con su cómo | `Step` (`heading` + `body`) |
-| El porqué o una idea en una frase | `Lead` |
-| Una creencia contra un dato | `MythReality` (nada más) |
-| Un dato con quién lo midió | `Stat` |
+Mantén `cta: "Escríbeme PARTIR"`. El título pregunta por el caso del lector y
+termina con «Escribe esta palabra y te ayudo»; PARTIR aparece en la burbuja, sin
+repetirlo en el título. El caption y la voz, cuando existe, piden el mismo gesto.
 
-## Pieza completa: antes y después
-
-El reel «¿Cuándo no confiar en la IA? 1 regla» (jue 2026-10-22), reescrito
-como pieza de la serie `criterio` (serie retirada el 2026-11-02: el ejemplo
-sirve para la forma de cada escena, no para la serie ni la voz, que desde el
-2026-10-31 le dice los pasos al lector). Mismos hechos (referencia
-`estudio-de-la-frontera-irregular.md`), otra redacción.
-
-| Escena | Antes (en pantalla / voz) | Después (en pantalla / voz) |
-|---|---|---|
-| `Hook` | «¿Cuándo no confiar en la IA? 1 regla» / «Contestó segura y estaba mal. Una regla.» | «La IA no siempre ayuda: cuándo revisar» / «En una de las tareas, con IA acertaron menos. Si tu equipo usa IA, te sirve.» |
-| `Lead` | «758 consultores lo probaron» / «Con IA iban más rápido, hasta que…» | «758 consultores, con y sin IA» / «Harvard y BCG los midieron con y sin GPT-4, en las mismas tareas.» |
-| `Step` 1 | «Dónde acierta: tareas conocidas» / «En 18 tareas, acertó.» | «En 18 tareas: 25 % más rápido» / «En 18 tareas reales de consultoría, con IA fueron 25 % más rápidos y con más calidad.» |
-| `Step` 2 | «Dónde falla: tareas nuevas, con seguridad» / «En una distinta, falló segura.» | «En otra igual de difícil: 19 puntos menos» / «En otra, fuera de lo que la IA hace bien, le creyeron y acertaron menos.» |
-| `Step` 3 | «La regla: revísala como a alguien nuevo» / «Tarea nueva: revisa su trabajo.» | «La regla: ¿ya la viste acertar en esto?» / «No hay lista de tareas seguras: si no la viste acertar en esa, revísala entera.» |
-| `Cta` | «Guárdala antes de delegar» / «Guarda la regla para tu próximo informe.» | «Mándaselo a quien firma sin revisar» / «Mándaselo a quien firma sin revisar lo de la IA.» |
-
-El después dura ~34,5 s con 86 palabras de voz (el antes, ~20 s con 35) y pasa
-el validador con la puerta de la plantilla. Qué cambió: el título dice el
-alcance (no siempre ayuda; no «con IA, más errores», que generalizaría una
-sola tarea); cada escena tiene sujeto, verbo y consecuencia; los números dicen
-quién y comparado con qué; «tareas nuevas» volvió a lo que el estudio midió;
-la voz nunca lee el título; y lo nuevo para el lector (no hay lista de tareas
-seguras) es la regla, no una nota al pie.
+La pregunta continúa lo enseñado: después de enseñar un paso, no preguntar
+«¿Te digo por dónde empezar?». El caption usa la oferta vigente: «Escríbeme
+PARTIR por mensaje o en los comentarios y te ayudo con tu caso». Precisar la
+ayuda solo cuando corresponda a lo que se ofrece de verdad; no inventar una
+sesión gratuita, un plazo de respuesta, un archivo o un servicio personalizado.
 
 ## Lista de chequeo
 
-Antes del hook y del lector frío, pasa cada pieza por esto. Si un punto falla,
-reescribe la escena; no lo dejes para el lector.
+Revisa antes del hook y del lector frío; ante un fallo de hilo, vuelve al guion
+y comprueba la pieza completa tras corregirlo.
 
-1. **Lo nuevo**: puedo decir en una línea qué no sabía alguien que nunca ha
-   usado IA más allá de una pregunta suelta, y sale de la referencia con cita
-   (en `lo-que-construi`, de lo que pasó al construir).
-2. **Idea completa**: en cada escena, pantalla y voz juntas (en carrusel,
-   título y cuerpo juntos) dicen quién o qué, hace qué y por qué importa. La
-   pantalla puede ser un rótulo si la voz trae sujeto, verbo y consecuencia.
-3. **«¿Y?»**: ninguna escena deja preguntar «¿y?».
-4. **Números**: cada cifra dice quién la midió, a cuántos y comparado con qué,
-   y no dice más que la referencia.
-5. **Voz** (reels): ninguna `narracion` repite su título; cada una agrega el
-   detalle o el porqué.
-6. **Lenguaje**: tuteo, español neutro, sin jerga sin explicar, sin palabras de
-   `puerta.relleno`, sin alarmismo.
-7. **Espacio**: reel ≤ 35 s; hasta 20 palabras por escena, mejor menos, y que
-   se entienda; el espacio se fue al paso y al porqué, no a escenas de relleno. Carrusel: el cuerpo explica el
-   porqué y el matiz.
-8. **Entregable**: al final, el lector tiene un primer paso que dar en su
-   trabajo esta semana, y el cierre le pide «escríbeme PARTIR».
-9. **Mito contra realidad**: `MythReality` solo enfrenta una creencia con un
-   dato (≤ 14 palabras cada uno); el antes y después de un pedido va con dos
-   `Screen`.
-10. **Ejemplos**: el ejemplo entre «» va en su propia línea, antes de su
-    explicación.
-11. **Respuesta en pantalla**: la `respuesta` del `Screen` se podría enviar tal
-    cual (asunto concreto, saludo, un `\n` entre asunto, cuerpo y cierre, sin
-    líneas en blanco; sin «ojo» ni muletillas).
-12. **Pasos al lector, de corrido**: cada escena es el paso siguiente del
-    `guion`, dicho al lector («copia», «respóndele»), con una escena del porqué y
-    un término técnico como máximo, explicado.
-13. **Carrusel explicativo**: cada `Concepto` dice qué le pasa al lector, el
-    `enSimple` va en primera persona con una sola acción para hoy, y todas las
-    láminas cuentan la misma idea.
+1. **Necesidad y novedad:** un resultado principal útil para el principiante;
+   no se descarta por ser básico para un experto.
+2. **Idea completa:** pantalla y voz juntas cuando existe audio, o solo pantalla
+   sin voz, permiten entender referentes y relaciones; carrusel, título y cuerpo.
+3. **«¿Y?» e hilo:** cada escena añade orientación, prueba, explicación o acción;
+   el mismo caso continúa y no exige inventar pasos.
+4. **Demostración:** se ve la parte difícil prometida y el origen de los datos
+   relevantes; un resumen o una negativa no terminan antes de aportar significado.
+5. **Porqué:** explica una relación útil cerca del paso; no requiere escena
+   aparte ni basta escribir la palabra «porque».
+6. **Voz:** aporta valor y puede repetir para orientar; nada esencial depende de
+   narración inaudible ni de subtítulos que el render no muestra.
+7. **Lenguaje y alcance:** palabras concretas, sin jerga sin explicar, hype o
+   promesas mayores que el ejemplo; fuentes y límites pertinentes.
+8. **Evidencia:** cifras con contexto, ejemplos ficticios visibles como tales,
+   resultados observados respaldados, hechos y compromisos revisados.
+9. **Espacio y acceso:** lectura comprobada en el render; pedido entero y un
+   acceso real para copiarlo; caption no sustituye pasos indispensables.
+10. **Formato:** reel con una transformación; carrusel con desarrollo conectado;
+    bitácora con decisión y lección, no una anécdota intercalada sin función.
+11. **Cierre:** primer paso o lección aplicable y PARTIR con una ayuda real.
+12. **Interés separado de claridad:** identificar qué situación reconoce el
+    lector y qué lo invita a continuar. Una nota de juez no prueba retención.

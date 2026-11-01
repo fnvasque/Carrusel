@@ -99,6 +99,15 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
 6. La respuesta 6 no señala una **contradicción**, una **promesa** que la pieza
    no cumple, ni que **no pudo seguir los pasos** para obtener el entregable.
    Cualquier otra duda (quería más detalle, un ejemplo extra) no bloquea.
+   Distingue querer otro ejemplo de que falte la parte que prueba la promesa:
+   «Hola, entiendo tu molestia…» no demuestra cómo decir que no sin sonar duro;
+   «plazo: marzo» sin decir para qué deja el resumen incompleto. Si la promesa
+   depende de una transformación, el lector debe poder relacionar los datos de
+   entrada, el pedido y el resultado, aunque estén repartidos entre escenas.
+   No exige tres pantallas ni un antes/después en toda pieza: una explicación
+   conceptual o una bitácora demuestra su idea o lección de otra forma. Estos
+   casos precisan el criterio de promesa incumplida o paso imposible; no agregan
+   una pregunta ni convierten todo pedido de más detalle en un bloqueo.
 7. La respuesta 7 nombra un **resultado concreto** que coincide con el
    entregable declarado ("ordenar mis pendientes con ChatGPT", "narrar un video
    sin grabar mi voz"). "No sé", una pregunta, el tema a secas ("algo de
@@ -113,9 +122,10 @@ Lo evalúas **tú**, comparando cada respuesta con lo que declaraste en
    portada (con el juez).
 8. La respuesta 8 nombra algo que el lector aprendió. En el lector
    **completo** bloquea si responde "nada nuevo" (o "ya lo sabía") y también si
-   nombra algo que la pieza no enseña (que no está en ninguna slide). Prueba de
-   novedad (2026-10-22): el público ya paga una IA y usa lo básico; una pieza
-   que repite lo básico no suma. En el lector **con prisa** la 8 **no
+   nombra algo que la pieza no enseña (que no está en ninguna slide). La novedad
+   se juzga desde el perfil principiante vigente: descubrir cómo aplicar la IA
+   a una tarea cotidiana puede ser nuevo aunque sea básico para un experto.
+   No atribuyas experiencia ni conocimientos que ese perfil no tiene. En el lector **con prisa** la 8 **no
    bloquea** (desde 2026-10-23): ve solo los títulos y en el backtest marcó
    "nada nuevo" en 9 de 20 piezas aunque el cuerpo trajera algo nuevo; se
    registra como `NB` con `con prisa P8: no bloquea`.
