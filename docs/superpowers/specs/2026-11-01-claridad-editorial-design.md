@@ -331,6 +331,12 @@ Se puede avanzar en los demás casos sin bloquear toda la iniciativa.
   dato ausente, CTA), re-renderiza y actualiza el estado del plan. E01–E18 siguen siendo
   propuestas: falta la revisión del usuario (F2), incluida la desviación en `lector-frio.md`.
 
+- **2026-11-01, usuario:** revisa el piloto («está mucho mejor») y decide activar desde el 8 de
+  noviembre. Se registra `claridad-editorial` en `reglas.json` con `desde: 2026-11-09` (primeras
+  piezas publicadas con las guías). Resuelve P01 y P06; P02–P04 y P07 siguen abiertos para las
+  piezas reales. El agente advirtió que no hay garantía de mejora en métricas y que coincide con
+  otras dos reglas del mismo día.
+
 Al retomar: leer esta sección, las decisiones E01–E18, pendientes y el estado del plan asociado.
 Revisar cambios del repositorio y de las guías antes de reutilizar el diagnóstico. El siguiente
 trabajo propuesto es el piloto editorial en archivos aislados del repo de código; no instalar,

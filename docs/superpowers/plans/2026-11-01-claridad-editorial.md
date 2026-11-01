@@ -314,12 +314,20 @@ Actualizado 2026-11-01 (tarde). La ejecución empezó en Codex y siguió en Clau
 
 **Pendiente:**
 
-- F2: revisión del usuario de los cuatro ejemplos y de E08/E11 antes de dar las guías por buenas.
+- ~~F2~~ Cerrada el 2026-11-01: el usuario revisó el piloto («está mucho mejor») y aprobó
+  activar desde el 8 de noviembre. Con eso quedan aceptados E01–E18 tal como están en las guías,
+  incluidos E08, E11 y el cambio de P6/P8 en `lector-frio.md`.
+- F7: registrada `claridad-editorial` en `reglas.json` con `desde: 2026-11-09` (el planificador
+  del domingo 8 ya escribe con las guías; las primeras piezas salen el lunes 9). Para que rija,
+  hay que instalar la plantilla en la base **antes del domingo 8 a las 06:00**, después del merge.
+  Coincide con `titulo-hasta-14-palabras` y `juez-umbral-6`, también desde el 2026-11-09: el bucle
+  las verá como simultáneas y no podrá atribuir el efecto a una sola.
 - F0: inventario de duplicados; P02 (qué ayuda real ofrece PARTIR); fichas editoriales por caso.
 - F6: render del reel completo en video (`--video`) y revisión con tiempos reales.
-- F7: `compatibilidad.md` propone registrar la iniciativa en `reglas.json` bajo `propuestas`
-  con `desde: null`, y atribuye al usuario la decisión de fijar la fecha al activar. Esa decisión
-  no está registrada en la spec: confirmarla antes de tocar `reglas.json`. Nada se instaló en la base.
+- La propuesta de `compatibilidad.md` de un registro `propuestas` con `desde: null` ya no hace
+  falta: la fecha quedó decidida y la regla va directo a `reglas`.
+- F8: seguimiento desde el 2026-11-09 (retención en reels; guardados, envíos y PARTIR en
+  carruseles; correcciones a mano por semana).
 
 Verificación: `npm run typecheck`, `npm test` (712 + 42 ok), `git diff --check` y
 `node kb-plantilla/_calendario/validar.mjs --self-test`, todos en 0.

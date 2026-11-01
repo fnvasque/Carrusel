@@ -225,6 +225,13 @@
       "formato": null,
       "descripcion": "puerta.hookUmbral de 7 a 6 en la base (config.json del usuario): el juez en Sonnet dio 6 a portadas que pasaron los dos lectores, y con 7 la semana quedaba con huecos",
       "fuente": "pedido de Felipe 2026-11-01 («baja el mínimo a 6»); piloto 2026-11-02 (entregables/piloto-2026-11-02/LEEME.md)"
+    },
+    {
+      "id": "claridad-editorial",
+      "desde": "2026-11-09",
+      "formato": null,
+      "descripcion": "Guías de redacción y hooks para el principiante: demostración entrada → pedido → resultado con la parte difícil completa, ejemplos ficticios rotulados, promesa del tamaño de lo que se muestra, porqué junto al paso y repetición útil en la voz; lector frío P6/P8 precisados",
+      "fuente": "spec docs/superpowers/specs/2026-11-01-claridad-editorial-design.md (E01–E18) y piloto en docs/superpowers/examples/2026-11-01-claridad-editorial; activación pedida por Felipe 2026-11-01 («desde el 8 de noviembre lo activamos»): planificador del domingo 8, primeras piezas el lunes 9"
     }
   ]
 }
