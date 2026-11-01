@@ -15,6 +15,7 @@ import {
   erroresDeMomento,
   seccionDelLector,
   validarSemana,
+  textosLector,
 } from "../../kb-plantilla/_calendario/validar.mjs";
 import { causaDeDuda, causasDeFallo } from "../../src/calendario/lector-causas.ts";
 
@@ -161,6 +162,12 @@ check("entender: validarSemana — dos piezas con la misma combinación en la se
 });
 
 // --- lector frío: pregunta 9 y causa sin-hilo ---
+
+check("entender: sin voz el texto del lector no trae las líneas «Voz:» (ve lo que se renderiza)", () => {
+  const b = { slides: slides(2) };
+  assert.ok(textosLector(b, "reel").completo.includes("Voz: «"), "con voz sí van");
+  assert.ok(!textosLector(b, "reel", false).completo.includes("Voz:"), "sin voz no van");
+});
 
 check("entender: el mensaje del lector trae la pregunta 9 y el JSON con la clave 9", () => {
   const seccion = seccionDelLector(readFileSync(join(DIR, "lector-frio.md"), "utf8")) ?? "";

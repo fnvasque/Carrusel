@@ -1824,9 +1824,10 @@ function lineasSlide(template, p, prisa, formato) {
  * `{ completo, conPrisa }`. Lo genera el código para que nadie lo arme a mano
  * (ni filtre el tema, el plan o la cita de la fuente). `formato` ("reel" o
  * "carrusel", por defecto carrusel como el componente) decide si el Hook
- * muestra "Desliza →". Nunca lanza.
+ * muestra "Desliza →". Con `conVoz` false (`config.voz === false`) no van las líneas «Voz:»:
+ * el reel sale sin narración y el lector tiene que ver lo mismo. Nunca lanza.
  */
-export function textosLector(borrador, formato) {
+export function textosLector(borrador, formato, conVoz = true) {
   const armar = (prisa) => {
     try {
       if (!esObj(borrador) || !Array.isArray(borrador.slides)) return "";
@@ -1834,7 +1835,7 @@ export function textosLector(borrador, formato) {
         .map((s, i) => {
           const lineas = esObj(s) && esObj(s.props) && typeof s.template === "string" ? lineasSlide(s.template, s.props, prisa, formato) : [];
           // En el reel la voz se oye en los dos perfiles (con prisa también escucha).
-          if (formato === "reel" && esObj(s) && txt(s.narracion)) lineas.push(`Voz: «${txt(s.narracion)}»`);
+          if (formato === "reel" && conVoz && esObj(s) && txt(s.narracion)) lineas.push(`Voz: «${txt(s.narracion)}»`);
           return [`Slide ${i + 1}:`, ...lineas].join("\n");
         })
         .join("\n\n");
@@ -3018,7 +3019,7 @@ function piezaDelPlan(here, semana, id, fallar, uso) {
 }
 
 /** `--lector <semana> <id>`: los dos textos y el mensaje exacto para cada subagente. */
-function imprimirLector(here, semana, id, fallar) {
+function imprimirLector(here, semana, id, fallar, config) {
   const p = piezaDelPlan(here, semana, id, fallar, "uso: node _calendario/validar.mjs --lector <semana AAAA-MM-DD> <id>");
   const b = leerJson(join(here, semana, `${id}.json`));
   if ("error" in b) fallar([`${semana}/${id}.json ${b.error}`]);
@@ -3030,7 +3031,7 @@ function imprimirLector(here, semana, id, fallar) {
   }
   const seccion = seccionDelLector(md);
   if (!seccion) fallar(['lector-frio.md no tiene la sección "## Para el lector"']);
-  const { completo, conPrisa } = textosLector(b.data, p.formato);
+  const { completo, conPrisa } = textosLector(b.data, p.formato, hayVoz(config));
   const bloque = (titulo, cuerpo) => `=== ${titulo} ===\n${cuerpo}\n=== FIN ===\n`;
   console.log(
     [
@@ -3084,7 +3085,7 @@ function main(args) {
     return;
   }
   if (args[0] === "--lector") {
-    imprimirLector(here, args[1], args[2], fallar);
+    imprimirLector(here, args[1], args[2], fallar, config);
     return;
   }
   if (args[0] === "--juez") {
