@@ -5,8 +5,15 @@ export declare function aUtc(dia: string, hora: string, zona?: string): Date;
 export declare function normalizar(s: string): string;
 export type Ritmo = "ensenar" | "rapido" | "gancho";
 export declare function segundosEscena(props: Record<string, unknown>, hold: boolean, pace?: Ritmo, hook?: boolean): number;
-export declare function segundosEscenas(slides: unknown[], pace?: Ritmo): number[];
-export declare function duracionReel(borrador: unknown): number;
+export declare function segundosEscenas(slides: unknown[], pace?: Ritmo, conVoz?: boolean): number[];
+export declare function duracionReel(borrador: unknown, config?: unknown): number;
+export declare function hayVoz(config: unknown): boolean;
+export declare function ritmoVigente(config: unknown): Ritmo;
+export declare const DESDE_ENTENDER: string;
+export declare function erroresDeGuion(pieza: unknown, borrador: unknown): string[];
+export interface BancoMomentos { momentos: Set<string>; capacidades: Map<string, string[]> }
+export declare function leerBanco(md: string): BancoMomentos;
+export declare function erroresDeMomento(pieza: unknown, banco: BancoMomentos | undefined, previos?: { semana: string; piezas: unknown }[]): string[];
 export declare function ritmoDelBorrador(borrador: unknown): Ritmo;
 export declare function erroresDeRetencion(borrador: unknown, pieza: unknown, config: unknown): string[];
 export declare const DESDE_PALANCAS_RETENCION: string;

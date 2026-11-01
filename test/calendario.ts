@@ -14,6 +14,7 @@ import "./calendario/bucle.ts";
 import "./calendario/reglas.ts";
 import "./calendario/escenas.ts";
 import "./calendario/lector-causas.ts";
+import "./calendario/entender.ts";
 import "./calendario/telegram.ts";
 import "./calendario/corpus.ts";
 import "./calendario/visual.ts";

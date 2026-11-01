@@ -421,8 +421,25 @@ function conNarracion(durs, slides) {
   });
 }
 
-export function segundosEscenas(slides, pace = "ensenar") {
-  return conNarracion(segundosEscenasTexto(slides, pace), slides);
+/**
+ * Segundos de cada escena. Con `conVoz` false (`config.voz === false`) la `narracion` no se
+ * sintetiza y no alarga nada, igual que en el motor (`renderReel.ts`, `narrar`).
+ */
+export function segundosEscenas(slides, pace = "ensenar", conVoz = true) {
+  const texto = segundosEscenasTexto(slides, pace);
+  return conVoz ? conNarracion(texto, slides) : texto;
+}
+
+/** ¿El reel se narra? Solo `config.voz === false` lo apaga (sin config, o voz sin definir, se narra). */
+export const hayVoz = (config) => !(esObj(config) && config.voz === false);
+
+/**
+ * Ritmo vigente de los reels: sin voz (`config.voz === false`) es `ensenar`, decisión del
+ * usuario del 2026-10-30 (en `gancho` la portada dura 3 s y la Screen del medio no alcanza a
+ * leerse); con voz, `puerta.ritmoReel`.
+ */
+export function ritmoVigente(config) {
+  return hayVoz(config) ? puerta(config, "ritmoReel") : "ensenar";
 }
 
 /** Duración de cada escena solo por su texto (sin narración). */
@@ -452,10 +469,10 @@ function segundosEscenasTexto(slides, pace = "ensenar") {
  * Duración total (s) del reel de un borrador, como la calcula el motor
  * (`reelTiming`): Σ escenas − (n − 1) × transición del ritmo. 0 si no hay slides.
  */
-export function duracionReel(borrador) {
+export function duracionReel(borrador, config) {
   if (!esObj(borrador) || !Array.isArray(borrador.slides) || borrador.slides.length === 0) return 0;
   const pace = ritmoDelBorrador(borrador);
-  const d = segundosEscenas(borrador.slides, pace);
+  const d = segundosEscenas(borrador.slides, pace, hayVoz(config));
   return +(d.reduce((a, b) => a + b, 0) - (d.length - 1) * TRANSICION[pace]).toFixed(3);
 }
 
@@ -612,7 +629,7 @@ export function reglasDeTexto(borrador, config, formato, dia) {
       const pace = ritmoDelBorrador(borrador);
       const wps = puerta(config, "lecturaPalabrasPorSegundo");
       const minS = puerta(config, "lecturaMinSegundos");
-      const duraciones = segundosEscenas(slides, pace);
+      const duraciones = segundosEscenas(slides, pace, hayVoz(config));
       slides.forEach((slide, i) => {
         if (!esObj(slide) || !esObj(slide.props)) return;
         const n = palabrasEscena(slide.props);
@@ -844,15 +861,17 @@ export function erroresDeRetencion(borrador, pieza, config) {
     if (typeof params.ritmoReel === "string" && PACES.includes(params.ritmoReel) && params.ritmoReel !== pace) {
       errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con parametros.ritmoReel ${q(params.ritmoReel)} (pon el mismo en los dos)`);
     } else if (params.ritmoReel === undefined && enPaquete(pieza.dia, config)) {
-      // En el paquete parametros.ritmoReel no se fija: el pace se compara con la puerta.
-      const vigente = puerta(config, "ritmoReel");
+      // En el paquete parametros.ritmoReel no se fija: el pace se compara con el ritmo vigente
+      // (la puerta con voz; ensenar sin voz).
+      const vigente = ritmoVigente(config);
       if (typeof vigente === "string" && PACES.includes(vigente) && vigente !== pace) {
-        errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con puerta.ritmoReel ${q(vigente)} (en el ${paqueteDe(config).motivo} el ritmo es el de la puerta)`);
+        const origen = hayVoz(config) ? `puerta.ritmoReel ${q(vigente)}` : `el ritmo vigente ${q(vigente)} (sin voz, config.voz false)`;
+        errs.push(`pace ${q(borrador.pace ?? "ensenar")} del borrador no coincide con ${origen} (en el ${paqueteDe(config).motivo} el ritmo es el vigente)`);
       }
     }
     const tope = typeof params.duracionMaxSegundos === "number" && params.duracionMaxSegundos > 0 ? params.duracionMaxSegundos : puerta(config, "duracionMaxSegundos");
     if (!Array.isArray(borrador.slides) || !borrador.slides.every((s) => esObj(s) && esObj(s.props))) return errs;
-    const total = duracionReel(borrador);
+    const total = duracionReel(borrador, config);
     if (typeof tope === "number" && Number.isFinite(tope) && tope > 0 && total > tope + 1e-9) {
       const origen = typeof params.duracionMaxSegundos === "number" ? "parametros.duracionMaxSegundos" : "puerta.duracionMaxSegundos";
       errs.push(`el reel dura ${total} s (ritmo ${pace}) y el tope es ${tope} s (${origen}): quita escenas o acorta el texto`);
@@ -1042,6 +1061,94 @@ export function titulosLargos(cands, config) {
  */
 export const DESDE_PROMESAS = "2026-10-26";
 const exigePromesas = (p) => typeof p.dia === "string" && p.dia >= DESDE_PROMESAS;
+
+/**
+ * Piezas que se entienden (spec 2026-10-31): desde esta semana cada pieza trae `guion` (un paso
+ * por escena, dirigido al lector) y las de `por-donde-partir`, `momento` y `capacidad` del banco
+ * `_calendario/momentos.md`. Las semanas anteriores no lo conocían.
+ */
+export const DESDE_ENTENDER = "2026-11-09";
+const GUION_PALABRAS = [2, 20];
+/** Días mínimos entre dos piezas con la misma combinación momento × capacidad (4 semanas). */
+const MOMENTO_DIAS_SIN_REPETIR = 35;
+const SERIE_CON_MOMENTO = "por-donde-partir";
+
+/** Errores de `pieza.guion` contra las slides del borrador (desde DESDE_ENTENDER). */
+export function erroresDeGuion(pieza, borrador) {
+  return seguro(() => {
+    if (!esObj(pieza) || typeof pieza.dia !== "string" || pieza.dia < DESDE_ENTENDER) return [];
+    const g = pieza.guion;
+    if (!Array.isArray(g)) return [`falta guion: desde el ${DESDE_ENTENDER} cada pieza trae un paso por escena, dirigido al lector, escrito antes de las escenas`];
+    const errs = [];
+    const n = esObj(borrador) && Array.isArray(borrador.slides) ? borrador.slides.length : undefined;
+    if (n !== undefined && g.length !== n) errs.push(`guion tiene ${g.length} pasos y el borrador ${n} slides: uno por slide`);
+    g.forEach((x, i) => {
+      const k = esTexto(x) ? palabras(x).length : 0;
+      if (k < GUION_PALABRAS[0] || k > GUION_PALABRAS[1]) errs.push(`guion[${i + 1}] debe decir el paso de esa escena en ${GUION_PALABRAS[0]} a ${GUION_PALABRAS[1]} palabras (tiene ${k})`);
+    });
+    return errs;
+  });
+}
+
+/**
+ * Banco de `momentos.md`: ids de `## Momentos` y, por capacidad de `## Capacidades`, sus
+ * referencias de respaldo (lista vacía = «ninguno todavía», no se usa).
+ */
+export function leerBanco(md) {
+  const momentos = new Set();
+  const capacidades = new Map();
+  let seccion = "";
+  for (const linea of String(md).split("\n")) {
+    const h = /^##\s+(.+?)\s*$/.exec(linea);
+    if (h) {
+      seccion = normalizar(h[1]);
+      continue;
+    }
+    const m = /^-\s+`([a-z0-9-]+)`:/.exec(linea);
+    if (!m) continue;
+    if (seccion === "momentos") momentos.add(m[1]);
+    else if (seccion === "capacidades") {
+      const respaldo = linea.split(/respaldo:/)[1] ?? "";
+      capacidades.set(m[1], [...respaldo.matchAll(/`(referencias\/[^`]+\.md)`/g)].map((x) => x[1]));
+    }
+  }
+  return { momentos, capacidades };
+}
+
+/**
+ * Errores de `momento` y `capacidad` de una pieza de `por-donde-partir` (desde DESDE_ENTENDER):
+ * existen en el banco, la capacidad tiene respaldo y una de sus referencias está en
+ * `origen.referencias`, y la combinación no salió en las semanas `previos` de los últimos 35
+ * días. `banco` undefined = falta `momentos.md`.
+ */
+export function erroresDeMomento(pieza, banco, previos = []) {
+  return seguro(() => {
+    if (!esObj(pieza) || pieza.serie !== SERIE_CON_MOMENTO || typeof pieza.dia !== "string" || pieza.dia < DESDE_ENTENDER) return [];
+    if (!banco) return ["falta _calendario/momentos.md (el banco de momentos y capacidades): corre scripts/kb-calendario-install.sh"];
+    const errs = [];
+    if (!esTexto(pieza.momento)) errs.push(`falta momento: en ${SERIE_CON_MOMENTO} cada pieza parte de un momento de momentos.md`);
+    else if (!banco.momentos.has(pieza.momento)) errs.push(`momento ${q(pieza.momento)} no está en momentos.md (propón los nuevos en aprendizajes.md)`);
+    if (!esTexto(pieza.capacidad)) errs.push(`falta capacidad: en ${SERIE_CON_MOMENTO} cada pieza muestra una capacidad de momentos.md`);
+    else if (!banco.capacidades.has(pieza.capacidad)) errs.push(`capacidad ${q(pieza.capacidad)} no está en momentos.md`);
+    else {
+      const respaldo = banco.capacidades.get(pieza.capacidad);
+      const refs = esObj(pieza.origen) && Array.isArray(pieza.origen.referencias) ? pieza.origen.referencias : [];
+      if (respaldo.length === 0) errs.push(`capacidad ${q(pieza.capacidad)} está sin respaldo en momentos.md: no se usa hasta que la base tenga una referencia gratis (pídela en candidatos.json)`);
+      else if (!respaldo.some((r) => refs.includes(r))) errs.push(`capacidad ${q(pieza.capacidad)}: origen.referencias debe citar una de su respaldo (${respaldo.join(", ")})`);
+    }
+    if (esTexto(pieza.momento) && esTexto(pieza.capacidad) && fechaValida(pieza.dia)) {
+      const dia = Date.parse(`${pieza.dia}T00:00:00Z`);
+      for (const prev of Array.isArray(previos) ? previos : []) {
+        if (!esObj(prev) || !fechaValida(prev.semana) || !Array.isArray(prev.piezas)) continue;
+        const dias = (dia - Date.parse(`${prev.semana}T00:00:00Z`)) / 86_400_000;
+        if (dias <= 0 || dias >= MOMENTO_DIAS_SIN_REPETIR) continue;
+        const otra = prev.piezas.find((x) => esObj(x) && x.momento === pieza.momento && x.capacidad === pieza.capacidad);
+        if (otra) errs.push(`la combinación ${pieza.momento} × ${pieza.capacidad} ya salió en ${q(otra.id)} (semana ${prev.semana}): no se repite en 4 semanas`);
+      }
+    }
+    return errs;
+  });
+}
 
 /** Forma de `promesas`: lista no vacía de `{ promesa, slide }` (slide 1-based). */
 export function erroresDePromesas(promesas) {
@@ -1389,6 +1496,7 @@ export function validarBorrador(pieza, borrador, config) {
     errs.push(...erroresDeBorrador(borrador, pieza, config));
     errs.push(...reglasDeTexto(borrador, config, pieza.formato, pieza.dia));
     errs.push(...erroresDeRetencion(borrador, pieza, config));
+    errs.push(...erroresDeGuion(pieza, borrador));
     return errs;
   });
 }
@@ -2109,6 +2217,44 @@ export function validarConfig(config) {
 // --- semana -----------------------------------------------------------------
 
 /**
+ * Momento × capacidad de toda la semana: lee `momentos.md` y los `plan.json` de las semanas
+ * anteriores (carpetas hermanas; las ilegibles se ignoran) y no deja repetir una combinación
+ * dentro de la semana.
+ */
+function erroresDeMomentosSemana(plan, dir) {
+  const cal = join(dir, "..");
+  let banco;
+  try {
+    banco = leerBanco(readFileSync(join(cal, "momentos.md"), "utf8"));
+  } catch {
+    banco = undefined;
+  }
+  const previos = [];
+  try {
+    for (const x of readdirSync(cal)) {
+      if (!fechaValida(x) || x >= plan.semana) continue;
+      const l = leerJson(join(cal, x, "plan.json"));
+      if (!("error" in l) && esObj(l.data)) previos.push({ semana: x, piezas: l.data.piezas });
+    }
+  } catch {
+    // sin carpetas hermanas legibles no hay con qué comparar
+  }
+  const out = [];
+  const vistas = new Map();
+  for (const p of plan.piezas) {
+    if (!esObj(p)) continue;
+    const id = typeof p.id === "string" ? p.id : "?";
+    out.push(...erroresDeMomento(p, banco, previos).map((e) => `${id}: ${e}`));
+    if (p.serie === SERIE_CON_MOMENTO && esTexto(p.momento) && esTexto(p.capacidad)) {
+      const k = `${p.momento} × ${p.capacidad}`;
+      if (vistas.has(k)) out.push(`${id}: la combinación ${k} se repite en la semana (ya está en ${q(vistas.get(k))})`);
+      else vistas.set(k, id);
+    }
+  }
+  return out;
+}
+
+/**
  * Valida la carpeta de una semana (`_calendario/<semana>/`): plan, cada
  * borrador, que existan las rutas de `origen` (relativas a la raíz de la base,
  * dos carpetas arriba, u `opts.raiz`), tope de fondos ai y score léxico. `opts.score(borrador)` devuelve
@@ -2167,6 +2313,7 @@ export function validarSemana(dir, config, opts = {}) {
         if (s < config.scoreMin) out.push(`${id}: score ${s} < ${config.scoreMin}`);
       } else sinScore++;
     }
+    if (raiz && fechaValida(plan.semana) && plan.semana >= DESDE_ENTENDER) out.push(...erroresDeMomentosSemana(plan, dir));
     const fondos = contarFondosIA(borradores);
     if (fondos > config.fondosIAMaxSemana) out.push(`semana: ${fondos} fondos ai (máximo ${config.fondosIAMaxSemana}, config.fondosIAMaxSemana)`);
     const clips = contarHookVideo(borradores);
@@ -2290,6 +2437,16 @@ export const EJEMPLO = {
         ],
         "entregable": "una primera tarea para la IA si no sabes por dónde partir: preguntarle a Gemini Notebook cómo te ayuda con tus informes y pedirle el resumen de audio en español para escucharlos",
         "fraseAmigo": "yo no sabía qué pedirle a la IA, así que le pregunté cómo me ayudaba con mis informes; ahora me los resume en audio y los escucho camino al trabajo",
+        "momento": "leer-documento-largo",
+        "capacidad": "texto-a-audio",
+        "guion": [
+          "el problema: tienes informes pendientes y no alcanzas a leerlos",
+          "pregúntale a Gemini Notebook cómo te ayuda con tus informes",
+          "por qué funciona: la IA te dice qué sabe hacer",
+          "sube tus informes a un cuaderno en notebook.google",
+          "pide el resumen de audio en español",
+          "escríbeme PARTIR y te ayudo con los tuyos"
+        ],
         "promesas": [
           {
             "promesa": "Mis 6 informes pendientes: ahora los escucho",

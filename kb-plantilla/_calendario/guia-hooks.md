@@ -34,16 +34,16 @@ nueva: es ver a alguien como él dar el primer paso y saber cuál sería el suyo
 > dejó de valer con el pivote; si una frase de abajo lo supone, manda esta
 > sección y la siguiente.
 
-## Desde 2026-11-02: primera persona y nivel cero
+## Desde 2026-11-02: le hablas al lector y nivel cero
 
 Fuente: `informes/foresight-instagram-2026-10-28.md` (en el repo de código).
 Donde esta sección choque con el resto de la guía, manda esta.
 
-- **La portada le habla al lector; el cuerpo va en primera persona** (desde el
+- **La portada le habla al lector, y los pasos también** (desde el
   2026-10-31). El título nombra la situación o el resultado **del lector**
   («tu informe al jefe», «tu primera tarea con IA»), en «tú» o impersonal, y
-  la IA que lo hace; «te muestro» vale. Desde la escena 2 habla quien ya dio
-  el paso: «le pedí», «pegué mis notas», «armé». Nunca una confesión sin
+  la IA que lo hace; «te muestro» vale. Desde la escena 2 los pasos van al
+  lector («copia este mensaje», «respóndele así»; ver `guia-redaccion.md`). Nunca una confesión sin
   resultado en el título («Nunca supe qué pedirle a la IA», «Corregía a la IA
   en cada chat»): el lector con prisa ve solo el título y no sabe qué gana. Ni
   «tú deberías» ni la voz de experto que enseña desde arriba.

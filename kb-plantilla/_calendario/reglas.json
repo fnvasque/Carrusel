@@ -204,6 +204,13 @@
       "formato": "reel",
       "descripcion": "Portada pregunta-respuesta («¿problema? salida», hasta 14 palabras, sin subtítulo) y hook de hasta 6 s en ritmo ensenar (antes 5); sin voz nada queda solo en la narración: prompt entero y copiable, respuesta que muestra lo que se gana, paso con el cómo y una escena de por qué funciona",
       "fuente": "pedido de Felipe 2026-10-31 («no logramos explicar bien»; portada «¿No sabes qué pedirle a la IA? Haz que te pregunte a ti»); entregables/revision-reels-2026-10-31"
+    },
+    {
+      "id": "piezas-que-se-entienden",
+      "desde": "2026-11-02",
+      "formato": null,
+      "descripcion": "Guion de pasos dirigidos al lector antes de las escenas, pregunta 9 del lector frío (contarla de corrido), reescritura desde el guion en vez de parches, banco momento × capacidad con respaldo gratis, hasta 20 palabras por escena y ritmo ensenar sin voz. El 2026-11-02 es el piloto escrito a mano; desde el 2026-11-09 lo exige el validador",
+      "fuente": "docs/superpowers/specs/2026-10-31-piezas-que-se-entienden-design.md; correcciones de Felipe al reel sab-pm-reel-haz-que-te-pregunte (2026-10-31)"
     }
   ]
 }
