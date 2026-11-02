@@ -38,7 +38,10 @@ históricas a otro perfil no rigen la selección de temas ni ejemplos actuales.
 - **Nivel cero.** Máximo un término técnico en la portada, explicado en la
   pieza. No convertir el miedo a quedarse atrás en amenaza ni en presión.
 - **Por serie:** `por-donde-partir` ofrece un paso de trabajo concreto;
-  `lo-que-construi` anticipa una lección útil derivada de una decisión/error real.
+  `lo-que-construi` anticipa una lección útil derivada de una decisión/error real;
+  `con-tu-equipo` le habla a quien dirige un equipo y promete una decisión de
+  jefe con su dato (qué pedirle al equipo, qué revisar, cómo cuidar la
+  confianza), no un truco para usar la IA.
   No cambiar la serie para justificar una portada que promete otro contenido.
 
 Ejemplos de dirección editorial, no publicaciones ni pruebas de una herramienta:

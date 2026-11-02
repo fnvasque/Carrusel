@@ -53,6 +53,7 @@ check("reglas: el registro sembrado de la plantilla es válido, con las fechas c
     ["titulo-hasta-14-palabras", "2026-11-09"],
     ["juez-umbral-6", "2026-11-09"],
     ["claridad-editorial", "2026-11-09"],
+    ["hoja-de-ruta", "2026-11-09"],
   ]);
   assert.ok(r.reglas.every((x) => x.descripcion && x.fuente));
 });
