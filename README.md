@@ -561,6 +561,39 @@ propone un cambio, lo anota en `aprendizajes.md` y lo aplicas tú en `config.jso
 Si la variable es un parámetro de la puerta, el control incluye las piezas de semanas anteriores producidas con otro
 valor (`control.historico`), así que el experimento puede abarcar todos los reels de la semana.
 
+## Casos (`/caso`)
+
+Convierte un proyecto hecho con Claude en una historia paso a paso para quien está aprendiendo,
+y luego en una guía PDF, un carrusel y un reel sin voz. No publica ni toca el calendario.
+
+**Instalar la skill** (una vez):
+
+```bash
+ln -s ~/Documents/Claude/Carrusel/skills/caso ~/.claude/skills/caso
+```
+
+**Flujo** (lo guía `skills/caso/SKILL.md`; el código está en `src/caso/`):
+
+1. `sesiones`: lista las conversaciones del proyecto; el modelo propone cuáles cuentan y Felipe confirma.
+2. `numeros` y `trozar`: cifras del proyecto y trozos de la conversación, que resumen subagentes.
+3. `imagen` / `clip`: copia imágenes y recorta video del proyecto.
+4. El modelo escribe `historia.md` con la plantilla, corre `tapar` y hace su propia pasada por nombres.
+5. Felipe revisa la historia; solo con su aprobación explícita se corre `aprobar`.
+6. `generar`: `caso.pdf`, carrusel y reel desde `borrador.json` (formato `Borrador` del calendario).
+
+```bash
+npm --prefix ~/Documents/Claude/Carrusel run caso -- sesiones "/ruta/absoluta/al/proyecto"
+```
+
+**Dónde queda:** todo en `<proyecto>/caso/` (con su propio `.gitignore`): `trabajo/`, `imagenes/`,
+`clips/`, `historia.md`, `aprobado.json`, `borrador.json`, `caso.pdf` y `salida/`.
+
+**Privacidad:** los trozos y la historia pasan por un filtro que tapa claves, correos, teléfonos,
+RUT, rutas, archivos y enlaces; clientes y personas se cambian por roles; las secciones
+«Para Felipe» no salen en el PDF. `generar` se niega si la historia no está aprobada (o cambió),
+si el borrador trae datos sensibles, «Felipe», fondos `ai` o `hookVideo`, o archivos fuera de
+`imagenes/` y `clips/`. La pieza firma como @ia.punto.es.
+
 ## Tests
 
 ```bash

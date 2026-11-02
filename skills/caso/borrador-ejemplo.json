@@ -1,0 +1,29 @@
+{
+  "name": "Mi primer reporte con IA",
+  "pillar": "trabajo",
+  "angle": "Caso real: cómo armé un reporte semanal en una tarde, paso a paso",
+  "slides": [
+    {
+      "template": "Hook",
+      "props": { "title": "Armé mi reporte semanal en una tarde", "highlight": "una tarde", "eyebrow": "Caso real" },
+      "background": { "color": "#0E0E10" }
+    },
+    {
+      "template": "Step",
+      "props": { "step": 1, "heading": "Primero le pedí la tabla", "body": "Así revisé los datos antes de pedir el gráfico." },
+      "background": { "gradient": "linear-gradient(160deg, #15161A 0%, #23262E 100%)" }
+    },
+    {
+      "template": "Prompt",
+      "props": { "heading": "Lo que le escribí", "prompt": "Con estos datos, arma una tabla por semana y dime qué cambió más.", "note": "Pide la tabla antes que el gráfico." }
+    },
+    {
+      "template": "Stat",
+      "props": { "value": "3 h", "label": "ahorradas cada semana", "context": "Antes lo hacía a mano el lunes." }
+    },
+    {
+      "template": "Cta",
+      "props": { "title": "Guárdalo para tu próximo reporte", "reason": "Te ayudo a partir con la IA en tu trabajo", "handle": "@ia.punto.es" }
+    }
+  ]
+}

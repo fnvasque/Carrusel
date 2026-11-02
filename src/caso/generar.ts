@@ -1,0 +1,356 @@
+import { spawn } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync } from "node:fs";
+import { basename, join, relative, resolve, sep } from "node:path";
+import { hashHistoria } from "./aprobacion.ts";
+import { hallazgosSensibles } from "./filtro.ts";
+import { historiaAHtml, renderPdf } from "./pdf.ts";
+import { borradorASpec, parseBorrador, type Borrador } from "../calendario/draft.ts";
+import { archivoClipError, mezclarClips, rangosClips } from "../calendario/clips.ts";
+import { scoreDraft } from "../remix/registry.ts";
+import { renderCarousel } from "../render/renderCarousel.ts";
+import { renderReelResult } from "../reel/renderReel.ts";
+import { THRESHOLD } from "../score/virality.ts";
+import type { CarouselSpec } from "../templates/types.ts";
+
+/** Todos los textos de un valor JSON, a cualquier profundidad. */
+function todosLosTextos(v: unknown): string[] {
+  if (typeof v === "string") return [v];
+  if (Array.isArray(v)) return v.flatMap(todosLosTextos);
+  if (v && typeof v === "object") return Object.values(v).flatMap(todosLosTextos);
+  return [];
+}
+
+const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
+/**
+ * Textos del borrador que pasan por el filtro. Solo se saltan las rutas que tienen su
+ * propia regla, y solo en su lugar: `audio` arriba, `background.image` de cada slide y
+ * `props.archivo` de las escenas Clip. La misma clave en otro lugar sí se revisa.
+ */
+function textosDe(crudo: unknown): string[] {
+  if (!esObjeto(crudo)) return todosLosTextos(crudo);
+  return Object.entries(crudo).flatMap(([k, v]) => {
+    if (k === "audio") return [];
+    if (k !== "slides" || !Array.isArray(v)) return todosLosTextos(v);
+    return v.flatMap((slide) => {
+      if (!esObjeto(slide)) return todosLosTextos(slide);
+      return Object.entries(slide).flatMap(([sk, sv]) => {
+        if (sk === "background" && esObjeto(sv)) return Object.entries(sv).flatMap(([bk, bv]) => (bk === "image" ? [] : todosLosTextos(bv)));
+        if (sk === "props" && esObjeto(sv) && slide.template === "Clip")
+          return Object.entries(sv).flatMap(([pk, pv]) => (pk === "archivo" ? [] : todosLosTextos(pv)));
+        return todosLosTextos(sv);
+      });
+    });
+  });
+}
+
+/** Cuenta por tipo y pistas de 3 caracteres: los mensajes nunca llevan el valor completo. */
+function resumirHallazgos(textos: string[]): { resumen: string; pistas: string } | null {
+  const cuenta = new Map<string, number>();
+  const pistas: string[] = [];
+  for (const t of textos) {
+    for (const h of hallazgosSensibles(t)) {
+      cuenta.set(h.tipo, (cuenta.get(h.tipo) ?? 0) + 1);
+      pistas.push(`${h.tipo}: ${h.original.slice(0, 3)}…`);
+    }
+  }
+  if (!cuenta.size) return null;
+  return { resumen: [...cuenta].map(([t, n]) => `${t}: ${n}`).join(", "), pistas: pistas.join("; ") };
+}
+
+/** Ruta real de `ruta` (relativa a dirCaso) solo si existe y queda dentro de <dirCaso>/<carpeta>/; si no, null. */
+function rutaDentro(ruta: unknown, dirCaso: string, carpeta: "imagenes" | "clips"): string | null {
+  if (typeof ruta !== "string" || !ruta.trim() || ruta.includes("\0")) return null;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(ruta) || ruta.startsWith("/")) return null;
+  const base = resolve(dirCaso, carpeta);
+  const abs = resolve(dirCaso, ruta);
+  if (!abs.startsWith(base + sep) || !existsSync(abs)) return null;
+  try {
+    // Un enlace simbólico no debe sacar el archivo de la carpeta.
+    const real = realpathSync(abs);
+    if (!real.startsWith(realpathSync(base) + sep)) return null;
+    return real;
+  } catch {
+    return null;
+  }
+}
+
+/** Marca de color que reemplaza un fondo `image` mientras pasa por parseBorrador (que no los admite). */
+const MARCA_IMAGEN = "__caso_imagen_";
+
+interface BorradorLeido {
+  borrador: Borrador;
+  /** Marca de color → fondo `image` ya resuelto a ruta absoluta. */
+  imagenes: Map<string, { image: string; overlay: number }>;
+}
+
+/**
+ * Lee borrador.json: cambia los fondos `image` por una marca (parseBorrador solo admite
+ * ai/gradient/color) y los guarda resueltos para reponerlos en el spec. Lanza si no es válido.
+ */
+function leerBorrador(dirCaso: string, crudo: unknown): BorradorLeido {
+  const imagenes = new Map<string, { image: string; overlay: number }>();
+  const copia = JSON.parse(JSON.stringify(crudo)) as { slides?: unknown };
+  if (Array.isArray(copia.slides)) {
+    copia.slides.forEach((s: unknown, i: number) => {
+      const bg = (s as { background?: Record<string, unknown> } | null)?.background;
+      if (!bg || typeof bg !== "object" || bg.image === undefined) return;
+      const abs = rutaDentro(bg.image, dirCaso, "imagenes");
+      if (!abs) throw new Error(`slide ${i + 1}: el fondo image debe ser un archivo dentro de imagenes/`);
+      const marca = `${MARCA_IMAGEN}${i}__`;
+      imagenes.set(marca, { image: abs, overlay: typeof bg.overlay === "number" ? bg.overlay : 0.5 });
+      (s as { background: unknown }).background = { color: marca };
+    });
+  }
+  return { borrador: parseBorrador(JSON.stringify(copia)), imagenes };
+}
+
+/** Repone en el spec los fondos `image` que leerBorrador cambió por una marca. */
+function reponerImagenes(spec: CarouselSpec, imagenes: BorradorLeido["imagenes"]): CarouselSpec {
+  return {
+    ...spec,
+    slides: spec.slides.map((s) => {
+      const bg = s.props.background as { color?: string } | undefined;
+      const img = bg?.color ? imagenes.get(bg.color) : undefined;
+      return img ? { ...s, props: { ...s.props, background: img } } : s;
+    }),
+  };
+}
+
+/** Contenidos del caso leídos una sola vez: la puerta y el render usan exactamente estos. */
+export interface ContenidosCaso {
+  /** historia.md (null si no existe). */
+  historia: string | null;
+  /** borrador.json en texto (null si no existe). */
+  borrador: string | null;
+}
+
+/** Lee historia.md y borrador.json una vez. */
+function leerContenidos(dirCaso: string): ContenidosCaso {
+  const leer = (f: string): string | null => (existsSync(join(dirCaso, f)) ? readFileSync(join(dirCaso, f), "utf8") : null);
+  return { historia: leer("historia.md"), borrador: leer("borrador.json") };
+}
+
+/** Hash guardado al aprobar (null si no hay aprobado.json válido). */
+function hashAprobado(dirCaso: string): string | null {
+  try {
+    const h = (JSON.parse(readFileSync(join(dirCaso, "aprobado.json"), "utf8")) as { hash?: unknown }).hash;
+    return typeof h === "string" ? h : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Motivos para no generar la pieza (vacío = se puede). Mira la aprobación de la
+ * historia, la forma de borrador.json, datos sensibles y «Felipe» en sus textos,
+ * fondos (`image` solo dentro de imagenes/, nunca `ai`), hookVideo y clips (dentro
+ * de clips/). Los mensajes nunca llevan el valor sensible completo: terminan en logs.
+ */
+export function puertaGenerar(dirCaso: string): string[] {
+  return puertaGenerarDe(dirCaso, leerContenidos(dirCaso));
+}
+
+/**
+ * Igual que `puertaGenerar`, sobre contenidos ya leídos: la aprobación se compara con
+ * el hash de exactamente ese texto de historia (sin releer el archivo).
+ */
+export function puertaGenerarDe(dirCaso: string, c: ContenidosCaso): string[] {
+  const motivos: string[] = [];
+  if (c.historia === null) motivos.push("La historia no está aprobada (no hay historia.md): escríbela y apruébala.");
+  else {
+    const guardado = hashAprobado(dirCaso);
+    if (guardado === null) motivos.push("La historia no está aprobada: revísala y apruébala.");
+    else if (guardado !== hashHistoria(c.historia)) motivos.push("La historia no está aprobada (cambió después de aprobarla): revísala y apruébala de nuevo.");
+    // El filtro puede haberse vuelto más estricto desde que se aprobó: la historia se vuelve a revisar.
+    const h = resumirHallazgos([c.historia]);
+    if (h) motivos.push(`historia.md contiene datos sensibles (${h.resumen}): tápalos y apruébala de nuevo. ${h.pistas}`);
+  }
+  if (c.borrador === null) {
+    motivos.push("Falta borrador.json en la carpeta del caso.");
+    return motivos;
+  }
+  let crudo: unknown;
+  try {
+    crudo = JSON.parse(c.borrador.replace(/^\uFEFF/, ""));
+  } catch (e) {
+    motivos.push(`borrador.json no es JSON válido: ${e instanceof Error ? e.message : e}`);
+    return motivos;
+  }
+
+  const textos = textosDe(crudo);
+  const h = resumirHallazgos(textos);
+  if (h) motivos.push(`borrador.json contiene datos sensibles (${h.resumen}): ${h.pistas}`);
+  if (textos.some((t) => /felipe/i.test(t))) {
+    motivos.push("borrador.json menciona «Felipe»: la pieza firma como la cuenta, nunca con su nombre.");
+  }
+
+  if (crudo && typeof crudo === "object" && (crudo as { hookVideo?: unknown }).hookVideo !== undefined) {
+    motivos.push("borrador.json trae hookVideo: los casos no generan video IA; usa una escena Clip con un clip de clips/.");
+  }
+  const slides = (crudo as { slides?: unknown }).slides;
+  if (Array.isArray(slides)) {
+    slides.forEach((s: unknown, i: number) => {
+      const slide = s as { template?: unknown; props?: Record<string, unknown>; background?: Record<string, unknown> } | null;
+      const bg = slide?.background;
+      if (bg && typeof bg === "object" && bg.ai !== undefined) {
+        motivos.push(`slide ${i + 1}: los casos usan imágenes de imagenes/, color o gradient; sin fondos ai.`);
+      }
+      if (bg && typeof bg === "object" && bg.image !== undefined && !rutaDentro(bg.image, dirCaso, "imagenes")) {
+        motivos.push(`slide ${i + 1}: el fondo image debe ser un archivo que exista dentro de imagenes/.`);
+      }
+      const nombre = slide?.props?.archivo;
+      if (slide?.template === "Clip" || nombre !== undefined) {
+        const err = archivoClipError(nombre);
+        if (err) motivos.push(`slide ${i + 1}: ${err}.`);
+        else if (!rutaDentro(`clips/${String(nombre)}`, dirCaso, "clips")) motivos.push(`slide ${i + 1}: falta el clip ${String(nombre)} en clips/ (o apunta fuera de la carpeta).`);
+      }
+    });
+  }
+
+  // Forma mínima del borrador (lo que exige el render); solo si lo anterior no lo explica ya.
+  if (!motivos.some((m) => m.startsWith("slide "))) {
+    try {
+      leerBorrador(dirCaso, crudo);
+    } catch (e) {
+      motivos.push(`borrador.json no es válido: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+  return motivos;
+}
+
+/** Corre `fn` guardando los avisos de revisión visual que escribe el render en consola. */
+async function conAvisosVisuales<T>(avisos: string[], fn: () => Promise<T>): Promise<T> {
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => {
+    const t = args.map(String).join(" ");
+    if (t.includes("Revisión visual")) avisos.push(t.replace(/^\s*⚠️?\s*/, "").trim());
+    original(...args);
+  };
+  try {
+    return await fn();
+  } finally {
+    console.warn = original;
+  }
+}
+
+/** Línea de aviso con el puntaje de scoreDraft (no bloquea). */
+function avisoPuntaje(que: string, r: { total: number; grade: string; suggestions: string[] }): string {
+  const bajo = r.total < THRESHOLD ? ` bajo el umbral ${THRESHOLD}${r.suggestions.length ? `: ${r.suggestions.join(" ")}` : ""}` : "";
+  return `Puntaje ${que}: ${r.total}/100 (${r.grade})${bajo}`;
+}
+
+/**
+ * Genera la pieza del caso: `caso.pdf` (la guía) y, salvo `soloPdf`, el carrusel
+ * (PNGs) y el reel (`reel.mp4`, sin voz) en `salida/<nombre>/`. Si la puerta da
+ * motivos, lanza con todos y no escribe nada. El puntaje y la revisión visual
+ * solo van a `avisos`.
+ */
+export async function generarCaso(
+  dirCaso: string,
+  opts: { soloPdf?: boolean } = {},
+): Promise<{ pdf: string; carrusel: string[]; reel?: string; avisos: string[] }> {
+  // Una sola lectura: la puerta y el render usan los mismos textos (sin carrera entre aprobar y generar).
+  const contenidos = leerContenidos(dirCaso);
+  const motivos = puertaGenerarDe(dirCaso, contenidos);
+  if (motivos.length) throw new Error(`No se puede generar el caso:\n${motivos.map((m) => `- ${m}`).join("\n")}`);
+
+  const crudo: unknown = JSON.parse(contenidos.borrador!.replace(/^\uFEFF/, ""));
+  const { borrador: b, imagenes } = leerBorrador(dirCaso, crudo);
+  // historiaAHtml lanza si queda «Felipe» fuera de las secciones internas: antes de escribir nada.
+  const html = historiaAHtml(contenidos.historia!, { dirCaso });
+
+  // Defensa en profundidad: aunque la puerta ya rechaza fondos ai, el render nunca llama a la API de imágenes.
+  const previo = process.env.CARRUSEL_AI_SOLO_CACHE;
+  process.env.CARRUSEL_AI_SOLO_CACHE = "1";
+  try {
+    return await renderizar(dirCaso, html, b, imagenes, opts);
+  } finally {
+    if (previo === undefined) delete process.env.CARRUSEL_AI_SOLO_CACHE;
+    else process.env.CARRUSEL_AI_SOLO_CACHE = previo;
+  }
+}
+
+/** PDF, carrusel y reel a partir de contenidos ya validados por la puerta. */
+async function renderizar(
+  dirCaso: string,
+  html: string,
+  b: Borrador,
+  imagenes: BorradorLeido["imagenes"],
+  opts: { soloPdf?: boolean },
+): Promise<{ pdf: string; carrusel: string[]; reel?: string; avisos: string[] }> {
+  const pdf = join(dirCaso, "caso.pdf");
+  await renderPdf(html, pdf);
+  const avisos: string[] = [];
+  if (opts.soloPdf) return { pdf, carrusel: [], avisos };
+
+  // renderCarousel/renderReel juntan su outDir con process.cwd(): se pasa relativo para no salir de dirCaso.
+  const outDir = relative(process.cwd(), join(dirCaso, "salida")) || ".";
+
+  // El carrusel no puede mostrar video: las escenas Clip quedan solo en el reel.
+  const sinClips: Borrador = { ...b, slides: b.slides.filter((s) => s.template !== "Clip") };
+  avisos.push(avisoPuntaje("del carrusel", scoreDraft(sinClips, { format: "carrusel" })));
+  const specCarrusel = reponerImagenes(borradorASpec(sinClips), imagenes);
+  const carrusel = await conAvisosVisuales(avisos, () => renderCarousel(specCarrusel, { outDir, revision: "avisar" }));
+
+  avisos.push(avisoPuntaje("del reel", scoreDraft(b, { format: "reel" })));
+  const specReel = reponerImagenes(borradorASpec(b, { format: "reel" }), imagenes);
+  const r = await conAvisosVisuales(avisos, () => renderReelResult(specReel, { outDir, pace: b.pace, logoEnCuadro0: b.logoEnCuadro0, voz: false, revision: "avisar" }));
+
+  // Escenas Clip: el video del caso (clips/) se mezcla sobre el reel, como en el calendario.
+  const rangos = rangosClips(specReel, r.timing);
+  if (rangos.length) {
+    const original = join(dirCaso, "salida", specReel.name, ".reel-sin-clips.mp4");
+    renameSync(r.path, original);
+    try {
+      await mezclarClips(original, rangos.map((rango) => {
+        // Se vuelve a resolver la ruta real: el clip debe seguir dentro de clips/.
+        const ruta = rutaDentro(`clips/${rango.archivo}`, dirCaso, "clips");
+        if (!ruta) throw new Error(`El clip ${rango.archivo} ya no está dentro de clips/`);
+        return { ruta, rango };
+      }), r.path);
+    } finally {
+      rmSync(original, { force: true });
+    }
+  }
+  return { pdf, carrusel, reel: r.path, avisos };
+}
+
+/** Ejecuta ffmpeg; lanza con las últimas líneas de error si falla. */
+function ffmpeg(args: string[]): Promise<void> {
+  return new Promise((ok, mal) => {
+    const proc = spawn("ffmpeg", ["-v", "error", "-y", ...args], { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    proc.stderr.on("data", (d) => (err += d.toString()));
+    proc.on("error", (e) => mal(new Error(`no se pudo ejecutar ffmpeg: ${e.message}`)));
+    proc.on("close", (code) => (code === 0 ? ok() : mal(new Error(`ffmpeg terminó con código ${code}: ${err.trim().split("\n").slice(-2).join(" ")}`))));
+  });
+}
+
+/** Recorta `video` entre `desde` y `hasta` (s) a `clips/<nombre>.mp4`, sin audio. Devuelve la ruta. */
+export async function recortarClip(video: string, desde: number, hasta: number, dirCaso: string, nombre: string): Promise<string> {
+  const archivo = nombre.endsWith(".mp4") ? nombre : `${nombre}.mp4`;
+  const err = archivoClipError(archivo);
+  if (err) throw new Error(`Nombre de clip inválido: ${err}`);
+  if (!(Number.isFinite(desde) && Number.isFinite(hasta) && desde >= 0 && hasta > desde)) {
+    throw new Error(`Rango de recorte inválido: desde ${desde} hasta ${hasta} (segundos, desde ≥ 0 y hasta > desde)`);
+  }
+  const origen = resolve(video);
+  if (!existsSync(origen)) throw new Error(`No existe el video ${basename(origen)}`);
+  const dir = join(dirCaso, "clips");
+  mkdirSync(dir, { recursive: true });
+  const salida = join(dir, archivo);
+  await ffmpeg(["-nostdin", "-ss", String(desde), "-to", String(hasta), "-i", origen, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", salida]);
+  return salida;
+}
+
+/** Copia una imagen a `imagenes/` (nombre saneado) y devuelve la ruta relativa `imagenes/<nombre>`. */
+export function copiarImagen(ruta: string, dirCaso: string): string {
+  if (!existsSync(ruta)) throw new Error(`No existe la imagen ${basename(ruta)}`);
+  const nombre = basename(ruta).replace(/[^A-Za-z0-9_.-]/g, "-").replace(/^[.-]+/, "");
+  if (!/\.(png|jpe?g|webp|gif)$/i.test(nombre)) throw new Error(`La imagen ${basename(ruta)} debe ser .png, .jpg, .webp o .gif`);
+  const dir = join(dirCaso, "imagenes");
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(ruta, join(dir, nombre));
+  return `imagenes/${nombre}`;
+}

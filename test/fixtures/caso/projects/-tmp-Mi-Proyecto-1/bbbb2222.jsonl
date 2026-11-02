@@ -1,0 +1,6 @@
+{"type":"user","message":{"role":"user","content":"Revisemos los números de noviembre"},"timestamp":"2026-11-01T09:00:00.000Z","sessionId":"bbbb2222"}
+{"type":"assistant","message":{"model":"claude-opus-5-5","content":[{"type":"tool_use","name":"Edit","input":{"file_path":"/tmp/Mi Proyecto 1/reporte.md"}}],"usage":{"input_tokens":5,"output_tokens":6,"cache_read_input_tokens":7,"cache_creation_input_tokens":8}},"timestamp":"2026-11-01T09:05:00.000Z"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Ahora ordénalo por región"}]},"timestamp":"2026-11-01T09:01:00.000Z","sessionId":"bbbb2222"}
+{"type":"user","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"iVBORw0KGgo="}},{"type":"text","text":"Mira esta captura del gráfico"}]},"timestamp":"2026-11-01T09:02:00.000Z","sessionId":"bbbb2222"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t3","content":"SALIDA_EN_ARREGLO"},{"type":"text","text":"TEXTO_JUNTO_A_TOOL_RESULT"}]},"timestamp":"2026-11-01T09:03:00.000Z","sessionId":"bbbb2222"}
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"<system-reminder>RECORDATORIO_INTERNO</system-reminder>"}]},"timestamp":"2026-11-01T09:04:00.000Z","sessionId":"bbbb2222"}
