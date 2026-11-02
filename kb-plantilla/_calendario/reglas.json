@@ -238,7 +238,7 @@
       "desde": "2026-11-09",
       "formato": null,
       "descripcion": "Las semanas siguen _calendario/hoja-de-ruta.md: la etapa del coaching (2 semanas por etapa, perder el miedo → adoptar → liderar → revalorizarse) y una línea guía por día con sus referencias; el carrusel del viernes pasa a la serie con-tu-equipo (la mirada del jefe, sin momento × capacidad, desde el 2026-11-13). El validador avisa si una pieza no cita ninguna referencia de su línea",
-      "fuente": "pedido de Felipe 2026-11-01 (plan de 2 meses con hilo conductor; «no hay nada de liderazgo, solo cómo usar la IA»); informes/plan-contenido-nov-dic-2026.md"
+      "fuente": "pedido de Felipe 2026-11-01 (plan de 2 meses con hilo conductor; «no hay nada de liderazgo, solo cómo usar la IA»); informes/plan-contenido-nov-dic-2026.md. Si el config.json de la base se cambia después del planificador del domingo 2026-11-08, el viernes 13 queda en por-donde-partir: mover desde a 2026-11-16"
     }
   ]
 }

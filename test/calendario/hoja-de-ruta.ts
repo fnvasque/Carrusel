@@ -63,6 +63,7 @@ check("hoja de ruta: leerHojaDeRuta reporta fecha, etapa, día y referencias mal
   assert.ok(has(e, /etapa "aprender" no es una de/));
   assert.ok(has(e, /el lun no cita ninguna referencia/));
   assert.ok(has(e, /el vie está dos veces/));
+  assert.deepEqual(h.semanas.get("2026-11-23")!.piezas.map((p) => p.guia), ["sin referencias", "algo"], "el día repetido no se agrega");
   assert.ok(has(e, /día "xyz" inválido/));
   assert.ok(has(e, /2026-11-23: semana repetida/));
   assert.equal(e.length, 6);
@@ -71,13 +72,18 @@ check("hoja de ruta: leerHojaDeRuta reporta fecha, etapa, día y referencias mal
 
 check("hoja de ruta: avisa (no bloquea) la pieza que no cita ninguna referencia de su línea", () => {
   const vie = { id: "vie-carrusel-x", dia: "2026-11-13", origen: { fichas: [], referencias: ["referencias/apoyo-del-jefe-al-uso-de-ia.md"] } };
-  const plan = (p: Record<string, unknown>) => ({ semana: "2026-11-09", piezas: [p] });
+  const lun = { id: "lun-reel-x", dia: "2026-11-09", origen: { fichas: [], referencias: ["referencias/empezar-con-ia-sin-pagar.md"] } };
+  const mie = { id: "mie-reel-x", dia: "2026-11-11", origen: { fichas: [], referencias: ["referencias/building-effective-agents.md"] } };
+  const plan = (p: Record<string, unknown>) => ({ semana: "2026-11-09", piezas: [lun, mie, p] });
   assert.deepEqual(avisosDeHojaDeRuta(plan(vie), hoja), []);
   const aparte = avisosDeHojaDeRuta(plan({ ...vie, origen: { fichas: [], referencias: ["referencias/marco-crit.md"] } }), hoja);
   assert.equal(aparte.length, 1);
   assert.match(aparte[0]!, /vie-carrusel-x: se aparta de la hoja de ruta \(etapa perder-el-miedo/);
   assert.match(aparte[0]!, /aprendizajes\.md/);
   assert.deepEqual(avisosDeHojaDeRuta({ semana: "2027-01-04", piezas: [vie] }, hoja), [], "semana fuera de la hoja");
+  const movida = avisosDeHojaDeRuta(plan({ ...vie, dia: "2026-11-14" }), hoja);
+  assert.equal(movida.length, 1, "pieza movida de día: se avisa el día guiado sin pieza");
+  assert.match(movida[0]!, /^2026-11-13: la hoja de ruta guía ese día/);
   assert.deepEqual(avisosDeHojaDeRuta(plan(vie), undefined), [], "sin hoja");
   const rota = leerHojaDeRuta("## 2026-11-10 · adoptar · x");
   assert.ok(has(avisosDeHojaDeRuta(plan(vie), rota), /^hoja-de-ruta\.md: 2026-11-10/));

@@ -564,8 +564,8 @@ frío) se sigue leyendo, pero en el paquete termina en notas, no en propuestas.
 
 **Desde el 2026-11-02 se elige por la pregunta guía y la serie, no por
 rotación de temas.** Primero decide, para cada entrada del mix, qué parte de
-«¿por dónde parto con la IA en mi trabajo?» responde la pieza según su serie;
-después busca el tema elegible (abajo) que la respalde. Ángulos de ejemplo:
+«¿por dónde parto con la IA en mi trabajo?» responde la pieza según su serie
+(en `con-tu-equipo`: «¿qué cambia para mi equipo y qué decido yo?»); después busca el tema elegible (abajo) que la respalde. Ángulos de ejemplo:
 
 - `por-donde-partir` (nivel cero, pasos al lector, con la pantalla): qué es
   un agente, dicho con palabras de oficina; cómo pedirle a la IA que te enseñe
@@ -701,7 +701,7 @@ reconozca la cuenta:
 |---|---|---|---|---|---|
 | Lunes | 09:00 | `reel` | `tutorial` | `por-donde-partir` | «Por dónde partir»: un primer paso de nivel cero, con la pantalla y los pasos dirigidos al lector («copia este mensaje»). Entregable: el paso y, si hay, el pedido exacto a la IA |
 | Miércoles | 09:00 | `reel` | `atemporal` | `lo-que-construi` | «Lo que construí»: una decisión o un error real del sistema de agentes que arma esta cuenta, con su número honesto; lo que te llevas es lo aprendido |
-| Viernes | 13:00 | `carrusel` | `lista` | `con-tu-equipo` | «Con tu equipo» (desde 2026-11-13; antes `por-donde-partir`): la mirada del jefe sobre la etapa de la semana, en formato guardable: la decisión, su dato y qué hacer esta semana con el equipo. En semana explicativa va con `variante: "explicativo"` |
+| Viernes | 13:00 | `carrusel` | `lista` | `con-tu-equipo` | «Con tu equipo» (desde 2026-11-13; antes `por-donde-partir`; el ejemplo de 2026-11-02 de abajo ya la usa porque se valida con el mix vigente): la mirada del jefe sobre la etapa de la semana, en formato guardable: la decisión, su dato y qué hacer esta semana con el equipo. En semana explicativa va con `variante: "explicativo"` |
 
 Dos piezas del mismo arquetipo en la semana van con temas y entregables
 distintos. Toda pieza lleva su destinatario explícito («si no sabes por dónde
@@ -737,7 +737,7 @@ Nunca inventes un nombre de pista ni copies el del ejemplo.
   sea `tasa`.
 - **Semanas del paquete pivote-coaching (2026-11-02 y 2026-11-09): sin
   experimento propio.** Todo lo nuevo (mix de 3, series `por-donde-partir` y
-  `lo-que-construi`, pasos al lector, señal `dm` y cierre PARTIR) entra junto
+  `lo-que-construi` (más `con-tu-equipo` desde el viernes 2026-11-13), pasos al lector, señal `dm` y cierre PARTIR) entra junto
   y se mide como paquete contra las metas del Paso 2. Esas dos semanas escribe
   en `plan.json` `"experimento": { "variable": null, "motivo": "paquete
   pivote-coaching" }` (el motivo exacto de `config.json → paquete.motivo`; el

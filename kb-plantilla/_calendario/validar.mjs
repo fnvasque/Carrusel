@@ -1161,7 +1161,10 @@ export function leerHojaDeRuta(md) {
       continue;
     }
     const dia = sumarDias(actual.lunes, (DIAS_HOJA[m[1]] + 6) % 7);
-    if (actual.piezas.some((p) => p.dia === dia)) errores.push(`${actual.lunes}: el ${m[1]} está dos veces`);
+    if (actual.piezas.some((p) => p.dia === dia)) {
+      errores.push(`${actual.lunes}: el ${m[1]} está dos veces (vale la primera línea)`);
+      continue;
+    }
     const referencias = [...m[2].matchAll(/`(referencias\/[^`]+\.md)`/g)].map((x) => x[1]);
     const guia = m[2].split(" — ")[0].trim();
     if (!referencias.length) errores.push(`${actual.lunes}: el ${m[1]} no cita ninguna referencia`);
@@ -1171,9 +1174,9 @@ export function leerHojaDeRuta(md) {
 }
 
 /**
- * Avisos de la hoja de ruta para una semana: formato roto, o una pieza de un día que la hoja
- * guía y que no cita ninguna de sus referencias en `origen.referencias` (puede apartarse, pero
- * lo anota en `aprendizajes.md`). Sin hoja o sin la semana en ella no hay nada que avisar.
+ * Avisos de la hoja de ruta para una semana: formato roto, un día que la hoja guía sin pieza, o
+ * una pieza de ese día que no cita ninguna de sus referencias en `origen.referencias` (puede
+ * apartarse, pero lo anota en `aprendizajes.md`). Sin hoja o sin la semana en ella no hay nada que avisar.
  */
 export function avisosDeHojaDeRuta(plan, hoja) {
   if (!hoja || !esObj(plan) || !Array.isArray(plan.piezas)) return [];
@@ -1182,7 +1185,10 @@ export function avisosDeHojaDeRuta(plan, hoja) {
   if (!semana) return out;
   for (const g of semana.piezas) {
     const p = plan.piezas.find((x) => esObj(x) && x.dia === g.dia);
-    if (!p) continue;
+    if (!p) {
+      out.push(`${g.dia}: la hoja de ruta guía ese día (etapa ${semana.etapa}: ${q(g.guia)}) y no hay pieza; si la moviste, anota por qué en aprendizajes.md`);
+      continue;
+    }
     const citadas = esObj(p.origen) && Array.isArray(p.origen.referencias) ? p.origen.referencias : [];
     if (!g.referencias.some((r) => citadas.includes(r))) {
       out.push(`${typeof p.id === "string" ? p.id : g.dia}: se aparta de la hoja de ruta (etapa ${semana.etapa}: ${q(g.guia)}); si es a propósito, anota por qué en aprendizajes.md`);
