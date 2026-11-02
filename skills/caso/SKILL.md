@@ -73,7 +73,10 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
      sus props en `src/remix/templates-catalog.ts` (Hook, Step, Prompt, Screen, Stat, Clip, Cta…).
      Ejemplo válido: `borrador-ejemplo.json` en esta carpeta.
    - Fondos: solo `color`, `gradient` o `image` con un archivo de `imagenes/`. **Nunca fondos
-     `ai` ni `hookVideo`** (la puerta los rechaza).
+     `ai` ni `hookVideo`** (la puerta los rechaza). Lo normal es **no poner fondo**: las plantillas
+     escriben en tinta oscura sobre papel claro, y un color, degradado o imagen oscuros dejan el
+     texto ilegible (solo `Clip` va sobre negro con texto claro). Para mostrar el proyecto usa una
+     escena `Clip`.
    - Si el reel muestra video del proyecto: `clip "<proyecto>" "<video>" <desde> <hasta> <nombre>`
      y una escena `Clip` con `"archivo": "<nombre>.mp4"`.
    - Cierre con `Cta`: `"handle": "@ia.punto.es"` y `"reason": "Te ayudo a partir con la IA en tu
