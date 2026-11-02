@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instala (o actualiza) la plantilla del planificador del calendario en la base:
 # _calendario/INSTRUCCIONES.md, lector-frio.md, las guías de hooks y de redacción, validar.mjs,
-# validar.d.mts, reglas.json, config.json, momentos.md y CLAUDE.md. Commitea y sube.
+# validar.d.mts, reglas.json, config.json, momentos.md, hoja-de-ruta.md y CLAUDE.md. Commitea y sube.
 #
 #   scripts/kb-calendario-install.sh [ruta-de-la-base]    (default: $KB_DIR o ./knowledge)
 #
@@ -36,6 +36,11 @@ fi
 if [ ! -f "$DEST/momentos.md" ]; then
   cp "$SRC/momentos.md" "$DEST/"
   ADD+=(_calendario/momentos.md)
+fi
+# hoja-de-ruta.md (hilo conductor de las semanas) también es del usuario: se copia solo si no existe.
+if [ ! -f "$DEST/hoja-de-ruta.md" ]; then
+  cp "$SRC/hoja-de-ruta.md" "$DEST/"
+  ADD+=(_calendario/hoja-de-ruta.md)
 fi
 # Archivos del agente: se crean vacíos solo la primera vez.
 for f in experimentos.md aprendizajes.md; do

@@ -14,6 +14,11 @@ export declare const DESDE_ENTENDER: string;
 export declare function erroresDeGuion(pieza: unknown, borrador: unknown): string[];
 export interface BancoMomentos { momentos: Set<string>; capacidades: Map<string, string[]> }
 export declare function leerBanco(md: string): BancoMomentos;
+export declare const ETAPAS: string[];
+export type SemanaHoja = { lunes: string; etapa: string; nombre: string; piezas: { dia: string; guia: string; referencias: string[] }[] };
+export type HojaDeRuta = { semanas: Map<string, SemanaHoja>; errores: string[] };
+export declare function leerHojaDeRuta(md: string): HojaDeRuta;
+export declare function avisosDeHojaDeRuta(plan: unknown, hoja: HojaDeRuta | undefined): string[];
 export declare function erroresDeMomento(pieza: unknown, banco: BancoMomentos | undefined, previos?: { semana: string; piezas: unknown }[]): string[];
 export declare function ritmoDelBorrador(borrador: unknown): Ritmo;
 export declare function erroresDeRetencion(borrador: unknown, pieza: unknown, config: unknown): string[];

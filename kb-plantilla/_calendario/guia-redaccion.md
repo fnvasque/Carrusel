@@ -35,7 +35,11 @@ La primera persona suma cuando aclara una experiencia, no cuando sustituye el
 cómo. En `lo-que-construi`, la primera persona es el hilo: problema propio →
 decisión/error → resultado observado → límite → lección transferible y un paso
 para el lector. No convertir una anécdota sin lección en tutorial ni inventar
-resultados para llenar la serie.
+resultados para llenar la serie. En `con-tu-equipo`, el lector es el jefe:
+situación del equipo → dato que la explica (con su límite: encuesta, estudio
+de otro oficio) → la decisión que le toca → qué hacer esta semana con su
+equipo. Los pasos son de jefe («muéstrales», «pregúntale a tu equipo»), no
+pasos en la pantalla de la IA.
 
 ## 1. Cada escena aporta una idea completa
 

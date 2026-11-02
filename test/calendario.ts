@@ -12,6 +12,7 @@ import "./calendario/hook-video.ts";
 import "./calendario/clips.ts";
 import "./calendario/bucle.ts";
 import "./calendario/reglas.ts";
+import "./calendario/hoja-de-ruta.ts";
 import "./calendario/escenas.ts";
 import "./calendario/lector-causas.ts";
 import "./calendario/entender.ts";
