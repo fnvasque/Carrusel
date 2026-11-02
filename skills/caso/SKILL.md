@@ -83,8 +83,8 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
      trabajo"`. Ningún texto dice «Felipe».
    - El reel es **sin voz** (no pongas `narracion`).
    - **Proyectos de video: el reel es casi todo video.** Si el proyecto es un video (con su
-     canción), arma el reel con escenas `Clip` que llevan el texto de cada paso encima (`title`,
-     `highlight`, `label`) y cierra con `Cta`. Recorta los clips con `--con-sonido` y pon
+     canción), arma el reel con escenas `Clip` que llevan el texto de cada paso encima (`title` y
+     `label`; **sin `highlight`**: el subrayado lima sobre el video molesta) y cierra con `Cta`. Recorta los clips con `--con-sonido` y pon
      `"audio": "clips"`: cada clip suena con su propio audio, así la música siempre coincide con
      lo que se ve. Cada clip suena desde su inicio hasta que entra el siguiente (el último cubre
      el `Cta` y baja con fade-out), y nunca más allá de lo que recortaste.
