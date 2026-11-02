@@ -1123,6 +1123,74 @@ export function leerBanco(md) {
   return { momentos, capacidades };
 }
 
+/** Etapas del coaching (`_investigacion/alcance.json → etapas`), en orden. */
+export const ETAPAS = ["perder-el-miedo", "adoptar", "liderar", "revalorizarse"];
+const DIAS_HOJA = { lun: 1, mar: 2, mie: 3, jue: 4, vie: 5, sab: 6, dom: 0 };
+
+/**
+ * Hoja de ruta (`_calendario/hoja-de-ruta.md`, del usuario): un `## AAAA-MM-DD · <etapa> · <nombre>`
+ * por lunes y, debajo, una línea `- lun|mie|vie: <título o ángulo> — `referencias/x.md`` por pieza.
+ * Las secciones que no empiezan con fecha (p. ej. «Reserva») no son semanas. Devuelve las semanas
+ * por lunes y los errores de formato (el validador los da como aviso: la escribe el usuario).
+ */
+export function leerHojaDeRuta(md) {
+  const semanas = new Map();
+  const errores = [];
+  let actual;
+  for (const linea of String(md).split("\n")) {
+    const h = /^##\s+(.+?)\s*$/.exec(linea);
+    if (h) {
+      actual = undefined;
+      const partes = h[1].split("·").map((x) => x.trim());
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(partes[0])) continue;
+      const [lunes, etapa, nombre] = partes;
+      if (!fechaValida(lunes) || diaSemana(lunes) !== 1) errores.push(`${lunes}: la semana se escribe con su lunes`);
+      else if (!ETAPAS.includes(etapa)) errores.push(`${lunes}: etapa ${q(etapa)} no es una de ${ETAPAS.join(", ")}`);
+      else if (semanas.has(lunes)) errores.push(`${lunes}: semana repetida`);
+      else {
+        actual = { lunes, etapa, nombre: nombre ?? "", piezas: [] };
+        semanas.set(lunes, actual);
+      }
+      continue;
+    }
+    if (!actual) continue;
+    const m = /^-\s+([a-z]{3}):\s*(.+?)\s*$/.exec(linea);
+    if (!m) continue;
+    if (!(m[1] in DIAS_HOJA)) {
+      errores.push(`${actual.lunes}: día ${q(m[1])} inválido (lun, mar, mie, jue, vie, sab o dom)`);
+      continue;
+    }
+    const dia = sumarDias(actual.lunes, (DIAS_HOJA[m[1]] + 6) % 7);
+    if (actual.piezas.some((p) => p.dia === dia)) errores.push(`${actual.lunes}: el ${m[1]} está dos veces`);
+    const referencias = [...m[2].matchAll(/`(referencias\/[^`]+\.md)`/g)].map((x) => x[1]);
+    const guia = m[2].split(" — ")[0].trim();
+    if (!referencias.length) errores.push(`${actual.lunes}: el ${m[1]} no cita ninguna referencia`);
+    actual.piezas.push({ dia, guia, referencias });
+  }
+  return { semanas, errores };
+}
+
+/**
+ * Avisos de la hoja de ruta para una semana: formato roto, o una pieza de un día que la hoja
+ * guía y que no cita ninguna de sus referencias en `origen.referencias` (puede apartarse, pero
+ * lo anota en `aprendizajes.md`). Sin hoja o sin la semana en ella no hay nada que avisar.
+ */
+export function avisosDeHojaDeRuta(plan, hoja) {
+  if (!hoja || !esObj(plan) || !Array.isArray(plan.piezas)) return [];
+  const out = hoja.errores.map((e) => `hoja-de-ruta.md: ${e}`);
+  const semana = hoja.semanas.get(plan.semana);
+  if (!semana) return out;
+  for (const g of semana.piezas) {
+    const p = plan.piezas.find((x) => esObj(x) && x.dia === g.dia);
+    if (!p) continue;
+    const citadas = esObj(p.origen) && Array.isArray(p.origen.referencias) ? p.origen.referencias : [];
+    if (!g.referencias.some((r) => citadas.includes(r))) {
+      out.push(`${typeof p.id === "string" ? p.id : g.dia}: se aparta de la hoja de ruta (etapa ${semana.etapa}: ${q(g.guia)}); si es a propósito, anota por qué en aprendizajes.md`);
+    }
+  }
+  return out;
+}
+
 /**
  * Errores de `momento` y `capacidad` de una pieza de `por-donde-partir` (desde DESDE_ENTENDER):
  * existen en el banco, la capacidad tiene respaldo y una de sus referencias está en
@@ -2323,6 +2391,15 @@ export function validarSemana(dir, config, opts = {}) {
       } else sinScore++;
     }
     if (raiz && fechaValida(plan.semana) && plan.semana >= DESDE_ENTENDER) out.push(...erroresDeMomentosSemana(plan, dir));
+    if (raiz) {
+      let hoja;
+      try {
+        hoja = leerHojaDeRuta(readFileSync(join(raiz, "_calendario", "hoja-de-ruta.md"), "utf8"));
+      } catch {
+        hoja = undefined;
+      }
+      avisos.push(...avisosDeHojaDeRuta(plan, hoja));
+    }
     const fondos = contarFondosIA(borradores);
     if (fondos > config.fondosIAMaxSemana) out.push(`semana: ${fondos} fondos ai (máximo ${config.fondosIAMaxSemana}, config.fondosIAMaxSemana)`);
     const clips = contarHookVideo(borradores);
@@ -2642,7 +2719,7 @@ export const EJEMPLO = {
         "senal": "dm",
         "tema": "[[Liderazgo y gestión de equipos]]",
         "pilar": "trabajo",
-        "serie": "por-donde-partir",
+        "serie": "con-tu-equipo",
         "hook": {
           "categoria": "identificación",
           "texto": "No sabía qué pedirle a ChatGPT como jefe: partí con 3",

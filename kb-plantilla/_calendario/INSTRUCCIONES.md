@@ -281,6 +281,9 @@ métricas):
    `_calendario/<semana pasada>/correcciones.md`: lo que el usuario corrigió a
    mano, con su causa (`contexto`, `para-que`, `hilo`, `otro`). Cada causa que
    se repite es lo primero que evitas esta semana.
+10. `_calendario/hoja-de-ruta.md` (del usuario, desde 2026-11-09): el hilo
+    conductor. Si tiene la semana que planificas, esa semana va en su etapa y
+    cada pieza parte de la línea de su día (ver «Hoja de ruta» en el Paso 3).
 
 ### Cómo leer `_metricas/bucle.json`
 
@@ -568,6 +571,15 @@ después busca el tema elegible (abajo) que la respalde. Ángulos de ejemplo:
   un agente, dicho con palabras de oficina; cómo pedirle a la IA que te enseñe
   o que te diga cómo ayudarte; qué tarea delegar primero (la que se repite y no
   necesita tu firma); la primera conversación con la IA sobre tu trabajo.
+- `con-tu-equipo` (viernes, desde 2026-11-13; la mirada del jefe): qué
+  cambia para quien dirige un equipo cuando entra la IA, en la etapa de la
+  semana. No es un truco de uso: es una decisión del jefe (qué pedirle al
+  equipo, qué revisar, cómo cuidar la confianza, cómo forma a la gente nueva)
+  con su dato y una acción para esta semana. Parte de una referencia con
+  `etapa: liderar` (si la hoja de ruta trae otra, la de la hoja). No lleva
+  `momento` ni `capacidad`. Tema: `[[Liderazgo y gestión de equipos]]` u otro
+  de `dentro` que cubra la referencia (p. ej. `[[Desarrollo de habilidades y
+  carrera profesional]]`).
 - `lo-que-construi` (bitácora honesta del sistema de agentes que arma esta
   cuenta): decisiones y errores reales, con su número (27 piezas y 1 guardado
   antes del pivote; por qué se bajó de 2 reels al día a 3 piezas por semana;
@@ -594,11 +606,34 @@ elegibilidad de abajo no cambian). Una capacidad «sin respaldo» no se usa (pí
 **Etapas y conexiones (desde 2026-11-02).** Las referencias traen `etapa:`
 (`perder-el-miedo`, `adoptar`, `liderar`, `revalorizarse`) y un `- **Dicho
 simple:**` en `## Para la audiencia`. Para `por-donde-partir`, prefiere
-referencias de `perder-el-miedo` o `adoptar`; si hay una nota `tipo: conexion`
+referencias de `perder-el-miedo` o `adoptar` (salvo que la hoja de ruta guíe
+otra); para `con-tu-equipo`, de `liderar`; si hay una nota `tipo: conexion`
 lista de esa etapa (junta 3 o más referencias), prefiérela: es la pieza más útil
 porque cruza fuentes. Al redactar, parte del `Dicho simple`: ya está escrito
 para quien está aprendiendo y pasó un lector aprendiz. Los datos que uses salen
 de `## Datos clave` con su contexto, como siempre.
+
+**Hoja de ruta (desde 2026-11-09).** `_calendario/hoja-de-ruta.md` es del
+usuario y da el hilo conductor: la etapa de cada semana (2 semanas por
+etapa, en el orden del coaching) y, por día, un título o ángulo de partida con
+sus referencias. Si la semana que planificas está en la hoja:
+
+- Cada pieza parte de la línea de su día: el título es la base de tus
+  candidatos de hook (el juez sigue eligiendo; reescríbelo si no pasa) y al
+  menos una de sus referencias va en `origen.referencias`. En `lo-que-construi`
+  la línea es un ángulo: cuenta lo que pasó de verdad en este repo, nunca una
+  experiencia inventada para calzar con el título.
+- En el lunes, el momento × capacidad entre paréntesis es una sugerencia que
+  ya calza con `momentos.md`; si se repite en 4 semanas o está sin respaldo,
+  elige otro.
+- Puedes apartarte si una referencia no está lista, el tema no es elegible o
+  las métricas lo piden: elige otra referencia de la misma etapa (o de la
+  sección «Reserva» de la hoja) y anota por qué en `aprendizajes.md`. El
+  validador avisa (no bloquea) cada pieza que no cita ninguna referencia de su
+  línea.
+- No editas la hoja: los cambios los propones en `aprendizajes.md`.
+
+Sin la hoja, o sin la semana en ella, eliges como siempre.
 
 Siguen los requisitos de abajo (alcance y referencia lista, regla dura 5).
 Si un tema sale de la rotación vieja (finanzas, psicología, storytelling) y no
@@ -666,7 +701,7 @@ reconozca la cuenta:
 |---|---|---|---|---|---|
 | Lunes | 09:00 | `reel` | `tutorial` | `por-donde-partir` | «Por dónde partir»: un primer paso de nivel cero, con la pantalla y los pasos dirigidos al lector («copia este mensaje»). Entregable: el paso y, si hay, el pedido exacto a la IA |
 | Miércoles | 09:00 | `reel` | `atemporal` | `lo-que-construi` | «Lo que construí»: una decisión o un error real del sistema de agentes que arma esta cuenta, con su número honesto; lo que te llevas es lo aprendido |
-| Viernes | 13:00 | `carrusel` | `lista` | `por-donde-partir` | «Por dónde partir» en formato guardable: la lista o los pasos de la primera conversación con la IA, con el porqué de cada uno |
+| Viernes | 13:00 | `carrusel` | `lista` | `con-tu-equipo` | «Con tu equipo» (desde 2026-11-13; antes `por-donde-partir`): la mirada del jefe sobre la etapa de la semana, en formato guardable: la decisión, su dato y qué hacer esta semana con el equipo. En semana explicativa va con `variante: "explicativo"` |
 
 Dos piezas del mismo arquetipo en la semana van con temas y entregables
 distintos. Toda pieza lleva su destinatario explícito («si no sabes por dónde
@@ -1716,7 +1751,7 @@ horas son las del mix de tu `config.json`:
       "senal": "dm",
       "tema": "[[Liderazgo y gestión de equipos]]",
       "pilar": "trabajo",
-      "serie": "por-donde-partir",
+      "serie": "con-tu-equipo",
       "hook": {
         "categoria": "identificación",
         "texto": "No sabía qué pedirle a ChatGPT como jefe: partí con 3",

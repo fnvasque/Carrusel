@@ -20,7 +20,7 @@
       "formato": "carrusel",
       "arquetipo": "lista",
       "hora": "13:00",
-      "serie": "por-donde-partir"
+      "serie": "con-tu-equipo"
     }
   ],
   "horasPorDefecto": {
@@ -161,7 +161,7 @@
   "vozNota": "Voz de la narración de los reels (Kokoro, local): em_alex, em_santa o ef_dora; false = reels sin voz. La eligió el usuario el 2026-10-17.",
   "subtitulos": false,
   "subtitulosNota": "Subtítulos quemados de la narración en los reels: false (por defecto) = solo voz y el titular de cada escena; true = píldora con la narración abajo. Felipe los quitó el 2026-10-29 (demasiado texto); la voz sigue igual.",
-  "mixNota": "2026-10-28 (pivote a vitrina de coaching, informes/foresight-instagram-2026-10-28.md): 3 piezas por semana, 2 reels (lunes por-donde-partir, miércoles lo-que-construi) y 1 carrusel (viernes por-donde-partir); cada pieza cierra pidiendo «escríbeme PARTIR». Rige desde la semana 2026-11-02. Para los mix anteriores (6 piezas desde el 2026-10-17, sprint de 2 reels al día), ver el git log de este archivo.",
+  "mixNota": "2026-10-28 (pivote a vitrina de coaching, informes/foresight-instagram-2026-10-28.md): 3 piezas por semana, 2 reels (lunes por-donde-partir, miércoles lo-que-construi) y 1 carrusel (viernes por-donde-partir); cada pieza cierra pidiendo «escríbeme PARTIR». Rige desde la semana 2026-11-02. Para los mix anteriores (6 piezas desde el 2026-10-17, sprint de 2 reels al día), ver el git log de este archivo. 2026-11-09 (hoja de ruta, _calendario/hoja-de-ruta.md): el carrusel del viernes pasa a la serie con-tu-equipo, la mirada del jefe sobre la etapa de la semana.",
   "pilaresNota": "2026-10-28 (pivote a vitrina de coaching): la lista de pilares no cambia (el render la tiene fija); desde la semana 2026-11-02 las piezas van con pilar trabajo o herramienta y la identidad la lleva la serie (config.series). Detalle en INSTRUCCIONES.md, «Propósito de la cuenta» y Paso 3.",
   "clipsMaxSemana": 0,
   "revisionVisual": {
@@ -182,7 +182,8 @@
   "paqueteNota": "Fechas del paquete pivote-coaching: desde = primer día con series de config.series, cierre PARTIR y hook con juez; semanas = lunes de las semanas sin experimento propio y sin fijar ritmoReel ni duracionMaxSegundos (se evalúa el 2026-11-16). Para correr el paquete se cambian aquí (y los desde de reglas.json), no en validar.mjs.",
   "series": [
     "por-donde-partir",
-    "lo-que-construi"
+    "lo-que-construi",
+    "con-tu-equipo"
   ],
   "cta": {
     "palabra": "PARTIR",
