@@ -1,6 +1,6 @@
 ---
 name: caso
-description: Use when Felipe escribe «/caso», «cuenta cómo hice…», «arma el caso de este proyecto» o pide convertir un proyecto hecho con Claude en una historia paso a paso (PDF, carrusel y reel sin voz) para @ia.punto.es.
+description: Use when Felipe escribe «/caso», «cuenta cómo hice…», «arma el caso de este proyecto» o pide convertir un proyecto hecho con Claude en una historia paso a paso (PDF, carrusel y reel sin voz, con la música del proyecto si la hay) para @ia.punto.es.
 ---
 
 # /caso — contar cómo se hizo un proyecto
@@ -82,6 +82,14 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
    - Cierre con `Cta`: `"handle": "@ia.punto.es"` y `"reason": "Te ayudo a partir con la IA en tu
      trabajo"`. Ningún texto dice «Felipe».
    - El reel es **sin voz** (no pongas `narracion`).
+   - **Música de fondo:** si el proyecto tiene una canción propia, el reel va con ella. Elige
+     solo tramos que **no digan nada confidencial** (nombres de personas, clientes, empresas,
+     la IA con nombre propio): revisa la letra con sus tiempos (transcripción o timeline del
+     proyecto) y deja un margen de ~1 s antes de cada palabra prohibida. Los instrumentales y
+     los coros suelen servir. Corta en un golpe de la música si el proyecto trae los beats.
+     Arma la pista con `musica "<proyecto>" "<canción>" musica <desde-hasta>…` y pon
+     `"audio": "musica.m4a"` en el borrador. Dile a Felipe qué tramos usaste y qué quedó fuera,
+     y pídele que la escuche antes de usarla: tú no puedes oírla.
 
    Corre `generar "<proyecto>"` (o `--solo-pdf` para revisar primero la guía). Si la puerta da
    motivos, corrígelos en `borrador.json` y repite. Arreglar el borrador nunca toca `historia.md`.
@@ -102,5 +110,6 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
 | `tapar <archivo>` | Tapa datos sensibles en un archivo de `caso/` e imprime tipo y cantidad |
 | `imagen <proyecto> <ruta>` | Copia la imagen a `caso/imagenes/` |
 | `clip <proyecto> <video> <desde> <hasta> <nombre>` | Recorta un clip sin audio a `caso/clips/` |
+| `musica <proyecto> <audio> <nombre> <desde-hasta…>` | Une tramos de una canción en `caso/clips/<nombre>.m4a`, con fundidos cortos |
 | `aprobar <proyecto>` | Aprueba `caso/historia.md` (solo tras el «apruebo» o «aprobada» de Felipe) |
 | `generar <proyecto> [--solo-pdf]` | Genera `caso/caso.pdf`, el carrusel y el reel en `caso/salida/` |

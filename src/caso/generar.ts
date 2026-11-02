@@ -75,6 +75,16 @@ function rutaDentro(ruta: unknown, dirCaso: string, carpeta: "imagenes" | "clips
   }
 }
 
+/** Nombre válido de una pista de música del caso: un archivo de audio sin rutas. */
+const ARCHIVO_AUDIO_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(m4a|mp3|wav|aac)$/i;
+
+/** Motivo por el que `v` no sirve como `audio` del borrador (undefined = sirve). */
+function archivoAudioError(v: unknown): string | undefined {
+  if (typeof v !== "string" || !v.trim()) return "audio debe ser el nombre de una pista de clips/ (texto no vacío)";
+  if (v.includes("..") || !ARCHIVO_AUDIO_RE.test(v)) return `audio ${JSON.stringify(v)} inválido: solo un nombre .m4a, .mp3, .wav o .aac sin rutas`;
+  return undefined;
+}
+
 /** Marca de color que reemplaza un fondo `image` mientras pasa por parseBorrador (que no los admite). */
 const MARCA_IMAGEN = "__caso_imagen_";
 
@@ -188,6 +198,12 @@ export function puertaGenerarDe(dirCaso: string, c: ContenidosCaso): string[] {
   if (crudo && typeof crudo === "object" && (crudo as { hookVideo?: unknown }).hookVideo !== undefined) {
     motivos.push("borrador.json trae hookVideo: los casos no generan video IA; usa una escena Clip con un clip de clips/.");
   }
+  const audio = (crudo as { audio?: unknown }).audio;
+  if (audio !== undefined) {
+    const err = archivoAudioError(audio);
+    if (err) motivos.push(`${err}.`);
+    else if (!rutaDentro(`clips/${String(audio)}`, dirCaso, "clips")) motivos.push(`falta el audio ${String(audio)} en clips/ (o apunta fuera de la carpeta): ármalo con el comando musica.`);
+  }
   const slides = (crudo as { slides?: unknown }).slides;
   if (Array.isArray(slides)) {
     slides.forEach((s: unknown, i: number) => {
@@ -242,7 +258,7 @@ function avisoPuntaje(que: string, r: { total: number; grade: string; suggestion
 
 /**
  * Genera la pieza del caso: `caso.pdf` (la guía) y, salvo `soloPdf`, el carrusel
- * (PNGs) y el reel (`reel.mp4`, sin voz) en `salida/<nombre>/`. Si la puerta da
+ * (PNGs) y el reel (`reel.mp4`, sin voz; con la música de `audio` si la hay) en `salida/<nombre>/`. Si la puerta da
  * motivos, lanza con todos y no escribe nada. El puntaje y la revisión visual
  * solo van a `avisos`.
  */
@@ -295,7 +311,10 @@ async function renderizar(
 
   avisos.push(avisoPuntaje("del reel", scoreDraft(b, { format: "reel" })));
   const specReel = reponerImagenes(borradorASpec(b, { format: "reel" }), imagenes);
-  const r = await conAvisosVisuales(avisos, () => renderReelResult(specReel, { outDir, pace: b.pace, logoEnCuadro0: b.logoEnCuadro0, voz: false, revision: "avisar" }));
+  // La música se vuelve a resolver aquí: debe seguir dentro de clips/.
+  const audio = b.audio === undefined ? undefined : rutaDentro(`clips/${b.audio}`, dirCaso, "clips");
+  if (audio === null) throw new Error(`El audio ${b.audio} ya no está dentro de clips/`);
+  const r = await conAvisosVisuales(avisos, () => renderReelResult(specReel, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, voz: false, revision: "avisar" }));
 
   // Escenas Clip: el video del caso (clips/) se mezcla sobre el reel, como en el calendario.
   const rangos = rangosClips(specReel, r.timing);
@@ -341,6 +360,60 @@ export async function recortarClip(video: string, desde: number, hasta: number, 
   mkdirSync(dir, { recursive: true });
   const salida = join(dir, archivo);
   await ffmpeg(["-nostdin", "-ss", String(desde), "-to", String(hasta), "-i", origen, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", salida]);
+  return salida;
+}
+
+/** Segundos de fundido entre tramos de la música y del fade-out final. */
+const MUSICA_FUNDIDO = 0.08;
+const MUSICA_CIERRE = 1.5;
+
+/** Lee tramos «desde-hasta» en segundos (p. ej. «12.5-26.7»). Lanza si falta alguno o es inválido. */
+export function parsearTramos(args: string[]): [number, number][] {
+  if (!args.length) throw new Error("Falta al menos un tramo desde-hasta (segundos), por ejemplo 12.5-26.7.");
+  return args.map((a) => {
+    const m = /^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/.exec(a.trim());
+    const desde = m ? Number(m[1]) : NaN;
+    const hasta = m ? Number(m[2]) : NaN;
+    if (!(hasta > desde)) throw new Error(`Tramo inválido «${a}»: usa desde-hasta en segundos, con hasta mayor que desde.`);
+    return [desde, hasta] as [number, number];
+  });
+}
+
+/**
+ * Filtro de ffmpeg que recorta cada tramo de `[0:a]`, los encadena con fundidos cortos
+ * (para que no se note el corte) y cierra con un fade-out. La salida es `[musica]`.
+ */
+export function filtroMusica(tramos: [number, number][]): string {
+  const total = tramos.reduce((t, [a, b]) => t + (b - a), 0) - MUSICA_FUNDIDO * (tramos.length - 1);
+  const cierre = `afade=t=out:st=${Math.max(0, total - MUSICA_CIERRE).toFixed(3)}:d=${MUSICA_CIERRE}[musica]`;
+  const recorte = ([a, b]: [number, number]) => `atrim=${a}:${b},asetpts=PTS-STARTPTS`;
+  if (tramos.length === 1) return `[0:a]${recorte(tramos[0])},${cierre}`;
+  const partes = [`[0:a]asplit=${tramos.length}${tramos.map((_, i) => `[s${i}]`).join("")}`];
+  tramos.forEach((t, i) => partes.push(`[s${i}]${recorte(t)}[t${i}]`));
+  let previo = "t0";
+  for (let i = 1; i < tramos.length; i++) {
+    const ultimo = i === tramos.length - 1;
+    partes.push(`[${previo}][t${i}]acrossfade=d=${MUSICA_FUNDIDO}${ultimo ? `,${cierre}` : `[x${i}]`}`);
+    previo = `x${i}`;
+  }
+  return partes.join(";");
+}
+
+/**
+ * Arma la música de fondo del reel: une los `tramos` de `audio` (los que no dicen nada
+ * confidencial) en `clips/<nombre>.m4a`. Devuelve la ruta.
+ */
+export async function armarMusica(audio: string, tramos: [number, number][], dirCaso: string, nombre: string): Promise<string> {
+  const archivo = /\.m4a$/i.test(nombre) ? nombre : `${nombre}.m4a`;
+  const err = archivoAudioError(archivo);
+  if (err) throw new Error(`Nombre de música inválido: ${err}`);
+  if (!tramos.length) throw new Error("Falta al menos un tramo de la canción.");
+  const origen = resolve(audio);
+  if (!existsSync(origen)) throw new Error(`No existe el audio ${basename(origen)}`);
+  const dir = join(dirCaso, "clips");
+  mkdirSync(dir, { recursive: true });
+  const salida = join(dir, archivo);
+  await ffmpeg(["-nostdin", "-i", origen, "-filter_complex", filtroMusica(tramos), "-map", "[musica]", "-vn", "-c:a", "aac", "-b:a", "192k", salida]);
   return salida;
 }
 

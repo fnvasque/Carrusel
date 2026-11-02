@@ -9,7 +9,7 @@ import { carpetaCaso, dentroDeCaso } from "../src/caso/carpeta.ts";
 import { aprobar, estadoAprobacion, hashHistoria } from "../src/caso/aprobacion.ts";
 import { historiaAHtml } from "../src/caso/pdf.ts";
 import { trozarSesion } from "../src/caso/trozos.ts";
-import { generarCaso, puertaGenerar, puertaGenerarDe } from "../src/caso/generar.ts";
+import { filtroMusica, generarCaso, parsearTramos, puertaGenerar, puertaGenerarDe } from "../src/caso/generar.ts";
 import { carpetasDeSesiones, codificarRuta, lineaCarpetas, listarSesiones, type SesionResumen } from "../src/caso/sesiones.ts";
 import { parseBorrador } from "../src/calendario/draft.ts";
 
@@ -746,6 +746,63 @@ check("lineaCarpetas T7: la línea de carpetas de `sesiones` pasa por el filtro"
   if (!l || l.includes("juan.perez")) throw new Error(String(l));
   if (!l.startsWith("carpetas: ") || !l.includes("src (1)")) throw new Error(l);
   if (lineaCarpetas({ archivosTocados: [] } as unknown as SesionResumen, "/p") !== null) throw new Error("vacía");
+});
+
+// --- Música de fondo del reel (offline: solo la puerta y el armado del filtro) ---
+
+check("puertaGenerar: audio dentro de clips/ es válido", () => {
+  const d = casoAprobado({ ...BORRADOR_OK, audio: "musica.m4a" });
+  try {
+    writeFileSync(join(d, "clips", "musica.m4a"), "x");
+    const m = puertaGenerar(d);
+    if (m.length) throw new Error(m.join(" | "));
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+check("puertaGenerar: audio que no está en clips/ da motivo", () => {
+  const d = casoAprobado({ ...BORRADOR_OK, audio: "musica.m4a" });
+  try {
+    if (!puertaGenerar(d).some((x) => x.includes("musica.m4a") && x.includes("clips/"))) throw new Error("sin motivo");
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+check("puertaGenerar: audio con ruta, subida o extensión rara da motivo", () => {
+  for (const audio of ["/etc/x.mp3", "../x.m4a", "sub/x.m4a", "x.txt", ".m4a", ""]) {
+    const d = casoAprobado({ ...BORRADOR_OK, audio });
+    try {
+      writeFileSync(join(d, "x.txt"), "x");
+      if (!puertaGenerar(d).some((x) => x.includes("audio"))) throw new Error(`aceptó ${JSON.stringify(audio)}`);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  }
+});
+
+check("puertaGenerar: audio symlink en clips/ que apunta fuera da motivo", () => {
+  const d = casoAprobado({ ...BORRADOR_OK, audio: "m.mp3" });
+  try {
+    writeFileSync(join(d, "fuera.mp3"), "x");
+    symlinkSync(join(d, "fuera.mp3"), join(d, "clips", "m.mp3"));
+    if (!puertaGenerar(d).some((x) => x.includes("m.mp3"))) throw new Error("siguió el symlink");
+  } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+check("parsearTramos: lee desde-hasta en segundos y rechaza lo inválido", () => {
+  const t = parsearTramos(["12.5-26.7", "91-122.694"]);
+  if (JSON.stringify(t) !== JSON.stringify([[12.5, 26.7], [91, 122.694]])) throw new Error(JSON.stringify(t));
+  for (const malo of [[], ["12"], ["5-3"], ["a-b"], ["-1-4"], ["3-3"]]) {
+    let lanzo = false;
+    try { parsearTramos(malo); } catch { lanzo = true; }
+    if (!lanzo) throw new Error(`aceptó ${JSON.stringify(malo)}`);
+  }
+});
+
+check("filtroMusica: recorta cada tramo, los encadena con fundidos y cierra con fade-out", () => {
+  const f = filtroMusica([[10, 20], [30, 45], [50, 52]]);
+  if (!f.includes("asplit=3")) throw new Error("sin asplit: " + f);
+  for (const r of ["atrim=10:20", "atrim=30:45", "atrim=50:52"]) if (!f.includes(r)) throw new Error(`falta ${r}`);
+  if ((f.match(/acrossfade/g) ?? []).length !== 2) throw new Error("fundidos: " + f);
+  if (!/afade=t=out/.test(f) || !f.endsWith("[musica]")) throw new Error("sin cierre: " + f);
+  const uno = filtroMusica([[1, 9]]);
+  if (uno.includes("acrossfade") || !uno.includes("atrim=1:9")) throw new Error("un tramo: " + uno);
 });
 
 await done();

@@ -12,7 +12,7 @@ import { aprobar, estadoAprobacion } from "./aprobacion.ts";
 import { carpetaCaso, dentroDeCaso } from "./carpeta.ts";
 import { usarChromiumDeCache } from "./chromium.ts";
 import { taparSensible, type Tapado } from "./filtro.ts";
-import { copiarImagen, generarCaso, recortarClip } from "./generar.ts";
+import { armarMusica, copiarImagen, generarCaso, parsearTramos, recortarClip } from "./generar.ts";
 import { numerosCaso } from "./numeros.ts";
 import { lineaCarpetas, listarSesiones, type SesionResumen } from "./sesiones.ts";
 import { trozarSesion } from "./trozos.ts";
@@ -25,6 +25,7 @@ const USO = `Uso: npm run caso -- <subcomando> <proyecto> …  (proyecto = ruta 
   tapar    <archivo>                                     tapa datos sensibles (solo dentro de caso/)
   imagen   <proyecto> <ruta>                             copia una imagen a caso/imagenes/
   clip     <proyecto> <video> <desde> <hasta> <nombre>   recorta un clip a caso/clips/
+  musica   <proyecto> <audio> <nombre> <desde-hasta…>    une tramos de una canción en caso/clips/<nombre>.m4a
   aprobar  <proyecto>                                    marca caso/historia.md como aprobada
   generar  <proyecto> [--solo-pdf]                       genera caso.pdf, carrusel y reel
 
@@ -162,6 +163,14 @@ async function main(argv: string[]): Promise<void> {
       const videoAbs = resolve(proyecto, video);
       if (!existsSync(videoAbs)) throw new Error(`No existe el archivo ${videoAbs}`);
       console.log(await recortarClip(videoAbs, Number(desde), Number(hasta), carpetaCaso(proyecto), nombre));
+      return;
+    }
+    case "musica": {
+      const [, audio, nombre, ...tramos] = pos;
+      if (!audio || !nombre || !tramos.length) throw new ErrorUso("musica necesita <audio> <nombre> y al menos un tramo desde-hasta (segundos).");
+      const audioAbs = resolve(proyecto, audio);
+      if (!existsSync(audioAbs)) throw new Error(`No existe el archivo ${audioAbs}`);
+      console.log(await armarMusica(audioAbs, parsearTramos(tramos), carpetaCaso(proyecto), nombre));
       return;
     }
     case "aprobar": {

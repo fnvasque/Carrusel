@@ -576,7 +576,8 @@ ln -s ~/Documents/Claude/Carrusel/skills/caso ~/.claude/skills/caso
 
 1. `sesiones`: lista las conversaciones del proyecto; el modelo propone cuáles cuentan y Felipe confirma.
 2. `numeros` y `trozar`: cifras del proyecto y trozos de la conversación, que resumen subagentes.
-3. `imagen` / `clip`: copia imágenes y recorta video del proyecto.
+3. `imagen` / `clip` / `musica`: copia imágenes, recorta video y arma la música de fondo del reel
+   con tramos de la canción que no dicen nada confidencial (`"audio"` en el borrador).
 4. El modelo escribe `historia.md` con la plantilla, corre `tapar` y hace su propia pasada por nombres.
 5. Felipe revisa la historia; solo con su aprobación explícita se corre `aprobar`.
 6. `generar`: `caso.pdf`, carrusel y reel desde `borrador.json` (formato `Borrador` del calendario).

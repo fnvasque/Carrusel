@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkAsync, done } from "./_check.ts";
 import { aprobar } from "../src/caso/aprobacion.ts";
-import { generarCaso } from "../src/caso/generar.ts";
+import { armarMusica, generarCaso } from "../src/caso/generar.ts";
 import { usarChromiumDeCache } from "../src/caso/chromium.ts";
 
 /**
@@ -60,6 +60,42 @@ await checkAsync("generarCaso renderiza PDF, carrusel y reel con clip dentro del
       throw new Error("faltan los puntajes en avisos: " + JSON.stringify(r.avisos));
     }
     if (!habia && existsSync(repoOutput)) throw new Error("escribió en output/ del repo");
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+/** Duración (s) y si tiene pista de audio, según ffprobe. */
+function sonido(archivo: string): { duracion: number; audio: boolean } {
+  const r = spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=codec_type", "-of", "json", archivo], { encoding: "utf8" });
+  const j = JSON.parse(r.stdout) as { format: { duration: string }; streams: { codec_type: string }[] };
+  return { duracion: Number(j.format.duration), audio: j.streams.some((s) => s.codec_type === "audio") };
+}
+
+await checkAsync("armarMusica une los tramos y generarCaso pone esa música en el reel", async () => {
+  const d = mkdtempSync(join(tmpdir(), "caso-musica-"));
+  try {
+    for (const s of ["imagenes", "clips", "salida"]) mkdirSync(join(d, s));
+    const cancion = join(d, "cancion.mp3");
+    ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:duration=20", cancion]);
+    const musica = await armarMusica(cancion, [[2, 6], [10, 13]], d, "musica");
+    if (musica !== join(d, "clips", "musica.m4a")) throw new Error(`música en ${musica}`);
+    const m = sonido(musica);
+    if (!m.audio || Math.abs(m.duracion - 6.92) > 0.25) throw new Error(`música de ${m.duracion}s (se esperaban ~6,92)`);
+
+    writeFileSync(join(d, "historia.md"), "# Cómo armé el reporte\n\n## Paso 1\n\nAbrí la planilla.\n");
+    aprobar(d);
+    writeFileSync(join(d, "borrador.json"), JSON.stringify({
+      name: "Reporte con musica",
+      pillar: "trabajo",
+      audio: "musica.m4a",
+      slides: [
+        { template: "Hook", props: { title: "Armé un reporte en una tarde" } },
+        { template: "Cta", props: { title: "Guárdalo para tu próximo reporte" } },
+      ],
+    }));
+    const r = await generarCaso(d);
+    if (!r.reel || !sonido(r.reel).audio) throw new Error("el reel salió sin audio");
   } finally {
     rmSync(d, { recursive: true, force: true });
   }
