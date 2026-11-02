@@ -82,14 +82,27 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
    - Cierre con `Cta`: `"handle": "@ia.punto.es"` y `"reason": "Te ayudo a partir con la IA en tu
      trabajo"`. Ningún texto dice «Felipe».
    - El reel es **sin voz** (no pongas `narracion`).
-   - **Música de fondo:** si el proyecto tiene una canción propia, el reel va con ella. Elige
-     solo tramos que **no digan nada confidencial** (nombres de personas, clientes, empresas,
-     la IA con nombre propio): revisa la letra con sus tiempos (transcripción o timeline del
-     proyecto) y deja un margen de ~1 s antes de cada palabra prohibida. Los instrumentales y
-     los coros suelen servir. Corta en un golpe de la música si el proyecto trae los beats.
-     Arma la pista con `musica "<proyecto>" "<canción>" musica <desde-hasta>…` y pon
-     `"audio": "musica.m4a"` en el borrador. Dile a Felipe qué tramos usaste y qué quedó fuera,
-     y pídele que la escuche antes de usarla: tú no puedes oírla.
+   - **Proyectos de video: el reel es casi todo video.** Si el proyecto es un video (con su
+     canción), arma el reel con escenas `Clip` que llevan el texto de cada paso encima (`title`,
+     `highlight`, `label`) y cierra con `Cta`. Recorta los clips con `--con-sonido` y pon
+     `"audio": "clips"`: cada clip suena con su propio audio, así la música siempre coincide con
+     lo que se ve. Cada clip suena desde su inicio hasta que entra el siguiente (el último cubre
+     el `Cta` y baja con fade-out), y nunca más allá de lo que recortaste.
+     - Para que un tramo de la canción siga sin saltos en varias escenas, corta los clips
+       seguidos: el siguiente empieza donde terminó de sonar el anterior. Cuánto suena cada
+       escena depende de su texto; calcúlalo con `specTiming` y `rangosClips` antes de recortar.
+     - Elige solo tramos que **no digan ni muestren nada confidencial** (nombres de personas,
+       clientes, empresas, la IA con nombre propio): revisa la letra con sus tiempos
+       (transcripción o timeline del proyecto) y mira los cuadros (hoja de contacto a 1 cuadro/s).
+       Deja ~1 s de margen antes de cada palabra o pantalla prohibida. Instrumentales y coros
+       suelen servir.
+     - Así, el carrusel se queda con una sola lámina (el carrusel no lleva video). Escribe su
+       versión en `caso/carrusel.json` (mismo formato; pasa por la misma puerta).
+   - **Música de fondo sin clips:** si el reel es de láminas y el proyecto tiene canción propia,
+     arma la pista con `musica "<proyecto>" "<canción>" musica <desde-hasta>…` y pon
+     `"audio": "musica.m4a"`.
+   - Con música o clips con sonido, dile a Felipe qué tramos usaste y qué quedó fuera, y pídele que
+     lo escuche antes de usarlo: tú no puedes oírlo.
 
    Corre `generar "<proyecto>"` (o `--solo-pdf` para revisar primero la guía). Si la puerta da
    motivos, corrígelos en `borrador.json` y repite. Arreglar el borrador nunca toca `historia.md`.
@@ -109,7 +122,7 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
 | `numeros <proyecto> <id…>` | Escribe `caso/numeros.json` |
 | `tapar <archivo>` | Tapa datos sensibles en un archivo de `caso/` e imprime tipo y cantidad |
 | `imagen <proyecto> <ruta>` | Copia la imagen a `caso/imagenes/` |
-| `clip <proyecto> <video> <desde> <hasta> <nombre>` | Recorta un clip sin audio a `caso/clips/` |
+| `clip <proyecto> <video> <desde> <hasta> <nombre> [--con-sonido]` | Recorta un clip a `caso/clips/` (sin audio, salvo `--con-sonido`) |
 | `musica <proyecto> <audio> <nombre> <desde-hasta…>` | Une tramos de una canción en `caso/clips/<nombre>.m4a`, con fundidos cortos |
 | `aprobar <proyecto>` | Aprueba `caso/historia.md` (solo tras el «apruebo» o «aprobada» de Felipe) |
 | `generar <proyecto> [--solo-pdf]` | Genera `caso/caso.pdf`, el carrusel y el reel en `caso/salida/` |

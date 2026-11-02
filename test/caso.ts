@@ -9,7 +9,7 @@ import { carpetaCaso, dentroDeCaso } from "../src/caso/carpeta.ts";
 import { aprobar, estadoAprobacion, hashHistoria } from "../src/caso/aprobacion.ts";
 import { historiaAHtml } from "../src/caso/pdf.ts";
 import { trozarSesion } from "../src/caso/trozos.ts";
-import { filtroMusica, generarCaso, parsearTramos, puertaGenerar, puertaGenerarDe } from "../src/caso/generar.ts";
+import { filtroMusica, filtroSonidoClips, generarCaso, parsearTramos, puertaGenerar, puertaGenerarDe, tramosSonidoClips } from "../src/caso/generar.ts";
 import { carpetasDeSesiones, codificarRuta, lineaCarpetas, listarSesiones, type SesionResumen } from "../src/caso/sesiones.ts";
 import { parseBorrador } from "../src/calendario/draft.ts";
 
@@ -803,6 +803,54 @@ check("filtroMusica: recorta cada tramo, los encadena con fundidos y cierra con 
   if (!/afade=t=out/.test(f) || !f.endsWith("[musica]")) throw new Error("sin cierre: " + f);
   const uno = filtroMusica([[1, 9]]);
   if (uno.includes("acrossfade") || !uno.includes("atrim=1:9")) throw new Error("un tramo: " + uno);
+});
+
+// --- Sonido de los clips (audio "clips": cada video suena con su propio audio) ---
+
+check("puertaGenerar: audio «clips» sin escenas Clip da motivo; con una Clip es válido", () => {
+  const d = casoAprobado({ ...BORRADOR_OK, audio: "clips" });
+  try {
+    if (!puertaGenerar(d).some((x) => x.includes("clips") && x.includes("Clip"))) throw new Error("sin motivo");
+  } finally { rmSync(d, { recursive: true, force: true }); }
+  const d2 = casoAprobado({ ...conSlide({ template: "Clip", props: { title: "Así se ve", archivo: "v.mp4" } }), audio: "clips" });
+  try {
+    writeFileSync(join(d2, "clips", "v.mp4"), "x");
+    const m = puertaGenerar(d2);
+    if (m.length) throw new Error(m.join(" | "));
+  } finally { rmSync(d2, { recursive: true, force: true }); }
+});
+
+check("tramosSonidoClips: cada clip suena desde su inicio hasta que entra el siguiente", () => {
+  const t = tramosSonidoClips([{ inicio: 0, fin: 5 }, { inicio: 5.5, fin: 10 }], 14);
+  const esperado = [{ entrada: 0, dur: 5.5 }, { entrada: 1, dur: 8.5 }];
+  if (JSON.stringify(t) !== JSON.stringify(esperado)) throw new Error(JSON.stringify(t));
+});
+
+check("tramosSonidoClips: silencio antes del primer clip", () => {
+  const t = tramosSonidoClips([{ inicio: 4, fin: 9 }], 12);
+  const esperado = [{ entrada: null, dur: 4 }, { entrada: 0, dur: 8 }];
+  if (JSON.stringify(t) !== JSON.stringify(esperado)) throw new Error(JSON.stringify(t));
+});
+
+check("filtroSonidoClips: encadena los tramos en orden y cierra con fade-out", () => {
+  const f = filtroSonidoClips([{ entrada: null, dur: 4 }, { entrada: 0, dur: 5.5 }, { entrada: 1, dur: 8.5 }]);
+  if (!f.includes("[1:a]atrim=0:5.5") || !f.includes("[2:a]atrim=0:8.5")) throw new Error("entradas: " + f);
+  if (!f.includes("concat=n=3:v=0:a=1") || !f.includes("afade=t=out") || !f.endsWith("[sonido]")) throw new Error("cierre: " + f);
+  if (!/anullsrc|aevalsrc/.test(f)) throw new Error("sin silencio inicial: " + f);
+});
+
+check("puertaGenerar: carrusel.json pasa por la misma revisión que el borrador", () => {
+  const d = casoAprobado(BORRADOR_OK);
+  try {
+    writeFileSync(join(d, "carrusel.json"), JSON.stringify(conSlide({ template: "Step", props: { heading: "Lo que hizo Felipe" } })));
+    const m = puertaGenerar(d);
+    if (!m.some((x) => x.startsWith("carrusel.json") && /Felipe/.test(x))) throw new Error(JSON.stringify(m));
+    writeFileSync(join(d, "carrusel.json"), JSON.stringify(conSlide({ template: "Step", props: { heading: "Mira" }, background: { image: "/etc/x.png" } })));
+    if (!puertaGenerar(d).some((x) => x.startsWith("carrusel.json: slide 3"))) throw new Error("sin motivo de fondo");
+    writeFileSync(join(d, "carrusel.json"), JSON.stringify(BORRADOR_OK));
+    const ok = puertaGenerar(d);
+    if (ok.length) throw new Error(ok.join(" | "));
+  } finally { rmSync(d, { recursive: true, force: true }); }
 });
 
 await done();

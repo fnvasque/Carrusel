@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkAsync, done } from "./_check.ts";
 import { aprobar } from "../src/caso/aprobacion.ts";
-import { armarMusica, generarCaso } from "../src/caso/generar.ts";
+import { armarMusica, generarCaso, recortarClip } from "../src/caso/generar.ts";
 import { usarChromiumDeCache } from "../src/caso/chromium.ts";
 
 /**
@@ -96,6 +96,53 @@ await checkAsync("armarMusica une los tramos y generarCaso pone esa música en e
     }));
     const r = await generarCaso(d);
     if (!r.reel || !sonido(r.reel).audio) throw new Error("el reel salió sin audio");
+  } finally {
+    rmSync(d, { recursive: true, force: true });
+  }
+});
+
+await checkAsync("recortarClip con sonido y audio «clips»: el reel suena con el audio de sus clips", async () => {
+  const d = mkdtempSync(join(tmpdir(), "caso-sonido-"));
+  try {
+    for (const s of ["imagenes", "clips", "salida"]) mkdirSync(join(d, s));
+    const video = join(d, "video.mp4");
+    ffmpeg(["-f", "lavfi", "-i", "testsrc=size=1280x720:rate=30:duration=20", "-f", "lavfi", "-i", "sine=frequency=330:duration=20", "-pix_fmt", "yuv420p", "-shortest", video]);
+    const sin = await recortarClip(video, 1, 4, d, "mudo");
+    if (sonido(sin).audio) throw new Error("el clip por defecto trae audio");
+    await recortarClip(video, 2, 12, d, "a", { conSonido: true });
+    await recortarClip(video, 12, 20, d, "b", { conSonido: true });
+    if (!sonido(join(d, "clips", "a.mp4")).audio) throw new Error("el clip con sonido salió mudo");
+
+    writeFileSync(join(d, "historia.md"), "# Cómo armé el reporte\n\n## Paso 1\n\nAbrí la planilla.\n");
+    aprobar(d);
+    writeFileSync(join(d, "borrador.json"), JSON.stringify({
+      name: "Reporte con sonido",
+      pillar: "trabajo",
+      audio: "clips",
+      slides: [
+        { template: "Clip", props: { title: "Así quedó", archivo: "a.mp4" } },
+        { template: "Clip", props: { title: "Y así sigue", archivo: "b.mp4" } },
+        { template: "Cta", props: { title: "Guárdalo para tu próximo reporte" } },
+      ],
+    }));
+    // El carrusel sale de carrusel.json; una lámina vieja de otro render se borra.
+    writeFileSync(join(d, "carrusel.json"), JSON.stringify({
+      name: "Reporte con sonido",
+      pillar: "trabajo",
+      slides: [
+        { template: "Hook", props: { title: "Armé un reporte en una tarde" } },
+        { template: "Cta", props: { title: "Guárdalo para tu próximo reporte" } },
+      ],
+    }));
+    mkdirSync(join(d, "salida", "reporte-con-sonido"), { recursive: true });
+    writeFileSync(join(d, "salida", "reporte-con-sonido", "slide-09.png"), "viejo");
+    const r = await generarCaso(d);
+    if (r.carrusel.length !== 2) throw new Error(`carrusel con ${r.carrusel.length} láminas (carrusel.json trae 2)`);
+    if (existsSync(join(d, "salida", "reporte-con-sonido", "slide-09.png"))) throw new Error("quedó la lámina vieja");
+    const s = sonido(r.reel!);
+    if (!s.audio) throw new Error("el reel salió sin audio");
+    const v = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=duration", "-of", "csv=p=0", r.reel!], { encoding: "utf8" });
+    if (Math.abs(Number(v.stdout.trim()) - s.duracion) > 0.3) throw new Error(`audio de ${v.stdout.trim()}s en un reel de ${s.duracion}s`);
   } finally {
     rmSync(d, { recursive: true, force: true });
   }

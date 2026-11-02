@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { basename, join, relative, resolve, sep } from "node:path";
 import { hashHistoria } from "./aprobacion.ts";
 import { hallazgosSensibles } from "./filtro.ts";
@@ -75,6 +75,9 @@ function rutaDentro(ruta: unknown, dirCaso: string, carpeta: "imagenes" | "clips
   }
 }
 
+/** Valor de `audio` que hace sonar cada escena Clip con el audio de su propio clip. */
+const AUDIO_CLIPS = "clips";
+
 /** Nombre válido de una pista de música del caso: un archivo de audio sin rutas. */
 const ARCHIVO_AUDIO_RE = /^[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(m4a|mp3|wav|aac)$/i;
 
@@ -133,12 +136,14 @@ export interface ContenidosCaso {
   historia: string | null;
   /** borrador.json en texto (null si no existe). */
   borrador: string | null;
+  /** carrusel.json en texto, si el carrusel va distinto del reel (null o ausente: sale de borrador.json). */
+  carrusel?: string | null;
 }
 
-/** Lee historia.md y borrador.json una vez. */
+/** Lee historia.md, borrador.json y carrusel.json una vez. */
 function leerContenidos(dirCaso: string): ContenidosCaso {
   const leer = (f: string): string | null => (existsSync(join(dirCaso, f)) ? readFileSync(join(dirCaso, f), "utf8") : null);
-  return { historia: leer("historia.md"), borrador: leer("borrador.json") };
+  return { historia: leer("historia.md"), borrador: leer("borrador.json"), carrusel: leer("carrusel.json") };
 }
 
 /** Hash guardado al aprobar (null si no hay aprobado.json válido). */
@@ -180,26 +185,44 @@ export function puertaGenerarDe(dirCaso: string, c: ContenidosCaso): string[] {
     motivos.push("Falta borrador.json en la carpeta del caso.");
     return motivos;
   }
+  motivos.push(...motivosDeBorrador(dirCaso, c.borrador, "borrador.json"));
+  if (typeof c.carrusel === "string") {
+    motivos.push(...motivosDeBorrador(dirCaso, c.carrusel, "carrusel.json").map((m) => (m.includes("carrusel.json") ? m : `carrusel.json: ${m}`)));
+  }
+  return motivos;
+}
+
+/**
+ * Motivos para no usar `texto` (un borrador en JSON): datos sensibles y «Felipe» en sus
+ * textos, hookVideo, `audio`, fondos (`image` solo dentro de imagenes/, nunca `ai`) y
+ * clips (dentro de clips/). Vale para borrador.json y para carrusel.json.
+ */
+function motivosDeBorrador(dirCaso: string, texto: string, archivo: string): string[] {
+  const motivos: string[] = [];
   let crudo: unknown;
   try {
-    crudo = JSON.parse(c.borrador.replace(/^\uFEFF/, ""));
+    crudo = JSON.parse(texto.replace(/^\uFEFF/, ""));
   } catch (e) {
-    motivos.push(`borrador.json no es JSON válido: ${e instanceof Error ? e.message : e}`);
+    motivos.push(`${archivo} no es JSON válido: ${e instanceof Error ? e.message : e}`);
     return motivos;
   }
 
   const textos = textosDe(crudo);
   const h = resumirHallazgos(textos);
-  if (h) motivos.push(`borrador.json contiene datos sensibles (${h.resumen}): ${h.pistas}`);
+  if (h) motivos.push(`${archivo} contiene datos sensibles (${h.resumen}): ${h.pistas}`);
   if (textos.some((t) => /felipe/i.test(t))) {
-    motivos.push("borrador.json menciona «Felipe»: la pieza firma como la cuenta, nunca con su nombre.");
+    motivos.push(`${archivo} menciona «Felipe»: la pieza firma como la cuenta, nunca con su nombre.`);
   }
 
   if (crudo && typeof crudo === "object" && (crudo as { hookVideo?: unknown }).hookVideo !== undefined) {
-    motivos.push("borrador.json trae hookVideo: los casos no generan video IA; usa una escena Clip con un clip de clips/.");
+    motivos.push(`${archivo} trae hookVideo: los casos no generan video IA; usa una escena Clip con un clip de clips/.`);
   }
   const audio = (crudo as { audio?: unknown }).audio;
-  if (audio !== undefined) {
+  const slidesCrudos = (crudo as { slides?: unknown }).slides;
+  if (audio === AUDIO_CLIPS) {
+    const hayClip = Array.isArray(slidesCrudos) && slidesCrudos.some((s) => (s as { template?: unknown } | null)?.template === "Clip");
+    if (!hayClip) motivos.push(`audio "${AUDIO_CLIPS}" necesita al menos una escena Clip (recortada con --con-sonido).`);
+  } else if (audio !== undefined) {
     const err = archivoAudioError(audio);
     if (err) motivos.push(`${err}.`);
     else if (!rutaDentro(`clips/${String(audio)}`, dirCaso, "clips")) motivos.push(`falta el audio ${String(audio)} en clips/ (o apunta fuera de la carpeta): ármalo con el comando musica.`);
@@ -229,7 +252,7 @@ export function puertaGenerarDe(dirCaso: string, c: ContenidosCaso): string[] {
     try {
       leerBorrador(dirCaso, crudo);
     } catch (e) {
-      motivos.push(`borrador.json no es válido: ${e instanceof Error ? e.message : e}`);
+      motivos.push(`${archivo} no es válido: ${e instanceof Error ? e.message : e}`);
     }
   }
   return motivos;
@@ -273,6 +296,7 @@ export async function generarCaso(
 
   const crudo: unknown = JSON.parse(contenidos.borrador!.replace(/^\uFEFF/, ""));
   const { borrador: b, imagenes } = leerBorrador(dirCaso, crudo);
+  const carrusel = typeof contenidos.carrusel === "string" ? leerBorrador(dirCaso, JSON.parse(contenidos.carrusel.replace(/^\uFEFF/, ""))) : undefined;
   // historiaAHtml lanza si queda «Felipe» fuera de las secciones internas: antes de escribir nada.
   const html = historiaAHtml(contenidos.historia!, { dirCaso });
 
@@ -280,7 +304,7 @@ export async function generarCaso(
   const previo = process.env.CARRUSEL_AI_SOLO_CACHE;
   process.env.CARRUSEL_AI_SOLO_CACHE = "1";
   try {
-    return await renderizar(dirCaso, html, b, imagenes, opts);
+    return await renderizar(dirCaso, html, b, imagenes, opts, carrusel);
   } finally {
     if (previo === undefined) delete process.env.CARRUSEL_AI_SOLO_CACHE;
     else process.env.CARRUSEL_AI_SOLO_CACHE = previo;
@@ -294,6 +318,7 @@ async function renderizar(
   b: Borrador,
   imagenes: BorradorLeido["imagenes"],
   opts: { soloPdf?: boolean },
+  propio?: BorradorLeido,
 ): Promise<{ pdf: string; carrusel: string[]; reel?: string; avisos: string[] }> {
   const pdf = join(dirCaso, "caso.pdf");
   await renderPdf(html, pdf);
@@ -303,16 +328,22 @@ async function renderizar(
   // renderCarousel/renderReel juntan su outDir con process.cwd(): se pasa relativo para no salir de dirCaso.
   const outDir = relative(process.cwd(), join(dirCaso, "salida")) || ".";
 
-  // El carrusel no puede mostrar video: las escenas Clip quedan solo en el reel.
-  const sinClips: Borrador = { ...b, slides: b.slides.filter((s) => s.template !== "Clip") };
+  // El carrusel sale de carrusel.json si existe; si no, de borrador.json. No puede mostrar
+  // video: las escenas Clip quedan solo en el reel.
+  const base = propio ?? { borrador: b, imagenes };
+  const sinClips: Borrador = { ...base.borrador, slides: base.borrador.slides.filter((s) => s.template !== "Clip") };
   avisos.push(avisoPuntaje("del carrusel", scoreDraft(sinClips, { format: "carrusel" })));
-  const specCarrusel = reponerImagenes(borradorASpec(sinClips), imagenes);
+  const specCarrusel = reponerImagenes(borradorASpec(sinClips), base.imagenes);
+  // Las láminas de un render anterior más largo no deben quedar junto a las nuevas.
+  const dirCarrusel = join(dirCaso, "salida", specCarrusel.name);
+  if (existsSync(dirCarrusel)) for (const f of readdirSync(dirCarrusel)) if (/^slide-\d+\.(png|jpe?g)$/.test(f)) rmSync(join(dirCarrusel, f), { force: true });
   const carrusel = await conAvisosVisuales(avisos, () => renderCarousel(specCarrusel, { outDir, revision: "avisar" }));
 
   avisos.push(avisoPuntaje("del reel", scoreDraft(b, { format: "reel" })));
   const specReel = reponerImagenes(borradorASpec(b, { format: "reel" }), imagenes);
-  // La música se vuelve a resolver aquí: debe seguir dentro de clips/.
-  const audio = b.audio === undefined ? undefined : rutaDentro(`clips/${b.audio}`, dirCaso, "clips");
+  // La música se vuelve a resolver aquí: debe seguir dentro de clips/. Con "clips", el sonido se arma después.
+  const sonidoDeClips = b.audio === AUDIO_CLIPS;
+  const audio = b.audio === undefined || sonidoDeClips ? undefined : rutaDentro(`clips/${b.audio}`, dirCaso, "clips");
   if (audio === null) throw new Error(`El audio ${b.audio} ya no está dentro de clips/`);
   const r = await conAvisosVisuales(avisos, () => renderReelResult(specReel, { outDir, pace: b.pace, audio, logoEnCuadro0: b.logoEnCuadro0, voz: false, revision: "avisar" }));
 
@@ -321,13 +352,23 @@ async function renderizar(
   if (rangos.length) {
     const original = join(dirCaso, "salida", specReel.name, ".reel-sin-clips.mp4");
     renameSync(r.path, original);
+    const clips = rangos.map((rango) => {
+      // Se vuelve a resolver la ruta real: el clip debe seguir dentro de clips/.
+      const ruta = rutaDentro(`clips/${rango.archivo}`, dirCaso, "clips");
+      if (!ruta) throw new Error(`El clip ${rango.archivo} ya no está dentro de clips/`);
+      return { ruta, rango };
+    });
     try {
-      await mezclarClips(original, rangos.map((rango) => {
-        // Se vuelve a resolver la ruta real: el clip debe seguir dentro de clips/.
-        const ruta = rutaDentro(`clips/${rango.archivo}`, dirCaso, "clips");
-        if (!ruta) throw new Error(`El clip ${rango.archivo} ya no está dentro de clips/`);
-        return { ruta, rango };
-      }), r.path);
+      if (!sonidoDeClips) await mezclarClips(original, clips, r.path);
+      else {
+        const mudo = join(dirCaso, "salida", specReel.name, ".reel-mudo.mp4");
+        try {
+          await mezclarClips(original, clips, mudo);
+          await ponerSonidoDeClips(mudo, clips, r.timing.total, r.path);
+        } finally {
+          rmSync(mudo, { force: true });
+        }
+      }
     } finally {
       rmSync(original, { force: true });
     }
@@ -346,8 +387,11 @@ function ffmpeg(args: string[]): Promise<void> {
   });
 }
 
-/** Recorta `video` entre `desde` y `hasta` (s) a `clips/<nombre>.mp4`, sin audio. Devuelve la ruta. */
-export async function recortarClip(video: string, desde: number, hasta: number, dirCaso: string, nombre: string): Promise<string> {
+/**
+ * Recorta `video` entre `desde` y `hasta` (s) a `clips/<nombre>.mp4`. Sin audio, salvo
+ * `conSonido` (para `audio: "clips"`: el clip suena con su propio audio). Devuelve la ruta.
+ */
+export async function recortarClip(video: string, desde: number, hasta: number, dirCaso: string, nombre: string, opts: { conSonido?: boolean } = {}): Promise<string> {
   const archivo = nombre.endsWith(".mp4") ? nombre : `${nombre}.mp4`;
   const err = archivoClipError(archivo);
   if (err) throw new Error(`Nombre de clip inválido: ${err}`);
@@ -359,8 +403,57 @@ export async function recortarClip(video: string, desde: number, hasta: number, 
   const dir = join(dirCaso, "clips");
   mkdirSync(dir, { recursive: true });
   const salida = join(dir, archivo);
-  await ffmpeg(["-nostdin", "-ss", String(desde), "-to", String(hasta), "-i", origen, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", salida]);
+  await ffmpeg(["-nostdin", "-ss", String(desde), "-to", String(hasta), "-i", origen, ...(opts.conSonido ? ["-c:a", "aac", "-b:a", "192k"] : ["-an"]), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", salida]);
   return salida;
+}
+
+/** Un tramo del sonido del reel: el audio de la entrada `entrada` (índice del clip) desde 0, o silencio. */
+export interface TramoSonido {
+  entrada: number | null;
+  dur: number;
+}
+
+/**
+ * Tramos del sonido con `audio: "clips"`: silencio hasta el primer clip y, desde ahí,
+ * cada clip suena desde su segundo 0 (como su video) hasta que entra el siguiente; el
+ * último sigue hasta el final del reel (se baja con fade-out en `filtroSonidoClips`).
+ */
+export function tramosSonidoClips(rangos: { inicio: number; fin: number }[], total: number): TramoSonido[] {
+  const out: TramoSonido[] = [];
+  if (rangos.length && rangos[0].inicio > 0) out.push({ entrada: null, dur: +rangos[0].inicio.toFixed(3) });
+  rangos.forEach((r, i) => {
+    const hasta = i + 1 < rangos.length ? rangos[i + 1].inicio : total;
+    out.push({ entrada: i, dur: +(hasta - r.inicio).toFixed(3) });
+  });
+  return out;
+}
+
+/**
+ * Filtro de ffmpeg para los tramos: el clip k es la entrada k + 1 (la 0 es el reel). Cada
+ * tramo se recorta, se rellena con silencio si el clip es más corto y lleva fundidos de
+ * 30 ms para que no haya clics; el final baja con fade-out. La salida es `[sonido]`.
+ */
+export function filtroSonidoClips(tramos: TramoSonido[]): string {
+  const formato = "aformat=sample_rates=48000:channel_layouts=stereo";
+  const total = tramos.reduce((t, x) => t + x.dur, 0);
+  const partes = tramos.map((t, i) => {
+    const fuente = t.entrada === null ? `anullsrc=r=48000:cl=stereo,atrim=0:${t.dur}` : `[${t.entrada + 1}:a]atrim=0:${t.dur}`;
+    const fundidos = t.entrada === null ? "" : `,afade=t=in:d=0.03,afade=t=out:st=${Math.max(0, t.dur - 0.03).toFixed(3)}:d=0.03`;
+    return `${fuente},asetpts=PTS-STARTPTS,${formato},apad=whole_dur=${t.dur}${fundidos}[p${i}]`;
+  });
+  const cierre = `afade=t=out:st=${Math.max(0, total - MUSICA_CIERRE).toFixed(3)}:d=${MUSICA_CIERRE}[sonido]`;
+  partes.push(`${tramos.map((_, i) => `[p${i}]`).join("")}concat=n=${tramos.length}:v=0:a=1,${cierre}`);
+  return partes.join(";");
+}
+
+/** Pone en `reel` (video ya mezclado) el sonido de sus clips y escribe `salida`. */
+async function ponerSonidoDeClips(reel: string, clips: { ruta: string; rango: { inicio: number; fin: number } }[], total: number, salida: string): Promise<void> {
+  for (const c of clips) {
+    const r = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", c.ruta], { encoding: "utf8" });
+    if (!r.stdout.trim()) throw new Error(`El clip ${basename(c.ruta)} no tiene sonido: recórtalo de nuevo con --con-sonido.`);
+  }
+  const filtro = filtroSonidoClips(tramosSonidoClips(clips.map((c) => c.rango), total));
+  await ffmpeg(["-nostdin", "-i", reel, ...clips.flatMap((c) => ["-i", c.ruta]), "-filter_complex", filtro, "-map", "0:v", "-map", "[sonido]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", salida]);
 }
 
 /** Segundos de fundido entre tramos de la música y del fade-out final. */
