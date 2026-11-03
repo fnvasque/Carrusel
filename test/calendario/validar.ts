@@ -1134,6 +1134,35 @@ check("calendario/validar: lector-frio.md trae perfil, 6 preguntas, formato JSON
   assert.ok(!/TODO/.test(md));
 });
 
+check("calendario/validar (CLI): --self-test valida el ejemplo con su propio mix, no con el de la base", () => {
+  // 2026-11-03: la base aún tenía el viernes en por-donde-partir y el ejemplo nuevo en con-tu-equipo;
+  // el instalador corre --self-test antes de que el usuario cambie su mix, así que no debe exigirlo.
+  const root = mkdtempSync(join(tmpdir(), "kb-calendario-selftest-"));
+  try {
+    const cal = join(root, "_calendario");
+    mkdirSync(cal, { recursive: true });
+    copyFileSync(join(DIR, "validar.mjs"), join(cal, "validar.mjs"));
+    const env = { ...process.env, CARRUSEL_DIR: join(root, "nada") };
+    const vieja = clone(CONFIG_EJEMPLO) as any;
+    vieja.series = vieja.series.filter((s: string) => s !== "con-tu-equipo");
+    for (const m of vieja.mix) if (m.dia === 5) m.serie = "por-donde-partir";
+    writeFileSync(join(cal, "config.json"), JSON.stringify(vieja));
+    const out = execFileSync("node", [join(cal, "validar.mjs"), "--self-test"], { encoding: "utf8", stdio: "pipe", env });
+    assert.match(out, /config\.json y ejemplo válidos/);
+    // La config de la base se sigue validando: un mix inválido falla.
+    writeFileSync(join(cal, "config.json"), JSON.stringify({ ...vieja, mix: [] }));
+    try {
+      execFileSync("node", [join(cal, "validar.mjs"), "--self-test"], { stdio: "pipe", env });
+      assert.fail("debió salir con 1");
+    } catch (e: any) {
+      assert.equal(e.status, 1);
+      assert.match(String(e.stderr), /config\.json: mix/);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 check("calendario/validar (CLI): --self-test, semana válida → 0, semana inválida → 1 con <id>: motivo", () => {
   const root = mkdtempSync(join(tmpdir(), "kb-calendario-cli-"));
   try {

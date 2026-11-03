@@ -2447,6 +2447,20 @@ export function validarSemana(dir, config, opts = {}) {
 // --- ejemplo embebido -------------------------------------------------------
 
 /**
+ * Config con la que `--self-test` valida el ejemplo: la instalada, con el mix y las series del
+ * propio ejemplo (el mix es del usuario y puede ir detrás de la plantilla: el 2026-11-03 la base
+ * tenía el viernes en por-donde-partir y el ejemplo nuevo en con-tu-equipo, y el instalador
+ * fallaba antes de que se pudiera cambiar), la voz del ejemplo si la base no tiene voz y su pista.
+ * El mix de la base lo sigue revisando `validarConfig`.
+ */
+function configDelEjemplo(config) {
+  const piezas = EJEMPLO.plan.piezas;
+  const mix = piezas.map((p) => ({ dia: diaSemana(p.dia), formato: p.formato, arquetipo: p.arquetipo, hora: p.hora, serie: p.serie }));
+  const series = [...new Set([...(Array.isArray(config.series) ? config.series : []), ...piezas.map((p) => p.serie)])];
+  return { ...config, ...(hayVoz(config) ? {} : { voz: VOZ_EJEMPLO }), mix, series, audios: [...config.audios, EJEMPLO.borrador.audio] };
+}
+
+/**
  * Semana de ejemplo (2026-11-02, primera del paquete pivote-coaching: mix de 3, series
  * por-donde-partir y lo-que-construi, señal dm y cierre PARTIR) y el borrador de su primera
  * pieza. `INSTRUCCIONES.md` muestra el plan como esqueleto y la primera pieza con su borrador
@@ -3158,7 +3172,7 @@ function main(args) {
     const errs = validarConfig(config).map((e) => `config.json: ${e}`);
     if (!errs.length) {
       // El ejemplo está escrito con voz (ritmo gancho): sin voz se valida con la voz del ejemplo.
-      const c = { ...config, ...(hayVoz(config) ? {} : { voz: VOZ_EJEMPLO }), audios: [...config.audios, EJEMPLO.borrador.audio] };
+      const c = configDelEjemplo(config);
       errs.push(...validarPlan(EJEMPLO.plan, c).map((e) => `ejemplo: ${e}`));
       errs.push(...validarBorrador(EJEMPLO.plan.piezas[0], EJEMPLO.borrador, c).map((e) => `ejemplo: ${e}`));
     }
