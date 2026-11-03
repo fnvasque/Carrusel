@@ -5,7 +5,7 @@ import { hashHistoria } from "./aprobacion.ts";
 import { hallazgosSensibles } from "./filtro.ts";
 import { historiaAHtml, renderPdf } from "./pdf.ts";
 import { borradorASpec, parseBorrador, type Borrador } from "../calendario/draft.ts";
-import { archivoClipError, mezclarClips, rangosClips } from "../calendario/clips.ts";
+import { archivoClipError, CLIP_BRILLO, mezclarClips, rangosClips } from "../calendario/clips.ts";
 import { scoreDraft } from "../remix/registry.ts";
 import { renderCarousel } from "../render/renderCarousel.ts";
 import { renderReelResult } from "../reel/renderReel.ts";
@@ -387,11 +387,31 @@ function ffmpeg(args: string[]): Promise<void> {
   });
 }
 
+/** Altura (px de un reel de 1920) donde empieza el video a lo ancho: bajo los títulos de Clip. */
+const ANCHO_Y = 900;
+
+/**
+ * Aclarado del video a lo ancho: la mezcla de clips lo multiplica por CLIP_BRILLO (0.7) para
+ * leer texto encima, pero aquí el texto va arriba y no sobre el video.
+ */
+const ANCHO_ACLARADO = +(1 / CLIP_BRILLO).toFixed(2);
+
+/**
+ * Filtro de ffmpeg que arma un clip vertical 1080×1920 con el video completo a lo ancho
+ * (1080 de ancho) en `ANCHO_Y`, bajo los títulos, y el mismo video desenfocado detrás.
+ */
+export function filtroAncho(): string {
+  const a = ANCHO_ACLARADO;
+  return `split[f][g];[g]scale=-2:1920,crop=1080:1920,gblur=sigma=40,eq=brightness=-0.12[fondo];[f]scale=1080:-2,colorchannelmixer=rr=${a}:gg=${a}:bb=${a}[video];[fondo][video]overlay=0:${ANCHO_Y},setsar=1`;
+}
+
 /**
  * Recorta `video` entre `desde` y `hasta` (s) a `clips/<nombre>.mp4`. Sin audio, salvo
- * `conSonido` (para `audio: "clips"`: el clip suena con su propio audio). Devuelve la ruta.
+ * `conSonido` (para `audio: "clips"`: el clip suena con su propio audio). Con `ancho`, el
+ * clip sale ya en vertical (ver `filtroAncho`): el reel lo muestra completo, sin recortar los lados.
+ * Devuelve la ruta.
  */
-export async function recortarClip(video: string, desde: number, hasta: number, dirCaso: string, nombre: string, opts: { conSonido?: boolean } = {}): Promise<string> {
+export async function recortarClip(video: string, desde: number, hasta: number, dirCaso: string, nombre: string, opts: { conSonido?: boolean; ancho?: boolean } = {}): Promise<string> {
   const archivo = nombre.endsWith(".mp4") ? nombre : `${nombre}.mp4`;
   const err = archivoClipError(archivo);
   if (err) throw new Error(`Nombre de clip inválido: ${err}`);
@@ -403,7 +423,7 @@ export async function recortarClip(video: string, desde: number, hasta: number, 
   const dir = join(dirCaso, "clips");
   mkdirSync(dir, { recursive: true });
   const salida = join(dir, archivo);
-  await ffmpeg(["-nostdin", "-ss", String(desde), "-to", String(hasta), "-i", origen, ...(opts.conSonido ? ["-c:a", "aac", "-b:a", "192k"] : ["-an"]), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", salida]);
+  await ffmpeg(["-nostdin", "-ss", String(desde), "-to", String(hasta), "-i", origen, ...(opts.ancho ? ["-vf", filtroAncho()] : []), ...(opts.conSonido ? ["-c:a", "aac", "-b:a", "192k"] : ["-an"]), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart", salida]);
   return salida;
 }
 

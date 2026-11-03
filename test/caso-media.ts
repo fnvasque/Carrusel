@@ -112,6 +112,9 @@ await checkAsync("recortarClip con sonido y audio «clips»: el reel suena con e
     await recortarClip(video, 2, 12, d, "a", { conSonido: true });
     await recortarClip(video, 12, 20, d, "b", { conSonido: true });
     if (!sonido(join(d, "clips", "a.mp4")).audio) throw new Error("el clip con sonido salió mudo");
+    await recortarClip(video, 2, 5, d, "ancho", { conSonido: true, ancho: true });
+    const dim = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", join(d, "clips", "ancho.mp4")], { encoding: "utf8" }).stdout.trim();
+    if (dim !== "1080,1920" || !sonido(join(d, "clips", "ancho.mp4")).audio) throw new Error(`clip ancho de ${dim}`);
 
     writeFileSync(join(d, "historia.md"), "# Cómo armé el reporte\n\n## Paso 1\n\nAbrí la planilla.\n");
     aprobar(d);

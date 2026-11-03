@@ -84,7 +84,10 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
    - El reel es **sin voz** (no pongas `narracion`).
    - **Proyectos de video: el reel es casi todo video.** Si el proyecto es un video (con su
      canción), arma el reel con escenas `Clip` que llevan el texto de cada paso encima (`title` y
-     `label`; **sin `highlight`**: el subrayado lima sobre el video molesta) y cierra con `Cta`. Recorta los clips con `--con-sonido` y pon
+     `label`; **sin `highlight`**: el subrayado lima sobre el video molesta) y cierra con `Cta`. Si
+     el video es horizontal, recórtalo con `--ancho`: sale completo a lo ancho bajo los títulos,
+     con el mismo video desenfocado detrás (sin `--ancho` el reel lo recorta al centro y se
+     pierden los lados). Recorta los clips con `--con-sonido` y pon
      `"audio": "clips"`: cada clip suena con su propio audio, así la música siempre coincide con
      lo que se ve. Cada clip suena desde su inicio hasta que entra el siguiente (el último cubre
      el `Cta` y baja con fade-out), y nunca más allá de lo que recortaste.
@@ -122,7 +125,7 @@ Si las conversaciones están en otra carpeta (por ejemplo la carpeta madre), agr
 | `numeros <proyecto> <id…>` | Escribe `caso/numeros.json` |
 | `tapar <archivo>` | Tapa datos sensibles en un archivo de `caso/` e imprime tipo y cantidad |
 | `imagen <proyecto> <ruta>` | Copia la imagen a `caso/imagenes/` |
-| `clip <proyecto> <video> <desde> <hasta> <nombre> [--con-sonido]` | Recorta un clip a `caso/clips/` (sin audio, salvo `--con-sonido`) |
+| `clip <proyecto> <video> <desde> <hasta> <nombre> [--con-sonido] [--ancho]` | Recorta un clip a `caso/clips/` (sin audio, salvo `--con-sonido`; `--ancho`: video horizontal completo bajo los títulos) |
 | `musica <proyecto> <audio> <nombre> <desde-hasta…>` | Une tramos de una canción en `caso/clips/<nombre>.m4a`, con fundidos cortos |
 | `aprobar <proyecto>` | Aprueba `caso/historia.md` (solo tras el «apruebo» o «aprobada» de Felipe) |
 | `generar <proyecto> [--solo-pdf]` | Genera `caso/caso.pdf`, el carrusel y el reel en `caso/salida/` |

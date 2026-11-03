@@ -24,7 +24,7 @@ const USO = `Uso: npm run caso -- <subcomando> <proyecto> …  (proyecto = ruta 
   numeros  <proyecto> <id…> [--sesiones-de <carpeta>]    escribe caso/numeros.json
   tapar    <archivo>                                     tapa datos sensibles (solo dentro de caso/)
   imagen   <proyecto> <ruta>                             copia una imagen a caso/imagenes/
-  clip     <proyecto> <video> <desde> <hasta> <nombre> [--con-sonido]  recorta un clip a caso/clips/
+  clip     <proyecto> <video> <desde> <hasta> <nombre> [--con-sonido] [--ancho]  recorta un clip a caso/clips/
   musica   <proyecto> <audio> <nombre> <desde-hasta…>    une tramos de una canción en caso/clips/<nombre>.m4a
   aprobar  <proyecto>                                    marca caso/historia.md como aprobada
   generar  <proyecto> [--solo-pdf]                       genera caso.pdf, carrusel y reel
@@ -43,23 +43,25 @@ function rutaAbsoluta(p: string | undefined, que: string): string {
   return resolve(base, p);
 }
 
-/** Separa banderas (`--x valor`, `--solo-pdf`, `--con-sonido`) de los argumentos posicionales. */
-function leerArgs(argv: string[]): { pos: string[]; sesionesDe?: string; soloPdf: boolean; conSonido: boolean } {
+/** Separa banderas (`--x valor`, `--solo-pdf`, `--con-sonido`, `--ancho`) de los argumentos posicionales. */
+function leerArgs(argv: string[]): { pos: string[]; sesionesDe?: string; soloPdf: boolean; conSonido: boolean; ancho: boolean } {
   const pos: string[] = [];
   let sesionesDe: string | undefined;
   let soloPdf = false;
   let conSonido = false;
+  let ancho = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "--solo-pdf") soloPdf = true;
     else if (a === "--con-sonido") conSonido = true;
+    else if (a === "--ancho") ancho = true;
     else if (a === "--sesiones-de") {
       sesionesDe = argv[++i];
       if (!sesionesDe) throw new ErrorUso("--sesiones-de necesita una carpeta.");
     } else if (a.startsWith("--")) throw new ErrorUso(`Opción desconocida: ${a}`);
     else pos.push(a);
   }
-  return { pos, sesionesDe, soloPdf, conSonido };
+  return { pos, sesionesDe, soloPdf, conSonido, ancho };
 }
 
 const corto = (s: string, max = 120): string => {
@@ -94,7 +96,7 @@ async function main(argv: string[]): Promise<void> {
     console.log(USO);
     return;
   }
-  const { pos, sesionesDe, soloPdf, conSonido } = leerArgs(resto);
+  const { pos, sesionesDe, soloPdf, conSonido, ancho } = leerArgs(resto);
 
   if (sub === "tapar") {
     const archivo = rutaAbsoluta(pos[0], "el archivo a tapar");
@@ -164,7 +166,7 @@ async function main(argv: string[]): Promise<void> {
       if (!video || desde === undefined || hasta === undefined || !nombre) throw new ErrorUso("clip necesita <video> <desde> <hasta> <nombre> (segundos).");
       const videoAbs = resolve(proyecto, video);
       if (!existsSync(videoAbs)) throw new Error(`No existe el archivo ${videoAbs}`);
-      console.log(await recortarClip(videoAbs, Number(desde), Number(hasta), carpetaCaso(proyecto), nombre, { conSonido }));
+      console.log(await recortarClip(videoAbs, Number(desde), Number(hasta), carpetaCaso(proyecto), nombre, { conSonido, ancho }));
       return;
     }
     case "musica": {

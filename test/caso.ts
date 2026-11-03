@@ -9,7 +9,7 @@ import { carpetaCaso, dentroDeCaso } from "../src/caso/carpeta.ts";
 import { aprobar, estadoAprobacion, hashHistoria } from "../src/caso/aprobacion.ts";
 import { historiaAHtml } from "../src/caso/pdf.ts";
 import { trozarSesion } from "../src/caso/trozos.ts";
-import { filtroMusica, filtroSonidoClips, generarCaso, parsearTramos, puertaGenerar, puertaGenerarDe, tramosSonidoClips } from "../src/caso/generar.ts";
+import { filtroAncho, filtroMusica, filtroSonidoClips, generarCaso, parsearTramos, puertaGenerar, puertaGenerarDe, tramosSonidoClips } from "../src/caso/generar.ts";
 import { carpetasDeSesiones, codificarRuta, lineaCarpetas, listarSesiones, type SesionResumen } from "../src/caso/sesiones.ts";
 import { parseBorrador } from "../src/calendario/draft.ts";
 
@@ -851,6 +851,15 @@ check("puertaGenerar: carrusel.json pasa por la misma revisión que el borrador"
     const ok = puertaGenerar(d);
     if (ok.length) throw new Error(ok.join(" | "));
   } finally { rmSync(d, { recursive: true, force: true }); }
+});
+
+check("filtroAncho: video completo a lo ancho bajo los títulos, con el mismo video desenfocado detrás", () => {
+  const f = filtroAncho();
+  if (!f.includes("scale=1080:-2")) throw new Error("no escala a lo ancho: " + f);
+  if (!/gblur/.test(f) || !f.includes("crop=1080:1920")) throw new Error("sin fondo desenfocado: " + f);
+  const y = Number(/overlay=0:(\d+)/.exec(f)?.[1]);
+  // Bajo los títulos (que llegan a ~840 px) y sobre la franja oscura de abajo.
+  if (!(y >= 860 && y + 608 <= 1600)) throw new Error(`video en y=${y}`);
 });
 
 await done();
