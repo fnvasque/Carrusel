@@ -79,6 +79,7 @@ export const theme = {
 export const SERIES: Record<string, string> = {
   "por-donde-partir": "Por dónde partir",
   "lo-que-construi": "Lo que construí",
+  "con-tu-equipo": "Con tu equipo",
 };
 
 /** Rótulo de una serie; `undefined` si no hay serie o no se conoce (la cabecera queda vacía). */

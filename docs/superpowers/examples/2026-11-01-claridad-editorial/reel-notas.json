@@ -1,0 +1,55 @@
+{
+  "name": "reel-notas",
+  "angle": "Ordenar notas en tarea, responsable y plazo; ejemplo ficticio con datos visibles y un dato ausente marcado.",
+  "pillar": "trabajo",
+  "serie": "por-donde-partir",
+  "logoEnCuadro0": true,
+  "slides": [
+    {
+      "template": "Hook",
+      "props": {
+        "title": "Tus notas de reunión, ordenadas en acuerdos con ChatGPT",
+        "highlight": "ordenadas en acuerdos"
+      },
+      "narracion": "Tus notas de reunión, ordenadas en una lista de acuerdos con ChatGPT."
+    },
+    {
+      "template": "Screen",
+      "props": {
+        "app": "ChatGPT",
+        "heading": "Ejemplo ficticio",
+        "prompt": "Ordena por tarea, responsable y plazo; marca lo que falte.",
+        "respuesta": "Turno: Paula, lunes\nSillas: no indicado, viernes"
+      },
+      "narracion": "Pides tarea, responsable y plazo. Lo que falta queda marcado."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "Pega tus notas",
+        "highlight": "Pega tus notas",
+        "body": "Notas: «Paula cambia el turno el lunes. Sillas el viernes». Nadie dijo quién pide las sillas."
+      },
+      "narracion": "De tus notas salen Paula y el lunes. Nadie dijo quién pide las sillas."
+    },
+    {
+      "template": "Step",
+      "props": {
+        "heading": "Revisa antes de compartir",
+        "highlight": "Revisa",
+        "body": "Los hechos salen de tus notas. Compara nombres y fechas."
+      },
+      "narracion": "Antes de compartirla, compara nombres y fechas con tus notas."
+    },
+    {
+      "template": "Cta",
+      "props": {
+        "title": "¿Qué reunión te complica? Escribe esta palabra y te ayudo",
+        "highlight": "te ayudo",
+        "cta": "Escríbeme PARTIR"
+      },
+      "narracion": "¿Qué reunión te complica? Escríbeme PARTIR y te ayudo."
+    }
+  ],
+  "pace": "ensenar"
+}

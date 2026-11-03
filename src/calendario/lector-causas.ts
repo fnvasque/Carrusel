@@ -27,6 +27,7 @@ export type CausaId =
   | "confuso"
   | "portada-sin-resultado"
   | "nada-nuevo"
+  | "sin-hilo"
   | "otro";
 
 interface DefCausa {
@@ -59,6 +60,8 @@ export const CAUSAS: DefCausa[] = [
   { id: "pasos-incompletos", pregunta: 6, descripcion: "Faltan pasos para conseguir el entregable (dónde, cómo, con qué)", claves: [/no (supo|sabe|se sabe|sabria) (decirle )?(como|de donde|donde|que numero|cual|con que)/, /pasos sin/, /donde (escribir|pegar|mirar)/, /que boton/, /falta el \d/, /no (dice|explica) (como|donde)/, /como se activa/, /no pudo seguir/, /hay que activar/, /\bcomo\b.*\?/] },
   { id: "confuso", pregunta: 6, descripcion: "Otra confusión o duda sobre la pieza", claves: [/no (supe|se si)/, /confus/, /dud/] },
   { id: "nada-nuevo", pregunta: 8, descripcion: "El lector ya sabía lo que la pieza enseña", claves: NADA_NUEVO_RE },
+  // Sin `pregunta`: la P9 es nueva (2026-10-31) y su NB del con prisa no bloquea; se reconoce por sus palabras en los fallos.
+  { id: "sin-hilo", descripcion: "Contada de corrido no es la frase de amigo o no dice qué hacer primero (P9)", claves: [/\bla 9\b/, /pregunta 9/, /\bp9\b/, /de corrido/, /(haria|hacer|hago) primero/, /frase de amigo/] },
 ];
 
 const OTRO: DefCausa = { id: "otro", descripcion: "Fallo sin causa reconocida: revisa la cita", claves: [] };
