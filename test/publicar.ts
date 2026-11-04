@@ -1,5 +1,6 @@
 import { check, checkAsync, done } from "./_check.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commitYVerificar, deshacerCommit, programar, type DepsProgramar } from "../src/publicar/programar.ts";
@@ -414,6 +415,17 @@ await checkAsync("deshacerCommit: revierte, no hace nada o detecta «subido» se
   await rechaza(deshacerCommit("mi msg", git({ asunto: "otro", ahead: "otro\nmi msg\n" })), "no son solo el nuestro");
   // Sin poder leer el estado: lanza (el llamador no borra nada).
   await rechaza(deshacerCommit("mi msg", git({ falla: "rev-parse" })), "no pude leer el estado");
+});
+
+await checkAsync("cli: sin argumentos sale ≠ 0 con mensaje de uso (detecta un cli.ts vacío)", async () => {
+  const r = await new Promise<{ code: number; err: string; out: string }>((res) => {
+    execFile("npx", ["tsx", "src/publicar/cli.ts"], { env: { ...process.env, KB_GIT: "0" } }, (e, out, err) => {
+      res({ code: e ? ((e as { code?: number }).code ?? 1) : 0, err, out });
+    });
+  });
+  if (r.code === 0) throw new Error("salió 0");
+  if (!r.err.includes("uso: publicar revisar")) throw new Error(`sin mensaje de uso: ${r.err}`);
+  igual(r.out, "");
 });
 
 await done();
