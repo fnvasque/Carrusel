@@ -3,6 +3,7 @@ import { piezasCercanas, proximoHueco, resolverCuando, semanaDe } from "../src/p
 import type { Pieza, Plan } from "../src/calendario/plan.ts";
 import { PlanSchema } from "../src/calendario/plan.ts";
 import { parseBorrador } from "../src/calendario/draft.ts";
+import { problemasVideo, type InfoVideo } from "../src/publicar/video.ts";
 import { armarPieza, borradorDe, idDe, insertarPieza, problemasCaption } from "../src/publicar/pieza.ts";
 
 const igual = (a: unknown, b: unknown): void => {
@@ -107,6 +108,44 @@ check("problemasCaption: largo y exceso de hashtags", () => {
   igual(problemasCaption("a".repeat(2201)).length, 1);
   igual(problemasCaption(Array.from({ length: 31 }, (_, i) => `#t${i}`).join(" ")).length, 1);
   igual(problemasCaption("Hola #ia"), []);
+});
+
+const infoV = (o: Partial<InfoVideo> = {}): InfoVideo => ({ ancho: 1080, alto: 1920, duracionMs: 30000, codec: "h264", tieneAudio: true, ...o });
+
+check("problemasVideo: horizontal da error «vertical»", () => {
+  const r = problemasVideo(infoV({ ancho: 1920, alto: 1080 }));
+  if (!r.errores.some((e) => e.includes("vertical"))) throw new Error(JSON.stringify(r));
+});
+
+check("problemasVideo: 1080x1920 de 30 s h264 no da errores ni avisos", () => {
+  igual(problemasVideo(infoV()), { errores: [], avisos: [] });
+});
+
+check("problemasVideo: 2 s da error; 3 s y 900 s pasan", () => {
+  igual(problemasVideo(infoV({ duracionMs: 2000 })).errores.length, 1);
+  igual(problemasVideo(infoV({ duracionMs: 3000 })).errores.length, 0);
+  igual(problemasVideo(infoV({ duracionMs: 900000 })).errores.length, 0);
+  igual(problemasVideo(infoV({ duracionMs: 901000 })).errores.length, 1);
+});
+
+check("problemasVideo: 120 s da aviso (no error); 90 s no avisa", () => {
+  const r = problemasVideo(infoV({ duracionMs: 120000 }));
+  igual(r.errores, []);
+  igual(r.avisos.length, 1);
+  igual(problemasVideo(infoV({ duracionMs: 90000 })).avisos, []);
+});
+
+check("problemasVideo: 1080x1350 da aviso de aspecto; 1080x1900 (±2 %) no", () => {
+  const r = problemasVideo(infoV({ alto: 1350 }));
+  igual(r.errores, []);
+  igual(r.avisos.length, 1);
+  if (!r.avisos[0].includes("9:16")) throw new Error(r.avisos[0]);
+  igual(problemasVideo(infoV({ alto: 1900 })).avisos, []);
+});
+
+check("problemasVideo: vp9 da error; hevc pasa", () => {
+  igual(problemasVideo(infoV({ codec: "vp9" })).errores.length, 1);
+  igual(problemasVideo(infoV({ codec: "hevc" })).errores, []);
 });
 
 await done();
