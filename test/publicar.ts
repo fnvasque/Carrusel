@@ -1,4 +1,9 @@
-import { check, done } from "./_check.ts";
+import { check, checkAsync, done } from "./_check.ts";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { commitYVerificar, programar, type DepsProgramar } from "../src/publicar/programar.ts";
+import { leerManifiesto } from "../src/calendario/render.ts";
 import { piezasCercanas, proximoHueco, resolverCuando, semanaDe } from "../src/publicar/hueco.ts";
 import type { Pieza, Plan } from "../src/calendario/plan.ts";
 import { PlanSchema } from "../src/calendario/plan.ts";
@@ -146,6 +151,172 @@ check("problemasVideo: 1080x1350 da aviso de aspecto; 1080x1900 (±2 %) no", () 
 check("problemasVideo: vp9 da error; hevc pasa", () => {
   igual(problemasVideo(infoV({ codec: "vp9" })).errores.length, 1);
   igual(problemasVideo(infoV({ codec: "hevc" })).errores, []);
+});
+
+// ---------- programar (deps falsas: sin ffmpeg, red ni git) ----------
+const AHORA = new Date("2026-11-03T17:20:00Z");
+const CAPTION = "Hola, así lo hice.\n\n#ia #trabajo";
+const infoOk: InfoVideo = { ancho: 1080, alto: 1920, duracionMs: 30000, codec: "h264", tieneAudio: true };
+
+interface Entorno { outRoot: string; kb: string; video: string; orden: string[]; deps: DepsProgramar }
+function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo } = {}): Entorno {
+  const base = mkdtempSync(join(tmpdir(), "publicar-test-"));
+  const outRoot = join(base, "out");
+  const kb = join(base, "kb");
+  mkdirSync(outRoot, { recursive: true });
+  for (const s of o.semanas ?? ["2026-11-02"]) {
+    const dir = join(kb, "_calendario", s);
+    mkdirSync(dir, { recursive: true });
+    const plan = planFixture();
+    writeFileSync(join(dir, "plan.json"), JSON.stringify({ ...plan, semana: s, piezas: s === "2026-11-02" ? plan.piezas : [] }, null, 2));
+  }
+  const video = join(base, "video.mp4");
+  writeFileSync(video, "video de mentira");
+  const orden: string[] = [];
+  const deps: DepsProgramar = {
+    outRoot,
+    kbCalendario: kb,
+    ahora: () => o.ahora ?? AHORA,
+    pull: async () => void orden.push("pull"),
+    commit: async (paths, msg) => {
+      // La carpeta final con manifiesto tiene que existir ANTES del commit y el plan ya estar escrito.
+      const finales = existsSync(join(outRoot, "2026-11-02")) ? "con-carpeta" : "sin-carpeta";
+      orden.push(`commit:${finales}:${paths.length}`);
+      if (!msg) throw new Error("commit sin mensaje");
+      if (o.commit) await o.commit();
+    },
+    render: async () => (orden.push("render"), { ok: true, salida: "ok" }),
+    inspeccionar: async () => o.info ?? infoOk,
+    extraer: async (_r, dir) => {
+      orden.push("extraer");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "cover.jpg"), "jpeg");
+      writeFileSync(join(dir, "story.jpg"), "jpeg");
+      return { cover: join(dir, "cover.jpg"), story: join(dir, "story.jpg"), clave: [] };
+    },
+  };
+  return { outRoot, kb, video, orden, deps };
+}
+const ARGS = { cuando: "2026-11-05 19:00", hook: HOOK, caption: CAPTION, dryRun: false };
+const planDe = (e: Entorno, s = "2026-11-02"): Plan => JSON.parse(readFileSync(join(e.kb, "_calendario", s, "plan.json"), "utf8"));
+const rechaza = async (p: Promise<unknown>, texto: string): Promise<void> => {
+  try {
+    await p;
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e);
+    if (!m.includes(texto)) throw new Error(`mensaje sin «${texto}»: ${m}`);
+    return;
+  }
+  throw new Error("no lanzó");
+};
+
+await checkAsync("programar: camino feliz (carpeta + manifiesto antes del commit, plan con la pieza nueva)", async () => {
+  const e = entorno();
+  const r = await programar({ video: e.video, ...ARGS }, e.deps);
+  igual(e.orden, ["pull", "extraer", "commit:con-carpeta:2", "render"]);
+  igual([r.programada, r.semana, r.id, r.dia, r.hora], [true, "2026-11-02", "jue-reel-hice-este-video-en-2-dias-sin-saber-animar", "2026-11-05", "19:00"]);
+  const m = await leerManifiesto(r.carpeta);
+  igual(m?.archivos, ["reel.mp4", "cover.jpg", "story.jpg"]);
+  igual(m?.duracionMs, 30000);
+  igual(r.carpeta, join(e.outRoot, "2026-11-02", r.id));
+  const plan = planDe(e);
+  igual(plan.piezas.map((p) => p.id), [r.id, "vie-reel-otra"]);
+  PlanSchema.parse(plan);
+  parseBorrador(readFileSync(join(e.kb, "_calendario", "2026-11-02", `${r.id}.json`), "utf8"));
+  igual(r.render, { ok: true, salida: "ok" });
+});
+
+await checkAsync("programar: dryRun no escribe nada ni llama a commit/render", async () => {
+  const e = entorno();
+  const antes = readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json"), "utf8");
+  const r = await programar({ video: e.video, ...ARGS, dryRun: true }, e.deps);
+  igual(r.programada, false);
+  igual(existsSync(r.carpeta), false);
+  igual(existsSync(join(e.outRoot, "2026-11-02")), false);
+  igual(readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json"), "utf8"), antes);
+  igual(e.orden, ["pull"]);
+});
+
+await checkAsync("programar: semana sin plan.json → «aún no tiene plan»", async () => {
+  const e = entorno();
+  await rechaza(programar({ video: e.video, ...ARGS, cuando: "2026-11-12 10:00" }, e.deps), "la semana 2026-11-09 aún no tiene plan");
+  igual(e.orden, ["pull"]);
+});
+
+await checkAsync("programar: la semana sale del día resuelto («ahora» que cruza a lunes), no de hoy", async () => {
+  // Domingo 23:50 en Chile → el hueco es lunes 00:30 de la semana siguiente.
+  const cruza = new Date("2026-11-09T02:50:00Z");
+  const sin = entorno({ semanas: ["2026-11-02"], ahora: cruza });
+  await rechaza(programar({ video: sin.video, ...ARGS, cuando: "ahora" }, sin.deps), "2026-11-09 aún no tiene plan");
+  const con = entorno({ semanas: ["2026-11-02", "2026-11-09"], ahora: cruza });
+  const r = await programar({ video: con.video, ...ARGS, cuando: "ahora" }, con.deps);
+  igual([r.semana, r.dia, r.hora], ["2026-11-09", "2026-11-09", "00:30"]);
+  igual(planDe(con, "2026-11-09").piezas.length, 1);
+  igual(planDe(con, "2026-11-02").piezas.length, 1);
+});
+
+await checkAsync("programar: id repetido falla antes de copiar nada y sin commit", async () => {
+  const e = entorno();
+  const r = await programar({ video: e.video, ...ARGS }, e.deps);
+  // Mismo plan (ya con la pieza), pero sin carpeta final: solo el id repetido del plan debe frenar.
+  const otro = entorno();
+  writeFileSync(join(otro.kb, "_calendario", "2026-11-02", "plan.json"), readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json")));
+  await rechaza(programar({ video: otro.video, ...ARGS }, otro.deps), `id repetido: ${r.id}`);
+  igual(existsSync(join(otro.outRoot, "2026-11-02")), false);
+  igual(otro.orden, ["pull"]);
+  // Correr dos veces lo mismo sobre el mismo entorno también lanza, sin tocar el plan.
+  const antes = planDe(e);
+  await rechaza(programar({ video: e.video, ...ARGS }, e.deps), "id repetido");
+  igual(planDe(e), antes);
+});
+
+await checkAsync("programar: una pieza a 1 h da cercanas y se programa igual", async () => {
+  const e = entorno();
+  const r = await programar({ video: e.video, ...ARGS, cuando: "2026-11-06 11:00" }, e.deps);
+  igual(r.cercanas, ["vie-reel-otra"]);
+  igual(r.programada, true);
+});
+
+await checkAsync("programar: si commit lanza, se propaga y no hay render", async () => {
+  const e = entorno({ commit: async () => { throw new Error("el plan no llegó a la base: ahead 1"); } });
+  await rechaza(programar({ video: e.video, ...ARGS }, e.deps), "el plan no llegó a la base");
+  igual(e.orden.includes("render"), false);
+});
+
+await checkAsync("programar: errores del video y del caption se juntan; avisos van al resultado", async () => {
+  const mal = entorno({ info: { ...infoOk, ancho: 1920, alto: 1080 } });
+  await rechaza(programar({ video: mal.video, ...ARGS, caption: "x".repeat(2300) }, mal.deps), "vertical");
+  igual(existsSync(join(mal.outRoot, "2026-11-02")), false);
+  const aviso = entorno({ info: { ...infoOk, duracionMs: 120000 } });
+  const r = await programar({ video: aviso.video, ...ARGS }, aviso.deps);
+  igual(r.avisos.length, 1);
+});
+
+await checkAsync("programar: hook sin letras ni números pide --id; con --id funciona", async () => {
+  const e = entorno();
+  await rechaza(programar({ video: e.video, ...ARGS, hook: "¡¡¡???" }, e.deps), "el hook necesita letras o números (o pasa --id)");
+  const r = await programar({ video: e.video, ...ARGS, hook: "¡¡¡???", id: "jue-reel-manual" }, e.deps);
+  igual(r.id, "jue-reel-manual");
+});
+
+await checkAsync("commitYVerificar: clon ahead de origin lanza «el plan no llegó a la base»", async () => {
+  const llamadas: string[][] = [];
+  await rechaza(
+    commitYVerificar(["a.json"], "msg", {
+      commitPaths: async () => "abc1234",
+      git: async (args) => (llamadas.push(args), { code: 0, out: "## main...origin/main [ahead 1]\n" }),
+    }),
+    "el plan no llegó a la base",
+  );
+  igual(llamadas[0], ["status", "-sb"]);
+});
+
+await checkAsync("commitYVerificar: sin ahead pasa; commitPaths sin hash lanza", async () => {
+  await commitYVerificar(["a.json"], "msg", { commitPaths: async () => "abc1234", git: async () => ({ code: 0, out: "## main...origin/main\n" }) });
+  await rechaza(
+    commitYVerificar(["a.json"], "msg", { commitPaths: async () => undefined, git: async () => ({ code: 0, out: "## main...origin/main\n" }) }),
+    "el plan no llegó a la base",
+  );
 });
 
 await done();
