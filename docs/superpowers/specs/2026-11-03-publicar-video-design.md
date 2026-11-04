@@ -27,7 +27,7 @@ planificador. Llega con **un video listo y sin caption**. Hoy eso exige el camin
    «Te ayudo a partir…», nunca el nombre de Felipe, y los `hashtagsBase` de `config.json`.
 4. **Saca `cover.jpg` y `story.jpg`** del video.
 5. **Muestra** caption, portada, story, día y hora, y espera el OK o correcciones.
-6. **Programa** por el camino a mano y confirma con la URL pública verificada.
+6. **Programa** por el camino a mano y confirma con render.json en `renderizado` (URL pública verificada por el render).
 
 ## Decisiones de Claude (aprobadas con el diseño)
 

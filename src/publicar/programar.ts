@@ -1,7 +1,8 @@
 import { copyFile, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { MANIFIESTO, leerManifiesto } from "../calendario/render.ts";
 import { PlanSchema, type Plan } from "../calendario/plan.ts";
 import { localParts } from "../calendario/time.ts";
@@ -21,6 +22,10 @@ export interface DepsProgramar {
   /** Candado `outRoot/.lock` compartido con el render horario; `undefined` si otro lo tiene. */
   candado: () => Promise<(() => Promise<void>) | undefined>;
   render: () => Promise<{ ok: boolean; salida: string }>;
+  /** Relee `render.json` de la semana (del clon de la base) tras el render; `undefined` si no existe o no se puede leer. */
+  leerRender: (semana: string) => Promise<Record<string, { estado?: string }> | undefined>;
+  /** Saca del índice de git los archivos que `commit` dejó con stage cuando el commit falló sin crear nada. */
+  desindexar: (paths: string[]) => Promise<void>;
   inspeccionar: typeof inspeccionarVideo;
   extraer: typeof extraerCuadros;
 }
@@ -35,6 +40,39 @@ export interface ResultadoProgramar {
   carpeta: string;
   programada: boolean;
   render?: { ok: boolean; salida: string };
+  /**
+   * El render dejó la pieza en `renderizado` (ese estado solo se escribe tras verificar la URL
+   * pública de cada medio). `false`: el render horario la subirá antes de la hora.
+   */
+  subida?: boolean;
+}
+
+/** ¿La pieza `id` quedó `renderizado` en `render.json`? Función pura. */
+export function subidaDe(render: Record<string, { estado?: string }> | undefined, id: string): boolean {
+  return render?.[id]?.estado === "renderizado";
+}
+
+/**
+ * El comando solo vale corrido desde `Carrusel-render` (`CARRUSEL_RENDER_DIR` o
+ * `~/Documents/Claude/Carrusel-render`): de ahí salen la carpeta de salida y el candado que
+ * ve el render del Mac. Lanza si `cwd` es otro, salvo `cualquierDir` (solo para tests).
+ */
+export function exigirDirRender(cwd: string, renderDir: string | undefined, cualquierDir: boolean): void {
+  if (cualquierDir) return;
+  const real = (p: string): string => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return resolve(p);
+    }
+  };
+  const esperado = renderDir?.trim() || join(homedir(), "Documents", "Claude", "Carrusel-render");
+  if (real(cwd) !== real(esperado)) {
+    throw new Error(
+      `publicar solo corre desde ${esperado} (estás en ${cwd}): si no, la carpeta del reel queda donde el render del Mac no la ve. ` +
+        `Usa npm --prefix ${esperado} run -s publicar -- …`,
+    );
+  }
 }
 
 const ID_VALIDO = /^[a-z0-9][a-z0-9-]*$/;
@@ -68,7 +106,10 @@ export async function programar(
   } finally {
     await soltar?.();
   }
-  if (r.programada) r.render = await d.render();
+  if (r.programada) {
+    r.render = await d.render();
+    r.subida = subidaDe(await d.leerRender(r.semana).catch(() => undefined), r.id);
+  }
   return r;
 }
 
@@ -164,8 +205,8 @@ async function programarBloqueado(
     // Si hubo commit nuestro, primero se mira en qué quedó: subido (no se deshace nada),
     // revertido o inexistente (se limpia todo). Si no se puede deshacer, NO se toca nada:
     // plan.json, borrador y carpeta quedan coherentes con el commit local.
+    let estado: "revertido" | "subido" | "nada" | undefined;
     if (paso === "commit") {
-      let estado: "revertido" | "subido" | "nada";
       try {
         estado = await d.deshacer(msg);
       } catch (e2) {
@@ -173,6 +214,7 @@ async function programarBloqueado(
         throw new Error(
           `${causa}. No pude deshacer: ${det}. Puede haber un commit local ahead con la pieza «${id}»; ` +
             `su carpeta ${carpeta}, el borrador y plan.json siguen intactos (coherentes con ese commit). ` +
+            `Si no haces nada, el render horario la subirá y se publicará. ` +
             `Revisa con git -C ${d.kbCalendario} status -sb y, si confirmas que no debe publicarse, corre ` +
             `git -C ${d.kbCalendario} reset --keep @{u} y borra ${carpeta}.`,
         );
@@ -183,6 +225,10 @@ async function programarBloqueado(
         resultado.programada = true;
         return resultado;
       }
+    }
+    if (estado === "nada") {
+      // El commit falló sin crear nada: `git add` pudo dejar los archivos con stage.
+      await d.desindexar([rutaPlan, rutaBorrador]).catch((e2) => quedo.push(`el índice de git (${e2 instanceof Error ? e2.message : e2})`));
     }
     try {
       // Solo se restaura el plan si sigue siendo el nuestro (un reset o un rebase pudo cambiarlo).
@@ -211,15 +257,17 @@ export interface DepsCommit {
 
 /**
  * `commitPaths` devuelve `undefined` en silencio si algo falla y el push puede no
- * llegar: se comprueba que haya commit y que el clon no quede `ahead` de origin.
+ * llegar: se comprueba que haya commit y que no queden commits sin subir (`@{u}..HEAD`).
  */
 export async function commitYVerificar(paths: string[], msg: string, d: DepsCommit): Promise<void> {
   const hash = await d.commitPaths(paths, msg);
   if (!hash) throw new Error("el plan no llegó a la base: no se pudo hacer el commit");
-  const st = await d.git(["status", "-sb"]);
-  if (st.code !== 0) throw new Error(`el plan no llegó a la base: no pude verificar con git status (${st.out.trim()})`);
-  const cabecera = st.out.split("\n")[0] ?? "";
-  if (/\bahead\b/.test(cabecera)) throw new Error(`el plan no llegó a la base: ${cabecera.trim()}`);
+  // Cuenta commits sin subir con rev-list (no depende del idioma de git). Sin upstream falla: también lanza.
+  const st = await d.git(["rev-list", "--count", "@{u}..HEAD"]);
+  if (st.code !== 0) throw new Error(`el plan no llegó a la base: no pude verificar contra el upstream (${st.out.trim()})`);
+  const ahead = Number(st.out.trim());
+  if (!Number.isFinite(ahead)) throw new Error(`el plan no llegó a la base: respuesta inesperada de git (${st.out.trim()})`);
+  if (ahead > 0) throw new Error(`el plan no llegó a la base: quedan ${ahead} commit(s) sin subir`);
 }
 
 /**

@@ -2,14 +2,15 @@ import { check, checkAsync, done } from "./_check.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
+import { symlinkSync } from "node:fs";
 import { join } from "node:path";
-import { commitYVerificar, deshacerCommit, programar, type DepsProgramar } from "../src/publicar/programar.ts";
+import { commitYVerificar, deshacerCommit, exigirDirRender, programar, subidaDe, type DepsProgramar } from "../src/publicar/programar.ts";
 import { leerManifiesto } from "../src/calendario/render.ts";
 import { piezasCercanas, proximoHueco, resolverCuando, semanaDe } from "../src/publicar/hueco.ts";
 import type { Pieza, Plan } from "../src/calendario/plan.ts";
 import { PlanSchema } from "../src/calendario/plan.ts";
 import { parseBorrador } from "../src/calendario/draft.ts";
-import { problemasVideo, type InfoVideo } from "../src/publicar/video.ts";
+import { inspeccionarVideo, problemasVideo, type InfoVideo } from "../src/publicar/video.ts";
 import { armarPieza, borradorDe, idDe, insertarPieza, problemasCaption } from "../src/publicar/pieza.ts";
 
 const igual = (a: unknown, b: unknown): void => {
@@ -160,7 +161,7 @@ const CAPTION = "Hola, así lo hice.\n\n#ia #trabajo";
 const infoOk: InfoVideo = { ancho: 1080, alto: 1920, duracionMs: 30000, codec: "h264", tieneAudio: true };
 
 interface Entorno { outRoot: string; kb: string; video: string; orden: string[]; eventos: string[]; deps: DepsProgramar }
-function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo; candadoOcupado?: boolean; deshacer?: (msg: string) => Promise<"revertido" | "subido" | "nada"> } = {}): Entorno {
+function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo; candadoOcupado?: boolean; deshacer?: (msg: string) => Promise<"revertido" | "subido" | "nada">; render?: Record<string, { estado?: string }> } = {}): Entorno {
   const base = mkdtempSync(join(tmpdir(), "publicar-test-"));
   const outRoot = join(base, "out");
   const kb = join(base, "kb");
@@ -200,6 +201,8 @@ function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<v
       return async () => void eventos.push("suelta");
     },
     render: async () => (orden.push("render"), eventos.push("render"), { ok: true, salida: "ok" }),
+    leerRender: async () => o.render,
+    desindexar: async (paths) => void eventos.push(`desindexar:${paths.length}`),
     inspeccionar: async () => o.info ?? infoOk,
     extraer: async (_r, dir) => {
       orden.push("extraer");
@@ -318,17 +321,17 @@ await checkAsync("commitYVerificar: clon ahead de origin lanza «el plan no lleg
   await rechaza(
     commitYVerificar(["a.json"], "msg", {
       commitPaths: async () => "abc1234",
-      git: async (args) => (llamadas.push(args), { code: 0, out: "## main...origin/main [ahead 1]\n" }),
+      git: async (args) => (llamadas.push(args), { code: 0, out: "1\n" }),
     }),
     "el plan no llegó a la base",
   );
-  igual(llamadas[0], ["status", "-sb"]);
+  igual(llamadas[0], ["rev-list", "--count", "@{u}..HEAD"]);
 });
 
 await checkAsync("commitYVerificar: sin ahead pasa; commitPaths sin hash lanza", async () => {
-  await commitYVerificar(["a.json"], "msg", { commitPaths: async () => "abc1234", git: async () => ({ code: 0, out: "## main...origin/main\n" }) });
+  await commitYVerificar(["a.json"], "msg", { commitPaths: async () => "abc1234", git: async () => ({ code: 0, out: "0\n" }) });
   await rechaza(
-    commitYVerificar(["a.json"], "msg", { commitPaths: async () => undefined, git: async () => ({ code: 0, out: "## main...origin/main\n" }) }),
+    commitYVerificar(["a.json"], "msg", { commitPaths: async () => undefined, git: async () => ({ code: 0, out: "0\n" }) }),
     "el plan no llegó a la base",
   );
 });
@@ -426,6 +429,118 @@ await checkAsync("cli: sin argumentos sale ≠ 0 con mensaje de uso (detecta un 
   if (r.code === 0) throw new Error("salió 0");
   if (!r.err.includes("uso: publicar revisar")) throw new Error(`sin mensaje de uso: ${r.err}`);
   igual(r.out, "");
+});
+
+// ---------- arreglos de la revisión final ----------
+check("resolverCuando: fecha explícita a menos de 15 min lanza; a 15 min exactos pasa (I2)", () => {
+  // 14:20 Chile: 14:30 queda a 10 min; 15:00 queda a 40 min.
+  lanza(() => resolverCuando("2026-11-03 14:30", AHORA), 'queda a menos de 15 min; usa "ahora" o una hora posterior');
+  igual(resolverCuando("2026-11-03 15:00", AHORA), { dia: "2026-11-03", hora: "15:00" });
+  // 14:15 Chile: 14:30 queda justo a 15 min.
+  igual(resolverCuando("2026-11-03 14:30", new Date("2026-11-03T17:15:00Z")), { dia: "2026-11-03", hora: "14:30" });
+  lanza(() => resolverCuando("2026-11-03 14:30", new Date("2026-11-03T17:16:00Z")), "menos de 15 min");
+});
+
+check("exigirDirRender: solo el dir de Carrusel-render (también por symlink); el escape lo salta (I1)", () => {
+  const base = mkdtempSync(join(tmpdir(), "publicar-dir-"));
+  const render = join(base, "render");
+  const otro = join(base, "otro");
+  mkdirSync(render);
+  mkdirSync(otro);
+  symlinkSync(render, join(base, "enlace"));
+  exigirDirRender(render, render, false);
+  exigirDirRender(join(base, "enlace"), render, false);
+  lanza(() => exigirDirRender(otro, render, false), "publicar solo corre desde");
+  exigirDirRender(otro, render, true);
+});
+
+await checkAsync("cli: fuera de Carrusel-render rechaza antes de tocar la base (I1)", async () => {
+  const render = mkdtempSync(join(tmpdir(), "publicar-render-"));
+  const r = await new Promise<{ code: number; err: string; out: string }>((res) => {
+    execFile("npx", ["tsx", "src/publicar/cli.ts", "revisar", "test/publicar.ts"], { env: { ...process.env, CARRUSEL_RENDER_DIR: render, PUBLICAR_CUALQUIER_DIR: "" } }, (e, out, err) => {
+      res({ code: e ? ((e as { code?: number }).code ?? 1) : 0, err, out });
+    });
+  });
+  if (r.code === 0) throw new Error("salió 0");
+  if (!r.err.includes("publicar solo corre desde")) throw new Error(`sin el rechazo: ${r.err}`);
+  igual(r.out, "");
+});
+
+check("subidaDe: solo «renderizado» cuenta como subida (I3)", () => {
+  igual(subidaDe({ a: { estado: "renderizado" } }, "a"), true);
+  igual(subidaDe({ a: { estado: "fallido" } }, "a"), false);
+  igual(subidaDe({ b: { estado: "renderizado" } }, "a"), false);
+  igual(subidaDe(undefined, "a"), false);
+});
+
+await checkAsync("programar: subida sale de render.json tras el render (true / false / sin archivo) (I3)", async () => {
+  const id = "jue-reel-hice-este-video-en-2-dias-sin-saber-animar";
+  const e1 = entorno({ render: { [id]: { estado: "renderizado" } } });
+  igual((await programar({ video: e1.video, ...ARGS }, e1.deps)).subida, true);
+  const e2 = entorno({ render: { [id]: { estado: "fallido" } } });
+  igual((await programar({ video: e2.video, ...ARGS }, e2.deps)).subida, false);
+  const e3 = entorno();
+  igual((await programar({ video: e3.video, ...ARGS }, e3.deps)).subida, false);
+  const dry = entorno({ render: { [id]: { estado: "renderizado" } } });
+  igual((await programar({ video: dry.video, ...ARGS, dryRun: true }, dry.deps)).subida, undefined);
+});
+
+await checkAsync("commitYVerificar: sin upstream (rev-list falla) o salida rara lanza (M1)", async () => {
+  await rechaza(
+    commitYVerificar(["a.json"], "msg", { commitPaths: async () => "abc", git: async () => ({ code: 128, out: "fatal: no upstream configured" }) }),
+    "no pude verificar contra el upstream",
+  );
+  await rechaza(
+    commitYVerificar(["a.json"], "msg", { commitPaths: async () => "abc", git: async () => ({ code: 0, out: "## main\n" }) }),
+    "respuesta inesperada",
+  );
+  await rechaza(
+    commitYVerificar(["a.json"], "msg", { commitPaths: async () => "abc", git: async () => ({ code: 0, out: "2\n" }) }),
+    "2 commit(s) sin subir",
+  );
+});
+
+await checkAsync("programar: commit falla sin crear nada («nada») → se desindexan plan y borrador (M3)", async () => {
+  const e = entorno({ commit: async () => { throw new Error("git commit falló"); }, deshacer: async () => "nada" });
+  await rechaza(programar({ video: e.video, ...ARGS }, e.deps), "No quedó nada programado");
+  igual(e.eventos, ["candado", "deshacer", "desindexar:2", "suelta"]);
+  // Si el commit sí revirtió (reset --keep), no hace falta desindexar.
+  const r = entorno({ commit: async () => { throw new Error("push roto"); }, deshacer: async () => "revertido" });
+  await rechaza(programar({ video: r.video, ...ARGS }, r.deps), "No quedó nada programado");
+  igual(r.eventos.some((x) => x.startsWith("desindexar")), false);
+});
+
+await checkAsync("programar: «No pude deshacer» advierte que el render horario la subirá (M4)", async () => {
+  const e = entorno({ commit: async () => { throw new Error("push roto"); }, deshacer: async () => { throw new Error("ajenos"); } });
+  await rechaza(programar({ video: e.video, ...ARGS }, e.deps), "Si no haces nada, el render horario la subirá y se publicará");
+});
+
+check("problemasCaption: vacío o con el nombre de Felipe da error (M5)", () => {
+  igual(problemasCaption("").length, 1);
+  igual(problemasCaption("  \n ").length, 1);
+  igual(problemasCaption("Hola, soy Felipe #ia").length, 1);
+  igual(problemasCaption("por FELIPE").length, 1);
+  igual(problemasCaption("Felipe Vásquez").length, 1);
+  igual(problemasCaption("Vasquez enseña").length, 1);
+  igual(problemasCaption("Te ayudo a partir. @ia.punto.es #ia"), []);
+  igual(problemasCaption("Los felipes del barrio"), []);
+});
+
+await checkAsync("inspeccionarVideo: duración no finita (N/A) lanza un error claro (M6)", async () => {
+  const bin = mkdtempSync(join(tmpdir(), "publicar-ffprobe-"));
+  const falso = join(bin, "ffprobe");
+  writeFileSync(
+    falso,
+    `#!/bin/sh\necho '{"streams":[{"codec_type":"video","codec_name":"h264","width":1080,"height":1920}],"format":{"duration":"N/A"}}'\n`,
+    { mode: 0o755 },
+  );
+  const path = process.env.PATH;
+  process.env.PATH = `${bin}:${path}`;
+  try {
+    await rechaza(inspeccionarVideo("/x/video.mp4"), "no pude leer la duración");
+  } finally {
+    process.env.PATH = path;
+  }
 });
 
 await done();

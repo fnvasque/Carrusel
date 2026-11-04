@@ -8,7 +8,7 @@ import { commitPaths, pullKb } from "../kb/store.ts";
 import { clonKbCalendario, tomarCandado } from "../calendario/render.ts";
 import { localParts } from "../calendario/time.ts";
 import { semanaDe } from "./hueco.ts";
-import { commitYVerificar, deshacerCommit, programar, type DepsProgramar } from "./programar.ts";
+import { commitYVerificar, deshacerCommit, exigirDirRender, programar, type DepsProgramar } from "./programar.ts";
 import { extraerCuadros, inspeccionarVideo, problemasVideo } from "./video.ts";
 
 /**
@@ -25,6 +25,8 @@ try {
 }
 
 const ejecutar = promisify(execFile);
+/** El render hijo no puede pasar de aquí: Bash corta a los 10 min y el plan ya está subido. */
+const RENDER_TIMEOUT_MS = 540_000;
 
 function valorDe(args: string[], nombre: string): string | undefined {
   const i = args.indexOf(nombre);
@@ -58,6 +60,8 @@ async function principal(): Promise<void> {
   if ((cmd !== "revisar" && cmd !== "programar") || !video) {
     throw new Error('uso: publicar revisar "<video>" [--transcribir] | publicar programar "<video>" --cuando … --hook … --caption-file …');
   }
+  // Antes de tocar la base: fuera de Carrusel-render el plan llegaría pero la carpeta no la vería el Mac.
+  exigirDirRender(process.cwd(), process.env.CARRUSEL_RENDER_DIR, process.env.PUBLICAR_CUALQUIER_DIR === "1");
   const rutaVideo = resolve(video);
   if (!existsSync(rutaVideo)) throw new Error(`no existe el video: ${rutaVideo}`);
 
@@ -70,7 +74,15 @@ async function principal(): Promise<void> {
   // `kbDir()` lee KB_DIR en cada llamada, así que basta fijarlo antes de usar el store.
 
   if (cmd === "revisar") {
-    await pullKb().catch(() => undefined);
+    // El pull comparte clon con el render horario: solo si el candado está libre (sin esperar).
+    const suelta = await tomarCandado(join(process.cwd(), "output", "calendario", ".lock"));
+    if (suelta) {
+      try {
+        await pullKb().catch(() => undefined);
+      } finally {
+        await suelta();
+      }
+    }
     const info = await inspeccionarVideo(rutaVideo);
     const { errores, avisos } = problemasVideo(info);
     const cuadros = await extraerCuadros(rutaVideo, await mkdtemp(join(tmpdir(), "publicar-revisar-")), info);
@@ -111,15 +123,40 @@ async function principal(): Promise<void> {
     },
     commit: (paths, msg) => commitYVerificar(paths, msg, { commitPaths: commitPaths, git }),
     deshacer: (msg) => deshacerCommit(msg, git),
-    candado: () => tomarCandado(join(process.cwd(), "output", "calendario", ".lock")),
+    candado: async () => {
+      const suelta = await tomarCandado(join(process.cwd(), "output", "calendario", ".lock"));
+      if (!suelta) return undefined;
+      // Ctrl-C o kill con el candado tomado: se suelta como hace render-cli.
+      const handlers = (["SIGINT", "SIGTERM"] as const).map((sig) => {
+        const h = (): void => void suelta().finally(() => process.exit(130));
+        process.once(sig, h);
+        return [sig, h] as const;
+      });
+      return async () => {
+        for (const [sig, h] of handlers) process.removeListener(sig, h);
+        await suelta();
+      };
+    },
     render: async () => {
       try {
-        const r = await ejecutar("npm", ["run", "-s", "calendario:render"], { cwd: process.cwd(), maxBuffer: 16 * 1024 * 1024 });
+        const r = await ejecutar("npm", ["run", "-s", "calendario:render"], { cwd: process.cwd(), maxBuffer: 16 * 1024 * 1024, timeout: RENDER_TIMEOUT_MS });
         return { ok: true, salida: (r.stdout + r.stderr).trim() };
       } catch (e) {
-        const x = e as { stdout?: string; stderr?: string; message: string };
-        return { ok: false, salida: `${x.stdout ?? ""}${x.stderr ?? ""}`.trim() || x.message };
+        const x = e as { stdout?: string; stderr?: string; message: string; killed?: boolean };
+        const salida = `${x.stdout ?? ""}${x.stderr ?? ""}`.trim() || x.message;
+        return { ok: false, salida: x.killed ? `el render superó ${RENDER_TIMEOUT_MS / 1000} s y se cortó; la pieza sigue programada. ${salida}` : salida };
       }
+    },
+    leerRender: async (semana) => {
+      try {
+        return JSON.parse(readFileSync(join(clon.dir, "_calendario", semana, "render.json"), "utf8")) as Record<string, { estado?: string }>;
+      } catch {
+        return undefined;
+      }
+    },
+    desindexar: async (paths) => {
+      const r = await git(["reset", "-q", "--", ...paths]);
+      if (r.code !== 0) throw new Error(r.out.trim());
     },
     inspeccionar: inspeccionarVideo,
     extraer: extraerCuadros,

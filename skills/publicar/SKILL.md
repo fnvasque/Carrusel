@@ -72,19 +72,25 @@ Subcomandos (todos imprimen JSON en stdout; los errores salen por stderr con `�
    adelante») sirve. Si pide cambios (caption, hora, hook), aplícalos, repite el paso 5 y vuelve a
    mostrar. Cualquier cambio exige un nuevo `--dry-run` y un nuevo OK.
 
-7. **Programar.** Con el OK, corre el mismo comando **sin `--dry-run`**. Puede tardar (sube el
-   plan a la base y dispara el render). Devuelve lo mismo más `programada` y `render`
-   (`ok`, `salida`). Reporta lo que pasó:
-   - `render.ok` y la salida trae la URL verificada → confírmalo y muestra la URL.
-   - `render.ok` pero la salida viene vacía → dile que quedó programada y que el render horario la
-     subirá (puede haber estado ocupado).
-   - `render.ok` en `false` → muestra la salida tal cual; la pieza sigue programada y el render
-     horario reintenta.
+7. **Programar.** Con el OK, corre el mismo comando **sin `--dry-run`** y con **`timeout: 600000`**
+   en la herramienta Bash (sube el plan a la base y dispara el render en línea, que puede pasar
+   los 2 min por defecto; si Bash lo corta entre el plan y el push, queda a medias). Devuelve lo
+   mismo más `programada`, `render` (`ok`, `salida`) y `subida`. Reporta según `subida`, **nunca
+   muestres URLs** (llevan token):
+   - `subida: true` → quedó programada y la subida está confirmada y verificada por el render
+     (`render.json` en `renderizado`).
+   - `subida: false` → quedó programada, pero el render aún no la subió: el render horario la
+     subirá antes de la hora; conviene revisar más tarde.
+   - `render.ok` en `false` → muestra la `salida` tal cual (sin URLs); la pieza sigue programada y
+     el render horario reintenta.
    - Error que dice «No quedó nada programado» → díselo tal cual y que puede reintentar.
    - Error que dice «No pude deshacer» → muéstrale los comandos de limpieza que trae el error,
      tal cual; no los corras tú.
    - `programada: true` con algo en `avisos` (por ejemplo «el commit llegó a la base pero la
      verificación falló») → muéstralo tal cual.
+   - Error «publicar solo corre desde …» → corriste el comando fuera de `Carrusel-render`; usa la
+     forma de arriba.
+   - Error «queda a menos de 15 min» → pídele otra hora o usa «ahora».
    - Error «el hook necesita letras o números» → pasa `--id` con un id propio (minúsculas, números
      y guiones) y repite el `--dry-run`.
    - Error «id repetido» → **antes de reintentar**, revisa si esa pieza ya quedó programada (no se

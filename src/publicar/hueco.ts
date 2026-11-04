@@ -47,8 +47,13 @@ export function resolverCuando(cuando: string, ahora: Date): Hueco {
     throw new Error(`La hora debe ser HH:00 o HH:30 (recibí ${m[2]}:${m[3]}).`);
   }
   const hora = `${m[2]}:${m[3]}`;
-  if (zonedToUtc(m[1], hora).getTime() < ahora.getTime()) {
+  const t = zonedToUtc(m[1], hora).getTime();
+  if (t < ahora.getTime()) {
     throw new Error(`${m[1]} ${hora} ya pasó.`);
+  }
+  // Mismo margen que «ahora»: tiene que dar tiempo a subir, que el bot lea la base y que Meta procese.
+  if (t < ahora.getTime() + 15 * 60_000) {
+    throw new Error(`${m[1]} ${hora} queda a menos de 15 min; usa "ahora" o una hora posterior.`);
   }
   return { dia: m[1], hora };
 }

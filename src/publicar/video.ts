@@ -55,7 +55,8 @@ export async function inspeccionarVideo(ruta: string): Promise<InfoVideo> {
   if (!v || !v.width || !v.height) throw new Error(`«${ruta}» no tiene pista de video`);
   const rot = Math.abs(Number(v.side_data_list?.find((d) => d.rotation !== undefined)?.rotation ?? v.tags?.rotate ?? 0)) % 180;
   const [ancho, alto] = rot === 90 ? [v.height, v.width] : [v.width, v.height];
-  const seg = Number(j.format?.duration ?? v.duration ?? 0);
+  const seg = Number(j.format?.duration ?? v.duration);
+  if (!Number.isFinite(seg)) throw new Error(`no pude leer la duración de «${ruta}» (ffprobe no la informa)`);
   return {
     ancho,
     alto,

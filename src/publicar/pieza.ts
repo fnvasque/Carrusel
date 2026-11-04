@@ -26,6 +26,8 @@ export function idDe(dia: string, hook: string): string {
 /** Motivos por los que el caption no cabe en Instagram; vacío = ok. */
 export function problemasCaption(caption: string): string[] {
   const out: string[] = [];
+  if (!caption.trim()) out.push("El caption está vacío.");
+  if (/\bfelipe\b|v[aá]squez/i.test(caption)) out.push("El caption menciona el nombre de Felipe; la cuenta firma como @ia.punto.es, sin nombre.");
   if (caption.length > CAPTION_MAX) out.push(`El caption tiene ${caption.length} caracteres; Instagram acepta hasta ${CAPTION_MAX}.`);
   const tags = contarHashtags(caption);
   if (tags > HASHTAGS_MAX) out.push(`El caption tiene ${tags} hashtags; Instagram acepta hasta ${HASHTAGS_MAX}.`);
