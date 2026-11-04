@@ -1,6 +1,9 @@
 import { check, done } from "./_check.ts";
 import { piezasCercanas, proximoHueco, resolverCuando, semanaDe } from "../src/publicar/hueco.ts";
-import type { Pieza } from "../src/calendario/plan.ts";
+import type { Pieza, Plan } from "../src/calendario/plan.ts";
+import { PlanSchema } from "../src/calendario/plan.ts";
+import { parseBorrador } from "../src/calendario/draft.ts";
+import { armarPieza, borradorDe, idDe, insertarPieza, problemasCaption } from "../src/publicar/pieza.ts";
 
 const igual = (a: unknown, b: unknown): void => {
   if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);
@@ -49,6 +52,61 @@ check("piezasCercanas: ventana de 120 min en el mismo día", () => {
   igual(piezasCercanas(p, "2026-11-05", "14:30"), ["a"]);
   igual(piezasCercanas(p, "2026-11-05", "15:00"), []);
   igual(piezasCercanas(p, "2026-11-06", "13:00"), []);
+});
+
+const HOOK = "Hice este video en 2 días, sin saber animar";
+const planFixture = (): Plan =>
+  PlanSchema.parse({
+    semana: "2026-11-02",
+    zona: "America/Santiago",
+    experimento: null,
+    piezas: [
+      {
+        id: "vie-reel-otra", dia: "2026-11-06", hora: "10:00", formato: "reel", arquetipo: "atemporal", senal: "retencion",
+        tema: "", pilar: "trabajo", hook: { categoria: "x", texto: "x", score: 1 }, emocion: "curiosidad", entregable: "x",
+        fraseAmigo: "x", lectorFrio: { intentos: 0, resultado: "manual", notas: "" }, origen: { fichas: [], referencias: [] },
+        caption: "x", borrador: "vie-reel-otra.json",
+      },
+    ],
+  });
+const piezaNueva = (id = "jue-reel-x"): Pieza =>
+  armarPieza({ id, dia: "2026-11-05", hora: "19:00", hook: HOOK, caption: "Hola #ia", hoy: "2026-11-03" });
+
+check("idDe: día de la semana, reel y slug sin tildes", () => {
+  igual(idDe("2026-11-05", HOOK), "jue-reel-hice-este-video-en-2-dias-sin-saber-animar");
+});
+
+check("idDe: hook de 200 caracteres da id ≤ 80 sin guion final", () => {
+  const id = idDe("2026-11-05", "palabra ".repeat(25));
+  if (id.length > 80 || id.endsWith("-") || !/^[a-z0-9-]{3,80}$/.test(id)) throw new Error(id);
+});
+
+check("insertarPieza: el plan sigue válido, ordenado y la pieza queda hecha a mano", () => {
+  const plan = insertarPieza(planFixture(), piezaNueva());
+  PlanSchema.parse(plan);
+  igual(plan.piezas.map((p) => p.id), ["jue-reel-x", "vie-reel-otra"]);
+  const p = plan.piezas[0];
+  if (p.parametros?.hechaAMano !== true || p.parametros.origen !== "publicar") throw new Error("parametros");
+  igual(p.lectorFrio, { intentos: 0, resultado: "manual", notas: "Pieza publicada con /publicar (2026-11-03), fuera del planificador." });
+  igual([p.hook.score, p.estado, p.borrador], [0, "planificado", "jue-reel-x.json"]);
+});
+
+check("insertarPieza: no muta el plan y un id repetido lanza", () => {
+  const plan = planFixture();
+  const nuevo = insertarPieza(plan, piezaNueva());
+  igual(plan.piezas.length, 1);
+  lanza(() => insertarPieza(nuevo, piezaNueva()), "id repetido: jue-reel-x");
+});
+
+check("borradorDe: pasa parseBorrador", () => {
+  const b = parseBorrador(JSON.stringify(borradorDe("jue-reel-x", HOOK)));
+  igual([b.name, b.pillar, b.angle, b.slides.length], ["jue-reel-x", "trabajo", HOOK, 1]);
+});
+
+check("problemasCaption: largo y exceso de hashtags", () => {
+  igual(problemasCaption("a".repeat(2201)).length, 1);
+  igual(problemasCaption(Array.from({ length: 31 }, (_, i) => `#t${i}`).join(" ")).length, 1);
+  igual(problemasCaption("Hola #ia"), []);
 });
 
 await done();

@@ -174,7 +174,7 @@ interface Receta {
   queProcesa: string;
 }
 
-const contarHashtags = (s: string): number => (s.match(/#[\p{L}\p{N}_]+/gu) ?? []).length;
+export const contarHashtags =(s: string): number => (s.match(/#[\p{L}\p{N}_]+/gu) ?? []).length;
 const urlValida = (u: string | undefined): u is string => typeof u === "string" && /^https?:\/\/\S+$/.test(u);
 /** Caption comparable: Instagram puede devolver `\r\n` o recortar espacios al final. */
 const normalizarCaption = (s: string): string => s.replace(/\r\n?/g, "\n").replace(/[ \t]+\n/g, "\n").trim();
