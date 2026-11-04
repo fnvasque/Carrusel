@@ -1,8 +1,8 @@
 import { check, checkAsync, done } from "./_check.ts";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { commitYVerificar, programar, type DepsProgramar } from "../src/publicar/programar.ts";
+import { commitYVerificar, deshacerCommit, programar, type DepsProgramar } from "../src/publicar/programar.ts";
 import { leerManifiesto } from "../src/calendario/render.ts";
 import { piezasCercanas, proximoHueco, resolverCuando, semanaDe } from "../src/publicar/hueco.ts";
 import type { Pieza, Plan } from "../src/calendario/plan.ts";
@@ -158,8 +158,8 @@ const AHORA = new Date("2026-11-03T17:20:00Z");
 const CAPTION = "Hola, así lo hice.\n\n#ia #trabajo";
 const infoOk: InfoVideo = { ancho: 1080, alto: 1920, duracionMs: 30000, codec: "h264", tieneAudio: true };
 
-interface Entorno { outRoot: string; kb: string; video: string; orden: string[]; deps: DepsProgramar }
-function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo } = {}): Entorno {
+interface Entorno { outRoot: string; kb: string; video: string; orden: string[]; eventos: string[]; deps: DepsProgramar }
+function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo; candadoOcupado?: boolean; deshacer?: (msg: string) => Promise<void> } = {}): Entorno {
   const base = mkdtempSync(join(tmpdir(), "publicar-test-"));
   const outRoot = join(base, "out");
   const kb = join(base, "kb");
@@ -173,19 +173,32 @@ function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<v
   const video = join(base, "video.mp4");
   writeFileSync(video, "video de mentira");
   const orden: string[] = [];
+  const eventos: string[] = [];
   const deps: DepsProgramar = {
     outRoot,
     kbCalendario: kb,
     ahora: () => o.ahora ?? AHORA,
     pull: async () => void orden.push("pull"),
     commit: async (paths, msg) => {
-      // La carpeta final con manifiesto tiene que existir ANTES del commit y el plan ya estar escrito.
-      const finales = existsSync(join(outRoot, "2026-11-02")) ? "con-carpeta" : "sin-carpeta";
-      orden.push(`commit:${finales}:${paths.length}`);
+      // Review Focus 1: al llegar al commit, la carpeta final ya tiene manifiesto válido y el plan ya trae la pieza.
+      const dirSem = join(outRoot, "2026-11-02");
+      const finales = existsSync(dirSem) ? readdirSync(dirSem).filter((f) => !f.startsWith(".") && !f.includes(".tmp-")) : [];
+      const manifiesto = finales.length === 1 ? await leerManifiesto(join(dirSem, finales[0])) : undefined;
+      const enPlan = (JSON.parse(readFileSync(join(kb, "_calendario", "2026-11-02", "plan.json"), "utf8")) as Plan).piezas.some((p) => p.id === finales[0]);
+      orden.push(`commit:${manifiesto && enPlan ? "con-carpeta" : "sin-carpeta"}:${paths.length}`);
       if (!msg) throw new Error("commit sin mensaje");
       if (o.commit) await o.commit();
     },
-    render: async () => (orden.push("render"), { ok: true, salida: "ok" }),
+    deshacer: async (msg) => {
+      eventos.push("deshacer");
+      await o.deshacer?.(msg);
+    },
+    candado: async () => {
+      if (o.candadoOcupado) return undefined;
+      eventos.push("candado");
+      return async () => void eventos.push("suelta");
+    },
+    render: async () => (orden.push("render"), eventos.push("render"), { ok: true, salida: "ok" }),
     inspeccionar: async () => o.info ?? infoOk,
     extraer: async (_r, dir) => {
       orden.push("extraer");
@@ -195,7 +208,7 @@ function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<v
       return { cover: join(dir, "cover.jpg"), story: join(dir, "story.jpg"), clave: [] };
     },
   };
-  return { outRoot, kb, video, orden, deps };
+  return { outRoot, kb, video, orden, eventos, deps };
 }
 const ARGS = { cuando: "2026-11-05 19:00", hook: HOOK, caption: CAPTION, dryRun: false };
 const planDe = (e: Entorno, s = "2026-11-02"): Plan => JSON.parse(readFileSync(join(e.kb, "_calendario", s, "plan.json"), "utf8"));
@@ -317,6 +330,58 @@ await checkAsync("commitYVerificar: sin ahead pasa; commitPaths sin hash lanza",
     commitYVerificar(["a.json"], "msg", { commitPaths: async () => undefined, git: async () => ({ code: 0, out: "## main...origin/main\n" }) }),
     "el plan no llegó a la base",
   );
+});
+
+await checkAsync("programar: commit ahead → se revierte todo (reset, plan restaurado, sin carpeta ni borrador)", async () => {
+  const e = entorno({ commit: async () => { throw new Error("el plan no llegó a la base: ## main...origin/main [ahead 1]"); } });
+  const planAntes = readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json"), "utf8");
+  await rechaza(programar({ video: e.video, ...ARGS }, e.deps), "No quedó nada programado; puedes reintentar");
+  igual(e.eventos, ["candado", "deshacer", "suelta"]);
+  igual(readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json"), "utf8"), planAntes);
+  igual(readdirSync(join(e.kb, "_calendario", "2026-11-02")), ["plan.json"]);
+  igual(readdirSync(join(e.outRoot, "2026-11-02")), []);
+  // Y reintentar ya no da «id repetido».
+  const r = await programar({ video: e.video, ...ARGS }, { ...e.deps, commit: async () => {} });
+  igual(r.programada, true);
+});
+
+await checkAsync("programar: si el deshacer falla, el error dice qué quedó y los comandos", async () => {
+  const e = entorno({
+    commit: async () => { throw new Error("push roto"); },
+    deshacer: async () => { throw new Error("hay commits locales ajenos"); },
+  });
+  try {
+    await programar({ video: e.video, ...ARGS }, e.deps);
+    throw new Error("no lanzó");
+  } catch (x) {
+    const m = (x as Error).message;
+    for (const t of ["No pude deshacer todo", "commit local", "git reset --keep @{u}", "git checkout --"]) if (!m.includes(t)) throw new Error(`sin «${t}»: ${m}`);
+    if (m.includes("No quedó nada programado")) throw new Error(m);
+  }
+});
+
+await checkAsync("programar: candado tomado durante el trabajo y soltado antes del render; ocupado lanza; dry-run no lo toma", async () => {
+  const e = entorno();
+  await programar({ video: e.video, ...ARGS }, e.deps);
+  igual(e.eventos, ["candado", "suelta", "render"]);
+  const ocupado = entorno({ candadoOcupado: true });
+  await rechaza(programar({ video: ocupado.video, ...ARGS }, ocupado.deps), "candado");
+  igual(ocupado.orden, []);
+  const dry = entorno();
+  await programar({ video: dry.video, ...ARGS, dryRun: true }, dry.deps);
+  igual(dry.eventos, []);
+});
+
+await checkAsync("deshacerCommit: solo revierte si el único commit ahead es el nuestro", async () => {
+  const llamadas: string[][] = [];
+  const git = (ahead: string) => async (args: string[]) => (llamadas.push(args), { code: 0, out: args[0] === "log" ? ahead : "" });
+  await deshacerCommit("mi msg", git("mi msg\n"));
+  igual(llamadas.map((a) => a[0]), ["log", "reset"]);
+  igual(llamadas[1], ["reset", "--keep", "@{u}"]);
+  llamadas.length = 0;
+  await deshacerCommit("mi msg", git(""));
+  igual(llamadas.map((a) => a[0]), ["log"]);
+  await rechaza(deshacerCommit("mi msg", git("otro\nmi msg\n")), "no son solo el nuestro");
 });
 
 await done();

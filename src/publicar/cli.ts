@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { commitPaths, pullKb } from "../kb/store.ts";
-import { clonKbCalendario } from "../calendario/render.ts";
+import { clonKbCalendario, tomarCandado } from "../calendario/render.ts";
 import { localParts } from "../calendario/time.ts";
 import { semanaDe } from "./hueco.ts";
-import { commitYVerificar, programar, type DepsProgramar } from "./programar.ts";
+import { commitYVerificar, deshacerCommit, programar, type DepsProgramar } from "./programar.ts";
 import { extraerCuadros, inspeccionarVideo, problemasVideo } from "./video.ts";
 
 /**
@@ -61,11 +61,12 @@ async function principal(): Promise<void> {
   const rutaVideo = resolve(video);
   if (!existsSync(rutaVideo)) throw new Error(`no existe el video: ${rutaVideo}`);
 
+  if (process.env.KB_GIT === "0") throw new Error("KB_GIT=0 desactiva git en la base: publicar no puede traer ni subir el plan. Quítalo del entorno.");
   // Clon propio de la base (nunca la bóveda de Obsidian); push tras el commit.
   const clon = await clonKbCalendario();
   if ("error" in clon) throw new Error(clon.error);
   process.env.KB_DIR = clon.dir;
-  process.env.KB_GIT_PUSH ??= "1";
+  process.env.KB_GIT_PUSH = "1";
   // `kbDir()` lee KB_DIR en cada llamada, así que basta fijarlo antes de usar el store.
 
   if (cmd === "revisar") {
@@ -109,6 +110,8 @@ async function principal(): Promise<void> {
       if (r.error) throw new Error(`no pude traer la base: ${r.error}`);
     },
     commit: (paths, msg) => commitYVerificar(paths, msg, { commitPaths: commitPaths, git }),
+    deshacer: (msg) => deshacerCommit(msg, git),
+    candado: () => tomarCandado(join(process.cwd(), "output", "calendario", ".lock")),
     render: async () => {
       try {
         const r = await ejecutar("npm", ["run", "-s", "calendario:render"], { cwd: process.cwd(), maxBuffer: 16 * 1024 * 1024 });

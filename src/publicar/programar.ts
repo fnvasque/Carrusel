@@ -16,6 +16,10 @@ export interface DepsProgramar {
   ahora: () => Date;
   pull: () => Promise<void>;
   commit: (paths: string[], msg: string) => Promise<void>;
+  /** Deshace un commit nuestro que no llegó a la base (reset al upstream); no toca nada que no sea nuestro. */
+  deshacer: (msg: string) => Promise<void>;
+  /** Candado `outRoot/.lock` compartido con el render horario; `undefined` si otro lo tiene. */
+  candado: () => Promise<(() => Promise<void>) | undefined>;
   render: () => Promise<{ ok: boolean; salida: string }>;
   inspeccionar: typeof inspeccionarVideo;
   extraer: typeof extraerCuadros;
@@ -48,6 +52,27 @@ async function escribirAtomico(ruta: string, texto: string): Promise<void> {
  * Orden fijo; cualquier error lanza antes del paso siguiente.
  */
 export async function programar(
+  o: { video: string; cuando: string; hook: string; caption: string; id?: string; dryRun: boolean },
+  d: DepsProgramar,
+): Promise<ResultadoProgramar> {
+  // El candado cubre pull, escritura y commit (el render horario comparte el clon). Se suelta
+  // ANTES del render: `calendario:render` toma el mismo candado y saldría en silencio.
+  let soltar: (() => Promise<void>) | undefined;
+  if (!o.dryRun) {
+    soltar = await d.candado();
+    if (!soltar) throw new Error("otro proceso (el render horario) tiene el candado de output/calendario; reintenta en unos minutos");
+  }
+  let r: ResultadoProgramar;
+  try {
+    r = await programarBloqueado(o, d);
+  } finally {
+    await soltar?.();
+  }
+  if (r.programada) r.render = await d.render();
+  return r;
+}
+
+async function programarBloqueado(
   o: { video: string; cuando: string; hook: string; caption: string; id?: string; dryRun: boolean },
   d: DepsProgramar,
 ): Promise<ResultadoProgramar> {
@@ -97,7 +122,8 @@ export async function programar(
   // 5. Carpeta final (staging hermano + rename), validada ANTES de tocar plan.json y el commit:
   //    así el render horario nunca ve una pieza en el plan sin sus archivos.
   const cuadros = await mkdtemp(join(tmpdir(), "publicar-cuadros-"));
-  const staging = join(d.outRoot, semana, `.tmp-${id}-${process.pid}`);
+  const staging = join(d.outRoot, semana, `${id}.tmp-${process.pid}`);
+  let renombrada = false;
   try {
     const c = await d.extraer(o.video, cuadros, info);
     await mkdir(staging, { recursive: true });
@@ -111,9 +137,11 @@ export async function programar(
     );
     if (!(await leerManifiesto(staging))) throw new Error("la carpeta del reel quedó incompleta (manifiesto inválido)");
     await rename(staging, carpeta);
+    renombrada = true;
     if (!(await leerManifiesto(carpeta))) throw new Error("la carpeta final del reel no pasó la validación del manifiesto");
   } catch (e) {
     await rm(staging, { recursive: true, force: true });
+    if (renombrada) await rm(carpeta, { recursive: true, force: true });
     throw e;
   } finally {
     await rm(cuadros, { recursive: true, force: true });
@@ -121,18 +149,42 @@ export async function programar(
 
   // 6. Borrador y plan (el plan va último: es lo que hace «existir» a la pieza).
   const rutaBorrador = join(dirSemana, pieza.borrador);
+  const textoNuevo = `${JSON.stringify(planNuevo, null, 2)}\n`;
+  const msg = `calendario ${semana}: ${id} (publicar, hecha a mano)`;
+  let paso: "escribir" | "commit" = "escribir";
   try {
     await escribirAtomico(rutaBorrador, `${JSON.stringify(borradorDe(id, o.hook), null, 2)}\n`);
-    await escribirAtomico(rutaPlan, `${JSON.stringify(planNuevo, null, 2)}\n`);
+    await escribirAtomico(rutaPlan, textoNuevo);
+    // 7. Commit: lanza si el plan no llegó a la base.
+    paso = "commit";
+    await d.commit([rutaPlan, rutaBorrador], msg);
   } catch (e) {
-    await rm(carpeta, { recursive: true, force: true });
-    throw e;
+    const causa = e instanceof Error ? e.message : String(e);
+    const quedo: string[] = [];
+    // Si hubo commit nuestro sin push, primero se revierte (así el clon queda igual que origin).
+    if (paso === "commit") {
+      try {
+        await d.deshacer(msg);
+      } catch (e2) {
+        quedo.push(`el commit local «${msg}» (${e2 instanceof Error ? e2.message : e2})`);
+      }
+    }
+    try {
+      // Solo se restaura el plan si sigue siendo el nuestro (un reset o un rebase pudo cambiarlo).
+      if ((await readFile(rutaPlan, "utf8").catch(() => undefined)) === textoNuevo) await escribirAtomico(rutaPlan, planTexto);
+    } catch (e2) {
+      quedo.push(`la pieza en ${rutaPlan} (${e2 instanceof Error ? e2.message : e2})`);
+    }
+    await rm(rutaBorrador, { force: true }).catch(() => quedo.push(`el borrador ${rutaBorrador}`));
+    await rm(carpeta, { recursive: true, force: true }).catch(() => quedo.push(`la carpeta ${carpeta}`));
+    if (!quedo.length) throw new Error(`${causa}. No quedó nada programado; puedes reintentar.`);
+    throw new Error(
+      `${causa}. No pude deshacer todo; quedó: ${quedo.join("; ")}. Para limpiar, en ${d.kbCalendario}: ` +
+        `git reset --keep @{u} (si hay un commit local «${msg}» ahead), git checkout -- _calendario/${semana}/plan.json, ` +
+        `rm _calendario/${semana}/${pieza.borrador}; y borra ${carpeta}.`,
+    );
   }
-
-  // 7. Commit (lanza si el plan no llegó a la base) y 8. render.
-  await d.commit([rutaPlan, rutaBorrador], `calendario ${semana}: ${id} (publicar, hecha a mano)`);
   resultado.programada = true;
-  resultado.render = await d.render();
   return resultado;
 }
 
@@ -153,4 +205,21 @@ export async function commitYVerificar(paths: string[], msg: string, d: DepsComm
   if (st.code !== 0) throw new Error(`el plan no llegó a la base: no pude verificar con git status (${st.out.trim()})`);
   const cabecera = st.out.split("\n")[0] ?? "";
   if (/\bahead\b/.test(cabecera)) throw new Error(`el plan no llegó a la base: ${cabecera.trim()}`);
+}
+
+/**
+ * Deshace el commit local de `programar` que no llegó a origin: solo si es el único commit
+ * `ahead` y su asunto es el nuestro (`git reset --keep @{u}`). Si no hay commits ahead no hace nada;
+ * si hay otros, lanza (no se toca lo que no es nuestro).
+ */
+export async function deshacerCommit(msg: string, git: DepsCommit["git"]): Promise<void> {
+  const l = await git(["log", "@{u}..HEAD", "--format=%s"]);
+  if (l.code !== 0) throw new Error(`no pude leer los commits ahead: ${l.out.trim()}`);
+  const asuntos = l.out.split("\n").map((x) => x.trim()).filter(Boolean);
+  if (!asuntos.length) return;
+  if (asuntos.length !== 1 || asuntos[0] !== msg) {
+    throw new Error(`hay commits locales que no son solo el nuestro (${asuntos.join(" | ")})`);
+  }
+  const r = await git(["reset", "--keep", "@{u}"]);
+  if (r.code !== 0) throw new Error(`git reset --keep @{u} falló: ${r.out.trim()}`);
 }
