@@ -16,8 +16,8 @@ export interface DepsProgramar {
   ahora: () => Date;
   pull: () => Promise<void>;
   commit: (paths: string[], msg: string) => Promise<void>;
-  /** Deshace un commit nuestro que no llegó a la base (reset al upstream); no toca nada que no sea nuestro. */
-  deshacer: (msg: string) => Promise<void>;
+  /** Deshace un commit nuestro que no llegó a la base (reset al upstream); no toca nada que no sea nuestro. `subido`: el commit ya está en origin. */
+  deshacer: (msg: string) => Promise<"revertido" | "subido" | "nada">;
   /** Candado `outRoot/.lock` compartido con el render horario; `undefined` si otro lo tiene. */
   candado: () => Promise<(() => Promise<void>) | undefined>;
   render: () => Promise<{ ok: boolean; salida: string }>;
@@ -161,12 +161,27 @@ async function programarBloqueado(
   } catch (e) {
     const causa = e instanceof Error ? e.message : String(e);
     const quedo: string[] = [];
-    // Si hubo commit nuestro sin push, primero se revierte (así el clon queda igual que origin).
+    // Si hubo commit nuestro, primero se mira en qué quedó: subido (no se deshace nada),
+    // revertido o inexistente (se limpia todo). Si no se puede deshacer, NO se toca nada:
+    // plan.json, borrador y carpeta quedan coherentes con el commit local.
     if (paso === "commit") {
+      let estado: "revertido" | "subido" | "nada";
       try {
-        await d.deshacer(msg);
+        estado = await d.deshacer(msg);
       } catch (e2) {
-        quedo.push(`el commit local «${msg}» (${e2 instanceof Error ? e2.message : e2})`);
+        const det = e2 instanceof Error ? e2.message : String(e2);
+        throw new Error(
+          `${causa}. No pude deshacer: ${det}. Puede haber un commit local ahead con la pieza «${id}»; ` +
+            `su carpeta ${carpeta}, el borrador y plan.json siguen intactos (coherentes con ese commit). ` +
+            `Revisa con git -C ${d.kbCalendario} status -sb y, si confirmas que no debe publicarse, corre ` +
+            `git -C ${d.kbCalendario} reset --keep @{u} y borra ${carpeta}.`,
+        );
+      }
+      if (estado === "subido") {
+        // El commit ya está en origin: la pieza existe allá y necesita sus medios. Se deja todo y se sigue.
+        resultado.avisos.push(`el commit llegó a la base pero la verificación falló (${causa}); la pieza queda programada`);
+        resultado.programada = true;
+        return resultado;
       }
     }
     try {
@@ -212,14 +227,22 @@ export async function commitYVerificar(paths: string[], msg: string, d: DepsComm
  * `ahead` y su asunto es el nuestro (`git reset --keep @{u}`). Si no hay commits ahead no hace nada;
  * si hay otros, lanza (no se toca lo que no es nuestro).
  */
-export async function deshacerCommit(msg: string, git: DepsCommit["git"]): Promise<void> {
+export async function deshacerCommit(msg: string, git: DepsCommit["git"]): Promise<"revertido" | "subido" | "nada"> {
+  const asunto = await git(["log", "-1", "--format=%s", "HEAD"]);
+  const head = await git(["rev-parse", "HEAD"]);
+  const up = await git(["rev-parse", "@{u}"]);
+  if (asunto.code !== 0 || head.code !== 0 || up.code !== 0) {
+    throw new Error(`no pude leer el estado de git (${[asunto, head, up].filter((x) => x.code !== 0).map((x) => x.out.trim()).join(" | ")})`);
+  }
+  if (asunto.out.trim() === msg && head.out.trim() === up.out.trim()) return "subido";
   const l = await git(["log", "@{u}..HEAD", "--format=%s"]);
   if (l.code !== 0) throw new Error(`no pude leer los commits ahead: ${l.out.trim()}`);
   const asuntos = l.out.split("\n").map((x) => x.trim()).filter(Boolean);
-  if (!asuntos.length) return;
+  if (!asuntos.length) return "nada";
   if (asuntos.length !== 1 || asuntos[0] !== msg) {
     throw new Error(`hay commits locales que no son solo el nuestro (${asuntos.join(" | ")})`);
   }
   const r = await git(["reset", "--keep", "@{u}"]);
   if (r.code !== 0) throw new Error(`git reset --keep @{u} falló: ${r.out.trim()}`);
+  return "revertido";
 }

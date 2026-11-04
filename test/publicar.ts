@@ -159,7 +159,7 @@ const CAPTION = "Hola, así lo hice.\n\n#ia #trabajo";
 const infoOk: InfoVideo = { ancho: 1080, alto: 1920, duracionMs: 30000, codec: "h264", tieneAudio: true };
 
 interface Entorno { outRoot: string; kb: string; video: string; orden: string[]; eventos: string[]; deps: DepsProgramar }
-function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo; candadoOcupado?: boolean; deshacer?: (msg: string) => Promise<void> } = {}): Entorno {
+function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<void>; info?: InfoVideo; candadoOcupado?: boolean; deshacer?: (msg: string) => Promise<"revertido" | "subido" | "nada"> } = {}): Entorno {
   const base = mkdtempSync(join(tmpdir(), "publicar-test-"));
   const outRoot = join(base, "out");
   const kb = join(base, "kb");
@@ -191,7 +191,7 @@ function entorno(o: { semanas?: string[]; ahora?: Date; commit?: () => Promise<v
     },
     deshacer: async (msg) => {
       eventos.push("deshacer");
-      await o.deshacer?.(msg);
+      return (await o.deshacer?.(msg)) ?? "revertido";
     },
     candado: async () => {
       if (o.candadoOcupado) return undefined;
@@ -345,19 +345,39 @@ await checkAsync("programar: commit ahead → se revierte todo (reset, plan rest
   igual(r.programada, true);
 });
 
-await checkAsync("programar: si el deshacer falla, el error dice qué quedó y los comandos", async () => {
+await checkAsync("programar: si el deshacer falla no se toca nada (carpeta, plan con la pieza y borrador siguen)", async () => {
   const e = entorno({
     commit: async () => { throw new Error("push roto"); },
     deshacer: async () => { throw new Error("hay commits locales ajenos"); },
   });
+  const planAntes = readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json"), "utf8");
+  let m = "";
   try {
     await programar({ video: e.video, ...ARGS }, e.deps);
-    throw new Error("no lanzó");
   } catch (x) {
-    const m = (x as Error).message;
-    for (const t of ["No pude deshacer todo", "commit local", "git reset --keep @{u}", "git checkout --"]) if (!m.includes(t)) throw new Error(`sin «${t}»: ${m}`);
-    if (m.includes("No quedó nada programado")) throw new Error(m);
+    m = (x as Error).message;
   }
+  for (const t of ["No pude deshacer", "commit local ahead", "intactos", "reset --keep @{u}"]) if (!m.includes(t)) throw new Error(`sin «${t}»: ${m}`);
+  if (m.includes("No quedó nada programado")) throw new Error(m);
+  const plan = planDe(e);
+  const nueva = plan.piezas.find((p) => p.id !== "vie-reel-otra");
+  if (!nueva) throw new Error("el plan perdió la pieza");
+  if (readFileSync(join(e.kb, "_calendario", "2026-11-02", "plan.json"), "utf8") === planAntes) throw new Error("plan.json fue restaurado");
+  if (!(await leerManifiesto(join(e.outRoot, "2026-11-02", nueva.id)))) throw new Error("la carpeta final no está intacta");
+  igual(existsSync(join(e.kb, "_calendario", "2026-11-02", `${nueva.id}.json`)), true);
+});
+
+await checkAsync("programar: commit ya subido (verificación falló) → no se deshace nada y sigue con el render", async () => {
+  const e = entorno({
+    commit: async () => { throw new Error("no pude verificar con git status"); },
+    deshacer: async () => "subido",
+  });
+  const r = await programar({ video: e.video, ...ARGS }, e.deps);
+  igual(r.programada, true);
+  igual(r.avisos.length, 1);
+  igual(e.eventos, ["candado", "suelta", "render"].flatMap((x) => (x === "suelta" ? ["deshacer", x] : [x])));
+  igual(planDe(e).piezas.length, 2);
+  igual((await leerManifiesto(r.carpeta))?.archivos.length, 3);
 });
 
 await checkAsync("programar: candado tomado durante el trabajo y soltado antes del render; ocupado lanza; dry-run no lo toma", async () => {
@@ -372,16 +392,28 @@ await checkAsync("programar: candado tomado durante el trabajo y soltado antes d
   igual(dry.eventos, []);
 });
 
-await checkAsync("deshacerCommit: solo revierte si el único commit ahead es el nuestro", async () => {
+await checkAsync("deshacerCommit: revierte, no hace nada o detecta «subido» según el estado", async () => {
   const llamadas: string[][] = [];
-  const git = (ahead: string) => async (args: string[]) => (llamadas.push(args), { code: 0, out: args[0] === "log" ? ahead : "" });
-  await deshacerCommit("mi msg", git("mi msg\n"));
-  igual(llamadas.map((a) => a[0]), ["log", "reset"]);
-  igual(llamadas[1], ["reset", "--keep", "@{u}"]);
+  const git = (o: { asunto?: string; head?: string; up?: string; ahead?: string; falla?: string }) => async (args: string[]) => {
+    llamadas.push(args);
+    if (o.falla && args[0] === o.falla) return { code: 128, out: "fatal" };
+    if (args[0] === "log" && args[1] === "-1") return { code: 0, out: `${o.asunto ?? ""}\n` };
+    if (args[0] === "rev-parse") return { code: 0, out: `${args[1] === "HEAD" ? (o.head ?? "h1") : (o.up ?? "u1")}\n` };
+    if (args[0] === "log") return { code: 0, out: o.ahead ?? "" };
+    return { code: 0, out: "" };
+  };
+  igual(await deshacerCommit("mi msg", git({ asunto: "mi msg", ahead: "mi msg\n" })), "revertido");
+  igual(llamadas.at(-1), ["reset", "--keep", "@{u}"]);
   llamadas.length = 0;
-  await deshacerCommit("mi msg", git(""));
-  igual(llamadas.map((a) => a[0]), ["log"]);
-  await rechaza(deshacerCommit("mi msg", git("otro\nmi msg\n")), "no son solo el nuestro");
+  igual(await deshacerCommit("mi msg", git({ asunto: "otro", ahead: "" })), "nada");
+  igual(llamadas.some((a) => a[0] === "reset"), false);
+  // Ya subido: HEAD es nuestro y es igual a @{u}.
+  llamadas.length = 0;
+  igual(await deshacerCommit("mi msg", git({ asunto: "mi msg", head: "x", up: "x" })), "subido");
+  igual(llamadas.some((a) => a[0] === "reset"), false);
+  await rechaza(deshacerCommit("mi msg", git({ asunto: "otro", ahead: "otro\nmi msg\n" })), "no son solo el nuestro");
+  // Sin poder leer el estado: lanza (el llamador no borra nada).
+  await rechaza(deshacerCommit("mi msg", git({ falla: "rev-parse" })), "no pude leer el estado");
 });
 
 await done();
