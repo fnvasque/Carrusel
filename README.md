@@ -597,6 +597,29 @@ RUT, rutas, archivos y enlaces; clientes y personas se cambian por roles; las se
 si el borrador trae datos sensibles, «Felipe», fondos `ai` o `hookVideo`, o archivos fuera de
 `imagenes/` y `clips/`. La pieza firma como @ia.punto.es.
 
+## Publicar un video listo (`/publicar`)
+
+Toma un video vertical ya terminado (de cualquier proyecto), lo revisa, escribe el caption,
+muestra portada, story, día y hora, y **solo con el OK de Felipe** lo programa como una pieza
+extra de la semana (nunca reemplaza una del planificador). Código en `src/publicar/`.
+
+**Instalar la skill** (una vez):
+
+```bash
+ln -s ~/Documents/Claude/Carrusel/skills/publicar ~/.claude/skills/publicar
+```
+
+**Flujo** (lo guía `skills/publicar/SKILL.md`): `revisar --transcribir` → preguntar cuándo →
+caption → `programar --dry-run` → OK → `programar`. El comando se llama siempre desde
+`Carrusel-render` (donde el render horario busca la carpeta final con su manifiesto):
+
+```bash
+npm --prefix ~/Documents/Claude/Carrusel-render run -s publicar -- revisar "/ruta/al/video.mp4" --transcribir
+```
+
+Solo funciona en `Carrusel-render` después de que esta rama llegue a `main`. Solo acepta semanas
+que ya tienen `plan.json`.
+
 ## Tests
 
 ```bash
