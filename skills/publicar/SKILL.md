@@ -25,7 +25,7 @@ Subcomandos (todos imprimen JSON en stdout; los errores salen por stderr con `�
 | Subcomando | Qué hace |
 |---|---|
 | `revisar "<video>" [--transcribir]` | Inspecciona el video y saca cuadros. No escribe en la base. |
-| `programar "<video>" --cuando "<ahora\|AAAA-MM-DD HH:MM>" --hook "<texto>" --caption-file "<ruta>" [--id <id>] [--dry-run]` | Con `--dry-run` valida y no escribe nada; sin él, deja la pieza programada. |
+| `programar "<video>" --cuando "<ahora\|AAAA-MM-DD HH:MM>" --hook "<texto>" --caption-file "<ruta absoluta>" [--id <id>] [--dry-run]` | Con `--dry-run` valida y no escribe nada; sin él, deja la pieza programada. |
 
 ## Flujo (en este orden)
 
@@ -38,8 +38,9 @@ Subcomandos (todos imprimen JSON en stdout; los errores salen por stderr con `�
    `--transcribir`), `hashtagsBase` y `semanasConPlan`.
    - Si `errores` trae algo (no vertical, < 3 s, > 900 s, códec que no sirve): muéstralos y **para**.
    - Si `avisos` trae algo: muéstralos y pregunta si sigue. Si el aviso dice que el aspecto no es
-     9:16, dile claro que **la portada recorta los lados**.
-   - Si falla la transcripción o el video no tiene audio, sigue sin ella y dilo.
+     9:16, dile claro que **la portada y la story recortan los bordes**.
+   - Si `revisar --transcribir` falla (sale con `✗` y sin JSON), vuelve a correr `revisar` sin
+     `--transcribir` y avisa que no hay transcripción. Lo mismo si el video no tiene audio.
 
 3. **Cuándo.** Pregunta «¿cuándo lo quieres publicar?» y traduce la respuesta:
    - «ahora» → `--cuando ahora` (el próximo :00 o :30 con al menos 15 min de margen).
@@ -56,7 +57,8 @@ Subcomandos (todos imprimen JSON en stdout; los errores salen por stderr con `�
      nombre de Felipe**. Termina con los `hashtagsBase` que devolvió `revisar`.
    - Límites: máximo **2200 caracteres** y **30 hashtags**.
    - Guarda el caption en un archivo del scratchpad (con Write, no con heredoc) y pásalo a
-     `--caption-file`.
+     `--caption-file`, siempre con **ruta absoluta**: el comando resuelve las rutas relativas contra
+     `Carrusel-render`, no contra tu proyecto.
 
 5. **Simulacro.** Corre `programar … --dry-run` (no escribe nada). Devuelve `semana`, `id`, `dia`,
    `hora`, `cercanas` (ids de piezas a menos de 2 h), `avisos`, `carpeta`, `programada: false`.
@@ -81,6 +83,13 @@ Subcomandos (todos imprimen JSON en stdout; los errores salen por stderr con `�
    - Error que dice «No quedó nada programado» → díselo tal cual y que puede reintentar.
    - Error que dice «No pude deshacer» → muéstrale los comandos de limpieza que trae el error,
      tal cual; no los corras tú.
+   - `programada: true` con algo en `avisos` (por ejemplo «el commit llegó a la base pero la
+     verificación falló») → muéstralo tal cual.
+   - Error «el hook necesita letras o números» → pasa `--id` con un id propio (minúsculas, números
+     y guiones) y repite el `--dry-run`.
+   - Error «id repetido» → **antes de reintentar**, revisa si esa pieza ya quedó programada (no se
+     debe programar dos veces): mira `plan.json` de la semana en el clon de la base o pregúntale a
+     Felipe. Si no existe, usa `--id` con otro id.
    - Cualquier otro error: muéstralo tal cual y no reintentes sin avisarle.
 
 ## Prohibido
